@@ -327,12 +327,51 @@ Distant foliage gradually lowers its alpha threshold from 0.46 to 0.28 to retain
 canopy coverage through mip levels. Fog remains active. Distant woodland is still
 stylized and requires further comparison, especially during side-view movement.
 
-A ten-second Chrome frame sample on the M4 Pro stayed near 16.7 milliseconds in
+Before the road-cut pass, a ten-second Chrome frame sample on the M4 Pro stayed near 16.7 milliseconds in
 both detail modes. The high-detail sample rendered about 1.264 million triangles;
 low detail rendered about 356 thousand. Forty section advances, covering 4.8 km,
 kept terrain sections bounded at 19 and 13 respectively. Observed geometry maxima
 were 141 and 117, with nine textures in both modes. These local samples do not
 establish performance on other devices or across a full driving session.
+
+The later environment pass adds a level verge and sharper uphill cuts to the
+shared terrain field. Ground vertices and gradient normals use that same field.
+Triangle-interior review caught off-road interpolation errors that vertex-only
+checks missed. Bank sampling now uses 0.5 m cross-road spacing and 1.25 m along
+the road, with 2 m cross-road spacing continuing through the camera's orbit
+range. Across 54 meshes and 6,054,912 centroid/edge probes, maximum sampled
+height error was 0.06791 m. A separate 2,592-configuration camera audit found
+at least 0.29572 m clearance and no blocked camera-to-car centerlines. Permanent
+regressions retain a 0.1 m surface limit and 0.2 m camera limit. These are finite
+regression bounds, not a proof over every procedural coordinate.
+
+Rock surfaces now combine irregular facets at two scales, with baked unit
+normals and albedo packed into one shared mipmapped texture. This adds one
+texture to the previous resource budget. Scattered trees and shrubs reject steep
+cut faces using the physical surface gradient. Grass thins on exposed uphill
+faces, and approximate thin-leaf lighting follows sun color and intensity.
+Clumps vary between green and straw colors. Review accepted the clearer sky,
+fog convergence, softer grass, and irregular rock relief. Larger ledges,
+weathering, and loose material below the continuous bank remain visual work.
+
+Forced software rasterization exposed a substantial cost in the denser terrain.
+Its budget now retains the full ground resolution across the car-camera tile
+interval plus one tile of padding, while distant tiles use fewer longitudinal
+rows. Cross-road boundary topology and gradient normals remain shared. Geometry
+upgrades occur after camera placement and before rendering, with old buffers
+disposed. Hardware rendering retains its full geometry and vegetation budgets.
+Software grass density and pixel resolution are reduced. Native frame samples
+remain near 60 FPS on the test M4 Pro; forced SwiftShader samples improved from
+roughly 2 FPS to about 6 to 7.5 FPS and remain visibly slower, with occasional
+longer stalls. Runtime checks covered signed tile-boundary crossings, portrait
+bus orbit, season/quality refreshes, actual mesh clearance, stable geometry on
+unchanged frames, and bounded resources. The software browser also passed held
+acceleration, bonnet, rain, and assistance checks without rendering errors.
+
+The final production checks pass all ten browser flows and five worker checks,
+including reloading and driving after the HTTP origin is unavailable. Local
+before/after views and a timestamp-preserving driving recording document this
+environment iteration. Current official release fidelity remains unproven.
 
 Completion requires current evidence for the full requested fidelity:
 
