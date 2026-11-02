@@ -7,6 +7,7 @@ import { createVehicleModel, type VehicleModel } from './model'
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
+import { SimulationClock } from './simulation-clock'
 import { Terrain } from './terrain'
 import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
@@ -56,7 +57,7 @@ export class RoadEngine {
   controllerStatus: ControllerStatus = 'none'
   mouse = new MouseControls()
   lastTime = 0
-  accumulator = 0
+  simulation = new SimulationClock()
   lastTelemetry = 0
   cameraYaw = 0
   cameraAnchor = new THREE.Vector3()
@@ -128,7 +129,7 @@ export class RoadEngine {
   }
   visibility = () => {
     this.lastTime = 0
-    this.accumulator = 0
+    this.simulation.reset()
     if (document.hidden) this.blur()
   }
   pointerMove = (event: PointerEvent) => {
@@ -444,15 +445,13 @@ export class RoadEngine {
       !document.hidden &&
       (!this.controlsBlocked || !this.started || this.assistance === 'full')
     ) {
-      this.accumulator += dt
-      while (this.accumulator >= 1 / 120) {
+      this.simulation.advance(elapsed, (step) => {
         const automatic = this.physics.autoInput(this.started ? this.settings.cruiseSpeed : 10)
         input = !this.started
           ? automatic
           : resolveInput(this.manualInput(), automatic, this.assistance, this.settings.onePedal)
-        this.physics.update(1 / 120, input, this.settings)
-        this.accumulator -= 1 / 120
-      }
+        this.physics.update(step, input, this.settings)
+      })
     }
     const p = this.physics
     const metrics = vehicleMetrics[this.settings.vehicle]
