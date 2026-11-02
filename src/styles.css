@@ -496,6 +496,13 @@ svg {
   width: 29px;
   height: 29px;
 }
+.is-driving[data-camera="bonnet"] .drive-toolbar {
+  position: fixed;
+  top: calc(80px + env(safe-area-inset-top));
+  bottom: auto;
+  left: 50%;
+  transform: translateX(-50%);
+}
 .drive-toolbar .icon-button:hover {
   background: #ffffff20;
 }
@@ -950,6 +957,10 @@ input[type="range"] {
 .toast.visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+.is-driving[data-camera="bonnet"] .toast {
+  top: calc(145px + env(safe-area-inset-top));
+  bottom: auto;
 }
 .touch-controls {
   display: none;
