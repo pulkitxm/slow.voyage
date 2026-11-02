@@ -84,15 +84,19 @@ test.each(['motorcycle', 'bus'] as const)(
     expect(needle.rotation.y).toBe(maximum)
     const wheel = model.firstPerson.getObjectByName('steering-wheel')
     if (wheel) {
-      const front = suspension.wheels[0]
-      if (!front) throw new Error('Front wheel missing')
-      front.steering = 0.2
+      suspension.updateSteering(0.2)
       model.update(suspension.wheels, false, false, 25)
       const right = wheel.rotation.z
-      front.steering = -0.2
+      suspension.updateSteering(-0.2)
       model.update(suspension.wheels, false, false, 25)
       expect(right).toBeGreaterThan(0)
-      expect(wheel.rotation.z).toBe(-right)
+      expect(wheel.rotation.z).toBeLessThan(0)
+      expect(
+        suspension.wheels.filter((wheel) => !wheel.front).every((wheel) => wheel.steering === 0),
+      ).toBe(true)
+      suspension.updateSteering(0)
+      model.update(suspension.wheels, false, false, 25)
+      expect(wheel.rotation.z).toBe(0)
     }
     expect(model.group.rotation.toArray()).toEqual([0, 0, 0, 'XYZ'])
     model.dispose()

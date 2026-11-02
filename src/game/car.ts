@@ -340,7 +340,7 @@ export class CarModel {
     this.firstPerson.visible = !visible
   }
   update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number) {
-    this.bonnet.update(speed, wheels[0]?.steering ?? 0)
+    this.bonnet.update(speed, wheels.find((wheel) => wheel.front)?.steering ?? 0)
     for (let i = 0; i < wheels.length; i++) {
       const state = wheels[i],
         pivot = this.wheelPivots[i],

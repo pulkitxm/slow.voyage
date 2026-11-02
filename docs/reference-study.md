@@ -241,6 +241,12 @@ timing, centering, reversal, 60/120 Hz agreement, source changes, reset, and
 manual-to-autosteer recovery. The existing 216 assisted-driving scenarios retain
 their original duration and acceptance bounds.
 
+Held-key screenshot review exposed a stationary bus steering wheel despite
+correct rack telemetry. The model had read the first suspension wheel, which is
+a rear wheel. Instruments now select a front wheel explicitly, and the model
+regression steers through the suspension's real front-wheel geometry rather than
+assigning a steering value to the rear tire.
+
 The render clock now accumulates up to a quarter second of elapsed time into fixed
 120 Hz simulation steps. Driving therefore retains its pace across slower render
 frames. A ten-second acceleration check agrees at 8, 15, 30, 60, and 144 rendering
