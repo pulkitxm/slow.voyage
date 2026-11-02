@@ -568,6 +568,14 @@ Geometry checks measure width, tangent alignment, surface agreement and terrain
 clearance, including triangle interiors. Broad terrain remains an independent
 field beyond the road corridor.
 
+Dry asphalt now combines fine generated aggregate, restrained submillimeter bump
+relief, subtle world-space mottling and roughness variation. The same small
+texture is shared by color and bump and disposed once; no external road image is
+shipped. Wet shading retains its separate roughness and darkening response.
+Fixed-camera comparisons rejected an exaggerated initial bump treatment before
+reducing it. Clear, rain, sunset, night, seasons, low detail, steep bends, bonnet
+and portrait views provide visual checks; material fidelity remains provisional.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

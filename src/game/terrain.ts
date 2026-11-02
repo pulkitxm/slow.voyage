@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { asphaltTexture } from './asphalt'
 import { Foliage } from './foliage'
 import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
@@ -93,24 +94,11 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
       )
     }
     this.bladeMaterial.customProgramCacheKey = () => 'translucent-meadow-blades'
-    const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = 256
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Canvas is unavailable')
-    const data = ctx.createImageData(256, 256)
-    const rng = random(14)
-    for (let i = 0; i < data.data.length; i += 4) {
-      const c = 133 + rng() * 10
-      data.data.set([c, c + 3, c + 3, 255], i)
-    }
-    ctx.putImageData(data, 0, 0)
-    this.asphalt = new THREE.CanvasTexture(canvas)
-    this.asphalt.wrapS = this.asphalt.wrapT = THREE.RepeatWrapping
-    this.asphalt.repeat.set(6, 80)
-    this.asphalt.anisotropy = 8
-    this.asphalt.colorSpace = THREE.SRGBColorSpace
+    this.asphalt = asphaltTexture()
     this.roadMaterial = new THREE.MeshStandardMaterial({
       map: this.asphalt,
+      bumpMap: this.asphalt,
+      bumpScale: 0.0015,
       color: '#c4ccd1',
       roughness: 0.98,
     })
@@ -131,14 +119,14 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <roughnessmap_fragment>',
-        '#include <roughnessmap_fragment>\nfloat surfaceWetness = smoothstep(0.25, 0.75, fieldVariationAt(roadPosition * 45.0));\nroughnessFactor = mix(roughnessFactor, mix(0.1, 0.46, surfaceWetness), roadWetness);',
+        '#include <roughnessmap_fragment>\nroughnessFactor *= 0.94 + roadVariation * 0.06;\nfloat surfaceWetness = smoothstep(0.25, 0.75, roadSurfaceNoise);\nroughnessFactor = mix(roughnessFactor, mix(0.1, 0.46, surfaceWetness), roadWetness);',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
-        '#include <color_fragment>\ndiffuseColor.rgb *= mix(1.0, 0.68 + fieldVariationAt(roadPosition * 45.0) * 0.3, roadWetness);',
+        '#include <color_fragment>\nfloat roadVariation = fieldVariationAt(roadPosition * 25.0);\nfloat roadSurfaceNoise = fieldVariationAt(roadPosition * 45.0);\ndiffuseColor.rgb *= (0.92 + roadVariation * 0.16) * mix(1.0, 0.68 + roadSurfaceNoise * 0.3, roadWetness);',
       )
     }
-    this.roadMaterial.customProgramCacheKey = () => 'weathered-asphalt'
+    this.roadMaterial.customProgramCacheKey = () => 'aggregate-asphalt'
     const bladePositions: number[] = [],
       bladeIndices: number[] = [],
       bladeColors: number[] = []
