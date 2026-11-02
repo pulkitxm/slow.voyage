@@ -42,7 +42,7 @@ HTTPS or localhost. No application server is required.
 | P / Escape       | Pause               |
 | H                | Help                |
 
-Touch devices have steering and pedal buttons. Settings include three vehicles,
+Touch devices have steering and pedal buttons. Settings include four vehicles,
 three landscapes, three seasons, lighting, paint, camera, grip, power, sound,
 detail, and units. Preferences are stored on the device.
 

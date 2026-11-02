@@ -64,6 +64,7 @@ export class CarPhysics {
   }
   update(dt: number, input: Input, settings: Settings) {
     const vehicle = vehicleMetrics[settings.vehicle]
+    const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
     const road = this.world.road(this.s)
     const offset = this.x - road.x
     this.offroad = Math.abs(offset) > 4.6
@@ -85,7 +86,7 @@ export class CarPhysics {
       ? Math.min(vehicle.brake * input.brake, this.brakeForce + vehicle.brake * 4 * dt)
       : 0
     const throttle = this.driveForce
-    const braking = this.brakeForce + (input.handbrake ? vehicle.brake * 0.6 : 0)
+    const braking = this.brakeForce + (handbrake ? vehicle.brake * 0.6 : 0)
     const resistance = rolling + vehicle.drag * v * v + braking
     const direction = Math.sign(this.speed || input.throttle || -input.brake)
     if (this.speed > 0.4 || input.throttle > 0) {
@@ -104,7 +105,7 @@ export class CarPhysics {
       settings.grip *
       (settings.season === 'winter' ? 0.58 : 1) *
       (this.offroad ? 0.64 : 1) *
-      (input.handbrake ? 0.38 : 1)
+      (handbrake ? 0.38 : 1)
     const maxYaw = (grip * 9.81) / Math.max(v, 3)
     this.yawRate = damp(this.yawRate, clamp(targetYaw, -maxYaw, maxYaw), 7 * grip, dt)
     this.yaw += this.yawRate * dt

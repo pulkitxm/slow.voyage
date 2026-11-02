@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { vehicleMetrics } from './vehicles'
-import type { Settings, Vehicle } from './world'
+import type { Settings } from './world'
 
 function shell(rings: [number, number, number, number][], material: THREE.Material) {
   const p: number[] = [],
@@ -68,6 +68,7 @@ export class CarModel {
   wheelSpin = 0
   wheelbase: number
   wheelRadius: number
+  headlightPositions: [number, number, number][]
   constructor(settings: Settings) {
     const dimensions = vehicleMetrics[settings.vehicle]
     this.wheelbase = dimensions.wheelbase
@@ -93,6 +94,9 @@ export class CarModel {
     this.materials = [this.body, this.brake, this.lights, glass, black, chrome, tire, plate]
     const isBus = settings.vehicle === 'bus',
       isRoadster = settings.vehicle === 'roadster'
+    this.headlightPositions = [-1, 1].map((side) =>
+      isBus ? [side * 0.91, 0.94, -3.3] : [side * 0.553, 0.77, -2.06],
+    )
     const width = isBus ? 1.18 : 0.823,
       back = isBus ? 3.3 : 2.02,
       front = isBus ? -3.3 : -2.06
@@ -260,15 +264,15 @@ export class CarModel {
         )
         wheel.rotation.z = Math.PI / 2
         spin.add(wheel)
-        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.25, 20), black)
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.18, 20), black)
         rim.rotation.z = Math.PI / 2
         spin.add(rim)
         for (let i = 0; i < 5; i++) {
-          const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 0.4), chrome)
+          const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.04, 0.4), chrome)
           spoke.rotation.x = (i * Math.PI) / 5
           spin.add(spoke)
         }
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.27, 12), chrome)
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.21, 12), chrome)
         hub.rotation.z = Math.PI / 2
         spin.add(hub)
         this.wheels.push(spin)
@@ -305,9 +309,4 @@ export class CarModel {
     })
     for (const m of this.materials) m.dispose()
   }
-}
-export const vehicleNames: Record<Vehicle, string> = {
-  touring: 'Grand tourer',
-  roadster: 'Roadster',
-  bus: 'Wanderer bus',
 }

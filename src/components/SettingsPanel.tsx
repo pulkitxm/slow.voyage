@@ -1,5 +1,5 @@
 import { AudioLines, Camera, Check, RotateCcw, ShieldCheck, X } from 'lucide-react'
-import { vehicleNames } from '../game/car'
+import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
 import { IconButton } from './IconButton'
 import { cameras, colors, daylight, landscapes, seasons, vehicles } from './options'

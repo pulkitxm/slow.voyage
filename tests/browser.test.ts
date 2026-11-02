@@ -194,6 +194,8 @@ test('rebuilds seasonal scenery and vehicles without renderer errors', async () 
     click('night', '.option-row button:has-text("Night")'),
     click('vehicle-tab', '[role="tab"]:has-text("vehicle")'),
     click('coach', '.vehicle-options button:has-text("Wanderer bus")'),
+    click('motorcycle', '.vehicle-options button:has-text("Motorcycle")'),
+    click('touring', '.vehicle-options button:has-text("Grand tourer")'),
     click('close-settings', '[aria-label="Close settings"]'),
     settle,
   ])
