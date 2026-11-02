@@ -6,7 +6,7 @@ import type { Settings } from './world'
 export class MotorcycleModel {
   group = new THREE.Group()
   body: THREE.MeshStandardMaterial
-  glass = new THREE.MeshStandardMaterial({ color: '#32494f', metalness: 0.3, roughness: 0.18 })
+  glass = new THREE.MeshPhongMaterial({ color: '#666b77', specular: '#222222', shininess: 30 })
   rubber = new THREE.MeshStandardMaterial({ color: '#1c211f', roughness: 0.95 })
   trim = new THREE.MeshStandardMaterial({ color: '#313937', metalness: 0.5, roughness: 0.4 })
   metal = new THREE.MeshStandardMaterial({ color: '#aeb9b6', metalness: 0.8, roughness: 0.28 })
@@ -27,8 +27,8 @@ export class MotorcycleModel {
   constructor(settings: Settings) {
     this.body = new THREE.MeshStandardMaterial({
       color: settings.color,
-      metalness: 0.22,
-      roughness: 0.31,
+      metalness: 0,
+      roughness: 0.5,
     })
     const rings: [number, number, number, number][] = [
       [1.28, 0.15, 0.44, 0.87],

@@ -85,6 +85,11 @@ roof height of approximately 1.227 meters. The current procedural car body and
 chase framing use those proportions. The original mesh is retained only for
 local inspection and is not included in the application.
 
+Vehicle glazing uses the historical gray-blue Phong material, and paint uses
+nonmetallic roughness of 0.5. Guardrails now have a folded steel profile with a
+0.78-meter upper edge, informed by the historical barrier geometry. Rail sections
+and posts are still merged into one draw per terrain section.
+
 Vegetation now uses locally painted foliage atlases on crossed planes. The
 atlas changes with the season, including bare winter branches. The ground has
 fine texture and broader color variation, with denser grass near the road and
