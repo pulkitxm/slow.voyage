@@ -66,6 +66,28 @@ test('unchanged held input does not repeatedly take over an assisted axis', () =
   expect(reader.read([controller], 0.12).pedalsActive).toBe(true)
 })
 
+test('gradual stick and trigger movement releases assistance without requiring a sudden jump', () => {
+  const controller = pad(),
+    reader = new GamepadControls()
+  reader.read([controller], 0.12)
+  let steeringHandoffs = 0
+  for (let i = 1; i <= 100; i++) {
+    controller.axes[0] = -i / 100
+    if (reader.read([controller], 0.12).steerActive) steeringHandoffs++
+  }
+  expect(steeringHandoffs).toBeGreaterThan(0)
+  expect(reader.read([controller], 0.12).steerActive).toBe(false)
+  button(controller, 7, 0.25)
+  reader.read([controller], 0.12)
+  let pedalHandoffs = 0
+  for (let i = 26; i <= 75; i++) {
+    button(controller, 7, i / 100)
+    if (reader.read([controller], 0.12).pedalsActive) pedalHandoffs++
+  }
+  expect(pedalHandoffs).toBeGreaterThan(0)
+  expect(reader.read([controller], 0.12).pedalsActive).toBe(false)
+})
+
 test('disconnect clears driving input and reconnect requires release of held controls', () => {
   const controller = pad(),
     reader = new GamepadControls()

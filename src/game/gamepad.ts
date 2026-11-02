@@ -51,11 +51,13 @@ export function decodeGamepad(pad: PadSnapshot, deadzone: number): Input {
 export class GamepadControls {
   index: number | null = null
   previous: Input = { ...neutralInput }
+  activity: Input = { ...neutralInput }
   buttons = new Set<number>()
   waitingForRelease = false
   suspend() {
     this.waitingForRelease = true
     this.previous = { ...neutralInput }
+    this.activity = { ...neutralInput }
     this.buttons.clear()
   }
   read(pads: readonly (PadSnapshot | null)[], deadzone: number) {
@@ -80,6 +82,7 @@ export class GamepadControls {
       if (this.index !== null) this.waitingForRelease = true
       this.index = null
       this.previous = { ...neutralInput }
+      this.activity = { ...neutralInput }
       this.buttons.clear()
       return empty
     }
@@ -87,6 +90,7 @@ export class GamepadControls {
       if (this.index !== null) this.waitingForRelease = true
       this.index = pad.index
       this.previous = { ...neutralInput }
+      this.activity = { ...neutralInput }
       this.buttons.clear()
     }
     const input = decodeGamepad(pad, deadzone)
@@ -102,14 +106,18 @@ export class GamepadControls {
       .filter(([index]) => buttons.has(index) && !this.buttons.has(index))
       .map(([, action]) => action)
     const steerActive =
-      Math.abs(input.steer) > 0.02 && Math.abs(input.steer - this.previous.steer) > 0.08
+      Math.abs(input.steer) > 0.02 &&
+      (Math.abs(this.previous.steer) <= 0.02 || Math.abs(input.steer - this.activity.steer) > 0.08)
     const pedalsActive =
       (input.throttle > 0 &&
         (this.previous.throttle === 0 ||
-          Math.abs(input.throttle - this.previous.throttle) > 0.08)) ||
+          Math.abs(input.throttle - this.activity.throttle) > 0.08)) ||
       (input.brake > 0 &&
-        (this.previous.brake === 0 || Math.abs(input.brake - this.previous.brake) > 0.08))
+        (this.previous.brake === 0 || Math.abs(input.brake - this.activity.brake) > 0.08))
     const handbrakeActive = input.handbrake && !this.previous.handbrake
+    if (steerActive || Math.abs(input.steer) <= 0.02) this.activity.steer = input.steer
+    if (pedalsActive || !input.throttle) this.activity.throttle = input.throttle
+    if (pedalsActive || !input.brake) this.activity.brake = input.brake
     this.buttons = buttons
     this.previous = input
     return { input, actions, steerActive, pedalsActive, handbrakeActive, status }
