@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js'
 import { createBonnet } from './bonnet'
 import { carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
 import { createCarCabin } from './car-cabin'
@@ -170,24 +171,32 @@ export class CarModel {
       this.exterior.add(cabin)
       this.cabinSteering = cabin.getObjectByName('exterior-steering-wheel')
     }
-    const rearSurface = (y: number) => carRearDepth(y, this.wheelbase)
+    const rearSurface = (y: number, x: number) => carRearDepth(y, x, this.wheelbase)
     const endPanel = (
       points: [number, number][],
       material: THREE.Material,
       direction = 1,
       depth = 0.006,
     ) => {
-      this.exterior.add(
-        carSurface(
-          points.map(([x, y]) => [
-            x,
-            y,
-            (direction > 0 ? rearSurface(y) : carFrontDepth(y)) + direction * depth,
-          ]),
-          [0, 0, direction],
-          material,
-        ),
+      const mesh = carSurface(
+        points.map(([x, y]) => [x, y, 0]),
+        [0, 0, direction],
+        material,
       )
+      const geometry = new TessellateModifier(0.12, 5).modify(mesh.geometry)
+      mesh.geometry.dispose()
+      const positions = geometry.getAttribute('position')
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i),
+          y = positions.getY(i)
+        positions.setZ(
+          i,
+          (direction > 0 ? rearSurface(y, x) : carFrontDepth(y)) + direction * depth,
+        )
+      }
+      geometry.computeVertexNormals()
+      mesh.geometry = geometry
+      this.exterior.add(mesh)
     }
     if (isBus) {
       box([width * 1.8, 0.17, 0.06], [0, 0.55, back + 0.005], black)
@@ -201,24 +210,26 @@ export class CarModel {
         [0.65, 0.62],
       ] as const
       const geometry = new THREE.BufferGeometry()
+      const fractions = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
       geometry.setAttribute(
         'position',
         new THREE.Float32BufferAttribute(
-          rows.flatMap(([y, width]) => [
-            -width,
-            y,
-            rearSurface(y) + 0.014,
-            width,
-            y,
-            rearSurface(y) + 0.014,
-          ]),
+          rows.flatMap(([y, width]) =>
+            fractions.flatMap((fraction) => {
+              const x = width * fraction
+              return [x, y, rearSurface(y, x) + 0.014]
+            }),
+          ),
           3,
         ),
       )
       const indices: number[] = []
       for (let i = 0; i < rows.length - 1; i++) {
-        const n = i * 2
-        indices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2)
+        for (let j = 0; j < fractions.length - 1; j++) {
+          const n = i * fractions.length + j,
+            next = n + fractions.length
+          indices.push(n, n + 1, next, n + 1, next + 1, next)
+        }
       }
       geometry.setIndex(indices)
       geometry.computeVertexNormals()
