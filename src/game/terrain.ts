@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { Foliage } from './foliage'
 import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './ground'
+import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
+import { roadStrip } from './road-mesh'
 import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
@@ -24,20 +26,6 @@ function geometry(positions: number[], indices: number[], colors?: number[]) {
   if (colors) g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
   g.computeVertexNormals()
   return g
-}
-function strip(world: World, start: number, left: number, right: number, lift: number) {
-  const p: number[] = [],
-    indices: number[] = []
-  for (let i = 0; i <= 24; i++) {
-    const s = start + i * 5,
-      r = world.road(s)
-    p.push(r.x + left, r.y + lift, -s, r.x + right, r.y + lift, -s)
-    if (i < 24) {
-      const n = i * 2
-      indices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2)
-    }
-  }
-  return geometry(p, indices)
 }
 export class Terrain {
   tiles = new Map<number, THREE.Group>()
@@ -221,45 +209,41 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
     )
     ground.name = 'ground'
     group.userData.groundRows = rows
-    const road = strip(this.world, start, -4.5, 4.5, 0)
-    const uv: number[] = []
-    for (let i = 0; i <= 24; i++) uv.push(0, i / 24, 1, i / 24)
-    road.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+    const road = roadStrip(this.world, start, 120, -roadLayout.halfWidth, roadLayout.halfWidth)
     this.addMesh(group, road, this.roadMaterial)
     const markings: THREE.BufferGeometry[] = []
-    for (const side of [-1, 1])
-      markings.push(strip(this.world, start, side * 4.22 - 0.045, side * 4.22 + 0.045, 0.012))
-    for (let s = start; s < start + 120; s += 12) {
-      const r1 = this.world.road(s),
-        r2 = this.world.road(s + 5)
+    for (const side of [-1, 1]) {
+      const edge = side * (roadLayout.halfWidth - roadLayout.edgeInset)
       markings.push(
-        geometry(
-          [
-            r1.x - 0.065,
-            r1.y + 0.016,
-            -s,
-            r1.x + 0.065,
-            r1.y + 0.016,
-            -s,
-            r2.x - 0.065,
-            r2.y + 0.016,
-            -s - 5,
-            r2.x + 0.065,
-            r2.y + 0.016,
-            -s - 5,
-          ],
-          [0, 1, 2, 1, 3, 2],
+        roadStrip(
+          this.world,
+          start,
+          120,
+          edge - roadLayout.edgeWidth / 2,
+          edge + roadLayout.edgeWidth / 2,
+          0.012,
         ),
       )
     }
+    for (let s = start; s < start + 120; s += roadLayout.dashPeriod)
+      markings.push(
+        roadStrip(
+          this.world,
+          s,
+          roadLayout.dashLength,
+          -roadLayout.centerWidth / 2,
+          roadLayout.centerWidth / 2,
+          0.016,
+        ),
+      )
     this.addBatch(group, markings, this.edgeMaterial)
     const rails: THREE.BufferGeometry[] = []
     for (const side of [-1, 1]) {
-      for (let s = start; s < start + 120; s += 5) {
-        if (!this.world.guardrail(s + 2.5, side)) continue
+      for (let s = start; s < start + 120; s += roadLayout.railSegmentLength) {
+        if (!guardrailAt(this.world, s, side)) continue
         const r1 = this.world.road(s),
-          r2 = this.world.road(s + 5),
-          d = side * 6.2
+          r2 = this.world.road(s + roadLayout.railSegmentLength),
+          d = side * roadLayout.railOffset
         const profile: [number, number][] = [
           [0.429, 0.1],
           [0.51, 0],
@@ -272,21 +256,25 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
           const lower = profile[i],
             upper = profile[i + 1]
           if (!lower || !upper) continue
+          const a = roadPoint(r1, s, d + side * lower[1])
+          const b = roadPoint(r1, s, d + side * upper[1])
+          const c = roadPoint(r2, s + roadLayout.railSegmentLength, d + side * lower[1])
+          const e = roadPoint(r2, s + roadLayout.railSegmentLength, d + side * upper[1])
           rails.push(
             geometry(
               [
-                r1.x + d + side * lower[1],
+                a.x,
                 r1.y + lower[0],
-                -s,
-                r1.x + d + side * upper[1],
+                -a.s,
+                b.x,
                 r1.y + upper[0],
-                -s,
-                r2.x + d + side * lower[1],
+                -b.s,
+                c.x,
                 r2.y + lower[0],
-                -s - 5,
-                r2.x + d + side * upper[1],
+                -c.s,
+                e.x,
                 r2.y + upper[0],
-                -s - 5,
+                -e.s,
               ],
               side < 0 ? [0, 2, 1, 1, 2, 3] : [0, 1, 2, 1, 3, 2],
             ),
@@ -294,7 +282,9 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
         }
         const post = new THREE.BoxGeometry(0.13, 0.8, 0.12)
         post.deleteAttribute('uv')
-        post.translate(r1.x + d + side * 0.1, r1.y + 0.38, -s)
+        const point = roadPoint(r1, s, d + side * 0.1)
+        post.rotateY(r1.yaw)
+        post.translate(point.x, r1.y + 0.38, -point.s)
         rails.push(post)
       }
     }
@@ -392,9 +382,16 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
       const s = start + rng() * 120,
-        d = (rng() > 0.5 ? 1 : -1) * (4.8 + rng() ** 2.2 * 23)
+        d =
+          (rng() > 0.5 ? 1 : -1) *
+          (roadLayout.halfWidth + roadLayout.shoulder + 0.15 + rng() ** 2.2 * 23)
       const road = this.world.road(s)
       const x = road.x + d
+      if (
+        Math.abs(roadCoordinates(this.world, x, s).distance) <
+        roadLayout.halfWidth + roadLayout.shoulder
+      )
+        continue
       const elevation = this.world.height(x, s)
       if (elevation < 0.3) continue
       if (elevation - road.y > 0.15 && Math.abs(d) < 18.5) {

@@ -20,6 +20,10 @@ export interface VehicleMetrics {
   steeringAcceleration: number
   steeringInterval: number
 }
+export function yawInertia(metrics: VehicleMetrics) {
+  return (metrics.mass * ((metrics.wheelbase * 1.5) ** 2 + metrics.trackWidth ** 2)) / 12
+}
+
 export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   touring: {
     acceleration: 9,

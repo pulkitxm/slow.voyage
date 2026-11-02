@@ -1,4 +1,6 @@
+import { type BarrierContact, resolveBarrierImpulse } from './barrier'
 import { surfaceGrip } from './grip'
+import { guardrailAt, roadCoordinates, roadLayout } from './road'
 import { Steering, steeringLimit } from './steering'
 import { Suspension } from './suspension'
 import { solveTires } from './tires'
@@ -152,8 +154,9 @@ export class CarPhysics {
       this.suspension.reset(this)
     }
     const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
-    const road = this.world.road(this.s)
-    const offset = this.x - road.x
+    const previousX = this.x
+    const previousS = this.s
+    const previousYaw = this.yaw
     const v = Math.abs(this.speed)
     const reversing = input.brake > 0 && input.throttle === 0 && this.speed < directionChangeSpeed
     const forwardBraking =
@@ -202,24 +205,49 @@ export class CarPhysics {
     this.lateralSpeed = this.lateralSpeed * Math.cos(turn) + this.speed * Math.sin(turn)
     this.speed = forwardSpeed
     this.yaw += turn
-    const nextRoad = this.world.road(this.s)
-    const nextOffset = this.x - nextRoad.x
-    const side = Math.sign(nextOffset)
-    const crossedRail = Math.abs(offset) < 5.35 && Math.abs(nextOffset) >= 5.35
     this.impact = damp(this.impact, 0, 5, dt)
-    if (crossedRail && this.world.guardrail(this.s, side)) {
-      this.x = nextRoad.x + side * 5.3
-      const sin = Math.sin(this.yaw),
-        cos = Math.cos(this.yaw)
-      const normalX = side * Math.cos(nextRoad.yaw),
-        normalS = side * Math.sin(nextRoad.yaw)
-      let velocityX = -sin * this.speed + cos * this.lateralSpeed
-      let velocityS = cos * this.speed + sin * this.lateralSpeed
-      const approach = Math.max(0, velocityX * normalX + velocityS * normalS)
-      velocityX -= normalX * approach * 1.15
-      velocityS -= normalS * approach * 1.15
-      this.speed = -sin * velocityX + cos * velocityS
-      this.lateralSpeed = cos * velocityX + sin * velocityS
+    let collision: ReturnType<typeof roadCoordinates> | null = null
+    let contacts: BarrierContact[] | null = null
+    let penetration = 0
+    const railLimit = roadLayout.railOffset - roadLayout.railClearance
+    for (const wheel of this.suspension.wheels) {
+      const before = roadCoordinates(
+        this.world,
+        previousX + wheel.localX * Math.cos(previousYaw) - wheel.localS * Math.sin(previousYaw),
+        previousS + wheel.localX * Math.sin(previousYaw) + wheel.localS * Math.cos(previousYaw),
+      )
+      const after = roadCoordinates(
+        this.world,
+        this.x + wheel.localX * Math.cos(this.yaw) - wheel.localS * Math.sin(this.yaw),
+        this.s + wheel.localX * Math.sin(this.yaw) + wheel.localS * Math.cos(this.yaw),
+      )
+      const excess = Math.abs(after.distance) - railLimit
+      if (
+        Math.abs(before.distance) < railLimit &&
+        excess >= 0 &&
+        guardrailAt(this.world, after.s, Math.sign(after.distance))
+      ) {
+        const side = Math.sign(after.distance)
+        contacts ??= []
+        contacts.push({
+          localX: wheel.localX,
+          localS: wheel.localS,
+          normalX: side * Math.cos(after.road.yaw),
+          normalS: side * Math.sin(after.road.yaw),
+        })
+        if (excess >= penetration) {
+          collision = after
+          penetration = excess
+        }
+      }
+    }
+    if (collision && contacts) {
+      const side = Math.sign(collision.distance)
+      const normalX = side * Math.cos(collision.road.yaw),
+        normalS = side * Math.sin(collision.road.yaw)
+      this.x -= normalX * (penetration + 0.001)
+      this.s -= normalS * (penetration + 0.001)
+      const approach = resolveBarrierImpulse(this, contacts, vehicle)
       this.impact = Math.max(this.impact, clamp(approach / 8, 0, 1))
     }
     this.suspension.update(dt, this, acceleration.forward, acceleration.lateral, handbrake)

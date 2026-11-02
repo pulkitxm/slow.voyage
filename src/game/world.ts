@@ -1,4 +1,5 @@
 import { roadCurve, smoothStep, terrainField } from './field'
+import { roadCoordinates, roadLayout } from './road'
 
 export type Landscape = 'highlands' | 'alpine' | 'desert'
 export type Season = 'summer' | 'autumn' | 'winter'
@@ -88,22 +89,29 @@ export class World {
     return { x, y, dx, dy, yaw: Math.atan2(-dx, 1) }
   }
   height(x: number, s: number) {
-    const road = this.road(s)
-    const d = x - road.x
+    const center = this.road(s)
+    const offset = x - center.x
+    const corridor = 1 - smoothStep(clamp((Math.abs(offset) - 8) / 12, 0, 1))
+    const frame = corridor ? roadCoordinates(this, x, s) : null
+    const road = frame?.road ?? center
+    const level = center.y + (road.y - center.y) * corridor
+    const d = offset + ((frame?.distance ?? offset) - offset) * corridor
     const distance = Math.abs(d)
-    if (distance <= 5.3) return road.y - 0.16
+    if (distance <= roadLayout.halfWidth + roadLayout.verge) return level - roadLayout.surfaceRecess
     const amplitude =
       this.settings.landscape === 'alpine' ? 2.4 : this.settings.landscape === 'desert' ? 0.45 : 1
     const hills =
-      terrainField(x, s, this.settings.seed) - terrainField(road.x, s, this.settings.seed)
+      terrainField(x, s, this.settings.seed) - terrainField(center.x, s, this.settings.seed)
     const coastDirection = roadCurve(s, 2600, this.settings.seed + 1029).value
     const coastFactor =
       this.settings.landscape === 'highlands' ? clamp(0.5 + coastDirection * Math.sign(d), 0, 1) : 0
-    const coast = Math.min(110, Math.max(0, distance - 4.5) * 0.26) * coastFactor
+    const coast = Math.min(110, Math.max(0, distance - roadLayout.halfWidth) * 0.26) * coastFactor
     const relief = hills * amplitude - coast
     const cut = smoothStep(clamp((relief - 0.6) / 3, 0, 1))
-    const blend = smoothStep(clamp((distance - 5.3) / (13.2 - cut * 6.5), 0, 1))
-    return road.y - 0.16 + blend * relief
+    const blend = smoothStep(
+      clamp((distance - roadLayout.halfWidth - roadLayout.verge) / (13.2 - cut * 6.5), 0, 1),
+    )
+    return level - roadLayout.surfaceRecess + blend * relief
   }
 
   guardrail(s: number, side: number) {
@@ -114,13 +122,14 @@ export class World {
   }
 
   surface(x: number, s: number) {
-    const road = this.road(s)
-    const onRoad = Math.abs(x - road.x) <= 4.5
+    const { road, distance } = roadCoordinates(this, x, s)
+    const onRoad = Math.abs(distance) <= roadLayout.halfWidth
+    const grade = road.dy / (1 + road.dx * road.dx)
     return {
       height: onRoad ? road.y : this.height(x, s),
       onRoad,
-      slopeX: onRoad ? 0 : (this.height(x + 0.2, s) - this.height(x - 0.2, s)) / 0.4,
-      slopeS: onRoad ? road.dy : (this.height(x, s + 0.2) - this.height(x, s - 0.2)) / 0.4,
+      slopeX: onRoad ? grade * road.dx : (this.height(x + 0.2, s) - this.height(x - 0.2, s)) / 0.4,
+      slopeS: onRoad ? grade : (this.height(x, s + 0.2) - this.height(x, s - 0.2)) / 0.4,
     }
   }
 }
