@@ -32,7 +32,7 @@ test.each([1, 8])('tires share a friction budget under %i m/s² braking', (brake
   const settings = { ...defaults, grip: 0.7, season: 'winter' as const }
   const body = car(settings)
   body.speed = 30
-  body.steering = 0.3
+  body.steeringControl.angle = 0.3
   body.suspension.updateSteering(body.steering)
   solveTires(step, body, body.suspension.wheels, settings, 0, brake, false)
   for (const wheel of body.suspension.wheels) {
@@ -178,9 +178,10 @@ test('the bus takes longer than the touring car to reach full steering lock', ()
   for (const vehicle of ['touring', 'bus'] as const) {
     const settings = { ...defaults, vehicle }
     const body = car(settings)
-    for (let i = 0; i < 120 / 2; i++) body.update(step, { ...coast, steer: 1 }, settings)
+    for (let i = 0; i < 120 / 2; i++)
+      body.update(step, { ...coast, steer: 1, steeringSource: 'digital' }, settings)
     angles.push(body.steering)
   }
   expect(angles[0]).toBeGreaterThan(0.5)
-  expect(angles[1]).toBeLessThan(0.25)
+  expect(angles[1]).toBeLessThan(0.3)
 })

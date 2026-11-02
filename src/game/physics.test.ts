@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
 import { defaults, type Settings, World } from './world'
 
@@ -76,6 +77,41 @@ function simulate(
 ) {
   for (let t = 0; t < duration; t += dt) car.update(dt, input, settings)
 }
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s autosteer recovers after taking over a moving digital rack',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new World(settings))
+    car.speed = 18
+    for (let step = 0; step < 120; step++) car.update(1 / 120, car.autoInput(18), settings)
+    for (let step = 0; step < 24; step++) {
+      const manual: Input = { ...coast, steer: 0.3, steeringSource: 'digital' }
+      car.update(1 / 120, resolveInput(manual, car.autoInput(18), 'speed', false), settings)
+    }
+    expect(car.steeringControl.source).toBe('digital')
+    expect(Math.abs(car.steeringControl.rate)).toBeGreaterThan(0.01)
+    for (let step = 0; step < 60 * 120; step++) {
+      car.update(1 / 120, car.autoInput(18), settings)
+      expect(car.offroad).toBe(false)
+      expect(car.impact).toBeLessThan(0.99)
+    }
+    expect(car.steeringControl.source).toBe('automatic')
+    expect(car.distance).toBeGreaterThan(900)
+  },
+)
+
+test('reset clears a moving mouse rack and its filtered command', () => {
+  const settings = { ...defaults }
+  const car = new CarPhysics(new FlatWorld(settings))
+  simulate(car, 0.1, { ...coast, steer: 1, steeringSource: 'mouse' })
+  expect(car.steering).toBeGreaterThan(0.1)
+  car.reset()
+  simulate(car, 1, coast)
+  expect(car.steering).toBe(0)
+  expect(car.steeringControl.rate).toBe(0)
+  expect(car.steeringControl.mouseCommand).toBe(0)
+})
 
 describe('brake priority after powered acceleration', () => {
   for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const)
