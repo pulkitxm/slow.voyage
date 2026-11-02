@@ -230,6 +230,18 @@ cover all four vehicles with service braking, one-pedal braking, and simultaneou
 pedal input. Historical wheel-motion logic also gives braking priority over drive;
 current-release response still requires direct comparison.
 
+Brake force now reaches full demand in 0.10 seconds rather than 0.25 seconds.
+The historical wheel loop advances a shared brake ramp per wheel, producing
+about 0.067 seconds for four wheels and 0.133 seconds for two at 120 Hz. The
+reconstruction uses one explicit response time, avoiding wheel-order dependence.
+At 20 m/s on an isolated flat road, touring stopping distance decreases from
+25.797 to 24.750 meters in clear conditions and from 28.938 to 28.034 meters in
+rain. Tire load limits, combined traction, and suspension remain intact. Tests
+cover all four vehicles reaching demand and releasing residual force, with equal
+touring stopping distances across 30, 60, 120, and 240 FPS through the fixed-step
+clock. These measurements isolate local brake response; historical full-vehicle
+stopping distances and current-release behavior remain unmeasured.
+
 Direction changes now brake opposing motion and suppress any stale torque that
 opposes the requested drive direction. Accelerating reverse cannot gain backward
 speed when forward is selected, and selecting reverse near rest cannot add a

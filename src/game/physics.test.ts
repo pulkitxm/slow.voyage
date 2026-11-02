@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
+import { SimulationClock } from './simulation-clock'
 import { defaults, type Settings, World } from './world'
 
 class FlatWorld extends World {
@@ -132,6 +133,50 @@ describe('brake priority after powered acceleration', () => {
         if (step === 0) expect(car.driveForce).toBeGreaterThan(0)
       }
     })
+})
+
+describe('service brake response', () => {
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s responds within a tenth of a second and releases without residual braking',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      car.speed = 20
+      for (let step = 0; step < 12; step++) car.update(1 / 120, { ...coast, brake: 1 }, settings)
+      const fullBrake = car.brakeForce
+      expect(fullBrake).toBeGreaterThan(0)
+      for (let step = 0; step < 12; step++) car.update(1 / 120, { ...coast, brake: 1 }, settings)
+      expect(car.brakeForce).toBeCloseTo(fullBrake, 8)
+      car.update(1 / 120, { ...coast, brake: 0.25 }, settings)
+      expect(car.brakeForce).toBeCloseTo(fullBrake * 0.25, 8)
+      car.update(1 / 120, coast, settings)
+      expect(car.brakeForce).toBe(0)
+    },
+  )
+  test('stops promptly from 72 km/h while retaining longer wet-road stopping distances', () => {
+    const distances = { clear: 0, rain: 0 }
+    for (const weather of ['clear', 'rain'] as const) {
+      const settings = { ...defaults, weather }
+      const stops = []
+      for (const fps of [30, 60, 120, 240]) {
+        const car = new CarPhysics(new FlatWorld(settings))
+        const clock = new SimulationClock()
+        car.speed = 20
+        const start = car.s
+        for (let frame = 0; frame < 5 * fps && car.speed > 0.05; frame++)
+          clock.advance(1 / fps, (dt) => {
+            if (car.speed > 0.05) car.update(dt, { ...coast, brake: 1 }, settings)
+          })
+        expect(car.speed).toBeLessThanOrEqual(0.05)
+        stops.push(car.s - start)
+      }
+      expect(Math.max(...stops) - Math.min(...stops)).toBeLessThan(1e-8)
+      distances[weather] = Math.max(...stops)
+    }
+    expect(distances.clear).toBeLessThan(25)
+    expect(distances.rain).toBeLessThan(28.5)
+    expect(distances.rain - distances.clear).toBeGreaterThan(2.5)
+  })
 })
 
 describe('powered direction handoff', () => {
