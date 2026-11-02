@@ -459,13 +459,21 @@ its fixed eye was farther back and lower than normal chase framing. At 20 m/s,
 all 86 camera-facing lower-tread samples on each roadster rear tire were blocked.
 The historical camera configuration places its eye close to the local camera,
 so changing camera distance would hide the geometry problem. Tucking the lower
-rear fascia and matching undertrays toward the axle exposes 36 of those 86
+rear fascia and matching undertrays toward the axle exposes 45 of those 86
 samples without changing the camera or physics. The diffuser retains its depth
 and follows the raked body profile. Touring visibility also improves.
 Rear-tire regressions now use the real driving camera at rest, forward speed,
 and reverse, with landscape and portrait aspect ratios. Full suspension travel,
 steering lock, lighting, and near-plane checks remain separate requirements.
 The rear silhouette still needs closer reference matching.
+
+The lower rear surface now sweeps its outer corners forward by up to seven
+centimeters while retaining a deeper center, informed by a historical mesh scan.
+The sweep fades into the upper deck. Side-panel outlines, rear caps, diffuser,
+undertrays, and lamp surfaces follow the same profile. Lamp panels are subdivided
+before projection so they remain on the curved body rather than cutting through
+it. Actual-camera visibility remains above twenty percent of camera-facing lower
+tread samples on both tires across the tested neutral-pose views.
 
 Completion requires current evidence for the full requested fidelity:
 

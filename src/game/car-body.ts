@@ -3,7 +3,7 @@ import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js
 
 function rearProfile(wheelbase: number) {
   return [
-    [0.38, wheelbase / 2 + 0.46],
+    [0.38, wheelbase / 2 + 0.53],
     [0.5, 1.92],
     [0.78, 2],
     [0.88, 1.86],
@@ -30,8 +30,9 @@ function profileDepth(profile: readonly (readonly [number, number])[], y: number
   return profile.at(-1)?.[1] ?? 0
 }
 
-export function carRearDepth(y: number, wheelbase: number) {
-  return profileDepth(rearProfile(wheelbase), y)
+export function carRearDepth(y: number, x: number, wheelbase: number) {
+  const sweep = 0.07 * (1 - THREE.MathUtils.smoothstep(y, 0.6, 0.88))
+  return profileDepth(rearProfile(wheelbase), y) - sweep * Math.min(1, (x / 0.74) ** 2)
 }
 
 export function carFrontDepth(y: number) {
@@ -56,6 +57,12 @@ function section(y: number, z: number) {
 
 function halfWidth(y: number, z: number) {
   return section(y, z).width
+}
+
+function rearEdgeDepth(y: number, wheelbase: number) {
+  let z = carRearDepth(y, 0, wheelbase)
+  for (let i = 0; i < 4; i++) z = carRearDepth(y, halfWidth(y, z), wheelbase)
+  return z
 }
 
 export function carSurface(
@@ -89,7 +96,7 @@ export function createCarBody(
 ) {
   const group = new THREE.Group()
   group.name = 'coachwork'
-  const rear = rearProfile(wheelbase)
+  const rear = rearProfile(wheelbase).map(([y]) => [y, rearEdgeDepth(y, wheelbase)] as const)
   const opening = 0.44
   const shape = new THREE.Shape()
   shape.moveTo(-1.98, 0.22)
@@ -188,18 +195,27 @@ export function createCarBody(
       const lower = profile[i - 1],
         upper = profile[i]
       if (!lower || !upper) continue
-      group.add(
-        carSurface(
-          [
-            [-halfWidth(lower[0], lower[1]), lower[0], lower[1]],
-            [halfWidth(lower[0], lower[1]), lower[0], lower[1]],
-            [halfWidth(upper[0], upper[1]), upper[0], upper[1]],
-            [-halfWidth(upper[0], upper[1]), upper[0], upper[1]],
-          ],
-          [0, 0, normal],
-          paint,
-        ),
-      )
+      const fractions = normal > 0 ? [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1] : [-1, 1]
+      const point = (
+        row: readonly [number, number],
+        fraction: number,
+      ): [number, number, number] => {
+        const [y, depth] = row
+        const x = halfWidth(y, depth) * fraction
+        return [x, y, normal > 0 ? carRearDepth(y, x, wheelbase) : depth]
+      }
+      for (let j = 1; j < fractions.length; j++) {
+        const left = fractions[j - 1],
+          right = fractions[j]
+        if (left === undefined || right === undefined) continue
+        group.add(
+          carSurface(
+            [point(lower, left), point(lower, right), point(upper, right), point(upper, left)],
+            [0, 0, normal],
+            paint,
+          ),
+        )
+      }
     }
   }
   const floor = new THREE.Mesh(
@@ -250,7 +266,7 @@ export function createCarBody(
     )
   for (const [start, end] of [
     [-1.98, frontBulkhead],
-    [rearBulkhead, rear[0][1]],
+    [rearBulkhead, carRearDepth(0.38, 0.29, wheelbase)],
   ]) {
     if (start === undefined || end === undefined) continue
     const undertray = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.05, end - start), interior)
@@ -259,7 +275,7 @@ export function createCarBody(
   }
   for (const [start, end] of [
     [-1.98, -wheelbase / 2 - opening],
-    [wheelbase / 2 + opening, rear[0][1]],
+    [wheelbase / 2 + opening, carRearDepth(0.38, 0.68, wheelbase)],
   ]) {
     if (start === undefined || end === undefined) continue
     const undertray = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.05, end - start), interior)
