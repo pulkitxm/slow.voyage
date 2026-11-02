@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { Foliage } from './foliage'
-import { groundTexture, meadowMaterial } from './ground'
+import { groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { clamp, random, type Settings, type World } from './world'
 
 export const palettes = {
@@ -35,7 +35,7 @@ export class Terrain {
   tiles = new Map<number, THREE.Group>()
   materials: THREE.Material[] = []
   sharedGeometries: THREE.BufferGeometry[] = []
-  grassMaterial: THREE.MeshStandardMaterial
+  grassMaterial: MeadowMaterial
   roadMaterial: THREE.MeshStandardMaterial
   edgeMaterial = new THREE.MeshStandardMaterial({ color: '#eeeedd', roughness: 1 })
   railMaterial = new THREE.MeshStandardMaterial({
@@ -56,7 +56,7 @@ export class Terrain {
   ) {
     const palette = palettes[world.settings.season]
     this.groundTexture = groundTexture()
-    this.grassMaterial = meadowMaterial(this.groundTexture)
+    this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings)
     this.foliage = new Foliage(world.settings.season)
     this.bladeMaterial = new THREE.MeshStandardMaterial({
       color: palette.light,
@@ -65,16 +65,27 @@ export class Terrain {
     })
     this.bladeMaterial.onBeforeCompile = (shader) => {
       shader.uniforms.windTime = this.windTime
+      shader.uniforms.fieldDryGrass = this.grassMaterial.fieldUniforms.fieldDryGrass
+      shader.uniforms.fieldDryness = this.grassMaterial.fieldUniforms.fieldDryness
+      shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float windTime;',
+        '#include <common>\nuniform float windTime;\nvarying vec2 fieldGrassPosition;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\nvec3 root = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;\nfloat wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);\ntransformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;',
+        '#include <begin_vertex>\nvec3 root = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;\nfieldGrassPosition = root.xz;\nfloat wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);\ntransformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <common>',
+        `#include <common>\nvarying vec2 fieldGrassPosition;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\n${meadowNoise}`,
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        '#include <color_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * 1.08, dryBlend);',
       )
     }
-    this.bladeMaterial.customProgramCacheKey = () => 'meadow-blades'
+    this.bladeMaterial.customProgramCacheKey = () => 'textured-meadow-blades'
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 128
     const ctx = canvas.getContext('2d')
@@ -154,6 +165,7 @@ export class Terrain {
     const p: number[] = [],
       indices: number[] = [],
       colors: number[] = [],
+      roadDistances: number[] = [],
       color = new THREE.Color()
     for (let row = 0; row <= 24; row++) {
       const s = start + row * 5,
@@ -162,6 +174,7 @@ export class Terrain {
         const d = offsets[col] ?? 0,
           x = r.x + d
         p.push(x, this.world.height(x, s), -s)
+        roadDistances.push(Math.abs(d) - 4.5)
         const variation =
           0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055
         color.copy(base).lerp(light, variation)
@@ -188,6 +201,7 @@ export class Terrain {
       }
     }
     const ground = geometry(p, indices, colors)
+    ground.setAttribute('roadDistance', new THREE.Float32BufferAttribute(roadDistances, 1))
     const groundUv: number[] = []
     for (let i = 0; i < p.length; i += 3) groundUv.push((p[i] ?? 0) / 7, -(p[i + 2] ?? 0) / 7)
     ground.setAttribute('uv', new THREE.Float32BufferAttribute(groundUv, 2))
@@ -335,6 +349,7 @@ export class Terrain {
   refresh(settings: Settings) {
     for (const [id, group] of this.tiles) this.removeTile(id, group)
     this.foliage.update(settings.season)
+    this.grassMaterial.setAppearance(settings)
     this.bladeMaterial.color.set(
       settings.landscape === 'desert' ? '#c5af79' : palettes[settings.season].light,
     )

@@ -96,6 +96,11 @@ fine texture and broader color variation, with denser grass near the road and
 vertex-based wind movement. Streaming still bounds the number of terrain
 sections. Lakeside terrain and a procedural water surface extend the scenery.
 
+Ground materials blend a gravel shoulder within roughly 0.7 meters of the road,
+exposed rock on steeper faces, and dry meadow patches. Grass blades share the
+meadow coloration. A small shared noise texture supplies the blend masks, and
+the material colors update with the landscape and season.
+
 These changes close visible gaps against the historical build. They do not prove
 matching generation or rendering against the current official release.
 
