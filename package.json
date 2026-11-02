@@ -14,7 +14,8 @@
     "validate": "bun run lint && bun run yaml && bun run check && bun run test",
     "prepare": "lefthook install",
     "test:offline": "bun test tests/offline.test.ts",
-    "test:browser": "bun test tests/browser.test.ts"
+    "test:browser": "bun test tests/browser.test.ts",
+    "review:capture": "bun scripts/review.ts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",

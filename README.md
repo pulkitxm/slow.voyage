@@ -93,6 +93,17 @@ CI installs from the frozen Bun lockfile, runs the same checks, creates the
 production build, tests the compiled offline worker, and runs real-browser checks. Use `bun run format` to
 apply formatting.
 
+## Visual review
+
+Run `bun run review:capture pass-name` while the local server is running to save
+repeatable 1280 × 720 comparisons with the accessible historical v1.0.1 build.
+Each clean browser session enables autodrive and captures six and twelve seconds
+of driving. The generated `.review/pass-name/index.html` compares the frames;
+the manifest records the revision and browser errors. Capture files remain local
+and are ignored by Git. Different routes and seeds limit terrain comparisons.
+Review visual findings, change one related concern, and capture again with a new
+label. Verify handling changes with measured input-response and simulation checks.
+
 ## Structure
 
 - `src/game`: world generation, geometry, dynamics, cameras, and audio.
