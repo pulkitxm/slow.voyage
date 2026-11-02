@@ -1,5 +1,86 @@
 import * as THREE from 'three'
-import { random, type Settings } from './world'
+import { woodlandCoverage } from './woodland'
+import { clamp, random, type Settings, type World } from './world'
+
+const groundOffsets = [
+  -1600, -1200, -900, -700, -520, -380, -270, -190, -130, -90, -60, -38, -24, -18.5, -15, -13, -11,
+  -9, -7.5, -6, -5.3, -4.5, 0, 4.5, 5.3, 6, 7.5, 9, 11, 13, 15, 18.5, 24, 38, 60, 90, 130, 190, 270,
+  380, 520, 700, 900, 1200, 1600,
+]
+
+export function groundGeometry(world: World, start: number, base: THREE.Color, light: THREE.Color) {
+  const positions: number[] = [],
+    indices: number[] = [],
+    colors: number[] = [],
+    normals: number[] = [],
+    roadDistances: number[] = [],
+    groveCover: number[] = [],
+    bankHeights: number[] = [],
+    uv: number[] = []
+  const settings = world.settings
+  const color = new THREE.Color()
+  const shore = new THREE.Color(settings.season === 'winter' ? '#dde3dc' : '#c5c1a3')
+  const snow = new THREE.Color('#dae0dc')
+  const normal = new THREE.Vector3()
+  for (let row = 0; row <= 24; row++) {
+    const s = start + row * 5
+    const road = world.road(s)
+    for (let col = 0; col < groundOffsets.length; col++) {
+      const distance = groundOffsets[col] ?? 0
+      const x = road.x + distance
+      const elevation = world.height(x, s)
+      positions.push(x, elevation, -s)
+      normal
+        .set(
+          -(world.height(x + 0.2, s) - world.height(x - 0.2, s)) / 0.4,
+          1,
+          (world.height(x, s + 0.2) - world.height(x, s - 0.2)) / 0.4,
+        )
+        .normalize()
+      normals.push(normal.x, normal.y, normal.z)
+      roadDistances.push(Math.abs(distance) - 4.5)
+      bankHeights.push(elevation - road.y)
+      uv.push(x / 7, s / 7)
+      const variation =
+        0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055
+      color.copy(base).lerp(light, variation)
+      if (elevation < 1.2 && settings.landscape !== 'desert')
+        color.lerp(shore, clamp((1.2 - elevation) / 1.5, 0, 1))
+      if (settings.landscape === 'alpine' && elevation > 120)
+        color.lerp(snow, clamp((elevation - 120) / 80, 0, 1))
+      colors.push(color.r, color.g, color.b)
+      let forest = 0
+      if (settings.landscape !== 'desert' && elevation > 0.7) {
+        const grove = woodlandCoverage(x, s, settings.seed, settings.landscape)
+        const verge = clamp((Math.abs(distance) - 45) / 30, 0, 1)
+        const treeLine = settings.landscape === 'alpine' ? clamp((220 - elevation) / 60, 0, 1) : 1
+        forest = grove * verge * treeLine
+      }
+      groveCover.push(forest)
+      if (row < 24 && col < groundOffsets.length - 1) {
+        const n = row * groundOffsets.length + col
+        indices.push(
+          n,
+          n + 1,
+          n + groundOffsets.length,
+          n + 1,
+          n + groundOffsets.length + 1,
+          n + groundOffsets.length,
+        )
+      }
+    }
+  }
+  const ground = new THREE.BufferGeometry()
+  ground.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  ground.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+  ground.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  ground.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
+  ground.setAttribute('roadDistance', new THREE.Float32BufferAttribute(roadDistances, 1))
+  ground.setAttribute('groveCover', new THREE.Float32BufferAttribute(groveCover, 1))
+  ground.setAttribute('bankHeight', new THREE.Float32BufferAttribute(bankHeights, 1))
+  ground.setIndex(indices)
+  return ground
+}
 
 export function groundTexture() {
   const canvas = document.createElement('canvas')
