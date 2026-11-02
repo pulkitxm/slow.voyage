@@ -28,6 +28,13 @@ Stop the development server before starting the production preview on port 3002.
 The production build is a static site in `dist/client` and can be served over
 HTTPS or localhost. No application server is required.
 
+## Vercel
+
+Import this repository with its root directory unchanged. `vercel.json` selects
+the static build, installs with the frozen Bun lockfile, and publishes only
+`dist/client`. The service worker revalidates on every update check. Local review
+captures and the development review viewer are excluded from production.
+
 ## Controls
 
 | Key              | Action                  |
