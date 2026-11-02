@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { createBonnet } from './bonnet'
-import { carRearDepth, createCarBody } from './car-body'
+import { carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
 import { createCarCabin } from './car-cabin'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
@@ -67,9 +67,9 @@ export class CarModel {
     emissiveIntensity: 0.02,
   })
   lights = new THREE.MeshStandardMaterial({
-    color: '#fff7de',
+    color: '#a9b2ad',
     emissive: '#fff2cc',
-    emissiveIntensity: 0.4,
+    emissiveIntensity: 0.12,
   })
   exteriorVisible = true
   wheelbase: number
@@ -168,28 +168,23 @@ export class CarModel {
       this.cabinSteering = cabin.getObjectByName('exterior-steering-wheel')
     }
     const rearSurface = carRearDepth
-    const rearPanel = (points: [number, number][], material: THREE.Material, depth = 0.03) => {
-      const geometry = new THREE.BufferGeometry()
-      geometry.setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(
-          points.flatMap(([x, y]) => [x, y, rearSurface(y) + depth]),
-          3,
+    const endPanel = (
+      points: [number, number][],
+      material: THREE.Material,
+      direction = 1,
+      depth = 0.006,
+    ) => {
+      this.exterior.add(
+        carSurface(
+          points.map(([x, y]) => [
+            x,
+            y,
+            (direction > 0 ? carRearDepth(y) : carFrontDepth(y)) + direction * depth,
+          ]),
+          [0, 0, direction],
+          material,
         ),
       )
-      let area = 0
-      for (let i = 0; i < points.length; i++) {
-        const current = points[i],
-          next = points[(i + 1) % points.length]
-        if (current && next) area += current[0] * next[1] - next[0] * current[1]
-      }
-      const indices: number[] = []
-      for (let i = 1; i < points.length - 1; i++)
-        indices.push(...(area > 0 ? [0, i, i + 1] : [i + 1, i, 0]))
-      geometry.setIndex(indices)
-      geometry.computeVertexNormals()
-      const mesh = new THREE.Mesh(geometry, material)
-      this.exterior.add(mesh)
     }
     if (isBus) {
       box([width * 1.8, 0.17, 0.06], [0, 0.55, back + 0.005], black)
@@ -198,6 +193,7 @@ export class CarModel {
       const rows = [
         [0.22, 0.56],
         [0.34, 0.68],
+        [0.44, 0.705],
         [0.5, 0.71],
         [0.62, 0.62],
       ] as const
@@ -225,11 +221,22 @@ export class CarModel {
       geometry.computeVertexNormals()
       this.exterior.add(new THREE.Mesh(geometry, diffuser))
     }
-    box([width * 1.7, 0.14, 0.04], [0, 0.42, isBus ? front - 0.005 : -2.115], black)
+    if (isBus) box([width * 1.7, 0.14, 0.04], [0, 0.42, front - 0.005], black)
+    else
+      endPanel(
+        [
+          [-0.65, 0.25],
+          [0.65, 0.25],
+          [0.56, 0.43],
+          [-0.56, 0.43],
+        ],
+        black,
+        -1,
+      )
     for (const side of [-1, 1]) {
       if (isBus) box([0.52, 0.13, 0.04], [side * (width - 0.33), 0.94, back - 0.035], this.brake)
       else {
-        rearPanel(
+        endPanel(
           [
             [side * 0.29, 0.856],
             [side * 0.75, 0.856],
@@ -238,7 +245,7 @@ export class CarModel {
           ],
           black,
         )
-        rearPanel(
+        endPanel(
           [
             [side * 0.32, 0.839],
             [side * 0.728, 0.839],
@@ -246,14 +253,32 @@ export class CarModel {
             [side * 0.335, 0.814],
           ],
           this.brake,
-          0.04,
+          1,
+          0.009,
+        )
+        endPanel(
+          [
+            [side * 0.31, 0.815],
+            [side * 0.73, 0.815],
+            [side * 0.72, 0.763],
+            [side * 0.33, 0.763],
+          ],
+          black,
+          -1,
+        )
+        endPanel(
+          [
+            [side * 0.335, 0.802],
+            [side * 0.708, 0.802],
+            [side * 0.701, 0.773],
+            [side * 0.346, 0.773],
+          ],
+          this.lights,
+          -1,
+          0.009,
         )
       }
-      box(
-        [0.45, 0.07, 0.035],
-        [side * (width - 0.27), isBus ? 0.94 : 0.77, isBus ? front + 0.06 : -2.068],
-        this.lights,
-      )
+      if (isBus) box([0.45, 0.07, 0.035], [side * (width - 0.27), 0.94, front + 0.06], this.lights)
     }
     const axles = [this.wheelbase / 2, -this.wheelbase / 2]
     for (const z of axles)
@@ -269,15 +294,43 @@ export class CarModel {
         wheel.rotation.y = Math.PI / 2
         wheel.scale.z = 1.7
         spin.add(wheel)
-        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.18, 20), black)
+        const rim = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.235, 0.235, 0.16, 24, 1, true),
+          chrome,
+        )
         rim.rotation.z = Math.PI / 2
         spin.add(rim)
+        for (const face of [-1, 1]) {
+          const lip = new THREE.Mesh(new THREE.TorusGeometry(0.224, 0.011, 8, 24), chrome)
+          lip.rotation.y = Math.PI / 2
+          lip.position.x = face * 0.085
+          spin.add(lip)
+        }
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.012, 24), black)
+        disc.rotation.z = Math.PI / 2
+        spin.add(disc)
         for (let i = 0; i < 5; i++) {
-          const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.04, 0.4), chrome)
-          spoke.rotation.x = (i * Math.PI) / 5
+          const shape = new THREE.Shape()
+          shape.moveTo(-0.035, 0.055)
+          shape.lineTo(0.035, 0.055)
+          shape.lineTo(0.1, 0.222)
+          shape.lineTo(-0.055, 0.222)
+          shape.closePath()
+          const geometry = new THREE.ExtrudeGeometry(shape, {
+            depth: 0.17,
+            steps: 1,
+            bevelEnabled: true,
+            bevelSize: 0.004,
+            bevelThickness: 0.004,
+            bevelSegments: 1,
+          })
+          geometry.translate(0, 0, -0.085)
+          geometry.rotateY(Math.PI / 2)
+          const spoke = new THREE.Mesh(geometry, chrome)
+          spoke.rotation.x = (i * Math.PI * 2) / 5
           spin.add(spoke)
         }
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.21, 12), chrome)
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.195, 16), chrome)
         hub.rotation.z = Math.PI / 2
         spin.add(hub)
         this.wheels.push(spin)
@@ -314,7 +367,7 @@ export class CarModel {
       wheel.rotation.x = state.rotation
     }
     this.brake.emissiveIntensity = braking ? 3 : night ? 0.8 : 0.02
-    this.lights.emissiveIntensity = night ? 4 : 0.5
+    this.lights.emissiveIntensity = night ? 4 : 0.12
   }
   dispose() {
     this.group.traverse((o) => {

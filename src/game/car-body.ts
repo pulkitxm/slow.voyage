@@ -7,11 +7,17 @@ const rearProfile = [
   [0.78, 2],
   [0.88, 1.86],
 ] as const
+const frontProfile = [
+  [0.22, -1.98],
+  [0.44, -2.1],
+  [0.76, -2.07],
+  [0.88, -1.91],
+] as const
 
-export function carRearDepth(y: number) {
-  for (let i = 1; i < rearProfile.length; i++) {
-    const lower = rearProfile[i - 1],
-      upper = rearProfile[i]
+function profileDepth(profile: readonly (readonly [number, number])[], y: number) {
+  for (let i = 1; i < profile.length; i++) {
+    const lower = profile[i - 1],
+      upper = profile[i]
     if (lower && upper && y <= upper[0])
       return THREE.MathUtils.lerp(
         lower[1],
@@ -19,7 +25,15 @@ export function carRearDepth(y: number) {
         THREE.MathUtils.clamp((y - lower[0]) / (upper[0] - lower[0]), 0, 1),
       )
   }
-  return 1.86
+  return profile.at(-1)?.[1] ?? 0
+}
+
+export function carRearDepth(y: number) {
+  return profileDepth(rearProfile, y)
+}
+
+export function carFrontDepth(y: number) {
+  return profileDepth(frontProfile, y)
 }
 
 function blend(value: number, start: number, end: number) {
@@ -172,15 +186,7 @@ export function createCarBody(
   deck(rearBulkhead, 1.86)
   for (const [profile, normal] of [
     [rearProfile, 1],
-    [
-      [
-        [0.22, -1.98],
-        [0.44, -2.1],
-        [0.76, -2.07],
-        [0.88, -1.91],
-      ],
-      -1,
-    ],
+    [frontProfile, -1],
   ] as const) {
     for (let i = 1; i < profile.length; i++) {
       const lower = profile[i - 1],
