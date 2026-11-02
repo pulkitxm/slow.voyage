@@ -56,6 +56,20 @@ describe('vehicle dynamics', () => {
     expect(Math.abs(a.speed - b.speed)).toBeLessThan(0.15)
     expect(Math.abs(a.distance - b.distance)).toBeLessThan(0.4)
   })
+  test.each([42, 43, 99])('winter bus stays on the road for ten minutes with seed %i', (seed) => {
+    const settings: Settings = { ...defaults, seed, season: 'winter', vehicle: 'bus' }
+    const car = new CarPhysics(new World(settings))
+    let leftRoad = false,
+      collided = false
+    for (let i = 0; i < 120 * 600; i++) {
+      car.update(1 / 120, car.autoInput(24), settings)
+      leftRoad ||= car.offroad
+      collided ||= car.impact > 0.99
+    }
+    expect(leftRoad).toBe(false)
+    expect(collided).toBe(false)
+    expect(car.distance).toBeGreaterThan(12000)
+  })
 })
 
 test('motorcycle ignores the handbrake while retaining service brakes', () => {

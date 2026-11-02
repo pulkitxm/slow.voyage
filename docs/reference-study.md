@@ -107,6 +107,13 @@ falloff. It is anchored to the road corridor, and barriers follow roadside drops
 The local seed mapping is independently implemented, so equal seed labels do
 not yet imply equal terrain in the historical game.
 
+The road now uses seeded smooth control curves with analytic tangents and grades,
+instead of repeating trigonometric waves. Landscape profiles change elevation
+and grade while retaining smooth joins. Unit checks include negative coordinates,
+million-meter positions, and ten minutes of winter bus autodrive across three
+seeds without leaving the pavement or hitting a barrier. Routing is still an
+approximation of the historical terrain-constrained generator.
+
 ## Verified implementation behavior
 
 - The live TanStack Start development server responds on port 3002.

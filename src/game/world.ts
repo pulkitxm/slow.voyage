@@ -3,6 +3,11 @@ export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'day' | 'sunset' | 'night'
 export type Vehicle = 'touring' | 'roadster' | 'motorcycle' | 'bus'
 export type CameraMode = 'chase' | 'bonnet' | 'cinematic'
+const roadProfiles = {
+  highlands: [24, 10, 3],
+  alpine: [100, 28, 8],
+  desert: [18, 4, 1],
+} as const
 export interface Settings {
   landscape: Landscape
   season: Season
@@ -48,15 +53,17 @@ export function random(seed: number) {
 export class World {
   constructor(public settings: Settings) {}
   road(s: number) {
-    const phase = (this.settings.seed - 42) * 0.71
-    const x =
-      64 * Math.sin(s / 240 + phase) + 105 * Math.sin(s / 640 + phase) + 20 * Math.sin(s / 108)
-    const y = 16 + 12 * Math.sin(s / 370 + phase) + 5 * Math.sin(s / 140)
-    const dx =
-      (64 / 240) * Math.cos(s / 240 + phase) +
-      (105 / 640) * Math.cos(s / 640 + phase) +
-      (20 / 108) * Math.cos(s / 108)
-    const dy = (12 / 370) * Math.cos(s / 370 + phase) + (5 / 140) * Math.cos(s / 140)
+    const seed = this.settings.seed
+    const broad = roadCurve(s, 1200, seed),
+      middle = roadCurve(s + 77, 450, seed + 97),
+      bend = roadCurve(s + 37, 140, seed + 931)
+    const x = broad.value * 200 + middle.value * 75 + bend.value * 14
+    const dx = broad.derivative * 200 + middle.derivative * 75 + bend.derivative * 14
+    const rise = roadCurve(s, 1350, seed + 499),
+      crest = roadCurve(s + 129, 420, seed + 951)
+    const [base, riseScale, crestScale] = roadProfiles[this.settings.landscape]
+    const y = base + rise.value * riseScale + crest.value * crestScale
+    const dy = rise.derivative * riseScale + crest.derivative * crestScale
     return { x, y, dx, dy, yaw: Math.atan2(-dx, 1) }
   }
   height(x: number, s: number) {
