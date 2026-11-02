@@ -302,7 +302,7 @@ export class RoadEngine {
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p.speed, input.throttle, this.settings, this.paused || !this.started)
     this.renderer.render(this.scene, this.camera)
-    if (time - this.lastTelemetry > 100) {
+    if (!this.lastTelemetry || time - this.lastTelemetry > 100) {
       this.onState?.({
         ...p.telemetry(),
         autodrive: this.autodrive,

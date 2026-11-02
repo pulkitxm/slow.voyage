@@ -22,6 +22,7 @@ export function useDrive() {
   const [settings, setSettings] = useState<Settings>(defaults)
   const [state, setState] = useState(initial)
   const [started, setStarted] = useState(false)
+  const [ready, setReady] = useState(false)
   const [panel, setPanel] = useState(false)
   const [help, setHelp] = useState(false)
   const [tab, setTab] = useState<'journey' | 'vehicle' | 'display'>('journey')
@@ -72,6 +73,8 @@ export function useDrive() {
   handlers.current = { pause, toggleAuto, cycleCamera }
   useEffect(() => {
     if (!canvas.current) return
+    let rendered = false
+    setReady(false)
     const loaded = loadSettings()
     setSettings(loaded)
     settingsRef.current = loaded
@@ -79,6 +82,10 @@ export function useDrive() {
       const instance = new RoadEngine(canvas.current, loaded)
       engine.current = instance
       instance.onState = (state) => {
+        if (!rendered) {
+          rendered = true
+          setReady(true)
+        }
         setState(state)
         if (instance.started) setStarted(true)
       }
@@ -138,6 +145,7 @@ export function useDrive() {
     settings,
     state,
     started,
+    ready,
     panel,
     setPanel,
     help,
