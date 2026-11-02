@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { Foliage } from './foliage'
 import { groundTexture, meadowMaterial } from './ground'
 import { clamp, random, type Settings, type World } from './world'
@@ -41,8 +42,8 @@ export class Terrain {
     color: '#bcc1b7',
     metalness: 0.55,
     roughness: 0.7,
+    side: THREE.DoubleSide,
   })
-  barkMaterial = new THREE.MeshStandardMaterial({ color: '#635c47', roughness: 1 })
   foliage: Foliage
   bladeMaterial: THREE.MeshStandardMaterial
   blade: THREE.BufferGeometry
@@ -121,7 +122,6 @@ export class Terrain {
       this.roadMaterial,
       this.edgeMaterial,
       this.railMaterial,
-      this.barkMaterial,
       this.bladeMaterial,
     ]
     this.sharedGeometries = [...this.foliage.treeGeometries, this.blade]
@@ -131,6 +131,13 @@ export class Terrain {
     mesh.receiveShadow = true
     group.add(mesh)
     return mesh
+  }
+  addBatch(group: THREE.Group, parts: THREE.BufferGeometry[], material: THREE.Material) {
+    if (!parts.length) return
+    const merged = mergeGeometries(parts)
+    if (!merged) throw new Error('Road geometry could not be batched')
+    for (const part of parts) part.dispose()
+    this.addMesh(group, merged, material)
   }
   createTile(id: number) {
     const start = id * 120,
@@ -190,17 +197,13 @@ export class Terrain {
     for (let i = 0; i <= 24; i++) uv.push(0, i / 24, 1, i / 24)
     road.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
     this.addMesh(group, road, this.roadMaterial)
+    const markings: THREE.BufferGeometry[] = []
     for (const side of [-1, 1])
-      this.addMesh(
-        group,
-        strip(this.world, start, side * 4.22 - 0.045, side * 4.22 + 0.045, 0.012),
-        this.edgeMaterial,
-      )
+      markings.push(strip(this.world, start, side * 4.22 - 0.045, side * 4.22 + 0.045, 0.012))
     for (let s = start; s < start + 120; s += 12) {
       const r1 = this.world.road(s),
         r2 = this.world.road(s + 5)
-      this.addMesh(
-        group,
+      markings.push(
         geometry(
           [
             r1.x - 0.065,
@@ -218,9 +221,10 @@ export class Terrain {
           ],
           [0, 1, 2, 1, 3, 2],
         ),
-        this.edgeMaterial,
       )
     }
+    this.addBatch(group, markings, this.edgeMaterial)
+    const rails: THREE.BufferGeometry[] = []
     for (const side of [-1, 1]) {
       for (let s = start; s < start + 120; s += 5) {
         if (!this.world.guardrail(s + 2.5, side)) continue
@@ -242,13 +246,16 @@ export class Terrain {
             r2.y + 0.95,
             -s - 5,
           ],
-          [0, 2, 1, 1, 2, 3, 1, 2, 0, 3, 2, 1],
+          [0, 2, 1, 1, 2, 3],
         )
-        this.addMesh(group, rail, this.railMaterial)
-        const post = this.addMesh(group, new THREE.BoxGeometry(0.13, 0.92, 0.12), this.railMaterial)
-        post.position.set(r1.x + d, r1.y + 0.44, -s)
+        rails.push(rail)
+        const post = new THREE.BoxGeometry(0.13, 0.92, 0.12)
+        post.deleteAttribute('uv')
+        post.translate(r1.x + d, r1.y + 0.44, -s)
+        rails.push(post)
       }
     }
+    this.addBatch(group, rails, this.railMaterial)
     const treeCount = settings.landscape === 'desert' ? 10 : settings.quality === 'low' ? 42 : 82
     const matrix = new THREE.Object3D()
     for (let variant = 0; variant < 4; variant++) {
