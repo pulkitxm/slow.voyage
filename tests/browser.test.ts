@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { PNG } from 'pngjs'
 import { z } from 'zod'
 import { browserExecutable } from '../scripts/browser'
-import { controllerFixture } from './controller-fixture'
+import { productionFixture } from './fixture'
 
 const captureTimeout = 210000
 const testTimeout = captureTimeout + 10000
@@ -66,36 +66,7 @@ async function capture(
   controller = false,
 ) {
   const executable = browserExecutable()
-  const assets = new Map<string, Bun.BunFile>()
-  for (const path of new Bun.Glob('**/*').scanSync({ cwd: 'dist/client', onlyFiles: true }))
-    assets.set(`/${path}`, Bun.file(`dist/client/${path}`))
-  let originStopped = false
-  const server = Bun.serve({
-    hostname: '127.0.0.1',
-    port: 0,
-    async fetch(request) {
-      const path = new URL(request.url).pathname
-      if (path === '/__disconnect') {
-        setTimeout(() => {
-          originStopped = true
-          server.stop(true)
-        }, 100)
-        return new Response(
-          '<!doctype html><html><head><link rel="icon" href="/icon.svg"><meta http-equiv="refresh" content="1;url=/"></head><body>Origin disconnected</body></html>',
-          { headers: { 'content-type': 'text/html' } },
-        )
-      }
-      const file = assets.get(path === '/' ? '/index.html' : path)
-      if (!file) return new Response('Not found', { status: 404 })
-      const body =
-        controller && (path === '/' || path === '/index.html')
-          ? (await file.text()).replace('<head>', `<head><script>${controllerFixture}</script>`)
-          : file
-      return new Response(body, {
-        headers: { 'cache-control': 'no-store', 'content-type': file.type },
-      })
-    },
-  })
+  const fixture = productionFixture(controller)
   const directory = await mkdtemp(join(tmpdir(), 'slowroads-browser-'))
   const input = join(directory, 'scenario.json')
   try {
@@ -103,10 +74,9 @@ async function capture(
       input,
       JSON.stringify({
         browser: { mode: 'launch', executable_path: executable },
-        start_url: { url: `http://127.0.0.1:${server.port}/` },
+        start_url: { url: fixture.url },
         environment: { service_workers: 'allow' },
-        actions:
-          typeof actions === 'function' ? actions(`http://127.0.0.1:${server.port}`) : actions,
+        actions: typeof actions === 'function' ? actions(fixture.url.slice(0, -1)) : actions,
         capture: {
           at_end: screenshot ? ['screenshot', 'url'] : ['url'],
           events: ['page-errors', 'console'],
@@ -138,9 +108,9 @@ async function capture(
       ...failed.map((step) => `${step.step_id}: ${step.error}`),
       ...errors.map((event) => event.text ?? event.message ?? event.kind),
     ]).toEqual([])
-    return { result, originStopped }
+    return { result, originStopped: fixture.originStopped }
   } finally {
-    server.stop(true)
+    await fixture.stop()
     await rm(directory, { recursive: true, force: true })
   }
 }
