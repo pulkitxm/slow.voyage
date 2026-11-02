@@ -1,3 +1,4 @@
+import { vehicleMetrics } from './vehicles'
 import { angleDifference, clamp, damp, type Settings, type World } from './world'
 
 export interface Input {
@@ -16,11 +17,6 @@ export interface Telemetry {
   gear: string
   impact: number
 }
-const vehicles = {
-  touring: { acceleration: 6.2, drag: 0.0021, wheelbase: 2.7, maxSpeed: 58 },
-  roadster: { acceleration: 8.4, drag: 0.00165, wheelbase: 2.4, maxSpeed: 73 },
-  bus: { acceleration: 3.2, drag: 0.0034, wheelbase: 4.4, maxSpeed: 37 },
-}
 export class CarPhysics {
   x = 0
   s = 180
@@ -34,6 +30,8 @@ export class CarPhysics {
   distance = 0
   slip = 0
   impact = 0
+  driveForce = 0
+  brakeForce = 0
   offroad = false
   input: Input = { throttle: 0, brake: 0, steer: 0, handbrake: false }
   constructor(public world: World) {
@@ -41,6 +39,7 @@ export class CarPhysics {
   }
   reset(s = this.s) {
     this.s = s
+    this.driveForce = this.brakeForce = 0
     const road = this.world.road(s)
     this.x = road.x + 2
     this.y = road.y
@@ -64,27 +63,41 @@ export class CarPhysics {
     }
   }
   update(dt: number, input: Input, settings: Settings) {
-    const vehicle = vehicles[settings.vehicle]
+    const vehicle = vehicleMetrics[settings.vehicle]
     const road = this.world.road(this.s)
     const offset = this.x - road.x
     this.offroad = Math.abs(offset) > 4.6
     const v = Math.abs(this.speed)
-    const rolling = this.offroad ? 1.4 + v * 0.04 : 0.18
+    const rolling = 0.1 + vehicle.rollingResistance * v + (this.offroad ? 1.4 + v * 0.04 : 0)
     const gravity = -9.81 * road.dy * Math.cos(angleDifference(this.yaw, road.yaw))
-    const throttle = (input.throttle * vehicle.acceleration * settings.power) / (1 + v / 35)
-    const braking = input.brake * 10.5 + (input.handbrake ? 5 : 0)
+    const targetForce =
+      input.throttle *
+      vehicle.acceleration *
+      settings.power *
+      0.5 *
+      (1 + Math.max(0, 0.5 * (1 - v / 27)))
+    this.driveForce += clamp(
+      targetForce - this.driveForce,
+      -vehicle.jerk * dt * 0.5,
+      vehicle.jerk * dt * 0.5,
+    )
+    this.brakeForce = input.brake
+      ? Math.min(vehicle.brake * input.brake, this.brakeForce + vehicle.brake * 4 * dt)
+      : 0
+    const throttle = this.driveForce
+    const braking = this.brakeForce + (input.handbrake ? vehicle.brake * 0.6 : 0)
     const resistance = rolling + vehicle.drag * v * v + braking
     const direction = Math.sign(this.speed || input.throttle || -input.brake)
     if (this.speed > 0.4 || input.throttle > 0) {
       this.speed += (throttle + gravity - resistance * direction) * dt
       if (this.speed < 0 && !input.throttle) this.speed = 0
     } else if (input.brake > 0 && input.throttle === 0) {
-      this.speed = Math.max(-7, this.speed - vehicle.acceleration * 0.35 * dt)
+      this.speed = Math.max(-5, this.speed - vehicle.reverse * 0.5 * dt)
     } else {
       this.speed = damp(this.speed, 0, 5, dt)
     }
-    this.speed = clamp(this.speed, -7, vehicle.maxSpeed * settings.power)
-    const maxSteering = 0.53 / (1 + v / 28)
+    this.speed = clamp(this.speed, -5, 110)
+    const maxSteering = vehicle.maxSteering * (1 - 0.75 * clamp(v / vehicle.maxSpeed, 0, 1))
     this.steering = damp(this.steering, input.steer * maxSteering, 7, dt)
     const targetYaw = (this.speed / vehicle.wheelbase) * Math.tan(this.steering)
     const grip =

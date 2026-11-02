@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { vehicleMetrics } from './vehicles'
 import type { Settings, Vehicle } from './world'
 
 function shell(rings: [number, number, number, number][], material: THREE.Material) {
@@ -64,7 +65,9 @@ export class CarModel {
     emissiveIntensity: 0.4,
   })
   wheelSpin = 0
+  wheelbase: number
   constructor(settings: Settings) {
+    this.wheelbase = vehicleMetrics[settings.vehicle].wheelbase
     this.body = new THREE.MeshStandardMaterial({
       color: settings.color,
       metalness: 0.22,
@@ -155,7 +158,7 @@ export class CarModel {
       box([0.52, 0.13, 0.04], [side * (width - 0.33), 0.94, back - 0.035], this.brake)
       box([0.54, 0.09, 0.035], [side * (width - 0.33), 0.94, front + 0.06], this.lights)
     }
-    const axles = isBus ? [2.1, -2.1] : [1.42, -1.4]
+    const axles = [this.wheelbase / 2, -this.wheelbase / 2]
     for (const z of axles)
       for (const side of [-1, 1]) {
         const pivot = new THREE.Group(),
@@ -190,7 +193,10 @@ export class CarModel {
   update(speed: number, steering: number, braking: boolean, night: boolean, dt: number) {
     this.wheelSpin -= (speed * dt) / 0.36
     for (const wheel of this.wheels) wheel.rotation.x = this.wheelSpin
-    for (const pivot of this.frontWheels) pivot.rotation.y = steering
+    for (const pivot of this.frontWheels) {
+      const radius = Math.abs(steering) < 0.0001 ? Infinity : this.wheelbase / Math.tan(steering)
+      pivot.rotation.y = Math.atan(this.wheelbase / (radius + pivot.position.x))
+    }
     this.brake.emissiveIntensity = braking ? 3 : night ? 0.8 : 0.15
     this.lights.emissiveIntensity = night ? 4 : 0.5
   }
