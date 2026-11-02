@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { Foliage } from './foliage'
 import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './ground'
-import { createWoodland } from './woodland'
+import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 export const palettes = {
@@ -337,9 +337,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
           : (rng() > 0.5 ? 1 : -1) * (8 + rng() ** 1.6 * 350)
         if (Math.abs(d) < (shrub ? 7 : 12)) continue
         const x = this.world.road(s).x + d
-        if (this.world.height(x, s) < 0.5) continue
+        const elevation = roadsidePlantHeight(this.world, x, s)
+        if (elevation === null) continue
         const h = shrub ? 2 + rng() * 4 : variant >= 4 ? 6 + rng() * 6 : 5 + rng() * 4
-        matrix.position.set(x, this.world.height(x, s) - 0.1, -s)
+        matrix.position.set(x, elevation - 0.1, -s)
         matrix.rotation.set(0, rng() * Math.PI, 0)
         const width =
           h *

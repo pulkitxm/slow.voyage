@@ -12,6 +12,13 @@ export interface WoodlandTree {
   shade: number
 }
 
+export function roadsidePlantHeight(world: World, x: number, s: number) {
+  const surface = world.surface(x, s)
+  return surface.height >= 0.5 && Math.hypot(surface.slopeX, surface.slopeS) <= 0.65
+    ? surface.height
+    : null
+}
+
 function noise(x: number, s: number, scale: number, seed: number) {
   const u = x / scale
   const v = s / scale
