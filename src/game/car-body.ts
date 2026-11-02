@@ -22,13 +22,24 @@ export function carRearDepth(y: number) {
   return 1.86
 }
 
+function blend(value: number, start: number, end: number) {
+  const t = THREE.MathUtils.clamp((value - start) / (end - start), 0, 1)
+  return { value: t * t * (3 - 2 * t), slope: (6 * t * (1 - t)) / (end - start) }
+}
+
+function section(y: number, z: number) {
+  const sill = blend(y, 0.22, 0.5),
+    shoulder = blend(y, 0.74, 0.9),
+    end = blend(Math.abs(z), 1.82, 2.14)
+  return {
+    width: 0.8025 - 0.06 * (1 - sill.value) - 0.06 * shoulder.value - 0.04 * end.value,
+    slopeY: 0.06 * (sill.slope - shoulder.slope),
+    slopeZ: -0.04 * end.slope * Math.sign(z),
+  }
+}
+
 function halfWidth(y: number, z: number) {
-  return (
-    0.8025 -
-    Math.max(0, y - 0.77) * 0.55 -
-    Math.max(0, 0.46 - y) * 0.25 -
-    Math.max(0, Math.abs(z) - 1.85) * 0.3
-  )
+  return section(y, z).width
 }
 
 export function carSurface(
@@ -98,25 +109,35 @@ export function createCarBody(
     for (let i = 0; i < positions.count; i++) {
       const y = positions.getY(i),
         z = positions.getZ(i),
-        slopeY = y > 0.77 ? -0.55 : y < 0.46 ? 0.25 : 0,
-        slopeZ = Math.abs(z) > 1.85 ? -Math.sign(z) * 0.3 : 0
+        contour = section(y, z)
       const normal = new THREE.Vector3(
         normals.getX(i),
-        normals.getY(i) - normals.getX(i) * side * slopeY,
-        normals.getZ(i) - normals.getX(i) * side * slopeZ,
+        normals.getY(i) - normals.getX(i) * side * contour.slopeY,
+        normals.getZ(i) - normals.getX(i) * side * contour.slopeZ,
       ).normalize()
-      positions.setX(i, positions.getX(i) + side * (halfWidth(y, z) - 0.0375))
+      positions.setX(i, positions.getX(i) + side * (contour.width - 0.0375))
       normals.setXYZ(i, normal.x, normal.y, normal.z)
     }
     group.add(new THREE.Mesh(geometry, paint))
     for (const axle of [-wheelbase / 2, wheelbase / 2]) {
+      const radius = opening - 0.012
       const liner = new THREE.Mesh(
-        new THREE.CylinderGeometry(opening - 0.012, opening - 0.012, 0.2, 24, 1, true, 0, Math.PI),
+        new THREE.CylinderGeometry(radius, radius, 0.44, 24, 1, true, 0, Math.PI),
         wheelWell,
       )
       liner.rotation.z = Math.PI / 2
-      liner.position.set(side * 0.66, wheelRadius, axle)
+      liner.position.set(side * 0.54, wheelRadius, axle)
       group.add(liner)
+      const backing = new THREE.Shape()
+      backing.moveTo(-radius, 0.22)
+      backing.lineTo(-radius, wheelRadius)
+      backing.absarc(0, wheelRadius, radius, Math.PI, 0, true)
+      backing.lineTo(radius, 0.22)
+      backing.closePath()
+      const wall = new THREE.Mesh(new THREE.ShapeGeometry(backing, 24), wheelWell)
+      wall.rotation.y = (side * Math.PI) / 2
+      wall.position.set(side * 0.32, 0, axle)
+      group.add(wall)
     }
   }
   const deck = (from: number, to: number) => {
