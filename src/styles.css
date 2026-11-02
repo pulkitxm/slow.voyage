@@ -957,6 +957,9 @@ input[type="range"] {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+.toast:empty {
+  transition: none;
+}
 .is-driving[data-camera="bonnet"] .toast {
   top: calc(145px + env(safe-area-inset-top));
   bottom: auto;
