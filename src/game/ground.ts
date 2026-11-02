@@ -97,7 +97,7 @@ float fieldVariation = fieldVariationAt(fieldPosition);
 float dryBlend = smoothstep(0.35, 0.7, fieldVariation) * fieldDryness;
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb, dryBlend);
 diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
-float rockBlend = smoothstep(0.12, 0.45, fieldSlope + fieldVariation * 0.1);
+float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fieldVariation);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldRock * sampledDiffuseColor.rgb * (0.8 + fieldVariation * 0.4), rockBlend);
 float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);`,
@@ -108,8 +108,10 @@ diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, 
     const winter = settings.season === 'winter',
       autumn = settings.season === 'autumn',
       desert = settings.landscape === 'desert'
-    this.fieldUniforms.fieldDryGrass.value.set(winter ? '#d2dad4' : desert ? '#c5ae7b' : '#b5a66b')
-    this.fieldUniforms.fieldDryness.value = winter ? 0.08 : autumn ? 0.65 : desert ? 0.2 : 0.45
+    this.fieldUniforms.fieldDryGrass.value.set(
+      winter ? '#d2dad4' : desert ? '#c5ae7b' : autumn ? '#b5a66b' : '#b9b875',
+    )
+    this.fieldUniforms.fieldDryness.value = winter ? 0.08 : autumn ? 0.65 : desert ? 0.2 : 0.18
     this.fieldUniforms.fieldRock.value.set(winter ? '#aab2b0' : desert ? '#9f8160' : '#8c877a')
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
   }
