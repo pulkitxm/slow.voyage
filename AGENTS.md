@@ -1,8 +1,9 @@
 # Project workflow
 
-- Keep development, verification, previews, and checkpoint commits local.
-- Create checkpoint commits with local Git. Do not push or create remote commits.
-- Do not add CI/CD workflows or deploy to external hosting.
+- Keep development and verification local, with checkpoint commits published to GitHub.
+- Create and publish future checkpoint commits through Pukbot, then synchronize the local branch.
+- Keep Vercel Git deployments enabled and verify production after publishing updates.
+- Do not add separate CI workflows unless requested.
 - Use Bun for package management and project commands.
 - Keep the latest development server running on port 3002.
 - Retain the pre-commit checks for formatting, strict YAML, types, and tests.
