@@ -64,7 +64,7 @@ svg {
 }
 .drive {
   height: 100dvh;
-  min-height: 420px;
+  min-height: 100%;
   position: relative;
   isolation: isolate;
 }
@@ -1245,4 +1245,25 @@ input[type="range"] {
 .modal-shell::backdrop {
   background: #20362848;
   backdrop-filter: blur(9px);
+}
+
+@media (max-height: 500px) and (min-width: 701px) {
+  .intro {
+    top: 24%;
+  }
+  .intro h1 {
+    font-size: 37px;
+    margin: 12px 0;
+  }
+  .intro > p {
+    font-size: 10px;
+    line-height: 1.6;
+    margin-bottom: 14px;
+  }
+  .intro-controls {
+    display: none;
+  }
+  .journey-preview {
+    bottom: 65px;
+  }
 }

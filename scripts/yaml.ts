@@ -1,4 +1,4 @@
-import { parseAllDocuments } from 'yaml'
+import { isAlias, isNode, parseAllDocuments, visit } from 'yaml'
 
 const paths = new Bun.Glob('**/*.{yml,yaml}')
 let failed = false
@@ -10,6 +10,11 @@ for await (const path of paths.scan({ dot: true, onlyFiles: true })) {
     ...document.errors,
     ...document.warnings,
   ])
+  for (const document of documents)
+    visit(document, (_key, node) => {
+      if (isAlias(node) || (isNode(node) && 'anchor' in node && node.anchor))
+        errors.push(new Error('YAML anchors and aliases are not allowed'))
+    })
   if (documents.length !== 1) errors.push(new Error('Exactly one YAML document is required'))
   for (const error of errors) {
     console.error(`${path}: ${error.message}`)
