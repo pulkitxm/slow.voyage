@@ -6,9 +6,10 @@ Reconstruct the graphics, controls, vehicle physics, speed handling, vehicle
 selection, and endless driving experience of <https://slowroads.io/>, including
 use after the first load without a network connection.
 
-Development, verification, checkpoint commits, and preview stay local at
-<http://localhost:3002>. Remote build and deployment workflows are disabled. The repository
-name does not imply ownership of the similarly named public domain.
+Development, verification, and preview stay local at <http://localhost:3002>.
+Checkpoint commits are published to GitHub through Pukbot, and Vercel builds the
+production site from the main branch. The repository name does not imply
+ownership of the similarly named public domain.
 
 ## Available evidence
 

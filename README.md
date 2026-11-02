@@ -28,8 +28,10 @@ Stop the development server before starting the production preview on port 3002.
 The production build is a static site in `dist/client` and can be served over
 HTTPS or localhost. No application server is required.
 
-Development, verification, checkpoint commits, and previews stay local. There is
-no remote build or deployment pipeline.
+Development and verification stay local. Checkpoint commits are published to
+GitHub through Pukbot, and Vercel builds the production site from the main branch.
+The deployment runs the Bun install and build commands and serves `dist/client`.
+Local pre-commit checks remain mandatory.
 
 ## Controls
 
