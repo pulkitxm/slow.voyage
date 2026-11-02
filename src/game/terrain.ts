@@ -39,9 +39,9 @@ export class Terrain {
   roadMaterial: THREE.MeshStandardMaterial
   edgeMaterial = new THREE.MeshStandardMaterial({ color: '#eeeedd', roughness: 1 })
   railMaterial = new THREE.MeshStandardMaterial({
-    color: '#bcc1b7',
+    color: '#aeb6b6',
     metalness: 0.55,
-    roughness: 0.7,
+    roughness: 0.45,
     side: THREE.DoubleSide,
   })
   foliage: Foliage
@@ -231,27 +231,41 @@ export class Terrain {
         const r1 = this.world.road(s),
           r2 = this.world.road(s + 5),
           d = side * 6.2
-        const rail = geometry(
-          [
-            r1.x + d,
-            r1.y + 0.62,
-            -s,
-            r1.x + d,
-            r1.y + 0.95,
-            -s,
-            r2.x + d,
-            r2.y + 0.62,
-            -s - 5,
-            r2.x + d,
-            r2.y + 0.95,
-            -s - 5,
-          ],
-          [0, 2, 1, 1, 2, 3],
-        )
-        rails.push(rail)
-        const post = new THREE.BoxGeometry(0.13, 0.92, 0.12)
+        const profile: [number, number][] = [
+          [0.429, 0.1],
+          [0.51, 0],
+          [0.56, 0.04],
+          [0.61, 0.075],
+          [0.6864, 0],
+          [0.78, 0.1],
+        ]
+        for (let i = 0; i < profile.length - 1; i++) {
+          const lower = profile[i],
+            upper = profile[i + 1]
+          if (!lower || !upper) continue
+          rails.push(
+            geometry(
+              [
+                r1.x + d + side * lower[1],
+                r1.y + lower[0],
+                -s,
+                r1.x + d + side * upper[1],
+                r1.y + upper[0],
+                -s,
+                r2.x + d + side * lower[1],
+                r2.y + lower[0],
+                -s - 5,
+                r2.x + d + side * upper[1],
+                r2.y + upper[0],
+                -s - 5,
+              ],
+              side < 0 ? [0, 2, 1, 1, 2, 3] : [0, 1, 2, 1, 3, 2],
+            ),
+          )
+        }
+        const post = new THREE.BoxGeometry(0.13, 0.8, 0.12)
         post.deleteAttribute('uv')
-        post.translate(r1.x + d, r1.y + 0.44, -s)
+        post.translate(r1.x + d + side * 0.1, r1.y + 0.38, -s)
         rails.push(post)
       }
     }
