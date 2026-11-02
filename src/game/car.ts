@@ -64,6 +64,7 @@ export class CarModel {
     emissive: '#fff2cc',
     emissiveIntensity: 0.4,
   })
+  exteriorVisible = true
   wheelSpin = 0
   wheelbase: number
   constructor(settings: Settings) {
@@ -188,6 +189,13 @@ export class CarModel {
         o.castShadow = true
         o.receiveShadow = true
       }
+    })
+  }
+  setExteriorVisible(visible: boolean) {
+    if (this.exteriorVisible === visible) return
+    this.exteriorVisible = visible
+    this.group.traverse((object) => {
+      if (object instanceof THREE.Mesh) object.visible = visible
     })
   }
   update(speed: number, steering: number, braking: boolean, night: boolean, dt: number) {
