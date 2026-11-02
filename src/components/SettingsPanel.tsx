@@ -41,6 +41,7 @@ export function SettingsPanel({
             key={item}
             type="button"
             role="tab"
+            aria-controls="settings-content"
             aria-selected={tab === item}
             className={tab === item ? 'selected' : ''}
             onClick={() => setTab(item)}
@@ -49,7 +50,13 @@ export function SettingsPanel({
           </button>
         ))}
       </div>
-      <div className="panel-content">
+      <div
+        key={tab}
+        className="panel-content"
+        id="settings-content"
+        role="tabpanel"
+        aria-label={`${tab} settings`}
+      >
         {tab === 'journey' && (
           <>
             <section className="setting-section">
