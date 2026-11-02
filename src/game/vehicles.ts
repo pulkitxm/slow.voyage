@@ -40,6 +40,19 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     maxSpeed: 53,
     maxSteering: 0.68,
   },
+  motorcycle: {
+    acceleration: 11,
+    reverse: 5,
+    jerk: 48,
+    brake: 8,
+    drag: 0.001,
+    rollingResistance: 0.04,
+    wheelbase: 1.95,
+    trackWidth: 0,
+    wheelRadius: 0.26,
+    maxSpeed: 53,
+    maxSteering: 0.4,
+  },
   bus: {
     acceleration: 6,
     reverse: 5,
@@ -53,4 +66,10 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     maxSpeed: 32,
     maxSteering: 0.65,
   },
+}
+export const vehicleNames: Record<Vehicle, string> = {
+  touring: 'Grand tourer',
+  roadster: 'Roadster',
+  motorcycle: 'Motorcycle',
+  bus: 'Wanderer bus',
 }

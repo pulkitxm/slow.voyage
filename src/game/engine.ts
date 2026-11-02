@@ -1,10 +1,11 @@
 import * as THREE from 'three'
 import { DriveAudio } from './audio'
-import { CarModel } from './car'
+import { createVehicleModel, type VehicleModel } from './model'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Terrain } from './terrain'
+import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
-import { angleDifference, damp, defaults, type Settings, World } from './world'
+import { angleDifference, clamp, damp, defaults, type Settings, World } from './world'
 
 export interface DriveState extends Telemetry {
   autodrive: boolean
@@ -20,7 +21,7 @@ export class RoadEngine {
   physics: CarPhysics
   water: Water
   terrain: Terrain
-  car: CarModel
+  car: VehicleModel
   audio = new DriveAudio()
   sun = new THREE.DirectionalLight('#fff3d5', 2.5)
   ambient = new THREE.HemisphereLight('#dae9ec', '#9ba47c', 1.9)
@@ -135,15 +136,9 @@ export class RoadEngine {
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
     this.terrain = new Terrain(this.scene, this.world)
-    this.car = new CarModel(this.settings)
+    this.car = createVehicleModel(this.settings)
     this.scene.add(this.car.group)
-    for (const side of [-1, 1]) {
-      const light = new THREE.SpotLight('#fff0cf', 40, 100, 0.42, 0.6, 1)
-      light.position.set(side * 0.65, 0.9, -2.2)
-      light.target.position.set(side * 2, -0.5, -45)
-      this.car.group.add(light, light.target)
-      this.headlights.push(light)
-    }
+    this.configureHeadlights()
     this.applyLighting()
     this.resize()
     window.addEventListener('resize', this.resize)
@@ -178,13 +173,28 @@ export class RoadEngine {
     if (vehicleChange) {
       this.scene.remove(this.car.group)
       this.car.dispose()
-      this.car = new CarModel(this.settings)
+      this.car = createVehicleModel(this.settings)
       this.scene.add(this.car.group)
-      for (const light of this.headlights) this.car.group.add(light, light.target)
+      this.configureHeadlights()
+      this.cameraReady = false
     }
     this.car.body.color.set(settings.color)
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, settings.quality === 'low' ? 1 : 1.7))
     this.applyLighting()
+  }
+  configureHeadlights() {
+    for (const light of this.headlights) {
+      light.removeFromParent()
+      light.target.removeFromParent()
+      light.dispose()
+    }
+    this.headlights = this.car.headlightPositions.map((position) => {
+      const light = new THREE.SpotLight('#fff0cf', 40, 100, 0.42, 0.6, 1)
+      light.position.set(...position)
+      light.target.position.set(position[0] * 2, -0.5, position[2] - 45)
+      this.car.group.add(light, light.target)
+      return light
+    })
   }
   applyLighting() {
     this.water.setAppearance(this.settings.daylight, this.settings.season === 'winter')
@@ -233,20 +243,27 @@ export class RoadEngine {
       }
     }
     const p = this.physics
+    const metrics = vehicleMetrics[this.settings.vehicle]
+    const isBike = this.settings.vehicle === 'motorcycle'
+    const isBus = this.settings.vehicle === 'bus'
     this.terrain.update(p.s, time / 1000)
     this.water.update(p.x, p.s, time / 1000)
     this.car.group.position.set(p.x, p.y, -p.s)
     this.car.group.rotation.order = 'YXZ'
     this.car.group.rotation.y = p.yaw
-    const front = this.world.height(p.x - Math.sin(p.yaw) * 1.4, p.s + Math.cos(p.yaw) * 1.4)
-    const rear = this.world.height(p.x + Math.sin(p.yaw) * 1.4, p.s - Math.cos(p.yaw) * 1.4)
+    const axle = metrics.wheelbase * 0.5
+    const front = this.world.height(p.x - Math.sin(p.yaw) * axle, p.s + Math.cos(p.yaw) * axle)
+    const rear = this.world.height(p.x + Math.sin(p.yaw) * axle, p.s - Math.cos(p.yaw) * axle)
     this.car.group.rotation.x = damp(
       this.car.group.rotation.x,
-      Math.atan2(front - rear, 2.8) + input.throttle * 0.008 - input.brake * 0.025,
+      Math.atan2(front - rear, metrics.wheelbase) + input.throttle * 0.008 - input.brake * 0.025,
       8,
       dt,
     )
-    this.car.group.rotation.z = damp(this.car.group.rotation.z, -p.yawRate * p.speed * 0.003, 5, dt)
+    const lean = isBike
+      ? clamp(Math.atan((p.yawRate * p.speed) / 9.81), -0.65, 0.65)
+      : -p.yawRate * p.speed * 0.003
+    this.car.group.rotation.z = damp(this.car.group.rotation.z, lean, 5, dt)
     this.car.update(
       this.paused ? 0 : p.speed,
       p.steering,
@@ -267,7 +284,7 @@ export class RoadEngine {
     if (cameraMode === 'bonnet')
       position
         .addScaledVector(f, 0.9)
-        .add(new THREE.Vector3(0, this.settings.vehicle === 'bus' ? 2.5 : 1.45, 0))
+        .add(new THREE.Vector3(0, isBus ? 2.5 : isBike ? 1.1 : 1.45, 0))
     else if (cameraMode === 'cinematic')
       position
         .addScaledVector(f, -12)
@@ -275,11 +292,18 @@ export class RoadEngine {
         .add(new THREE.Vector3(0, 5.5, 0))
     else
       position
-        .addScaledVector(f, -4.2 - Math.abs(p.speed) * 0.01)
-        .add(new THREE.Vector3(0, this.settings.vehicle === 'bus' ? 4.7 : 2.0, 0))
+        .addScaledVector(
+          f,
+          isBus
+            ? -9 - 2 * clamp(Math.abs(p.speed) / 32, 0, 1)
+            : isBike
+              ? -3.5 - clamp(Math.abs(p.speed) / 50, 0, 1)
+              : -4.2 - Math.abs(p.speed) * 0.01,
+        )
+        .add(new THREE.Vector3(0, isBus ? 4.7 : isBike ? 1.8 : 2.0, 0))
     position.y = Math.max(position.y, this.world.height(position.x, -position.z) + 1)
-    if (cameraMode === 'chase' && this.settings.vehicle !== 'bus') {
-      const pitch = 0.3 - Math.min(1, Math.abs(p.speed) / 45) * 0.1
+    if (cameraMode === 'chase' && !isBus) {
+      const pitch = 0.3 - clamp(Math.abs(p.speed) / metrics.maxSpeed, 0, 1) * 0.1
       target.copy(position).addScaledVector(f, 30)
       target.y += this.world.road(p.s + 20).y - p.y - Math.tan(pitch) * 30
     }
@@ -329,6 +353,7 @@ export class RoadEngine {
     this.terrain.dispose()
     this.water.dispose()
     this.car.dispose()
+    for (const light of this.headlights) light.dispose()
     this.sky.geometry.dispose()
     this.sky.material.dispose()
     this.sun.shadow.dispose()

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { CarPhysics } from './physics'
-import { defaults, World } from './world'
+import { defaults, type Settings, World } from './world'
 
 class FlatWorld extends World {
   override road(_s: number) {
@@ -9,8 +9,14 @@ class FlatWorld extends World {
 }
 
 const coast = { throttle: 0, brake: 0, steer: 0, handbrake: false }
-function simulate(car: CarPhysics, duration: number, input = coast, dt = 1 / 120) {
-  for (let t = 0; t < duration; t += dt) car.update(dt, input, defaults)
+function simulate(
+  car: CarPhysics,
+  duration: number,
+  input = coast,
+  dt = 1 / 120,
+  settings: Settings = defaults,
+) {
+  for (let t = 0; t < duration; t += dt) car.update(dt, input, settings)
 }
 describe('vehicle dynamics', () => {
   test('accelerates, coasts, and brakes with distinct stopping forces', () => {
@@ -31,13 +37,17 @@ describe('vehicle dynamics', () => {
     expect(car.telemetry().gear).toBe('R')
     expect(Number.isFinite(car.x + car.y + car.s)).toBe(true)
   })
-  test('autodrive follows several kilometers of generated curves', () => {
-    const car = new CarPhysics(new World({ ...defaults }))
-    for (let i = 0; i < 120 * 240; i++) car.update(1 / 120, car.autoInput(24), defaults)
-    expect(car.distance).toBeGreaterThan(4500)
-    expect(Math.abs(car.x - car.world.road(car.s).x)).toBeLessThan(4.5)
-    expect(car.offroad).toBe(false)
-  })
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s autodrive follows several kilometers of generated curves',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new World(settings))
+      for (let i = 0; i < 120 * 240; i++) car.update(1 / 120, car.autoInput(24), settings)
+      expect(car.distance).toBeGreaterThan(4500)
+      expect(Math.abs(car.x - car.world.road(car.s).x)).toBeLessThan(4.5)
+      expect(car.offroad).toBe(false)
+    },
+  )
   test('gives similar results at different simulation rates', () => {
     const a = new CarPhysics(new FlatWorld({ ...defaults }))
     const b = new CarPhysics(new FlatWorld({ ...defaults }))
@@ -46,6 +56,19 @@ describe('vehicle dynamics', () => {
     expect(Math.abs(a.speed - b.speed)).toBeLessThan(0.15)
     expect(Math.abs(a.distance - b.distance)).toBeLessThan(0.4)
   })
+})
+
+test('motorcycle ignores the handbrake while retaining service brakes', () => {
+  const settings = { ...defaults, vehicle: 'motorcycle' as const }
+  const free = new CarPhysics(new FlatWorld(settings))
+  const handbrake = new CarPhysics(new FlatWorld(settings))
+  const braking = new CarPhysics(new FlatWorld(settings))
+  for (const bike of [free, handbrake, braking]) bike.speed = 15
+  simulate(free, 1, coast, 1 / 120, settings)
+  simulate(handbrake, 1, { ...coast, handbrake: true }, 1 / 120, settings)
+  simulate(braking, 1, { ...coast, brake: 1 }, 1 / 120, settings)
+  expect(handbrake.speed).toBeCloseTo(free.speed, 8)
+  expect(braking.speed).toBeLessThan(free.speed - 5)
 })
 describe('world continuity', () => {
   test('road joins stay smooth at streaming boundaries far from the origin', () => {

@@ -6,6 +6,9 @@ Reconstruct the graphics, controls, vehicle physics, speed handling, vehicle
 selection, and endless driving experience of <https://slowroads.io/>, including
 use after the first load without a network connection.
 
+Development and preview stay local at <http://localhost:3002>. The repository
+name does not imply ownership of the similarly named public domain.
+
 ## Available evidence
 
 The current official site presents a Cloudflare verification screen to both HTTP
@@ -52,6 +55,14 @@ These values now inform the touring car and bus. The present physics model uses
 a bicycle approximation with limited lateral grip, rather than the historical
 four-wheel suspension solver. Matching constants alone does not establish
 matching dynamics. The additional convertible has its own handling profile.
+
+The historical bundle also includes an enclosed two-wheel motorcycle, disabled
+in that release's menu. Its wheelbase is 1.95 meters, tire radius is 0.26 meters,
+acceleration setting is 11, nominal speed is 53 meters per second, and maximum
+steering angle is 0.4 radians. The local motorcycle uses those values, turns with
+an inward lean, and has no handbrake. Its pod silhouette is reconstructed from
+local inspection of the historical body artifact. The original mesh is not
+included in the application.
 
 ## Graphics measurements and reconstruction
 
@@ -105,7 +116,8 @@ Completion requires current evidence for the full requested fidelity:
   vegetation, and atmospheric rendering more closely. The current foliage atlas,
   grass, water, and material generation require further reference comparison.
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
-  reference vehicle lineup. A motorcycle and detailed cabin view are pending.
+  reference vehicle lineup. A detailed cabin view is pending; the local selection
+  now includes the touring car, convertible, enclosed motorcycle, and bus.
 - Verify the full controls, including controller and mouse behavior where the
   current reference supports them. Current implementation covers keyboard and
   touch input.

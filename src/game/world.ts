@@ -1,7 +1,7 @@
 export type Landscape = 'highlands' | 'alpine' | 'desert'
 export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'day' | 'sunset' | 'night'
-export type Vehicle = 'touring' | 'roadster' | 'bus'
+export type Vehicle = 'touring' | 'roadster' | 'motorcycle' | 'bus'
 export type CameraMode = 'chase' | 'bonnet' | 'cinematic'
 export interface Settings {
   landscape: Landscape

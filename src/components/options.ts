@@ -5,6 +5,7 @@ import {
   Gauge,
   Leaf,
   Moon,
+  Motorbike,
   Mountain,
   Snowflake,
   Sun,
@@ -41,6 +42,7 @@ export const daylight = [
 export const vehicles = [
   { id: 'touring', icon: CarFront },
   { id: 'roadster', icon: Gauge },
+  { id: 'motorcycle', icon: Motorbike },
   { id: 'bus', icon: BusFront },
 ] as const
 export const colors = ['#f8f8f8', '#6f8a77', '#b65a44', '#3b515c', '#c8aa66', '#343b39']

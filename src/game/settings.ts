@@ -18,7 +18,7 @@ export function decodeSettings(stored: unknown): Settings {
         landscape: ['highlands', 'alpine', 'desert'],
         season: ['summer', 'autumn', 'winter'],
         daylight: ['day', 'sunset', 'night'],
-        vehicle: ['touring', 'roadster', 'bus'],
+        vehicle: ['touring', 'roadster', 'motorcycle', 'bus'],
         camera: cameras,
         quality: ['high', 'low'],
         units: ['km', 'mi'],
