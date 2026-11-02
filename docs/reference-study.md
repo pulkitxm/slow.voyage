@@ -221,6 +221,26 @@ near-zero contact motion. A 0.05 m/s handoff band prevents tiny solver velocitie
 from holding the direction-change brake indefinitely while preserving braking
 priority and the requested torque direction.
 
+Steering input now retains its source through axis priority and assistance
+handoff. Digital steering uses an analytically integrated damped response whose
+center-to-full-lock 90 percent times are calibrated to the historical controller
+formulas. At rest and at 20 m/s, the targets are 0.729/0.891 seconds for the
+tourer, 1.459/1.914 for the bus, and 1.313/1.500 for the motorcycle. The additional
+roadster uses its own maximum speed with the tourer's one-second base interval.
+These are source-derived historical targets, not current-release measurements or
+a claim that every partial input and reversal reproduces the historical state
+machine.
+
+Mouse commands instead slew at four normalized units per second and track with
+a short analytical response, including targets reached partway through a step.
+Analog controls and autodrive retain their existing mechanical response. Source
+changes preserve rack angle and velocity; ordinary key release retains the last
+source while centering. Speed limits adjust the target without snapping the wheel
+angle. Physical rack stops remain enforced across vehicle changes. Tests cover
+timing, centering, reversal, 60/120 Hz agreement, source changes, reset, and
+manual-to-autosteer recovery. The existing 216 assisted-driving scenarios retain
+their original duration and acceptance bounds.
+
 The render clock now accumulates up to a quarter second of elapsed time into fixed
 120 Hz simulation steps. Driving therefore retains its pace across slower render
 frames. A ten-second acceleration check agrees at 8, 15, 30, 60, and 144 rendering

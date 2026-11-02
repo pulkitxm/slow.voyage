@@ -9,6 +9,7 @@ interface Readout {
   time: number
   speed: number
   gear: string
+  steering: number
 }
 
 async function readout(page: Page) {
@@ -16,6 +17,7 @@ async function readout(page: Page) {
     time: performance.now(),
     speed: Number(document.querySelector('.speed-value')?.textContent),
     gear: document.querySelector('.gear')?.textContent ?? '',
+    steering: Number(document.querySelector('.drive')?.getAttribute('data-steering')),
   }))
 }
 
@@ -28,6 +30,7 @@ async function sample(page: Page, duration: number) {
         time: performance.now() - start,
         speed: Number(document.querySelector('.speed-value')?.textContent),
         gear: document.querySelector('.gear')?.textContent ?? '',
+        steering: Number(document.querySelector('.drive')?.getAttribute('data-steering')),
       })
       await new Promise((resolve) => setTimeout(resolve, 25))
     }
@@ -104,5 +107,40 @@ test('held forward key stops accelerating reverse before forward travel', async 
     expect(
       handoff.some((frame) => frame.gear !== 'R' && frame.gear !== 'N' && frame.speed > 1),
     ).toBe(true)
+  })
+}, 120000)
+
+test('held steering keys turn, center, and cancel each other on the bus', async () => {
+  await drive(async (page, directory) => {
+    await page.keyboard.press('c')
+    await page.waitForSelector('[data-camera="bonnet"]')
+    await page.waitForFunction(
+      () =>
+        Math.abs(Number(document.querySelector('.drive')?.getAttribute('data-steering'))) < 0.001,
+    )
+    await page.screenshot({ path: resolve(directory, 'steering-center.png') })
+    await page.keyboard.down('a')
+    const left = await sample(page, 2000)
+    expect(left.at(-1)?.steering ?? 0).toBeGreaterThan(0.5)
+    expect(left.every((frame) => frame.steering >= 0 && frame.steering <= 0.65)).toBe(true)
+    await page.screenshot({ path: resolve(directory, 'steering-left.png') })
+    await page.keyboard.up('a')
+    const released = await sample(page, 1500)
+    expect(Math.abs(released.at(-1)?.steering ?? Infinity)).toBeLessThan(0.02)
+    await page.keyboard.down('d')
+    const right = await sample(page, 2000)
+    expect(right.at(-1)?.steering ?? 0).toBeLessThan(-0.5)
+    expect(right.every((frame) => frame.steering >= -0.65 && frame.steering <= 0.02)).toBe(true)
+    await page.screenshot({ path: resolve(directory, 'steering-right.png') })
+    await page.keyboard.down('a')
+    const opposing = await sample(page, 1500)
+    expect(Math.abs(opposing.at(-1)?.steering ?? Infinity)).toBeLessThan(0.02)
+    await page.keyboard.up('a')
+    await page.keyboard.up('d')
+    await page.screenshot({ path: resolve(directory, 'steering-cancelled.png') })
+    await Bun.write(
+      resolve(directory, 'steering.json'),
+      JSON.stringify({ left, released, right, opposing }, null, 2),
+    )
   })
 }, 120000)

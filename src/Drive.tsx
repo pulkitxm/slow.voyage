@@ -66,6 +66,7 @@ export function Drive() {
       data-weather={settings.weather}
       data-vehicle={settings.vehicle}
       data-camera={settings.camera}
+      data-steering={state.steering.toFixed(4)}
     >
       <canvas
         ref={canvas}
