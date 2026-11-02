@@ -494,6 +494,18 @@ in landscape and portrait views through positive and negative steering. The
 historical bus first-person mode hides the vehicle, so this is an original cabin
 design rather than a recovered reference interior. Full cabin detail is pending.
 
+Bus and motorcycle dials now have numbered 140 and 220 km/h scales respectively,
+with needles calibrated from physical speed in meters per second. Markings use
+geometry from a bundled, licensed Helvetiker glyph subset; the original license
+notice is retained in the typeface asset. No runtime font or image request is
+needed. The source typeface is provided in the
+[Three.js font examples](https://github.com/mrdoob/three.js/blob/master/examples/fonts/helvetiker_regular.typeface.json).
+The motorcycle replaces its flat gauge shelf and padded bar with a driver-facing
+pod seated on a curved fairing. Both instrument themes retain contrast with dark
+exterior paint and gain subdued night illumination. Calibration checks cover zero,
+midscale, full scale, reverse, and overspeed. Model checks cover paint independence,
+lighting changes, geometry normals, and exact material and geometry disposal.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
