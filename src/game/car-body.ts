@@ -1,12 +1,14 @@
 import * as THREE from 'three'
 import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js'
 
-const rearProfile = [
-  [0.38, 1.91],
-  [0.5, 2.02],
-  [0.78, 2],
-  [0.88, 1.86],
-] as const
+function rearProfile(wheelbase: number) {
+  return [
+    [0.38, wheelbase / 2 + 0.46],
+    [0.5, 1.92],
+    [0.78, 2],
+    [0.88, 1.86],
+  ] as const
+}
 const frontProfile = [
   [0.22, -1.98],
   [0.44, -2.1],
@@ -28,8 +30,8 @@ function profileDepth(profile: readonly (readonly [number, number])[], y: number
   return profile.at(-1)?.[1] ?? 0
 }
 
-export function carRearDepth(y: number) {
-  return profileDepth(rearProfile, y)
+export function carRearDepth(y: number, wheelbase: number) {
+  return profileDepth(rearProfile(wheelbase), y)
 }
 
 export function carFrontDepth(y: number) {
@@ -87,11 +89,12 @@ export function createCarBody(
 ) {
   const group = new THREE.Group()
   group.name = 'coachwork'
+  const rear = rearProfile(wheelbase)
   const opening = 0.44
   const shape = new THREE.Shape()
   shape.moveTo(-1.98, 0.22)
   for (const [y, z] of frontProfile.slice(1)) shape.lineTo(z, y)
-  for (const [y, z] of [...rearProfile].reverse()) shape.lineTo(z, y)
+  for (const [y, z] of [...rear].reverse()) shape.lineTo(z, y)
   for (const axle of [wheelbase / 2, -wheelbase / 2]) {
     if (axle < 0) shape.lineTo(axle + opening, 0.22)
     shape.lineTo(axle + opening, wheelRadius)
@@ -178,7 +181,7 @@ export function createCarBody(
   deck(-1.91, frontBulkhead)
   deck(rearBulkhead, 1.86)
   for (const [profile, normal] of [
-    [rearProfile, 1],
+    [rear, 1],
     [frontProfile, -1],
   ] as const) {
     for (let i = 1; i < profile.length; i++) {
@@ -247,7 +250,7 @@ export function createCarBody(
     )
   for (const [start, end] of [
     [-1.98, frontBulkhead],
-    [rearBulkhead, 1.91],
+    [rearBulkhead, rear[0][1]],
   ]) {
     if (start === undefined || end === undefined) continue
     const undertray = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.05, end - start), interior)
@@ -256,7 +259,7 @@ export function createCarBody(
   }
   for (const [start, end] of [
     [-1.98, -wheelbase / 2 - opening],
-    [wheelbase / 2 + opening, 1.91],
+    [wheelbase / 2 + opening, rear[0][1]],
   ]) {
     if (start === undefined || end === undefined) continue
     const undertray = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.05, end - start), interior)
