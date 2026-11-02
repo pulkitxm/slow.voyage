@@ -170,7 +170,7 @@ export class CarModel {
       this.exterior.add(cabin)
       this.cabinSteering = cabin.getObjectByName('exterior-steering-wheel')
     }
-    const rearSurface = carRearDepth
+    const rearSurface = (y: number) => carRearDepth(y, this.wheelbase)
     const endPanel = (
       points: [number, number][],
       material: THREE.Material,
@@ -182,7 +182,7 @@ export class CarModel {
           points.map(([x, y]) => [
             x,
             y,
-            (direction > 0 ? carRearDepth(y) : carFrontDepth(y)) + direction * depth,
+            (direction > 0 ? rearSurface(y) : carFrontDepth(y)) + direction * depth,
           ]),
           [0, 0, direction],
           material,

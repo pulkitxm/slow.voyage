@@ -82,33 +82,46 @@ test.each(['touring', 'roadster'] as const)(
 )
 
 test.each(['touring', 'roadster'] as const)(
-  '%s rear tires remain visible below the tail from the chase direction',
+  '%s rear tires remain visible from the driving camera at rest and speed',
   (vehicle) => {
-    const model = new CarModel({ ...defaults, vehicle })
+    const world = new World({ ...defaults, vehicle })
+    world.road = () => ({ x: 0, y: 0, dx: 0, dy: 0, yaw: 0 })
+    world.height = () => 0
+    const model = new CarModel(world.settings)
     model.group.updateMatrixWorld(true)
     const occluders = coachwork(model)
-    const eye = new THREE.Vector3(0, 1.7, 6.5)
     const ray = new THREE.Raycaster()
-    for (const spin of model.wheels.slice(0, 2)) {
-      const tire = spin.children[0]
-      if (!(tire instanceof THREE.Mesh)) throw new Error('Rear tire missing')
-      const position = tire.geometry.getAttribute('position'),
-        normals = tire.geometry.getAttribute('normal'),
-        normalMatrix = new THREE.Matrix3().getNormalMatrix(tire.matrixWorld)
-      let exposed = 0
-      for (let i = 0; i < position.count; i++) {
-        const point = new THREE.Vector3()
-          .fromBufferAttribute(position, i)
-          .applyMatrix4(tire.matrixWorld)
-        const normal = new THREE.Vector3()
-          .fromBufferAttribute(normals, i)
-          .applyNormalMatrix(normalMatrix)
-        if (point.y < 0.03 || point.y > 0.28 || normal.dot(eye.clone().sub(point)) <= 0) continue
-        ray.set(eye, point.clone().sub(eye).normalize())
-        ray.far = eye.distanceTo(point) - 0.003
-        if (!ray.intersectObjects(occluders, false).length) exposed++
+    for (const aspect of [16 / 9, 9 / 16]) {
+      for (const speed of [0, 20, 45, -20]) {
+        const camera = new THREE.PerspectiveCamera(68, aspect, 0.1, 3600)
+        new DrivingCamera(camera).update({ x: 0, y: 0, s: 0, yaw: 0, speed }, world, 'chase', 0)
+        const eye = camera.position
+        for (const spin of model.wheels.slice(0, 2)) {
+          const tire = spin.children[0]
+          if (!(tire instanceof THREE.Mesh)) throw new Error('Rear tire missing')
+          const position = tire.geometry.getAttribute('position'),
+            normals = tire.geometry.getAttribute('normal'),
+            normalMatrix = new THREE.Matrix3().getNormalMatrix(tire.matrixWorld)
+          let exposed = 0,
+            candidates = 0
+          for (let i = 0; i < position.count; i++) {
+            const point = new THREE.Vector3()
+              .fromBufferAttribute(position, i)
+              .applyMatrix4(tire.matrixWorld)
+            const normal = new THREE.Vector3()
+              .fromBufferAttribute(normals, i)
+              .applyNormalMatrix(normalMatrix)
+            if (point.y < 0.03 || point.y > 0.28 || normal.dot(eye.clone().sub(point)) <= 0)
+              continue
+            candidates++
+            ray.set(eye, point.clone().sub(eye).normalize())
+            ray.far = eye.distanceTo(point) - 0.003
+            if (!ray.intersectObjects(occluders, false).length) exposed++
+          }
+          expect(candidates).toBeGreaterThan(50)
+          expect(exposed / candidates).toBeGreaterThan(0.2)
+        }
       }
-      expect(exposed).toBeGreaterThan(10)
     }
     model.dispose()
   },

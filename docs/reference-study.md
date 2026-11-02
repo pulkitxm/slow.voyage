@@ -454,6 +454,19 @@ a 16.7 ms median and 16.7 to 16.8 ms 95th percentile on the test M4 Pro, with
 bounded resources across five vehicle cycles. Software-renderer performance and
 cross-route terrain or handling fidelity remain open limitations.
 
+Actual driving-camera review exposed a blind spot in the earlier rear-view test:
+its fixed eye was farther back and lower than normal chase framing. At 20 m/s,
+all 86 camera-facing lower-tread samples on each roadster rear tire were blocked.
+The historical camera configuration places its eye close to the local camera,
+so changing camera distance would hide the geometry problem. Tucking the lower
+rear fascia and matching undertrays toward the axle exposes 36 of those 86
+samples without changing the camera or physics. The diffuser retains its depth
+and follows the raked body profile. Touring visibility also improves.
+Rear-tire regressions now use the real driving camera at rest, forward speed,
+and reverse, with landscape and portrait aspect ratios. Full suspension travel,
+steering lock, lighting, and near-plane checks remain separate requirements.
+The rear silhouette still needs closer reference matching.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
