@@ -48,11 +48,12 @@ export class RoadEngine {
     if (document.querySelector('dialog[open]')) return
     if (
       event.target instanceof HTMLElement &&
-      ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON'].includes(event.target.tagName)
+      ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)
     )
       return
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Tab'].includes(event.code))
       event.preventDefault()
+    if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) return
     if (event.repeat) return
     this.keys.add(event.code)
     if (!this.started && ['KeyW', 'ArrowUp'].includes(event.code)) this.start()
@@ -154,6 +155,7 @@ export class RoadEngine {
     this.paused = false
     this.audio.start(this.settings.volume)
     this.physics.distance = 0
+    if (!auto) this.physics.speed = 0
   }
   reset() {
     this.physics.reset()

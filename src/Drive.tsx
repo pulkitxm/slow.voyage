@@ -2,264 +2,55 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  AudioLines,
-  BusFront,
   Camera,
-  CarFront,
-  Check,
   ChevronDown,
   ChevronRight,
   CircleHelp,
-  CloudSun,
   Expand,
-  Gauge,
   Keyboard,
-  Leaf,
-  Moon,
   Mountain,
   Pause,
   Play,
   RotateCcw,
   Route,
   Settings2,
-  ShieldCheck,
-  Snowflake,
-  Sun,
-  Sunset,
-  Trees,
   Volume2,
   VolumeX,
-  X,
 } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Help } from './components/Help'
+import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
-import { vehicleNames } from './game/car'
-import { type DriveState, RoadEngine } from './game/engine'
-import { defaults, type Settings } from './game/world'
+import { landscapes } from './components/options'
+import { SettingsPanel } from './components/SettingsPanel'
+import { useDrive } from './useDrive'
 
-const initial: DriveState = {
-  speed: 0,
-  distance: 0,
-  altitude: 0,
-  steering: 0,
-  slip: 0,
-  offroad: false,
-  gear: 'N',
-  impact: 0,
-  autodrive: false,
-  paused: false,
-  fps: 60,
-}
-const landscapes = [
-  {
-    id: 'highlands',
-    title: 'The Highlands',
-    subtitle: 'Rolling hills. Open horizons.',
-    icon: Trees,
-  },
-  {
-    id: 'alpine',
-    title: 'Alpine Pass',
-    subtitle: 'A little closer to the clouds.',
-    icon: Mountain,
-  },
-  { id: 'desert', title: 'Desert Highway', subtitle: 'Quiet sands. Endless skies.', icon: Sun },
-] as const
-const seasons = [
-  { id: 'summer', label: 'Summer', icon: Sun },
-  { id: 'autumn', label: 'Autumn', icon: Leaf },
-  { id: 'winter', label: 'Winter', icon: Snowflake },
-] as const
-const daylight = [
-  { id: 'day', label: 'Daylight', icon: CloudSun },
-  { id: 'sunset', label: 'Golden hour', icon: Sunset },
-  { id: 'night', label: 'Night', icon: Moon },
-] as const
-const vehicles = [
-  { id: 'touring', icon: CarFront },
-  { id: 'roadster', icon: Gauge },
-  { id: 'bus', icon: BusFront },
-] as const
-const cameras = ['chase', 'bonnet', 'cinematic'] as const
-const colors = ['#edece3', '#6f8a77', '#b65a44', '#3b515c', '#c8aa66', '#343b39']
-function loadSettings(): Settings {
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem('slowroads-settings') ?? 'null')
-    if (!stored || typeof stored !== 'object') return { ...defaults }
-    const result = { ...defaults }
-    const values = stored as Record<string, unknown>
-    for (const key of [
-      'landscape',
-      'season',
-      'daylight',
-      'vehicle',
-      'camera',
-      'quality',
-      'units',
-    ] as const) {
-      const options: Record<typeof key, readonly string[]> = {
-        landscape: landscapes.map((x) => x.id),
-        season: seasons.map((x) => x.id),
-        daylight: daylight.map((x) => x.id),
-        vehicle: vehicles.map((x) => x.id),
-        camera: cameras,
-        quality: ['high', 'low'],
-        units: ['km', 'mi'],
-      }
-      if (typeof values[key] === 'string' && options[key].includes(values[key]))
-        Object.assign(result, { [key]: values[key] })
-    }
-    for (const key of ['volume', 'grip', 'power', 'seed'] as const)
-      if (typeof values[key] === 'number' && Number.isFinite(values[key])) {
-        const range = key === 'volume' ? [0, 1] : key === 'seed' ? [0, 99999] : [0.5, 2]
-        Object.assign(result, {
-          [key]: Math.max(range[0] ?? 0, Math.min(range[1] ?? 1, values[key])),
-        })
-      }
-    if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))
-      result.color = values.color
-    return result
-  } catch {
-    return { ...defaults }
-  }
-}
-function IconButton({
-  label,
-  children,
-  onClick,
-  active = false,
-}: {
-  label: string
-  children: React.ReactNode
-  onClick: () => void
-  active?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      className={`icon-button ${active ? 'active' : ''}`}
-      aria-label={label}
-      title={label}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
-}
 export function Drive() {
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const engine = useRef<RoadEngine | null>(null)
-  const [settings, setSettings] = useState<Settings>(defaults)
-  const [state, setState] = useState(initial)
-  const [started, setStarted] = useState(false)
-  const [panel, setPanel] = useState(false)
-  const [help, setHelp] = useState(false)
-  const [tab, setTab] = useState<'journey' | 'vehicle' | 'display'>('journey')
-  const [offline, setOffline] = useState(false)
-  const [online, setOnline] = useState(true)
-  const [error, setError] = useState('')
-  const [toast, setToast] = useState('')
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const announce = useCallback((message: string) => {
-    setToast(message)
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(''), 2800)
-  }, [])
-  const update = <K extends keyof Settings>(key: K, value: Settings[K]) =>
-    setSettings((current) => {
-      const next = { ...current, [key]: value }
-      engine.current?.setSettings(next)
-      try {
-        localStorage.setItem('slowroads-settings', JSON.stringify(next))
-      } catch {}
-      return next
-    })
-  const start = (auto = false) => {
-    engine.current?.start(auto)
-    setStarted(true)
-    setPanel(false)
-  }
-  const pause = () => {
-    if (!engine.current?.started) return
-    engine.current.paused = !engine.current.paused
-    setState((current) => ({ ...current, paused: engine.current?.paused ?? false }))
-  }
-  const toggleAuto = () => {
-    if (!engine.current) return
-    if (!engine.current.started) start(true)
-    else engine.current.autodrive = !engine.current.autodrive
-    announce(engine.current.autodrive ? 'Autodrive on. Enjoy the view.' : 'You have the wheel.')
-  }
-  const cycleCamera = () => {
-    if (!engine.current) return
-    const next =
-      cameras[(cameras.indexOf(engine.current.settings.camera) + 1) % cameras.length] ?? 'chase'
-    update('camera', next)
-    announce(`${next === 'bonnet' ? 'Bonnet' : next === 'chase' ? 'Chase' : 'Cinematic'} camera`)
-  }
-  const handlers = useRef({ pause, toggleAuto, cycleCamera })
-  handlers.current = { pause, toggleAuto, cycleCamera }
-  useEffect(() => {
-    if (!canvas.current) return
-    const loaded = loadSettings()
-    setSettings(loaded)
-    try {
-      const instance = new RoadEngine(canvas.current, loaded)
-      engine.current = instance
-      instance.onState = (state) => {
-        setState(state)
-        if (instance.started) setStarted(true)
-      }
-      instance.onAction = (action) => {
-        if (action === 'pause') handlers.current.pause()
-        if (action === 'auto') handlers.current.toggleAuto()
-        if (action === 'camera') handlers.current.cycleCamera()
-        if (action === 'help') setHelp((current) => !current)
-      }
-    } catch {
-      setError(
-        'The road needs WebGL to render. Enable hardware acceleration in your browser, then reload to try again.',
-      )
-    }
-    const connection = () => setOnline(navigator.onLine)
-    connection()
-    window.addEventListener('online', connection)
-    window.addEventListener('offline', connection)
-    if ('serviceWorker' in navigator && import.meta.env.PROD) {
-      void navigator.serviceWorker
-        .register('/sw.js')
-        .then(async (registration) => {
-          await navigator.serviceWorker.ready
-          const worker = registration.installing ?? registration.waiting
-          if (!worker) setOffline(true)
-          else
-            worker.addEventListener('statechange', () => {
-              if (worker.state === 'activated') setOffline(true)
-            })
-        })
-        .catch(() => announce('Offline download unavailable. You can still drive online.'))
-    }
-    return () => {
-      engine.current?.dispose()
-      engine.current = null
-      window.removeEventListener('online', connection)
-      window.removeEventListener('offline', connection)
-      if (toastTimer.current) clearTimeout(toastTimer.current)
-    }
-  }, [announce])
-  const fullscreen = () => {
-    if (document.fullscreenElement)
-      void document.exitFullscreen().catch(() => announce('Fullscreen is unavailable'))
-    else
-      void document.documentElement
-        .requestFullscreen()
-        .catch(() => announce('Fullscreen is unavailable'))
-  }
-  const touch = (key: 'throttle' | 'brake' | 'steer', value: number) => {
-    if (!engine.current) return
-    engine.current.touch[key] = value
-    if (value) engine.current.autodrive = false
-  }
+  const {
+    canvas,
+    engine,
+    settings,
+    state,
+    started,
+    panel,
+    setPanel,
+    help,
+    setHelp,
+    tab,
+    setTab,
+    offline,
+    online,
+    error,
+    setError,
+    toast,
+    announce,
+    update,
+    start,
+    pause,
+    toggleAuto,
+    cycleCamera,
+    fullscreen,
+    touch,
+  } = useDrive()
   const speed = Math.abs(state.speed) * (settings.units === 'km' ? 3.6 : 2.23694)
   const distance = state.distance / (settings.units === 'km' ? 1000 : 1609.344)
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
@@ -495,259 +286,23 @@ export function Drive() {
         </button>
       </footer>
       {panel && (
-        <aside className="settings-panel" aria-label="Drive settings">
-          <div className="panel-heading">
-            <div>
-              <span className="eyebrow">MAKE IT YOUR OWN</span>
-              <h2>Your kind of nowhere.</h2>
-            </div>
-            <IconButton label="Close settings" onClick={() => setPanel(false)}>
-              <X />
-            </IconButton>
-          </div>
-          <div className="panel-tabs" role="tablist" aria-label="Settings categories">
-            {(['journey', 'vehicle', 'display'] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                role="tab"
-                aria-selected={tab === item}
-                className={tab === item ? 'selected' : ''}
-                onClick={() => setTab(item)}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-          <div className="panel-content">
-            {tab === 'journey' && (
-              <>
-                <section className="setting-section">
-                  <h3>Choose your scenery</h3>
-                  <div className="landscape-options">
-                    {landscapes.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={`landscape-option ${settings.landscape === item.id ? 'selected' : ''}`}
-                        onClick={() => update('landscape', item.id)}
-                      >
-                        <div className={`landscape-preview ${item.id}`}>
-                          <item.icon size={25} />
-                        </div>
-                        <span>
-                          <strong>{item.title}</strong>
-                          <small>{item.subtitle}</small>
-                        </span>
-                        {settings.landscape === item.id && <Check size={15} />}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="setting-section">
-                  <h3>A change of season</h3>
-                  <div className="option-row">
-                    {seasons.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={settings.season === item.id ? 'selected' : ''}
-                        onClick={() => update('season', item.id)}
-                      >
-                        <item.icon size={20} />
-                        <span>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="setting-section">
-                  <h3>Chase the light</h3>
-                  <div className="option-row">
-                    {daylight.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={settings.daylight === item.id ? 'selected' : ''}
-                        onClick={() => update('daylight', item.id)}
-                      >
-                        <item.icon size={20} />
-                        <span>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="setting-section">
-                  <h3>A new road</h3>
-                  <p>The same feeling, somewhere different.</p>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => {
-                      update('seed', Math.floor(Math.random() * 99999))
-                      engine.current?.reset()
-                      announce('A new road, just for you.')
-                    }}
-                  >
-                    <RotateCcw size={15} /> Generate a new journey
-                  </button>
-                </section>
-              </>
-            )}
-            {tab === 'vehicle' && (
-              <>
-                <section className="setting-section">
-                  <h3>Your travelling companion</h3>
-                  <div className="vehicle-options">
-                    {vehicles.map((item) => (
-                      <button
-                        type="button"
-                        key={item.id}
-                        className={settings.vehicle === item.id ? 'selected' : ''}
-                        onClick={() => update('vehicle', item.id)}
-                      >
-                        <item.icon size={31} />
-                        <span>{vehicleNames[item.id]}</span>
-                        {settings.vehicle === item.id && <Check size={14} />}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="setting-section">
-                  <h3>A little color</h3>
-                  <div className="swatches">
-                    {colors.map((color) => (
-                      <button
-                        key={color}
-                        type="button"
-                        aria-label={`Paint ${color}`}
-                        aria-pressed={settings.color === color}
-                        className={settings.color === color ? 'selected' : ''}
-                        style={{ backgroundColor: color }}
-                        onClick={() => update('color', color)}
-                      >
-                        {settings.color === color && <Check size={15} />}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="setting-section">
-                  <label className="slider-label" htmlFor="power">
-                    Engine power <span>{settings.power.toFixed(1)}×</span>
-                  </label>
-                  <input
-                    id="power"
-                    type="range"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    value={settings.power}
-                    onChange={(e) => update('power', Number(e.target.value))}
-                  />
-                  <label className="slider-label" htmlFor="grip">
-                    Tyre grip <span>{settings.grip.toFixed(1)}×</span>
-                  </label>
-                  <input
-                    id="grip"
-                    type="range"
-                    min="0.5"
-                    max="2"
-                    step="0.1"
-                    value={settings.grip}
-                    onChange={(e) => update('grip', Number(e.target.value))}
-                  />
-                  <p>Less grip, a little more adventure.</p>
-                </section>
-              </>
-            )}
-            {tab === 'display' && (
-              <>
-                <section className="setting-section">
-                  <h3>A different perspective</h3>
-                  <div className="segmented">
-                    {cameras.map((item) => (
-                      <button
-                        key={item}
-                        type="button"
-                        className={settings.camera === item ? 'selected' : ''}
-                        onClick={() => update('camera', item)}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="setting-section">
-                  <h3>Scenery detail</h3>
-                  <div className="segmented">
-                    {(['low', 'high'] as const).map((item) => (
-                      <button
-                        type="button"
-                        key={item}
-                        className={settings.quality === item ? 'selected' : ''}
-                        onClick={() => update('quality', item)}
-                      >
-                        {item === 'high' ? 'Full beauty' : 'Easy on the engine'}
-                      </button>
-                    ))}
-                  </div>
-                  <p>Lower detail uses less battery and graphics power.</p>
-                </section>
-                <section className="setting-section">
-                  <h3>Measure the journey</h3>
-                  <div className="segmented">
-                    {(['km', 'mi'] as const).map((item) => (
-                      <button
-                        type="button"
-                        key={item}
-                        className={settings.units === item ? 'selected' : ''}
-                        onClick={() => update('units', item)}
-                      >
-                        {item === 'km' ? 'Kilometers' : 'Miles'}
-                      </button>
-                    ))}
-                  </div>
-                </section>
-                <section className="setting-section">
-                  <label className="slider-label" htmlFor="volume">
-                    <span>
-                      <AudioLines size={15} /> Sounds of the road
-                    </span>
-                    <span>{Math.round(settings.volume * 100)}%</span>
-                  </label>
-                  <input
-                    id="volume"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={settings.volume}
-                    onChange={(e) => update('volume', Number(e.target.value))}
-                  />
-                </section>
-                <section className="setting-section">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => {
-                      engine.current?.screenshot()
-                      announce('A little memory, saved.')
-                    }}
-                  >
-                    <Camera size={16} /> Capture the view
-                  </button>
-                </section>
-              </>
-            )}
-          </div>
-          <div className="panel-footnote">
-            <ShieldCheck size={15} />
-            <span>
-              {offline
-                ? 'Your road is saved for offline adventures.'
-                : 'No accounts. No finish lines. Just drive.'}
-            </span>
-          </div>
-        </aside>
+        <SettingsPanel
+          settings={settings}
+          update={update}
+          tab={tab}
+          setTab={setTab}
+          offline={offline}
+          onClose={() => setPanel(false)}
+          onNewJourney={() => {
+            update('seed', Math.floor(Math.random() * 99999))
+            engine.current?.reset()
+            announce('A new road, just for you.')
+          }}
+          onCapture={() => {
+            engine.current?.screenshot()
+            announce('A little memory, saved.')
+          }}
+        />
       )}
       {started && state.paused && (
         <Modal titleId="pause-title" onClose={pause}>
@@ -771,42 +326,7 @@ export function Drive() {
           </section>
         </Modal>
       )}
-      {help && (
-        <Modal titleId="help-title" onClose={() => setHelp(false)}>
-          <section className="dialog help-dialog" aria-labelledby="help-title">
-            <IconButton label="Close help" onClick={() => setHelp(false)}>
-              <X />
-            </IconButton>
-            <span className="eyebrow">A FEW THINGS FOR THE ROAD</span>
-            <h2 id="help-title">You’re in no hurry.</h2>
-            <p>There’s no score, no traffic, and nowhere you need to be.</p>
-            <div className="key-list">
-              {[
-                ['W / ↑', 'Accelerate'],
-                ['S / ↓', 'Brake, then reverse'],
-                ['A D / ← →', 'Steer'],
-                ['Space', 'Handbrake'],
-                ['F', 'Toggle autodrive'],
-                ['C', 'Change camera'],
-                ['R', 'Return to the road'],
-                ['P / Esc', 'Pause the drive'],
-              ].map(([key, label]) => (
-                <div key={key}>
-                  <span>{label}</span>
-                  <kbd>{key}</kbd>
-                </div>
-              ))}
-            </div>
-            <div className="help-note">
-              <ShieldCheck size={19} />
-              <p>
-                Once the production version says “Offline ready”, this entire world works without
-                the internet. Your preferences stay on this device.
-              </p>
-            </div>
-          </section>
-        </Modal>
-      )}
+      {help && <Help onClose={() => setHelp(false)} />}
       {error && (
         <Modal onClose={() => setError('')}>
           <section className="dialog" role="alert">
