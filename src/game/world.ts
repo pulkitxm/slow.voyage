@@ -63,29 +63,23 @@ export class World {
     const road = this.road(s)
     const d = x - road.x
     const distance = Math.abs(d)
-    const blend = clamp((distance - 6) / 70, 0, 1)
-    const phase = this.settings.seed * 0.13
+    const blend = smoothStep(clamp((distance - 4.5) / 14, 0, 1))
     const amplitude =
-      this.settings.landscape === 'alpine' ? 2.8 : this.settings.landscape === 'desert' ? 0.8 : 1
+      this.settings.landscape === 'alpine' ? 2.4 : this.settings.landscape === 'desert' ? 0.45 : 1
     const hills =
-      6 +
-      12 * Math.sin(x / 190 + s / 320 + phase) +
-      8 * Math.cos(s / 300 - x / 200) +
-      3 * Math.sin(x / 75 + s / 120)
-    const mountain =
-      Math.max(0, distance - 210) *
-      (0.1 + 0.1 * Math.sin(s / 180)) *
-      (this.settings.landscape === 'highlands' && d > 0 ? 0 : 1)
+      terrainField(x, s, this.settings.seed) - terrainField(road.x, s, this.settings.seed)
+    const coastDirection = roadCurve(s, 2600, this.settings.seed + 1029).value
     const coastFactor =
-      this.settings.landscape === 'highlands' && d > 6
-        ? clamp((Math.sin(s / 1300 + this.settings.seed * 0.01) + 0.4) / 1.2, 0, 1)
-        : 0
-    const coast = Math.min(95, Math.max(0, d - 6) * 0.24) * coastFactor
-    return road.y - 0.16 + blend * (hills * amplitude * (1 - coastFactor * 0.9) + mountain) - coast
+      this.settings.landscape === 'highlands' ? clamp(0.5 + coastDirection * Math.sign(d), 0, 1) : 0
+    const coast = Math.min(110, Math.max(0, distance - 4.5) * 0.26) * coastFactor
+    return road.y - 0.16 + blend * (hills * amplitude - coast)
   }
 
   guardrail(s: number, side: number) {
-    return side > 0 ? Math.sin(s / 260) > -0.2 : Math.cos(s / 350) < -0.25
+    const road = this.road(s)
+    const drop = road.y - this.height(road.x + side * 12, s)
+    const turn = angleDifference(this.road(s + 10).yaw, this.road(s - 10).yaw)
+    return drop > 1.5 || (drop > 0.4 && turn * side > 0.02)
   }
 
   surface(x: number, s: number) {
@@ -99,3 +93,5 @@ export class World {
     }
   }
 }
+
+import { roadCurve, smoothStep, terrainField } from './field'
