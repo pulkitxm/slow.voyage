@@ -33,17 +33,32 @@ function drawTree(context: CanvasRenderingContext2D, variant: number, season: Se
   const centers: { x: number; y: number; radius: number }[] = []
   if (variant >= 2) {
     context.strokeStyle = '#68634d'
-    context.lineWidth = 9
-    for (let i = 0; i < 12; i++) {
-      const x = 90 + rng() * 330
-      const y = 280 + rng() * 130
-      context.beginPath()
-      context.moveTo(250 + (rng() - 0.5) * 80, 503)
-      context.quadraticCurveTo(256, 400, x, y)
-      context.stroke()
-      centers.push({ x, y, radius: 44 + rng() * 45 })
+    context.lineWidth = 5
+    if (season === 'winter') {
+      for (let i = 0; i < 12; i++) {
+        const x = 90 + rng() * 330
+        const y = 220 + rng() * 180
+        context.beginPath()
+        context.moveTo(256 + (rng() - 0.5) * 45, 503)
+        context.quadraticCurveTo(256, 385, x, y)
+        context.moveTo(x, y)
+        context.lineTo(x + (rng() - 0.5) * 65, y - 20 - rng() * 45)
+        context.stroke()
+      }
+      return
     }
-    if (season !== 'winter') canopy(context, rng, season, centers)
+    for (let i = 0; i < 12; i++) {
+      const angle = (i / 12) * Math.PI * 2
+      const x = 256 + Math.cos(angle) * (85 + rng() * 60)
+      const y = 266 + Math.sin(angle) * (85 + rng() * 60)
+      context.beginPath()
+      context.moveTo(256, 320)
+      context.quadraticCurveTo(256, 256, x, y)
+      context.stroke()
+      centers.push({ x, y, radius: 53 + rng() * 24 })
+    }
+    centers.push({ x: 256, y: 256, radius: 110 })
+    canopy(context, rng, season, centers)
     return
   }
   function branch(
@@ -119,6 +134,7 @@ export class Foliage {
   texture: THREE.CanvasTexture
   treeMaterial: THREE.MeshStandardMaterial
   treeGeometries: THREE.BufferGeometry[] = []
+  winterShrubGeometries: THREE.BufferGeometry[] = []
   constructor(season: Season) {
     this.canvas = document.createElement('canvas')
     this.canvas.width = this.canvas.height = atlasSize
@@ -134,24 +150,37 @@ export class Foliage {
       emissive: '#657745',
       emissiveIntensity: 0.18,
     })
-    for (let variant = 0; variant < 4; variant++) {
+    for (let variant = 0; variant < 6; variant++) {
       const planes: THREE.BufferGeometry[] = []
-      for (let side = 0; side < 3; side++) {
-        const plane = new THREE.PlaneGeometry(1, 1)
-        plane.translate(0, 0.5, 0)
-        plane.rotateY((side * Math.PI) / 3)
+      const shrub = variant >= 2 && variant < 4
+      const atlasVariant = variant >= 4 ? variant - 2 : variant
+      const rng = random(635 + variant * 871)
+      const count = shrub ? 8 : 3
+      for (let side = 0; side < count; side++) {
+        const plane = new THREE.PlaneGeometry(shrub ? 0.68 : 1, shrub ? 0.65 : 1)
+        if (shrub) {
+          const angle = side * 2.4
+          const radius = side === 0 ? 0 : 0.16 + rng() * 0.06
+          plane.rotateX((rng() - 0.5) * 0.7)
+          plane.rotateY(angle + rng() * 0.7)
+          plane.translate(Math.cos(angle) * radius, 0.3 + rng() * 0.24, Math.sin(angle) * radius)
+        } else {
+          plane.translate(0, 0.5, 0)
+          plane.rotateY((side * Math.PI) / 3)
+        }
         const uv = plane.getAttribute('uv')
         for (let i = 0; i < uv.count; i++)
           uv.setXY(
             i,
-            uv.getX(i) * 0.5 + (variant % 2) * 0.5,
-            uv.getY(i) * 0.5 + Math.floor(variant / 2) * 0.5,
+            uv.getX(i) * 0.5 + (atlasVariant % 2) * 0.5,
+            uv.getY(i) * 0.5 + Math.floor(atlasVariant / 2) * 0.5,
           )
         planes.push(plane)
       }
       const merged = mergeGeometries(planes)
       if (!merged) throw new Error('Tree geometry could not be assembled')
-      this.treeGeometries.push(merged)
+      if (variant >= 4) this.winterShrubGeometries.push(merged)
+      else this.treeGeometries.push(merged)
       for (const plane of planes) plane.dispose()
     }
     this.update(season)
@@ -172,5 +201,6 @@ export class Foliage {
     this.texture.dispose()
     this.treeMaterial.dispose()
     for (const geometry of this.treeGeometries) geometry.dispose()
+    for (const geometry of this.winterShrubGeometries) geometry.dispose()
   }
 }

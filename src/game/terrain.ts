@@ -5,7 +5,7 @@ import { groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { clamp, random, type Settings, type World } from './world'
 
 export const palettes = {
-  summer: { grass: '#839b59', light: '#adba76', tree: '#698344', shrub: '#72804d' },
+  summer: { grass: '#819e48', light: '#b2c76b', tree: '#698344', shrub: '#72804d' },
   autumn: { grass: '#a69a64', light: '#c9b77a', tree: '#ad703b', shrub: '#b58d43' },
   winter: { grass: '#d7dfdc', light: '#edf0e7', tree: '#6f8176', shrub: '#9bada2' },
 }
@@ -110,12 +110,13 @@ export class Terrain {
     const bladePositions: number[] = [],
       bladeIndices: number[] = [],
       bladeColors: number[] = []
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 12; i++) {
       const angle = i * 2.4,
-        x = Math.cos(angle) * 0.16,
-        z = Math.sin(angle) * 0.16,
+        radius = 0.12 + (i % 4) * 0.055,
+        x = Math.cos(angle) * radius,
+        z = Math.sin(angle) * radius,
         width = 0.005 + (i % 3) * 0.002,
-        height = 0.19 + i * 0.035,
+        height = 0.23 + ((i * 7) % 12) * 0.025,
         bend = 0.08 + (i % 3) * 0.025,
         n = i * 5
       for (const [elevation, offset, spread] of [
@@ -143,7 +144,11 @@ export class Terrain {
       this.railMaterial,
       this.bladeMaterial,
     ]
-    this.sharedGeometries = [...this.foliage.treeGeometries, this.blade]
+    this.sharedGeometries = [
+      ...this.foliage.treeGeometries,
+      ...this.foliage.winterShrubGeometries,
+      this.blade,
+    ]
   }
   addMesh(group: THREE.Group, g: THREE.BufferGeometry, material: THREE.Material) {
     const mesh = new THREE.Mesh(g, material)
@@ -300,7 +305,10 @@ export class Terrain {
     }))
     const matrix = new THREE.Object3D()
     for (let variant = 0; variant < 4; variant++) {
-      const geometry = this.foliage.treeGeometries[variant]
+      const geometry =
+        settings.season === 'winter' && variant >= 2
+          ? this.foliage.winterShrubGeometries[variant - 2]
+          : this.foliage.treeGeometries[variant]
       if (!geometry) continue
       const shrub = variant >= 2
       const count = Math.ceil((shrub ? shrubCount : treeCount) / 2)
@@ -322,7 +330,7 @@ export class Terrain {
         const h = shrub ? 2 + rng() * 4 : 5 + rng() * 4
         matrix.position.set(x, this.world.height(x, s) - 0.1, -s)
         matrix.rotation.set(0, rng() * Math.PI, 0)
-        const width = h * (shrub ? 1.1 + rng() * 0.5 : 0.9 + rng() * 0.2)
+        const width = h * (shrub ? 0.85 + rng() * 0.35 : 0.9 + rng() * 0.2)
         matrix.scale.set(width, h, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
@@ -332,13 +340,13 @@ export class Terrain {
       trees.castShadow = true
       group.add(trees)
     }
-    const count = settings.landscape === 'desert' ? 1200 : settings.quality === 'low' ? 2200 : 8500
+    const count = settings.landscape === 'desert' ? 1200 : settings.quality === 'low' ? 2800 : 10000
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
     grass.name = 'meadow'
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
       const s = start + rng() * 120,
-        d = (rng() > 0.5 ? 1 : -1) * (4.8 + rng() ** 1.9 * 23)
+        d = (rng() > 0.5 ? 1 : -1) * (4.8 + rng() ** 2.2 * 23)
       const x = this.world.road(s).x + d
       if (this.world.height(x, s) < 0.3) continue
       matrix.position.set(x, this.world.height(x, s), -s)
