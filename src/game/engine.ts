@@ -228,7 +228,7 @@ export class RoadEngine {
       }
     }
     const p = this.physics
-    this.terrain.update(p.s)
+    this.terrain.update(p.s, time / 1000)
     this.car.group.position.set(p.x, p.y, -p.s)
     this.car.group.rotation.order = 'YXZ'
     this.car.group.rotation.y = p.yaw
