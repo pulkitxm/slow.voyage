@@ -17,6 +17,7 @@ const initial: DriveState = {
   assistance: 'off',
   paused: false,
   fps: 60,
+  controller: 'none',
 }
 export function useDrive() {
   const canvas = useRef<HTMLCanvasElement>(null)

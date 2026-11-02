@@ -34,6 +34,11 @@ export function Help({ onClose }: { onClose: () => void }) {
           Steering takes over steering assistance. Using the pedals takes over speed assistance.
           Choose assistance and one-pedal driving in Controls settings.
         </p>
+        <p>
+          Controller: left stick steers, right trigger accelerates, and left trigger brakes. A
+          starts, B holds the handbrake, X toggles assistance, Y changes camera, and Start pauses.
+          Use the left bumper to choose assistance and the D-pad up/down to adjust cruise speed.
+        </p>
         <div className="help-note">
           <ShieldCheck size={19} />
           <p>

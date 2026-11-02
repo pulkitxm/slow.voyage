@@ -1,5 +1,6 @@
 import { AudioLines, Camera, Check, RotateCcw, ShieldCheck, X } from 'lucide-react'
 import { assistanceLabels } from '../game/controls'
+import type { ControllerStatus } from '../game/gamepad'
 import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
 import { IconButton } from './IconButton'
@@ -12,6 +13,7 @@ interface Props {
   tab: SettingsTab
   setTab: (tab: Props['tab']) => void
   offline: boolean
+  controller: ControllerStatus
   onClose: () => void
   onNewJourney: () => void
   onCapture: () => void
@@ -22,6 +24,7 @@ export function SettingsPanel({
   tab,
   setTab,
   offline,
+  controller,
   onClose,
   onNewJourney,
   onCapture,
@@ -250,6 +253,42 @@ export function SettingsPanel({
               </p>
             </section>
           </>
+        )}
+        {tab === 'controls' && (
+          <section className="setting-section">
+            <label className="check-option">
+              <input
+                type="checkbox"
+                checked={settings.controllerEnabled}
+                onChange={(event) => update('controllerEnabled', event.target.checked)}
+              />
+              Enable controller
+            </label>
+            <p role="status">
+              {!settings.controllerEnabled
+                ? 'Controller input is off.'
+                : controller === 'connected'
+                  ? 'Controller connected. Left stick steers; triggers accelerate and brake.'
+                  : controller === 'unsupported'
+                    ? 'The browser has not mapped this controller to a supported layout.'
+                    : controller === 'unavailable'
+                      ? 'Controller access is unavailable in this browser.'
+                      : 'Connect a controller and press one of its buttons.'}
+            </p>
+            <label className="slider-label" htmlFor="controller-deadzone">
+              Stick deadzone <span>{Math.round(settings.controllerDeadzone * 100)}%</span>
+            </label>
+            <input
+              id="controller-deadzone"
+              type="range"
+              min="5"
+              max="40"
+              step="1"
+              value={Math.round(settings.controllerDeadzone * 100)}
+              onChange={(event) => update('controllerDeadzone', Number(event.target.value) / 100)}
+            />
+            <p>Increase the deadzone if your stick drifts when released.</p>
+          </section>
         )}
         {tab === 'display' && (
           <>

@@ -13,6 +13,8 @@ describe('saved preferences', () => {
       autodriveMode: 'unknown',
       onePedal: 'yes',
       cruiseSpeed: Number.NaN,
+      controllerEnabled: 'yes',
+      controllerDeadzone: Number.NaN,
     })
     expect(settings).toEqual(defaults)
   })
@@ -23,6 +25,7 @@ describe('saved preferences', () => {
       seed: 1e8,
       power: 50,
       cruiseSpeed: 200,
+      controllerDeadzone: 1,
       color: 'url(example)',
       extra: true,
     })
@@ -30,6 +33,7 @@ describe('saved preferences', () => {
     expect(settings.grip).toBe(0.2)
     expect(settings.power).toBe(2)
     expect(settings.cruiseSpeed).toBe(45)
+    expect(settings.controllerDeadzone).toBe(0.4)
     expect(settings.seed).toBe(99999)
     expect(settings.color).toBe(defaults.color)
     expect('extra' in settings).toBe(false)
@@ -44,6 +48,8 @@ describe('saved preferences', () => {
       onePedal: true,
       autodriveMode: 'steer' as const,
       cruiseSpeed: 12.5,
+      controllerEnabled: false,
+      controllerDeadzone: 0.08,
       units: 'mi' as const,
       color: '#b65a44',
     }

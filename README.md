@@ -53,6 +53,13 @@ Steering input releases steering assistance; pedal input releases speed
 assistance. One-pedal driving gently brakes on accelerator release without
 selecting reverse. Cruise speed follows the selected display units.
 
+Standard controllers use the left stick to steer, right trigger to accelerate,
+and left trigger to brake. A starts, B is the handbrake, X toggles assistance,
+Y changes camera, Start pauses, and Back resets to the road. The left bumper
+cycles assistance modes; D-pad up/down adjusts cruise speed. Controls settings
+include an enable switch and stick deadzone. Button labels refer to Xbox positions;
+PlayStation controllers use the corresponding positions.
+
 ## Offline behavior
 
 The production build precaches every bundled asset before activating its service

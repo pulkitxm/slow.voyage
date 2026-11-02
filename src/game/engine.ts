@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { DriveAudio } from './audio'
 import { neutralInput, releaseAssistance, resolveInput } from './controls'
+import { type ControllerStatus, GamepadControls } from './gamepad'
 import { createVehicleModel, type VehicleModel } from './model'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Terrain } from './terrain'
@@ -20,6 +21,7 @@ export interface DriveState extends Telemetry {
   assistance: AssistanceMode
   paused: boolean
   fps: number
+  controller: ControllerStatus
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
@@ -43,6 +45,9 @@ export class RoadEngine {
   controlsBlocked = false
   keys = new Set<string>()
   touch: Input = { ...neutralInput }
+  controller = new GamepadControls()
+  controllerInput: Input = { ...neutralInput }
+  controllerStatus: ControllerStatus = 'none'
   lastTime = 0
   accumulator = 0
   lastTelemetry = 0
@@ -94,6 +99,8 @@ export class RoadEngine {
   blur = () => {
     this.keys.clear()
     this.touch = { ...neutralInput }
+    this.controllerInput = { ...neutralInput }
+    this.controller.suspend()
   }
   visibility = () => {
     this.lastTime = 0
@@ -205,6 +212,7 @@ export class RoadEngine {
       assistance: this.assistance,
       paused: this.paused,
       fps: this.frameRate,
+      controller: this.controllerStatus,
     })
   }
   reset() {
@@ -273,11 +281,52 @@ export class RoadEngine {
     if (this.controlsBlocked) return { ...neutralInput }
     const has = (...codes: string[]) => codes.some((c) => this.keys.has(c))
     return {
-      throttle: has('KeyW', 'ArrowUp') ? 1 : this.touch.throttle,
-      brake: has('KeyS', 'ArrowDown') ? 1 : this.touch.brake,
-      steer: has('KeyA', 'ArrowLeft') ? 1 : has('KeyD', 'ArrowRight') ? -1 : this.touch.steer,
-      handbrake: has('Space') || this.touch.handbrake,
+      throttle: has('KeyW', 'ArrowUp')
+        ? 1
+        : Math.max(this.touch.throttle, this.controllerInput.throttle),
+      brake: has('KeyS', 'ArrowDown') ? 1 : Math.max(this.touch.brake, this.controllerInput.brake),
+      steer: has('KeyA', 'ArrowLeft')
+        ? 1
+        : has('KeyD', 'ArrowRight')
+          ? -1
+          : this.touch.steer || this.controllerInput.steer,
+      handbrake: has('Space') || this.touch.handbrake || this.controllerInput.handbrake,
       regenBrake: 0,
+    }
+  }
+  pollController() {
+    this.controllerInput = { ...neutralInput }
+    if (!this.settings.controllerEnabled) {
+      this.controllerStatus = 'none'
+      this.controller.suspend()
+      return
+    }
+    try {
+      if (!navigator.getGamepads) {
+        this.controllerStatus = 'unavailable'
+        return
+      }
+      const blocked = this.controlsBlocked || document.hidden || !document.hasFocus()
+      if (blocked) this.controller.suspend()
+      const frame = this.controller.read(navigator.getGamepads(), this.settings.controllerDeadzone)
+      this.controllerStatus = frame.status
+      if (blocked) return
+      this.controllerInput = frame.input
+      if (!this.paused) {
+        if (frame.steerActive) this.manualOverride('steer')
+        if (frame.pedalsActive) this.manualOverride('speed')
+        if (frame.handbrakeActive) this.manualOverride('all')
+      }
+      for (const action of frame.actions) {
+        if (action === 'start') {
+          if (!this.started) this.start()
+          else if (this.paused) this.onAction?.('pause')
+        } else if (action === 'reset') this.reset()
+        else this.onAction?.(action)
+      }
+      if (!this.started && frame.pedalsActive) this.start()
+    } catch {
+      this.controllerStatus = 'unavailable'
     }
   }
   render = (time: number) => {
@@ -287,6 +336,7 @@ export class RoadEngine {
     const dt = Math.min(elapsed, 0.05)
     this.frameRate = Math.round(1 / Math.max(elapsed, 0.001))
     this.lastTime = time
+    this.pollController()
     let input = this.manualInput()
     if (
       !this.paused &&
