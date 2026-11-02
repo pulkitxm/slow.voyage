@@ -431,7 +431,6 @@ export class RoadEngine {
     this.car.group.traverse((object) => {
       if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial) {
         object.material.envMap = environment
-        object.material.envMapIntensity = 0.9
       }
     })
     this.precipitation.setAppearance(this.settings)

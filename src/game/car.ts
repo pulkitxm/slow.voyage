@@ -87,13 +87,15 @@ export class CarModel {
       roughness: 0.32,
       clearcoat: 0.8,
       clearcoatRoughness: 0.18,
+      envMapIntensity: 0.9,
     })
     const glass = new THREE.MeshPhysicalMaterial({
-      color: '#536473',
-      metalness: 0.08,
-      roughness: 0.12,
-      clearcoat: 1,
-      clearcoatRoughness: 0.06,
+      color: '#6b6d70',
+      metalness: 0,
+      roughness: 0.18,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.12,
+      envMapIntensity: 0.45,
       side: THREE.DoubleSide,
     })
     const black = new THREE.MeshStandardMaterial({ color: '#222724', roughness: 0.7 })
