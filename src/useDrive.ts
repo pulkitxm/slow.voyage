@@ -154,6 +154,8 @@ export function useDrive() {
     try {
       const instance = new RoadEngine(canvas.current, loaded)
       engine.current = instance
+      instance.onError = () =>
+        setError('The renderer could not prepare the road. Reload to try again.')
       instance.onState = (state) => {
         if (!rendered) {
           rendered = true

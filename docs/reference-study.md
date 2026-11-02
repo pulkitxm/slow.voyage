@@ -215,6 +215,10 @@ its full quality budget. Reflection maps are reused when their actual lighting
 and ground colors are unchanged. This addresses interaction stalls reproduced in
 the Linux software-rendered browser checks; assertions and timeouts remain unchanged.
 
+Rain and snow programs are compiled and exercised during the initial preparation
+phase. The start controls become available after the first normal frame, keeping
+cold precipitation shader work out of scenery-switch input handlers.
+
 The first visual review cycle compared clean 1280 × 720 captures of both builds.
 The initial reference attempt was stationary because its keyboard listener needs
 focus on the game panel. The retry verified active autodrive and visible movement.
