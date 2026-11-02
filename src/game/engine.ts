@@ -49,6 +49,8 @@ export class RoadEngine {
   controllerInput: Input = { ...neutralInput }
   controllerStatus: ControllerStatus = 'none'
   mouse = new MouseControls()
+  lookPointer: number | null = null
+  lookButton = 0
   lastTime = 0
   simulation = new SimulationClock()
   lastTelemetry = 0
@@ -119,6 +121,7 @@ export class RoadEngine {
     this.controllerInput = { ...neutralInput }
     this.controller.suspend()
     this.mouse.reset()
+    this.cancelLook()
   }
   visibility = () => {
     this.lastTime = 0
@@ -126,6 +129,21 @@ export class RoadEngine {
     if (document.hidden) this.blur()
   }
   pointerMove = (event: PointerEvent) => {
+    if (this.controlsBlocked || this.paused) return
+    if (this.settings.mouseEnabled && event.pointerType === 'mouse') {
+      this.mouse.setButtons(event.buttons)
+      if (this.lookPointer === null && (event.buttons & 4) !== 0) this.beginLook(event, 4)
+    }
+    if (this.lookPointer === event.pointerId) {
+      if (event.pointerType === 'mouse' && (event.buttons & this.lookButton) === 0) {
+        this.cancelLook()
+        return
+      }
+      const area = this.canvas.getBoundingClientRect()
+      this.view.moveDrag(event.pointerId, event.clientX, event.clientY, area.width, area.height)
+      event.preventDefault()
+      return
+    }
     if (
       !this.settings.mouseEnabled ||
       this.controlsBlocked ||
@@ -138,6 +156,17 @@ export class RoadEngine {
       this.manualOverride('steer')
   }
   pointerDown = (event: PointerEvent) => {
+    if (this.controlsBlocked || this.paused || !this.rendered) return
+    if (
+      this.started &&
+      (event.pointerType !== 'mouse' ||
+        event.button === 1 ||
+        (!this.settings.mouseEnabled && [0, 2].includes(event.button))) &&
+      this.beginLook(event, event.button === 1 ? 4 : event.button === 2 ? 2 : 1)
+    ) {
+      event.preventDefault()
+      return
+    }
     if (
       !this.settings.mouseEnabled ||
       this.controlsBlocked ||
@@ -155,13 +184,44 @@ export class RoadEngine {
   }
   pointerUp = (event: PointerEvent) => {
     if (event.pointerType === 'mouse') this.mouse.setButtons(event.buttons)
+    if (this.lookPointer === event.pointerId) this.cancelLook()
   }
-  pointerCancel = () => this.mouse.reset()
+  beginLook = (event: PointerEvent, button: number) => {
+    if (
+      !this.started ||
+      !this.view.beginDrag(event.pointerId, event.clientX, event.clientY, this.settings.camera)
+    )
+      return false
+    this.lookPointer = event.pointerId
+    this.lookButton = button
+    this.canvas.setPointerCapture(event.pointerId)
+    return true
+  }
+  cancelLook = () => {
+    const pointer = this.lookPointer
+    this.lookPointer = null
+    this.lookButton = 0
+    this.view.cancelDrag()
+    if (pointer !== null && !this.mouse.buttons && this.canvas.hasPointerCapture(pointer))
+      this.canvas.releasePointerCapture(pointer)
+  }
+  pointerCancel = () => {
+    this.mouse.reset()
+    this.cancelLook()
+  }
   pointerLeave = () => {
     if (!this.mouse.buttons) this.mouse.reset()
   }
   contextMenu = (event: Event) => {
-    if (this.settings.mouseEnabled) event.preventDefault()
+    if (this.started && !this.controlsBlocked) event.preventDefault()
+  }
+  cameraWheel = (event: WheelEvent) => {
+    if (!this.started || this.controlsBlocked || this.paused) return
+    const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? this.canvas.clientHeight : 1
+    if (this.view.scroll(event.deltaY * scale, this.settings.camera)) event.preventDefault()
+  }
+  cameraCenter = () => {
+    if (this.started && !this.controlsBlocked && !this.settings.mouseEnabled) this.view.center()
   }
   constructor(
     public canvas: HTMLCanvasElement,
@@ -232,6 +292,9 @@ export class RoadEngine {
     canvas.addEventListener('pointercancel', this.pointerCancel)
     canvas.addEventListener('pointerleave', this.pointerLeave)
     canvas.addEventListener('contextmenu', this.contextMenu)
+    canvas.addEventListener('wheel', this.cameraWheel, { passive: false })
+    canvas.addEventListener('dblclick', this.cameraCenter)
+    canvas.addEventListener('lostpointercapture', this.pointerCancel)
     void this.prepare().catch(() => {
       if (!this.disposed) this.onError?.()
     })
@@ -304,6 +367,7 @@ export class RoadEngine {
   }
   reset() {
     this.physics.reset()
+    this.view.center()
     this.view.snap()
   }
   setSettings(settings: Settings) {
@@ -318,6 +382,7 @@ export class RoadEngine {
     const vehicleChange = settings.vehicle !== this.settings.vehicle
     const assistanceChange = settings.autodriveMode !== this.settings.autodriveMode
     const mouseChange = settings.mouseEnabled !== this.settings.mouseEnabled
+    const cameraChange = settings.camera !== this.settings.camera
     this.settings = { ...settings }
     this.world.settings = this.settings
     if (roadChange) {
@@ -326,7 +391,10 @@ export class RoadEngine {
       this.physics.speed = speed
       this.view.snap()
     }
-    if (mouseChange) this.mouse.reset()
+    if (mouseChange || cameraChange) {
+      this.mouse.reset()
+      this.cancelLook()
+    }
     if (refresh) this.terrain.refresh(this.settings, budget.detail)
     if (vehicleChange) {
       this.scene.remove(this.car.group)
@@ -535,6 +603,9 @@ export class RoadEngine {
     this.canvas.removeEventListener('pointercancel', this.pointerCancel)
     this.canvas.removeEventListener('pointerleave', this.pointerLeave)
     this.canvas.removeEventListener('contextmenu', this.contextMenu)
+    this.canvas.removeEventListener('wheel', this.cameraWheel)
+    this.canvas.removeEventListener('dblclick', this.cameraCenter)
+    this.canvas.removeEventListener('lostpointercapture', this.pointerCancel)
     this.terrain.dispose()
     this.water.dispose()
     this.precipitation.dispose()

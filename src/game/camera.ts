@@ -50,7 +50,11 @@ export class DrivingCamera {
     this.yaw -= ((x - drag.x) / width) * Math.PI * 2
     this.pitch -= ((y - drag.y) / height) * Math.PI
     this.yaw = drag.mode === 'bonnet' ? clamp(this.yaw, -1.55, 1.55) : angleDifference(this.yaw, 0)
-    this.pitch = clamp(this.pitch, drag.mode === 'bonnet' ? -0.65 : -0.12, 1.05)
+    this.pitch = clamp(
+      this.pitch,
+      drag.mode === 'bonnet' ? -0.65 : -0.12,
+      drag.mode === 'bonnet' ? 0.65 : 1.05,
+    )
     this.drag = { ...drag, x, y }
     return true
   }

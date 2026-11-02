@@ -49,6 +49,13 @@ export function Help({ onClose }: { onClose: () => void }) {
           </p>
         </div>
         <div className="help-note">
+          <p>
+            Camera: drag the scenery to orbit in chase view or look around in bonnet view. Scroll to
+            zoom in chase view; double-click the scenery to reset. With mouse driving enabled, use
+            the middle mouse button to look around. Bonnet view centers again when released.
+          </p>
+        </div>
+        <div className="help-note">
           <ShieldCheck size={19} />
           <p>
             Once you see “Offline ready”, this entire world works without the internet. Your
