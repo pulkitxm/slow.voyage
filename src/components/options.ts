@@ -1,6 +1,9 @@
 import {
   BusFront,
   CarFront,
+  Cloud,
+  CloudFog,
+  CloudRain,
   CloudSun,
   Gauge,
   Leaf,
@@ -33,6 +36,12 @@ export const seasons = [
   { id: 'summer', label: 'Summer', icon: Sun },
   { id: 'autumn', label: 'Autumn', icon: Leaf },
   { id: 'winter', label: 'Winter', icon: Snowflake },
+] as const
+export const weather = [
+  { id: 'clear', label: 'Clear', icon: Sun },
+  { id: 'overcast', label: 'Overcast', icon: Cloud },
+  { id: 'rain', label: 'Rain', icon: CloudRain },
+  { id: 'fog', label: 'Fog', icon: CloudFog },
 ] as const
 export const daylight = [
   { id: 'day', label: 'Daylight', icon: CloudSun },

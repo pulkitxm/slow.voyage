@@ -1,10 +1,12 @@
 import * as THREE from 'three'
+import { Atmosphere, atmosphereProfile } from './atmosphere'
 import { DriveAudio } from './audio'
 import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 import { type ControllerStatus, GamepadControls } from './gamepad'
 import { createVehicleModel, type VehicleModel } from './model'
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
+import { Precipitation } from './precipitation'
 import { Terrain } from './terrain'
 import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
@@ -36,6 +38,8 @@ export class RoadEngine {
   terrain: Terrain
   car: VehicleModel
   audio = new DriveAudio()
+  atmosphere: Atmosphere
+  precipitation: Precipitation
   sun = new THREE.DirectionalLight('#fff3d5', 2.5)
   ambient = new THREE.HemisphereLight('#dae9ec', '#9ba47c', 1.9)
   headlights: THREE.SpotLight[] = []
@@ -204,18 +208,21 @@ export class RoadEngine {
           top: { value: new THREE.Color('#8dbac7') },
           horizon: { value: new THREE.Color('#e1e5d1') },
           clouds: { value: 0.5 },
+          cloudColor: { value: new THREE.Color('#e9ece8') },
           time: { value: 0 },
         },
         vertexShader:
           'varying vec3 direction;void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
         fragmentShader:
-          'varying vec3 direction;uniform vec3 top;uniform vec3 horizon;uniform float clouds;uniform float time;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}void main(){vec3 d=normalize(direction);float h=max(d.y,0.);vec3 color=mix(horizon,top,pow(h,.5));vec2 p=d.xz/max(.12,d.y)*1.4+time*.0005;float n=noise(p)*.55+noise(p*2.3)*.28+noise(p*5.)*.17;float c=smoothstep(.52,.8,n)*smoothstep(.03,.3,h)*clouds;color=mix(color,vec3(.98,.97,.91),c*.65);gl_FragColor=vec4(color,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
+          'varying vec3 direction;uniform vec3 top;uniform vec3 horizon;uniform vec3 cloudColor;uniform float clouds;uniform float time;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}void main(){vec3 d=normalize(direction);float h=max(d.y,0.);vec3 color=mix(horizon,top,pow(h,.5));vec2 p=d.xz/max(.12,d.y)*1.4+time*.0005;float n=noise(p)*.55+noise(p*2.3)*.28+noise(p*5.)*.17;float c=smoothstep(mix(.58,.2,clouds),mix(.87,.75,clouds),n)*smoothstep(.03,.3,h);color=mix(color,cloudColor,c*.65);gl_FragColor=vec4(color,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
       }),
     )
     this.sky.frustumCulled = false
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
     this.terrain = new Terrain(this.scene, this.world)
+    this.atmosphere = new Atmosphere(this.renderer)
+    this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings)
     this.scene.add(this.car.group)
     this.configureHeadlights()
@@ -336,23 +343,41 @@ export class RoadEngine {
   }
   applyLighting() {
     this.water.setAppearance(this.settings.daylight, this.settings.season === 'winter')
-    const time = this.settings.daylight,
-      night = time === 'night',
-      sunset = time === 'sunset'
-    const horizon = night ? '#283a4a' : sunset ? '#ebbd94' : '#e5eeeb'
-    this.sky.material.uniforms.top?.value.set(night ? '#111c31' : sunset ? '#8e9fae' : '#abd2e2')
-    this.sky.material.uniforms.horizon?.value.set(horizon)
-    if (this.sky.material.uniforms.clouds)
-      this.sky.material.uniforms.clouds.value = night ? 0.02 : 0.7
+    const profile = atmosphereProfile(this.settings)
+    const environment = this.atmosphere.setAppearance(this.settings)
+    this.scene.environment = environment
+    this.scene.environmentIntensity = 0.35
+    this.car.group.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial) {
+        object.material.envMap = environment
+        object.material.envMapIntensity = 0.9
+      }
+    })
+    this.precipitation.setAppearance(this.settings)
+    const night = this.settings.daylight === 'night'
+    this.sky.material.uniforms.top?.value.set(profile.sky)
+    this.sky.material.uniforms.horizon?.value.set(profile.horizon)
+    this.sky.material.uniforms.cloudColor?.value.set(
+      this.settings.weather === 'clear' ? '#e9ece8' : profile.horizon,
+    )
+    if (this.sky.material.uniforms.clouds) this.sky.material.uniforms.clouds.value = profile.clouds
     if (this.scene.fog instanceof THREE.FogExp2) {
-      this.scene.fog.color.set(horizon)
-      this.scene.fog.density = night ? 0.0018 : 0.00095
+      this.scene.fog.color.set(profile.horizon)
+      this.scene.fog.density = profile.fog
     }
-    this.sun.color.set(night ? '#9cb4dc' : sunset ? '#ffd09d' : '#fffaf0')
-    this.sun.intensity = night ? 0.45 : sunset ? 2.1 : 2.6
-    this.ambient.intensity = night ? 0.65 : 1.9
-    this.renderer.toneMappingExposure = night ? 0.78 : 1.05
-    for (const light of this.headlights) light.intensity = night ? 65 : 0
+    this.sun.color.set(profile.sun)
+    this.sun.intensity = profile.sunlight
+    this.ambient.intensity = profile.ambient * 0.3
+    this.ambient.color.set(profile.horizon)
+    this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
+    this.renderer.toneMappingExposure = profile.exposure
+    this.terrain.roadWetness.value = profile.wet ? 1 : 0
+    this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
+    this.terrain.roadMaterial.envMap = environment
+    this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
+    for (const light of this.headlights)
+      light.intensity =
+        night || this.settings.weather === 'fog' || this.settings.weather === 'rain' ? 65 : 0
   }
   manualInput(): Input {
     if (this.controlsBlocked) return { ...neutralInput }
@@ -435,6 +460,7 @@ export class RoadEngine {
     const isBus = this.settings.vehicle === 'bus'
     this.terrain.update(p.s, time / 1000)
     this.water.update(p.x, p.s, time / 1000)
+    this.precipitation.update(p.x, p.y, p.s, time / 1000)
     this.car.group.position.set(p.x, p.y, -p.s)
     this.car.group.rotation.order = 'YXZ'
     this.car.group.rotation.y = p.yaw
@@ -535,6 +561,8 @@ export class RoadEngine {
     this.canvas.removeEventListener('contextmenu', this.contextMenu)
     this.terrain.dispose()
     this.water.dispose()
+    this.precipitation.dispose()
+    this.atmosphere.dispose()
     this.car.dispose()
     for (const light of this.headlights) light.dispose()
     this.sky.geometry.dispose()

@@ -4,7 +4,7 @@ import type { ControllerStatus } from '../game/gamepad'
 import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
 import { IconButton } from './IconButton'
-import { cameras, colors, daylight, landscapes, seasons, vehicles } from './options'
+import { cameras, colors, daylight, landscapes, seasons, vehicles, weather } from './options'
 
 export type SettingsTab = 'journey' | 'vehicle' | 'controls' | 'display'
 interface Props {
@@ -117,6 +117,26 @@ export function SettingsPanel({
                   </button>
                 ))}
               </div>
+            </section>
+            <section className="setting-section">
+              <h3>Weather</h3>
+              <div className="option-row weather-options">
+                {weather.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={settings.weather === item.id ? 'selected' : ''}
+                    aria-pressed={settings.weather === item.id}
+                    onClick={() => update('weather', item.id)}
+                  >
+                    <item.icon size={20} />
+                    <span>
+                      {item.id === 'rain' && settings.season === 'winter' ? 'Snow' : item.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <p>Q and E cycle scenery and weather. V changes your vehicle.</p>
             </section>
             <section className="setting-section">
               <h3>A new road</h3>

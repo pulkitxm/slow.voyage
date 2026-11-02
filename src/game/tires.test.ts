@@ -102,6 +102,24 @@ test('winter grip increases the stopping distance from the same speed', () => {
   expect(distances[1]).toBeGreaterThan((distances[0] ?? Infinity) * 1.25)
 })
 
+test('rain lengthens summer braking while winter precipitation keeps the same icy grip', () => {
+  const distances = new Map<string, number>()
+  for (const season of ['summer', 'winter'] as const)
+    for (const weather of ['clear', 'rain'] as const) {
+      const settings = { ...defaults, season, weather }
+      const body = car(settings)
+      body.speed = 25
+      for (let i = 0; i < 120 * 10 && body.speed > 0.5; i++)
+        body.update(step, { ...coast, brake: 1 }, settings)
+      expect(body.speed).toBeLessThanOrEqual(0.5)
+      distances.set(`${season}-${weather}`, body.distance)
+    }
+  expect(distances.get('summer-rain')).toBeGreaterThan(
+    (distances.get('summer-clear') ?? Infinity) * 1.1,
+  )
+  expect(distances.get('winter-rain')).toBeCloseTo(distances.get('winter-clear') ?? 0, 8)
+})
+
 test('low-speed tire motion converges to the geometric turning radius', () => {
   const body = car()
   body.speed = 8

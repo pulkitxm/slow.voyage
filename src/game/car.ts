@@ -73,15 +73,19 @@ export class CarModel {
     const dimensions = vehicleMetrics[settings.vehicle]
     this.wheelbase = dimensions.wheelbase
     this.wheelRadius = dimensions.wheelRadius
-    this.body = new THREE.MeshStandardMaterial({
+    this.body = new THREE.MeshPhysicalMaterial({
       color: settings.color,
-      metalness: 0,
-      roughness: 0.5,
+      metalness: 0.12,
+      roughness: 0.32,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.18,
     })
-    const glass = new THREE.MeshPhongMaterial({
-      color: '#666b77',
-      specular: '#222222',
-      shininess: 30,
+    const glass = new THREE.MeshPhysicalMaterial({
+      color: '#536473',
+      metalness: 0.08,
+      roughness: 0.12,
+      clearcoat: 1,
+      clearcoatRoughness: 0.06,
     })
     const black = new THREE.MeshStandardMaterial({ color: '#222724', roughness: 0.7 })
     const diffuser = new THREE.MeshStandardMaterial({ color: '#303432', roughness: 0.88 })
