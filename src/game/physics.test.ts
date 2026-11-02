@@ -16,6 +16,31 @@ class OpposingBends extends World {
   }
 }
 
+class GuardrailWorld extends World {
+  constructor(
+    settings: Settings,
+    public gradient = 0,
+    public rails = true,
+  ) {
+    super(settings)
+  }
+  override road(s: number) {
+    return {
+      x: this.gradient * s,
+      y: 0,
+      dx: this.gradient,
+      dy: 0,
+      yaw: Math.atan2(-this.gradient, 1),
+    }
+  }
+  override surface(_x: number, _s: number) {
+    return { height: 0, onRoad: true, slopeX: 0, slopeS: 0 }
+  }
+  override guardrail(_s: number, _side: number) {
+    return this.rails
+  }
+}
+
 const coast = { throttle: 0, brake: 0, steer: 0, handbrake: false, regenBrake: 0 }
 function simulate(
   car: CarPhysics,
@@ -26,6 +51,68 @@ function simulate(
 ) {
   for (let t = 0; t < duration; t += dt) car.update(dt, input, settings)
 }
+
+function railContact(
+  side: number,
+  yaw: number,
+  gradient: number,
+  normalSpeed: number,
+  tangentSpeed: number,
+  rails = true,
+) {
+  const car = new CarPhysics(new GuardrailWorld({ ...defaults }, gradient, rails))
+  const road = car.world.road(car.s)
+  car.x = road.x + side * 5.3491
+  car.yaw = road.yaw + yaw
+  const length = Math.hypot(1, gradient)
+  const velocityX = (side * normalSpeed + gradient * tangentSpeed) / length
+  const velocityS = (-side * gradient * normalSpeed + tangentSpeed) / length
+  car.speed = -Math.sin(car.yaw) * velocityX + Math.cos(car.yaw) * velocityS
+  car.lateralSpeed = Math.cos(car.yaw) * velocityX + Math.sin(car.yaw) * velocityS
+  car.update(1 / 120, coast, defaults)
+  const worldX = -Math.sin(car.yaw) * car.speed + Math.cos(car.yaw) * car.lateralSpeed
+  const worldS = Math.cos(car.yaw) * car.speed + Math.sin(car.yaw) * car.lateralSpeed
+  return {
+    car,
+    normal: (side * (worldX - gradient * worldS)) / length,
+    tangent: (gradient * worldX + worldS) / length,
+    energy: car.speed * car.speed + car.lateralSpeed * car.lateralSpeed,
+  }
+}
+
+describe('guardrail response', () => {
+  test.each([-1, 1])('a gentle contact on side %i cannot inject kinetic energy', (side) => {
+    const free = railContact(side, 0, 0, 0.2, 0, false)
+    const contact = railContact(side, 0, 0, 0.2, 0)
+    expect(contact.car.impact).toBeGreaterThan(0)
+    expect(contact.car.impact).toBeLessThan(0.05)
+    expect(contact.energy).toBeLessThan(free.energy)
+    expect(contact.normal).toBeLessThan(0)
+    expect(Math.abs(contact.normal)).toBeLessThan(free.normal)
+  })
+  test('a glancing impact preserves tangential motion and dissipates normal motion', () => {
+    for (const side of [-1, 1])
+      for (const gradient of [-0.4, 0.4])
+        for (const yaw of [0, Math.PI, -Math.PI / 2, Math.PI / 2]) {
+          const free = railContact(side, yaw, gradient, 2, 3, false)
+          const contact = railContact(side, yaw, gradient, 2, 3)
+          expect(contact.car.impact).toBeGreaterThan(0)
+          expect(contact.tangent).toBeCloseTo(free.tangent, 8)
+          expect(contact.normal).toBeCloseTo(-free.normal * 0.15, 8)
+          expect(contact.car.yaw).toBeCloseTo(free.car.yaw, 8)
+          expect(contact.energy).toBeLessThanOrEqual(free.energy)
+        }
+  })
+  test('impact feedback scales with approach speed rather than glancing speed', () => {
+    const gentle = railContact(1, 0, 0, 0.2, 0)
+    const faster = railContact(1, 0, 0, 2, 0)
+    const glancing = railContact(1, 0, 0, 2, 30)
+    expect(faster.car.impact).toBeGreaterThan(gentle.car.impact * 5)
+    expect(glancing.car.impact).toBeCloseTo(faster.car.impact, 3)
+    expect(glancing.tangent).toBeGreaterThan(29)
+  })
+})
+
 describe('vehicle dynamics', () => {
   test('autodrive sees opposing bends even when their net heading change cancels', () => {
     const car = new CarPhysics(new OpposingBends({ ...defaults }))

@@ -204,10 +204,18 @@ export class CarPhysics {
     this.impact = damp(this.impact, 0, 5, dt)
     if (crossedRail && this.world.guardrail(this.s, side)) {
       this.x = nextRoad.x + side * 5.3
-      this.speed *= 0.66
-      this.yaw = damp(this.yaw, nextRoad.yaw, 8, dt)
-      this.lateralSpeed = -side * 1.2
-      this.impact = 1
+      const sin = Math.sin(this.yaw),
+        cos = Math.cos(this.yaw)
+      const normalX = side * Math.cos(nextRoad.yaw),
+        normalS = side * Math.sin(nextRoad.yaw)
+      let velocityX = -sin * this.speed + cos * this.lateralSpeed
+      let velocityS = cos * this.speed + sin * this.lateralSpeed
+      const approach = Math.max(0, velocityX * normalX + velocityS * normalS)
+      velocityX -= normalX * approach * 1.15
+      velocityS -= normalS * approach * 1.15
+      this.speed = -sin * velocityX + cos * velocityS
+      this.lateralSpeed = cos * velocityX + sin * velocityS
+      this.impact = Math.max(this.impact, clamp(approach / 8, 0, 1))
     }
     this.suspension.update(dt, this, acceleration.forward, acceleration.lateral, handbrake)
     this.offroad = this.suspension.wheels.some((wheel) => wheel.contact && !wheel.onRoad)
