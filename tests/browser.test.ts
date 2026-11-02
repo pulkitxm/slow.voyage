@@ -313,3 +313,40 @@ test('polls a simulated browser gamepad for driving, buttons, and disconnects', 
     true,
   )
 }, 150000)
+
+test('mouse driving takes over assisted axes and overrides controller input', async () => {
+  await capture(
+    [
+      start,
+      wait('autodrive', '[data-assistance="full"]'),
+      press('enable-mouse', 'm'),
+      wait('mouse-enabled', '[data-mouse-steer="0.00"]'),
+      press('controller-trigger', '1'),
+      { step_id: 'controller-sampled', action: 'wait_for_timeout', duration_ms: 400 },
+      wait('mouse-priority', '[data-assistance="full"]'),
+      { ...click('mouse-brake', 'canvas'), button: 'right' },
+      wait('mouse-takes-pedals', '[data-assistance="steer"]'),
+      press('mouse-move', '9'),
+      wait('mouse-takes-steering', '[data-assistance="off"]'),
+      wait('steering-visible', '[data-mouse-steer="1.00"]'),
+      click('mouse-accelerate', 'canvas'),
+      wait('recentered', '[data-mouse-steer="0.00"]'),
+      click('settings', '[aria-label="Open settings"]'),
+      click('controls', '[role="tab"]:has-text("controls")'),
+      wait('mouse-preference', '.check-option:has-text("Mouse driving") input:checked'),
+      press('mouse-sensitivity', 'End', '#mouse-sensitivity'),
+      wait('sensitivity-updated', 'label[for="mouse-sensitivity"] span:has-text("2.0")'),
+      click('close', '[aria-label="Close settings"]'),
+      press('disable-mouse', 'm'),
+      press('re-enable-auto', 'f'),
+      wait('autodrive-restored', '[data-assistance="full"]'),
+      press('release-controller', '0'),
+      wait('controller-released', 'html[data-fixture-pad-neutral="yes"]'),
+      press('controller-active', '1'),
+      wait('controller-priority-restored', '[data-assistance="steer"]'),
+      settle,
+    ],
+    false,
+    true,
+  )
+}, 150000)

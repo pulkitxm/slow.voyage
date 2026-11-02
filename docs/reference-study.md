@@ -143,6 +143,13 @@ Unit checks and a browser fixture exercise the input path with synthetic
 controller states. Physical controllers and custom device mappings remain
 unverified; the browser fixture does not establish hardware compatibility.
 
+Mouse driving now follows horizontal cursor position, with left-click
+acceleration and right-click braking and reverse. Its enabled state and sensitivity
+are saved locally. Mouse driving overrides controller axes while enabled; keyboard
+and touch input remain available. Unit checks cover centering, sensitivity,
+button release, and braking priority. The browser flow exercises real mouse
+clicks and fixture-generated cursor movement through the canvas input handlers.
+
 - The live TanStack Start development server responds on port 3002.
 - Manual driving, autodrive, pause/resume, vehicle and scenery changes render in a
   real Chrome session without page errors in the captured flows.
@@ -176,7 +183,7 @@ Completion requires current evidence for the full requested fidelity:
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A detailed cabin view is pending; the local selection
   now includes the touring car, convertible, enclosed motorcycle, and bus.
-- Implement mouse input, custom controller mappings, reverse cruise, chase orbit
+- Implement custom controller mappings, reverse cruise, chase orbit
   and zoom, speed-dependent field of view, and first-person look-around. Compare
   the reconstructed assistance modes and one-pedal response with the current game.
 - Verify extended driving performance, resource bounds, mobile layouts, and

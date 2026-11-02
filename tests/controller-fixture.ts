@@ -23,5 +23,10 @@ window.addEventListener('keydown', (event) => {
   if (event.code === 'Digit6') { virtualPad.connected = true; virtualPad.mapping = 'standard'; }
   if (event.code === 'Digit7') press(9);
   if (event.code === 'Digit8') virtualPad.mapping = '';
+  if (event.code === 'Digit9') {
+    const canvas = document.querySelector('canvas');
+    const area = canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, pointerType: 'mouse', clientX: area.left + area.width * 0.25, clientY: area.top + area.height * 0.5 }));
+  }
 });
 `

@@ -18,6 +18,7 @@ const initial: DriveState = {
   paused: false,
   fps: 60,
   controller: 'none',
+  mouseSteering: 0,
 }
 export function useDrive() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -92,8 +93,22 @@ export function useDrive() {
     update('camera', next)
     announce(`${next === 'bonnet' ? 'Bonnet' : next === 'chase' ? 'Chase' : 'Cinematic'} camera`)
   }
-  const handlers = useRef({ pause, toggleAuto, cycleCamera, cycleAssistance, adjustCruise })
-  handlers.current = { pause, toggleAuto, cycleCamera, cycleAssistance, adjustCruise }
+  const toggleMouse = () => {
+    const enabled = !settingsRef.current.mouseEnabled
+    update('mouseEnabled', enabled)
+    announce(
+      enabled ? 'Mouse driving on. Move to steer; click to accelerate.' : 'Mouse driving off.',
+    )
+  }
+  const handlers = useRef({
+    pause,
+    toggleAuto,
+    cycleCamera,
+    cycleAssistance,
+    adjustCruise,
+    toggleMouse,
+  })
+  handlers.current = { pause, toggleAuto, cycleCamera, cycleAssistance, adjustCruise, toggleMouse }
   useEffect(() => {
     if (!canvas.current) return
     let rendered = false
@@ -119,6 +134,7 @@ export function useDrive() {
         if (action === 'cruiseUp') handlers.current.adjustCruise(1)
         if (action === 'cruiseDown') handlers.current.adjustCruise(-1)
         if (action === 'camera') handlers.current.cycleCamera()
+        if (action === 'mouse') handlers.current.toggleMouse()
         if (action === 'help') setHelp((current) => !current)
       }
     } catch {

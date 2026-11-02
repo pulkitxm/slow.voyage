@@ -30,19 +30,20 @@ HTTPS or localhost. No application server is required.
 
 ## Controls
 
-| Key              | Action              |
-| ---------------- | ------------------- |
-| W / Up           | Accelerate          |
-| S / Down         | Brake, then reverse |
-| A D / Left Right | Steer               |
-| Space            | Handbrake           |
-| F                | Autodrive           |
-| G                | Assistance mode     |
-| + / -            | Cruise speed        |
-| C                | Cycle camera        |
-| R                | Reset to the road   |
-| P / Escape       | Pause               |
-| H                | Help                |
+| Key              | Action               |
+| ---------------- | -------------------- |
+| W / Up           | Accelerate           |
+| S / Down         | Brake, then reverse  |
+| A D / Left Right | Steer                |
+| Space            | Handbrake            |
+| F                | Autodrive            |
+| G                | Assistance mode      |
+| + / -            | Cruise speed         |
+| C                | Cycle camera         |
+| M                | Toggle mouse driving |
+| R                | Reset to the road    |
+| P / Escape       | Pause                |
+| H                | Help                 |
 
 Touch devices have steering and pedal buttons. Settings include four vehicles,
 three landscapes, three seasons, lighting, paint, camera, grip, power, sound,
@@ -59,6 +60,11 @@ Y changes camera, Start pauses, and Back resets to the road. The left bumper
 cycles assistance modes; D-pad up/down adjusts cruise speed. Controls settings
 include an enable switch and stick deadzone. Button labels refer to Xbox positions;
 PlayStation controllers use the corresponding positions.
+
+Mouse driving uses horizontal cursor position for steering. Hold left click to
+accelerate or right click to brake and reverse. Enable it with M or in Controls
+settings, where sensitivity is adjustable. Keyboard and touch remain available;
+mouse driving takes priority over controller pedals and steering.
 
 ## Offline behavior
 

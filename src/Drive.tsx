@@ -66,6 +66,18 @@ export function Drive() {
         aria-label="Interactive 3D scenic driving game. Use W A S D or arrow keys to drive."
       />
       <div className="scene-shade" />
+      {started && settings.mouseEnabled && !panel && !help && !state.paused && (
+        <div
+          className="mouse-steering"
+          data-mouse-steer={state.mouseSteering.toFixed(2)}
+          aria-hidden="true"
+        >
+          <span>mouse steering</span>
+          <div className="mouse-track">
+            <i style={{ left: `${50 - state.mouseSteering * 50}%` }} />
+          </div>
+        </div>
+      )}
       <header className="topbar">
         <a href="/" className="brand" aria-label="Slow Roads home">
           slow roads<span>TAKE THE LONG WAY HOME</span>

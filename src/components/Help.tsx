@@ -21,6 +21,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['G', 'Choose assistance mode'],
             ['+ / -', 'Adjust cruise speed'],
             ['C', 'Change camera'],
+            ['M', 'Toggle mouse driving'],
             ['R', 'Return to the road'],
             ['P / Esc', 'Pause the drive'],
           ].map(([key, label]) => (
@@ -39,6 +40,12 @@ export function Help({ onClose }: { onClose: () => void }) {
           starts, B holds the handbrake, X toggles assistance, Y changes camera, and Start pauses.
           Use the left bumper to choose assistance and the D-pad up/down to adjust cruise speed.
         </p>
+        <div className="help-note">
+          <p>
+            Mouse driving: move horizontally to steer, hold left click to accelerate, or right click
+            to brake and reverse. Adjust sensitivity in Controls settings.
+          </p>
+        </div>
         <div className="help-note">
           <ShieldCheck size={19} />
           <p>

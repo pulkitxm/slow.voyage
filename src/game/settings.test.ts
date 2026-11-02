@@ -15,6 +15,8 @@ describe('saved preferences', () => {
       cruiseSpeed: Number.NaN,
       controllerEnabled: 'yes',
       controllerDeadzone: Number.NaN,
+      mouseEnabled: 'yes',
+      mouseSensitivity: Number.NaN,
     })
     expect(settings).toEqual(defaults)
   })
@@ -26,6 +28,7 @@ describe('saved preferences', () => {
       power: 50,
       cruiseSpeed: 200,
       controllerDeadzone: 1,
+      mouseSensitivity: -1,
       color: 'url(example)',
       extra: true,
     })
@@ -34,6 +37,7 @@ describe('saved preferences', () => {
     expect(settings.power).toBe(2)
     expect(settings.cruiseSpeed).toBe(45)
     expect(settings.controllerDeadzone).toBe(0.4)
+    expect(settings.mouseSensitivity).toBe(0.5)
     expect(settings.seed).toBe(99999)
     expect(settings.color).toBe(defaults.color)
     expect('extra' in settings).toBe(false)
@@ -50,6 +54,8 @@ describe('saved preferences', () => {
       cruiseSpeed: 12.5,
       controllerEnabled: false,
       controllerDeadzone: 0.08,
+      mouseEnabled: true,
+      mouseSensitivity: 1.5,
       units: 'mi' as const,
       color: '#b65a44',
     }

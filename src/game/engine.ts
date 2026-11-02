@@ -1,8 +1,9 @@
 import * as THREE from 'three'
 import { DriveAudio } from './audio'
-import { neutralInput, releaseAssistance, resolveInput } from './controls'
+import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 import { type ControllerStatus, GamepadControls } from './gamepad'
 import { createVehicleModel, type VehicleModel } from './model'
+import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Terrain } from './terrain'
 import { vehicleMetrics } from './vehicles'
@@ -22,6 +23,7 @@ export interface DriveState extends Telemetry {
   paused: boolean
   fps: number
   controller: ControllerStatus
+  mouseSteering: number
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
@@ -48,6 +50,7 @@ export class RoadEngine {
   controller = new GamepadControls()
   controllerInput: Input = { ...neutralInput }
   controllerStatus: ControllerStatus = 'none'
+  mouse = new MouseControls()
   lastTime = 0
   accumulator = 0
   lastTelemetry = 0
@@ -59,7 +62,7 @@ export class RoadEngine {
   frameRate = 60
   onState?: (state: DriveState) => void
   onAction?: (
-    action: 'pause' | 'auto' | 'camera' | 'help' | 'autoMode' | 'cruiseUp' | 'cruiseDown',
+    action: 'pause' | 'auto' | 'camera' | 'help' | 'autoMode' | 'cruiseUp' | 'cruiseDown' | 'mouse',
   ) => void
   resize = () => {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -86,6 +89,7 @@ export class RoadEngine {
     if (event.code === 'Space') this.manualOverride('all')
     if (event.code === 'KeyF') this.onAction?.('auto')
     if (event.code === 'KeyG') this.onAction?.('autoMode')
+    if (event.code === 'KeyM') this.onAction?.('mouse')
     if (['Equal', 'NumpadAdd'].includes(event.code)) this.onAction?.('cruiseUp')
     if (['Minus', 'NumpadSubtract'].includes(event.code)) this.onAction?.('cruiseDown')
     if (event.code === 'KeyP' || event.code === 'Escape') this.onAction?.('pause')
@@ -101,11 +105,50 @@ export class RoadEngine {
     this.touch = { ...neutralInput }
     this.controllerInput = { ...neutralInput }
     this.controller.suspend()
+    this.mouse.reset()
   }
   visibility = () => {
     this.lastTime = 0
     this.accumulator = 0
     if (document.hidden) this.blur()
+  }
+  pointerMove = (event: PointerEvent) => {
+    if (
+      !this.settings.mouseEnabled ||
+      this.controlsBlocked ||
+      this.paused ||
+      event.pointerType !== 'mouse'
+    )
+      return
+    const area = this.canvas.getBoundingClientRect()
+    if (this.mouse.move(event.clientX - area.left, area.width, this.settings.mouseSensitivity))
+      this.manualOverride('steer')
+  }
+  pointerDown = (event: PointerEvent) => {
+    if (
+      !this.settings.mouseEnabled ||
+      this.controlsBlocked ||
+      this.paused ||
+      event.pointerType !== 'mouse' ||
+      ![0, 2].includes(event.button)
+    )
+      return
+    this.pointerMove(event)
+    this.mouse.setButtons(event.buttons)
+    this.canvas.setPointerCapture(event.pointerId)
+    if (!this.started) this.start()
+    this.manualOverride('speed')
+    event.preventDefault()
+  }
+  pointerUp = (event: PointerEvent) => {
+    if (event.pointerType === 'mouse') this.mouse.setButtons(event.buttons)
+  }
+  pointerCancel = () => this.mouse.reset()
+  pointerLeave = () => {
+    if (!this.mouse.buttons) this.mouse.reset()
+  }
+  contextMenu = (event: Event) => {
+    if (this.settings.mouseEnabled) event.preventDefault()
   }
   constructor(
     public canvas: HTMLCanvasElement,
@@ -168,6 +211,12 @@ export class RoadEngine {
     window.addEventListener('keyup', this.keyUp)
     window.addEventListener('blur', this.blur)
     document.addEventListener('visibilitychange', this.visibility)
+    canvas.addEventListener('pointermove', this.pointerMove)
+    canvas.addEventListener('pointerdown', this.pointerDown)
+    canvas.addEventListener('pointerup', this.pointerUp)
+    canvas.addEventListener('pointercancel', this.pointerCancel)
+    canvas.addEventListener('pointerleave', this.pointerLeave)
+    canvas.addEventListener('contextmenu', this.contextMenu)
     this.frame = requestAnimationFrame(this.render)
   }
   start(assistance: AssistanceMode = 'off') {
@@ -213,6 +262,7 @@ export class RoadEngine {
       paused: this.paused,
       fps: this.frameRate,
       controller: this.controllerStatus,
+      mouseSteering: this.mouse.steer,
     })
   }
   reset() {
@@ -227,8 +277,10 @@ export class RoadEngine {
       settings.seed !== this.settings.seed
     const vehicleChange = settings.vehicle !== this.settings.vehicle
     const assistanceChange = settings.autodriveMode !== this.settings.autodriveMode
+    const mouseChange = settings.mouseEnabled !== this.settings.mouseEnabled
     this.settings = { ...settings }
     this.world.settings = this.settings
+    if (mouseChange) this.mouse.reset()
     if (refresh) this.terrain.refresh(this.settings)
     if (vehicleChange) {
       this.scene.remove(this.car.group)
@@ -280,19 +332,18 @@ export class RoadEngine {
   manualInput(): Input {
     if (this.controlsBlocked) return { ...neutralInput }
     const has = (...codes: string[]) => codes.some((c) => this.keys.has(c))
-    return {
-      throttle: has('KeyW', 'ArrowUp')
-        ? 1
-        : Math.max(this.touch.throttle, this.controllerInput.throttle),
-      brake: has('KeyS', 'ArrowDown') ? 1 : Math.max(this.touch.brake, this.controllerInput.brake),
-      steer: has('KeyA', 'ArrowLeft')
-        ? 1
-        : has('KeyD', 'ArrowRight')
-          ? -1
-          : this.touch.steer || this.controllerInput.steer,
-      handbrake: has('Space') || this.touch.handbrake || this.controllerInput.handbrake,
-      regenBrake: 0,
-    }
+    return mergeManualInput(
+      {
+        ...neutralInput,
+        throttle: has('KeyW', 'ArrowUp') ? 1 : 0,
+        brake: has('KeyS', 'ArrowDown') ? 1 : 0,
+        steer: (has('KeyA', 'ArrowLeft') ? 1 : 0) - (has('KeyD', 'ArrowRight') ? 1 : 0),
+        handbrake: has('Space'),
+      },
+      this.touch,
+      this.controllerInput,
+      this.settings.mouseEnabled ? this.mouse.input() : null,
+    )
   }
   pollController() {
     this.controllerInput = { ...neutralInput }
@@ -312,7 +363,7 @@ export class RoadEngine {
       this.controllerStatus = frame.status
       if (blocked) return
       this.controllerInput = frame.input
-      if (!this.paused) {
+      if (!this.paused && !this.settings.mouseEnabled) {
         if (frame.steerActive) this.manualOverride('steer')
         if (frame.pedalsActive) this.manualOverride('speed')
         if (frame.handbrakeActive) this.manualOverride('all')
@@ -324,7 +375,7 @@ export class RoadEngine {
         } else if (action === 'reset') this.reset()
         else this.onAction?.(action)
       }
-      if (!this.started && frame.pedalsActive) this.start()
+      if (!this.started && frame.pedalsActive && !this.settings.mouseEnabled) this.start()
     } catch {
       this.controllerStatus = 'unavailable'
     }
@@ -451,6 +502,12 @@ export class RoadEngine {
     window.removeEventListener('keyup', this.keyUp)
     window.removeEventListener('blur', this.blur)
     document.removeEventListener('visibilitychange', this.visibility)
+    this.canvas.removeEventListener('pointermove', this.pointerMove)
+    this.canvas.removeEventListener('pointerdown', this.pointerDown)
+    this.canvas.removeEventListener('pointerup', this.pointerUp)
+    this.canvas.removeEventListener('pointercancel', this.pointerCancel)
+    this.canvas.removeEventListener('pointerleave', this.pointerLeave)
+    this.canvas.removeEventListener('contextmenu', this.contextMenu)
     this.terrain.dispose()
     this.water.dispose()
     this.car.dispose()

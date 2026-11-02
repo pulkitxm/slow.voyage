@@ -29,6 +29,8 @@ export interface Settings {
   onePedal: boolean
   controllerEnabled: boolean
   controllerDeadzone: number
+  mouseEnabled: boolean
+  mouseSensitivity: number
 }
 export const defaults: Settings = {
   landscape: 'highlands',
@@ -48,6 +50,8 @@ export const defaults: Settings = {
   onePedal: false,
   controllerEnabled: true,
   controllerDeadzone: 0.12,
+  mouseEnabled: false,
+  mouseSensitivity: 1,
 }
 export const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 export const damp = (a: number, b: number, rate: number, dt: number) =>
