@@ -16,6 +16,8 @@ export interface VehicleMetrics {
   centerOfMassHeight: number
   maxSpeed: number
   maxSteering: number
+  steeringSpeed: number
+  steeringAcceleration: number
 }
 export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   touring: {
@@ -34,6 +36,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     centerOfMassHeight: 0.42,
     maxSpeed: 45,
     maxSteering: 0.68,
+    steeringSpeed: 1.57,
+    steeringAcceleration: 12,
   },
   roadster: {
     acceleration: 11,
@@ -51,6 +55,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     centerOfMassHeight: 0.4,
     maxSpeed: 53,
     maxSteering: 0.68,
+    steeringSpeed: 1.57,
+    steeringAcceleration: 12,
   },
   motorcycle: {
     acceleration: 11,
@@ -68,6 +74,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     centerOfMassHeight: 0.6,
     maxSpeed: 53,
     maxSteering: 0.4,
+    steeringSpeed: 1.57,
+    steeringAcceleration: 8,
   },
   bus: {
     acceleration: 6,
@@ -85,6 +93,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     centerOfMassHeight: 1.1,
     maxSpeed: 32,
     maxSteering: 0.65,
+    steeringSpeed: 0.45,
+    steeringAcceleration: 6,
   },
 }
 export const vehicleNames: Record<Vehicle, string> = {

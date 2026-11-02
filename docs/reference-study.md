@@ -55,9 +55,17 @@ These values now inform the touring car and bus. Each wheel has an independent
 ground contact, spring and damper, suspension travel, steering angle, and rolling
 distance. Spring loads drive chassis heave, pitch, and roll, including loss of
 contact, landing, and acceleration weight transfer. Wheel motion in the renderer
-uses those states. The lateral motion still uses a bicycle approximation with
-limited grip. Matching constants alone does not establish matching dynamics.
-The additional convertible has its own handling profile.
+uses those states. Wheel-local longitudinal and lateral impulses share a friction
+budget based on the wheel's current load and surface. Unloaded wheels cannot
+accelerate or steer the chassis. Locked wheels slide against their contact
+velocity, and the handbrake locks the rear wheels. Steering speed and acceleration
+are vehicle-specific. Autodrive uses a geometric pursuit target.
+
+Mass and suspension travel also come from the historical definitions. Damping
+ratios, center-of-mass height, and chassis inertia are reconstructed tuning
+values. The solver is an independent implementation and still needs reference
+response measurements. Matching constants alone does not establish matching
+dynamics. The additional convertible has its own handling profile.
 
 The historical bundle also includes an enclosed two-wheel motorcycle, disabled
 in that release's menu. Its wheelbase is 1.95 meters, tire radius is 0.26 meters,
@@ -113,8 +121,8 @@ Completion requires current evidence for the full requested fidelity:
 - Inspect the current official game after browser verification is available.
 - Measure and compare acceleration, braking distance, steering response, grip,
   reverse, suspension, and behavior at high speed against the reference.
-- Replace the bicycle approximation with wheel-local traction forces and verify
-  the suspension response against reference measurements.
+- Verify wheel-local traction, suspension response, weight transfer, and locked
+  braking against reference measurements.
 - Match terrain generation, road profiles, horizon detail, ground textures,
   vegetation, and atmospheric rendering more closely. The current foliage atlas,
   grass, water, and material generation require further reference comparison.

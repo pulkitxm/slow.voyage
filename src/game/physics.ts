@@ -1,4 +1,5 @@
 import { Suspension } from './suspension'
+import { solveTires } from './tires'
 import { vehicleMetrics } from './vehicles'
 import { angleDifference, clamp, damp, type Settings, type World } from './world'
 
@@ -18,6 +19,10 @@ export interface Telemetry {
   gear: string
   impact: number
 }
+function steeringLimit(speed: number, settings: Settings) {
+  const metrics = vehicleMetrics[settings.vehicle]
+  return metrics.maxSteering * (1 - 0.75 * clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1))
+}
 export class CarPhysics {
   x = 0
   s = 180
@@ -29,6 +34,7 @@ export class CarPhysics {
   rollRate = 0
   speed = 0
   steering = 0
+  steeringRate = 0
   yawRate = 0
   lateralSpeed = 0
   verticalSpeed = 0
@@ -52,13 +58,18 @@ export class CarPhysics {
     this.y = road.y
     this.yaw = road.yaw
     this.speed = this.steering = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
+    this.steeringRate = 0
     this.suspension.reset(this)
   }
   autoInput(targetSpeed: number): Input {
     const lookahead = 13 + Math.abs(this.speed) * 0.8
     const target = this.world.road(this.s + lookahead)
-    const desiredYaw = Math.atan2(-(target.x + 2 - this.x), lookahead)
-    const error = angleDifference(desiredYaw, this.yaw)
+    const targetX = target.x + 2 - this.x
+    const targetRight = targetX * Math.cos(this.yaw) + lookahead * Math.sin(this.yaw)
+    const curvature = (-2 * targetRight) / (targetX * targetX + lookahead * lookahead)
+    const metrics = vehicleMetrics[this.world.settings.vehicle]
+    const steer =
+      Math.atan(metrics.wheelbase * curvature) / steeringLimit(this.speed, this.world.settings)
     const bend = Math.abs(
       angleDifference(this.world.road(this.s + 65).yaw, this.world.road(this.s).yaw),
     )
@@ -66,7 +77,7 @@ export class CarPhysics {
     return {
       throttle: clamp((safeSpeed - this.speed) * 0.5, 0, 1),
       brake: clamp((this.speed - safeSpeed) * 0.3, 0, 1),
-      steer: clamp(error * 4.5 - this.yawRate * 0.3, -1, 1),
+      steer: clamp(steer, -1, 1),
       handbrake: false,
     }
   }
@@ -76,62 +87,64 @@ export class CarPhysics {
       this.suspension.configure(settings.vehicle)
       this.suspension.reset(this)
     }
-    const previousSpeed = this.speed
     const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
     const road = this.world.road(this.s)
     const offset = this.x - road.x
-    this.offroad = Math.abs(offset) > 4.6
     const v = Math.abs(this.speed)
-    const rolling = 0.1 + vehicle.rollingResistance * v + (this.offroad ? 1.4 + v * 0.04 : 0)
-    const gravity = -9.81 * road.dy * Math.cos(angleDifference(this.yaw, road.yaw))
-    const targetForce =
-      input.throttle *
-      vehicle.acceleration *
-      settings.power *
-      0.5 *
-      (1 + Math.max(0, 0.5 * (1 - v / 27)))
+    const reversing = input.brake > 0 && input.throttle === 0 && this.speed < 0.4
+    const targetForce = reversing
+      ? -input.brake * vehicle.reverse * 0.5
+      : input.throttle *
+        vehicle.acceleration *
+        settings.power *
+        0.5 *
+        (1 + Math.max(0, 0.5 * (1 - v / 27)))
     this.driveForce += clamp(
       targetForce - this.driveForce,
       -vehicle.jerk * dt * 0.5,
       vehicle.jerk * dt * 0.5,
     )
-    this.brakeForce = input.brake
-      ? Math.min(vehicle.brake * input.brake, this.brakeForce + vehicle.brake * 4 * dt)
-      : 0
-    const throttle = this.driveForce
-    const braking = this.brakeForce + (handbrake ? vehicle.brake * 0.6 : 0)
-    const resistance = rolling + vehicle.drag * v * v + braking
-    const direction = Math.sign(this.speed || input.throttle || -input.brake)
-    if (this.speed > 0.4 || input.throttle > 0) {
-      this.speed += (throttle + gravity - resistance * direction) * dt
-      if (this.speed < 0 && !input.throttle) this.speed = 0
-    } else if (input.brake > 0 && input.throttle === 0) {
-      this.speed = Math.max(-5, this.speed - vehicle.reverse * 0.5 * dt)
-    } else {
-      this.speed = damp(this.speed, 0, 5, dt)
-    }
-    this.speed = clamp(this.speed, -5, 110)
-    const maxSteering = vehicle.maxSteering * (1 - 0.75 * clamp(v / vehicle.maxSpeed, 0, 1))
-    this.steering = damp(this.steering, input.steer * maxSteering, 7, dt)
-    const targetYaw = (this.speed / vehicle.wheelbase) * Math.tan(this.steering)
-    const grip =
-      settings.grip *
-      (settings.season === 'winter' ? 0.58 : 1) *
-      (this.offroad ? 0.64 : 1) *
-      (handbrake ? 0.38 : 1)
-    const maxYaw = (grip * 9.81) / Math.max(v, 3)
-    this.yawRate = damp(this.yawRate, clamp(targetYaw, -maxYaw, maxYaw), 7 * grip, dt)
-    this.yaw += this.yawRate * dt
-    this.slip = Math.max(0, Math.abs(targetYaw) - maxYaw)
-    this.lateralSpeed = damp(
-      this.lateralSpeed,
-      -Math.sign(targetYaw) * this.slip * v * 0.9,
-      3 * grip,
+    this.brakeForce =
+      input.brake && !reversing
+        ? Math.min(vehicle.brake * input.brake, this.brakeForce + vehicle.brake * 4 * dt)
+        : 0
+    const steeringError = input.steer * steeringLimit(this.speed, settings) - this.steering
+    const desiredSteeringRate = clamp(
+      steeringError * 7,
+      -vehicle.steeringSpeed,
+      vehicle.steeringSpeed,
+    )
+    this.steeringRate += clamp(
+      desiredSteeringRate - this.steeringRate,
+      -vehicle.steeringAcceleration * dt,
+      vehicle.steeringAcceleration * dt,
+    )
+    const steeringStep = this.steeringRate * dt
+    if (
+      Math.sign(steeringStep) === Math.sign(steeringError) &&
+      Math.abs(steeringStep) >= Math.abs(steeringError)
+    ) {
+      this.steering += steeringError
+      this.steeringRate = 0
+    } else this.steering += steeringStep
+    this.suspension.updateSteering(this.steering)
+    const acceleration = solveTires(
       dt,
+      this,
+      this.suspension.wheels,
+      settings,
+      this.driveForce,
+      this.brakeForce,
+      handbrake,
     )
     this.x += (-Math.sin(this.yaw) * this.speed + Math.cos(this.yaw) * this.lateralSpeed) * dt
     this.s += (Math.cos(this.yaw) * this.speed + Math.sin(this.yaw) * this.lateralSpeed) * dt
-    this.distance += Math.abs(this.speed) * dt
+    this.distance += Math.hypot(this.speed, this.lateralSpeed) * dt
+    const turn = this.yawRate * dt
+    const forwardSpeed = this.speed * Math.cos(turn) - this.lateralSpeed * Math.sin(turn)
+    this.lateralSpeed = this.lateralSpeed * Math.cos(turn) + this.speed * Math.sin(turn)
+    this.speed = clamp(forwardSpeed, -5, 110)
+    this.yaw += turn
     const nextRoad = this.world.road(this.s)
     const nextOffset = this.x - nextRoad.x
     const side = Math.sign(nextOffset)
@@ -144,13 +157,11 @@ export class CarPhysics {
       this.lateralSpeed = -side * 1.2
       this.impact = 1
     }
-    this.suspension.update(
-      dt,
-      this,
-      (this.speed - previousSpeed) / dt,
-      -this.yawRate * this.speed,
-      handbrake,
-    )
+    this.suspension.update(dt, this, acceleration.forward, acceleration.lateral, handbrake)
+    this.offroad = this.suspension.wheels.some((wheel) => wheel.contact && !wheel.onRoad)
+    this.slip =
+      this.suspension.wheels.reduce((sum, wheel) => sum + wheel.slip, 0) /
+      this.suspension.wheels.length
   }
   telemetry(): Telemetry {
     return {
