@@ -1,0 +1,7 @@
+@import '@fontsource/dm-sans/400.css';
+@import '@fontsource/dm-sans/500.css';
+@import '@fontsource/dm-sans/600.css';
+@import '@fontsource/manrope/300.css';
+@import '@fontsource/manrope/400.css';
+@import '@fontsource/manrope/600.css';
+*{box-sizing:border-box}html,body,#root{margin:0;width:100%;height:100%;overflow:hidden}body{font-family:'DM Sans',sans-serif;background:#b6c6b7;color:#fff}.drive{height:100dvh;position:relative}.drive canvas{display:block;width:100%;height:100%}.brand{position:absolute;top:35px;left:42px;font:300 29px 'Manrope',sans-serif;letter-spacing:6px}.brand span{display:block;font:500 8px 'DM Sans',sans-serif;letter-spacing:3px;margin-top:10px}.intro{position:absolute;left:7%;top:30%;text-shadow:0 1px 30px #314b3e33}.intro>span{font-size:10px;letter-spacing:3px}h1{font:300 62px/1.16 'Manrope',sans-serif;letter-spacing:-2px}h1 i{font-style:normal;color:#edf2db}.intro p{font-size:13px;opacity:.8}footer{position:absolute;bottom:35px;left:42px;font-size:11px;letter-spacing:1px;opacity:.8}
