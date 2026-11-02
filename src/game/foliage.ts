@@ -2,8 +2,59 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { random, type Season } from './world'
 
-const atlasSize = 1024
-const tileSize = atlasSize / 2
+const atlasColumns = 2
+const atlasRows = 3
+const tileSize = 512
+function drawConifer(context: CanvasRenderingContext2D, season: Season) {
+  const rng = random(5489)
+  context.strokeStyle = '#514b3c'
+  context.lineWidth = 9
+  context.beginPath()
+  context.moveTo(256, 503)
+  context.lineTo(256, 48)
+  context.stroke()
+  for (let layer = 15; layer >= 0; layer--) {
+    const y = 58 + layer * 25
+    const width = (19 + layer * 9.7) * (0.76 + rng() * 0.36)
+    const leftWidth = width * (0.85 + rng() * 0.3)
+    const rightWidth = width * (0.85 + rng() * 0.3)
+    const hue = season === 'winter' ? 142 : 118
+    const lightness = 20 + rng() * 7
+    context.fillStyle = `hsl(${hue} 24% ${lightness}%)`
+    context.beginPath()
+    context.moveTo(256, y - 18)
+    context.lineTo(256 - leftWidth, y + 31)
+    for (let i = 0; i <= 12; i++) {
+      const fraction = i / 12
+      context.lineTo(256 - leftWidth + fraction * (leftWidth + rightWidth), y + 23 + rng() * 15)
+    }
+    context.lineTo(256 + rightWidth, y + 31)
+    context.closePath()
+    context.fill()
+    for (const side of [-1, 1]) {
+      const branchWidth = side < 0 ? leftWidth : rightWidth
+      for (let twig = 0; twig < 36; twig++) {
+        const t = rng()
+        const x = 256 + side * branchWidth * t
+        const branchY = y + 20 * t + rng() * 12
+        context.strokeStyle = `hsl(${hue + rng() * 12} ${22 + rng() * 13}% ${lightness + 3 + rng() * 10}%)`
+        context.lineWidth = 2 + rng() * 2
+        context.beginPath()
+        context.moveTo(x - side * 8, branchY - 9)
+        context.lineTo(x + side * 7, branchY + 8 + rng() * 8)
+        context.stroke()
+      }
+      if (season === 'winter' && rng() < 0.45) {
+        context.strokeStyle = '#cbd7d1'
+        context.lineWidth = 2 + rng() * 2
+        context.beginPath()
+        context.moveTo(256 + side * width * 0.08, y + 1)
+        context.lineTo(256 + side * width * 0.52, y + 10)
+        context.stroke()
+      }
+    }
+  }
+}
 function canopy(
   context: CanvasRenderingContext2D,
   rng: () => number,
@@ -29,6 +80,19 @@ function canopy(
   }
 }
 function drawTree(context: CanvasRenderingContext2D, variant: number, season: Season) {
+  if (variant === 4) {
+    drawConifer(context, season)
+    return
+  }
+  if (variant === 5) {
+    context.save()
+    context.translate(256, 0)
+    context.scale(0.58, 1)
+    context.translate(-256, 0)
+    drawTree(context, 1, season)
+    context.restore()
+    return
+  }
   const rng = random(324 + variant * 981)
   const centers: { x: number; y: number; radius: number }[] = []
   if (variant >= 2) {
@@ -137,7 +201,8 @@ export class Foliage {
   winterShrubGeometries: THREE.BufferGeometry[] = []
   constructor(season: Season) {
     this.canvas = document.createElement('canvas')
-    this.canvas.width = this.canvas.height = atlasSize
+    this.canvas.width = tileSize * atlasColumns
+    this.canvas.height = tileSize * atlasRows
     this.texture = new THREE.CanvasTexture(this.canvas)
     this.texture.colorSpace = THREE.SRGBColorSpace
     this.texture.anisotropy = 8
@@ -150,10 +215,10 @@ export class Foliage {
       emissive: '#657745',
       emissiveIntensity: 0.18,
     })
-    for (let variant = 0; variant < 6; variant++) {
+    for (let variant = 0; variant < 8; variant++) {
       const planes: THREE.BufferGeometry[] = []
       const shrub = variant >= 2 && variant < 4
-      const atlasVariant = variant >= 4 ? variant - 2 : variant
+      const atlasVariant = variant >= 6 ? variant - 4 : variant
       const rng = random(635 + variant * 871)
       const count = shrub ? 8 : 3
       for (let side = 0; side < count; side++) {
@@ -172,14 +237,14 @@ export class Foliage {
         for (let i = 0; i < uv.count; i++)
           uv.setXY(
             i,
-            uv.getX(i) * 0.5 + (atlasVariant % 2) * 0.5,
-            uv.getY(i) * 0.5 + Math.floor(atlasVariant / 2) * 0.5,
+            (uv.getX(i) + (atlasVariant % atlasColumns)) / atlasColumns,
+            (uv.getY(i) + Math.floor(atlasVariant / atlasColumns)) / atlasRows,
           )
         planes.push(plane)
       }
       const merged = mergeGeometries(planes)
       if (!merged) throw new Error('Tree geometry could not be assembled')
-      if (variant >= 4) this.winterShrubGeometries.push(merged)
+      if (variant >= 6) this.winterShrubGeometries.push(merged)
       else this.treeGeometries.push(merged)
       for (const plane of planes) plane.dispose()
     }
@@ -188,10 +253,13 @@ export class Foliage {
   update(season: Season) {
     const context = this.canvas.getContext('2d')
     if (!context) throw new Error('Foliage canvas is unavailable')
-    context.clearRect(0, 0, atlasSize, atlasSize)
-    for (let variant = 0; variant < 4; variant++) {
+    context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    for (let variant = 0; variant < 6; variant++) {
       context.save()
-      context.translate((variant % 2) * tileSize, (1 - Math.floor(variant / 2)) * tileSize)
+      context.translate(
+        (variant % atlasColumns) * tileSize,
+        (atlasRows - 1 - Math.floor(variant / atlasColumns)) * tileSize,
+      )
       drawTree(context, variant, season)
       context.restore()
     }
