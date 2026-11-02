@@ -135,6 +135,14 @@ assisted axis. A browser flow verifies those handoffs and the control settings;
 simulation checks verify that one-pedal braking stops without selecting reverse.
 The precise current-release response and mappings still require comparison.
 
+Standard-layout controller input now uses the browser's
+[Gamepad API mapping](https://www.w3.org/TR/gamepad/#remapping), polled per frame.
+Analog triggers retain pressure values, sticks have an adjustable deadzone,
+buttons act on press edges, and disconnect or loss of focus clears driving input.
+Unit checks and a browser fixture exercise the input path with synthetic
+controller states. Physical controllers and custom device mappings remain
+unverified; the browser fixture does not establish hardware compatibility.
+
 - The live TanStack Start development server responds on port 3002.
 - Manual driving, autodrive, pause/resume, vehicle and scenery changes render in a
   real Chrome session without page errors in the captured flows.
@@ -168,7 +176,7 @@ Completion requires current evidence for the full requested fidelity:
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A detailed cabin view is pending; the local selection
   now includes the touring car, convertible, enclosed motorcycle, and bus.
-- Implement and verify mouse and controller input, reverse cruise, chase orbit
+- Implement mouse input, custom controller mappings, reverse cruise, chase orbit
   and zoom, speed-dependent field of view, and first-person look-around. Compare
   the reconstructed assistance modes and one-pedal response with the current game.
 - Verify extended driving performance, resource bounds, mobile layouts, and

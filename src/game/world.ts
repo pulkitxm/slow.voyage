@@ -27,6 +27,8 @@ export interface Settings {
   autodriveMode: Exclude<AssistanceMode, 'off'>
   cruiseSpeed: number
   onePedal: boolean
+  controllerEnabled: boolean
+  controllerDeadzone: number
 }
 export const defaults: Settings = {
   landscape: 'highlands',
@@ -44,6 +46,8 @@ export const defaults: Settings = {
   autodriveMode: 'full',
   cruiseSpeed: 22,
   onePedal: false,
+  controllerEnabled: true,
+  controllerDeadzone: 0.12,
 }
 export const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 export const damp = (a: number, b: number, rate: number, dt: number) =>

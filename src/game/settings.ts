@@ -1,4 +1,13 @@
 import { defaults, type Settings } from './world'
+
+const numericRanges = {
+  volume: [0, 1],
+  grip: [0.2, 2],
+  power: [0.5, 2],
+  seed: [0, 99999],
+  cruiseSpeed: [5, 45],
+  controllerDeadzone: [0.05, 0.4],
+} as const
 export const cameras = ['chase', 'bonnet', 'cinematic'] as const
 export function decodeSettings(stored: unknown): Settings {
   try {
@@ -28,23 +37,14 @@ export function decodeSettings(stored: unknown): Settings {
       if (typeof values[key] === 'string' && options[key].includes(values[key]))
         Object.assign(result, { [key]: values[key] })
     }
-    for (const key of ['volume', 'grip', 'power', 'seed', 'cruiseSpeed'] as const)
+    for (const [key, [minimum, maximum]] of Object.entries(numericRanges))
       if (typeof values[key] === 'number' && Number.isFinite(values[key])) {
-        const range =
-          key === 'volume'
-            ? [0, 1]
-            : key === 'seed'
-              ? [0, 99999]
-              : key === 'grip'
-                ? [0.2, 2]
-                : key === 'cruiseSpeed'
-                  ? [5, 45]
-                  : [0.5, 2]
         Object.assign(result, {
-          [key]: Math.max(range[0] ?? 0, Math.min(range[1] ?? 1, values[key])),
+          [key]: Math.max(minimum, Math.min(maximum, values[key])),
         })
       }
-    if (typeof values.onePedal === 'boolean') result.onePedal = values.onePedal
+    for (const key of ['onePedal', 'controllerEnabled'] as const)
+      if (typeof values[key] === 'boolean') result[key] = values[key]
     if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))
       result.color = values.color
     return result

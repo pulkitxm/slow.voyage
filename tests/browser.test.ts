@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PNG } from 'pngjs'
 import { z } from 'zod'
+import { controllerFixture } from './controller-fixture'
 
 const captureSchema = z.object({
   normalized_result: z.object({
@@ -55,7 +56,11 @@ const press = (step_id: string, key: string, selector = 'body') => ({
   timeout_ms: 20000,
 })
 
-async function capture(actions: object[] | ((origin: string) => object[]), screenshot = false) {
+async function capture(
+  actions: object[] | ((origin: string) => object[]),
+  screenshot = false,
+  controller = false,
+) {
   const executable =
     process.env.BROWSER_EXECUTABLE ??
     (process.platform === 'darwin'
@@ -70,7 +75,7 @@ async function capture(actions: object[] | ((origin: string) => object[]), scree
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
-    fetch(request) {
+    async fetch(request) {
       const path = new URL(request.url).pathname
       if (path === '/__disconnect') {
         setTimeout(() => {
@@ -83,9 +88,14 @@ async function capture(actions: object[] | ((origin: string) => object[]), scree
         )
       }
       const file = assets.get(path === '/' ? '/index.html' : path)
-      return file
-        ? new Response(file, { headers: { 'cache-control': 'no-store' } })
-        : new Response('Not found', { status: 404 })
+      if (!file) return new Response('Not found', { status: 404 })
+      const body =
+        controller && (path === '/' || path === '/index.html')
+          ? (await file.text()).replace('<head>', `<head><script>${controllerFixture}</script>`)
+          : file
+      return new Response(body, {
+        headers: { 'cache-control': 'no-store', 'content-type': file.type },
+      })
     },
   })
   const directory = await mkdtemp(join(tmpdir(), 'slowroads-browser-'))
@@ -264,4 +274,42 @@ test('hands assisted axes to the driver and configures one-pedal and cruise cont
     wait('speed-active', '[data-assistance="speed"]'),
     settle,
   ])
+}, 150000)
+
+test('polls a simulated browser gamepad for driving, buttons, and disconnects', async () => {
+  await capture(
+    [
+      start,
+      wait('controller-connected', '[data-controller="connected"]'),
+      wait('autodrive', '[data-assistance="full"]'),
+      press('trigger', '1'),
+      wait('pedals-taken', '[data-assistance="steer"]'),
+      press('release', '0'),
+      press('stick', '2'),
+      wait('steering-taken', '[data-assistance="off"]'),
+      press('release-stick', '0'),
+      press('toggle-auto', '3'),
+      wait('auto-button', '[data-assistance="full"]'),
+      press('release-auto', '0'),
+      press('camera-button', '4'),
+      wait('camera-changed', '[aria-label="Change camera (bonnet)"]'),
+      press('release-camera', '0'),
+      press('pause-button', '7'),
+      wait('paused', '[aria-label="Resume driving"]'),
+      press('release-pause', '0'),
+      wait('release-observed', 'html[data-fixture-pad-neutral="yes"]'),
+      press('resume-button', '7'),
+      wait('resumed', '[aria-label="Pause driving"]'),
+      press('release-resume', '0'),
+      press('disconnect', '5'),
+      wait('controller-gone', '[data-controller="none"]'),
+      press('reconnect', '6'),
+      wait('controller-back', '[data-controller="connected"]'),
+      press('unmapped', '8'),
+      wait('mapping-unavailable', '[data-controller="unsupported"]'),
+      settle,
+    ],
+    false,
+    true,
+  )
 }, 150000)

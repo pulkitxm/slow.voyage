@@ -57,7 +57,10 @@ export function Drive() {
   const distance = state.distance / (settings.units === 'km' ? 1000 : 1609.344)
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
   return (
-    <main className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''}`}>
+    <main
+      className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''}`}
+      data-controller={state.controller}
+    >
       <canvas
         ref={canvas}
         aria-label="Interactive 3D scenic driving game. Use W A S D or arrow keys to drive."
@@ -314,6 +317,7 @@ export function Drive() {
           tab={tab}
           setTab={setTab}
           offline={offline}
+          controller={state.controller}
           onClose={() => setPanel(false)}
           onNewJourney={() => {
             update('seed', Math.floor(Math.random() * 99999))
