@@ -216,6 +216,10 @@ opposes the requested drive direction. Accelerating reverse cannot gain backward
 speed when forward is selected, and selecting reverse near rest cannot add a
 forward kick. Eight flat-road regressions and sixteen grade cases cover all four
 vehicles, including starting a forward transition from powered reverse.
+Generated-road regressions and held-key browser checks also cover the bus's
+near-zero contact motion. A 0.05 m/s handoff band prevents tiny solver velocities
+from holding the direction-change brake indefinitely while preserving braking
+priority and the requested torque direction.
 
 The render clock now accumulates up to a quarter second of elapsed time into fixed
 120 Hz simulation steps. Driving therefore retains its pace across slower render
