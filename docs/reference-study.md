@@ -99,6 +99,14 @@ sections. Lakeside terrain and a procedural water surface extend the scenery.
 These changes close visible gaps against the historical build. They do not prove
 matching generation or rendering against the current official release.
 
+The historical terrain generator combines radial controls at several scales.
+Its normal profile uses a 3-kilometer cell and resolutions of 3, 12, and 24,
+corresponding to 1,000-, 250-, and 125-meter terrain features. The local height
+field now uses those scales, signed shaped amplitudes, and a smooth radial
+falloff. It is anchored to the road corridor, and barriers follow roadside drops.
+The local seed mapping is independently implemented, so equal seed labels do
+not yet imply equal terrain in the historical game.
+
 ## Verified implementation behavior
 
 - The live TanStack Start development server responds on port 3002.
