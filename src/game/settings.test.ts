@@ -23,7 +23,7 @@ describe('saved preferences', () => {
       extra: true,
     })
     expect(settings.volume).toBe(1)
-    expect(settings.grip).toBe(0.5)
+    expect(settings.grip).toBe(0.2)
     expect(settings.power).toBe(2)
     expect(settings.seed).toBe(99999)
     expect(settings.color).toBe(defaults.color)
@@ -35,6 +35,7 @@ describe('saved preferences', () => {
       vehicle: 'bus' as const,
       season: 'winter' as const,
       volume: 0,
+      grip: 0.2,
       units: 'mi' as const,
       color: '#b65a44',
     }

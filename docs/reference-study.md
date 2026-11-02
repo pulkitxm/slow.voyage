@@ -15,6 +15,14 @@ The current official site presents a Cloudflare verification screen to both HTTP
 requests and a clean browser session in this environment. Its current rendering
 and behavior have not been measured.
 
+The [official site's indexed changelog](https://slowroads.io/) lists web version
+2.4.2, dated June 15, 2026. It records a physics rewrite in 2.1 and functional
+dashboards and improved interiors in 2.4, alongside stronger brakes and linear
+acceleration input. It also confirms controller and mouse support, additional
+autodrive modes, chase-camera orbit and zoom, first-person look-around, and a
+minimum grip factor of 0.2. The local grip control now reaches that minimum.
+Historical constants remain provisional for current-release handling.
+
 The historical game now loads and drives in an isolated browser session. Its application bundle is hosted at
 <https://slowxroads.com/static/js/main.e7a33c55.chunk.js>. This is an older build,
 so findings require current-release verification. The reference files and full
@@ -154,9 +162,9 @@ Completion requires current evidence for the full requested fidelity:
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A detailed cabin view is pending; the local selection
   now includes the touring car, convertible, enclosed motorcycle, and bus.
-- Verify the full controls, including controller and mouse behavior where the
-  current reference supports them. Current implementation covers keyboard and
-  touch input.
+- Implement and verify mouse and controller input, autosteer, autospeed,
+  one-pedal driving, chase orbit and zoom, and first-person look-around. Current
+  implementation covers keyboard, touch input, and full autodrive.
 - Verify extended driving performance, resource bounds, mobile layouts, and
   offline upgrades across repeated releases and browser sessions.
 

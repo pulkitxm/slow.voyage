@@ -28,7 +28,14 @@ export function decodeSettings(stored: unknown): Settings {
     }
     for (const key of ['volume', 'grip', 'power', 'seed'] as const)
       if (typeof values[key] === 'number' && Number.isFinite(values[key])) {
-        const range = key === 'volume' ? [0, 1] : key === 'seed' ? [0, 99999] : [0.5, 2]
+        const range =
+          key === 'volume'
+            ? [0, 1]
+            : key === 'seed'
+              ? [0, 99999]
+              : key === 'grip'
+                ? [0.2, 2]
+                : [0.5, 2]
         Object.assign(result, {
           [key]: Math.max(range[0] ?? 0, Math.min(range[1] ?? 1, values[key])),
         })
