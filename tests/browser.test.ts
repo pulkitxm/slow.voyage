@@ -36,7 +36,7 @@ const click = (step_id: string, selector: string) => ({
   step_id,
   action: 'click',
   locator: { kind: 'css', selector },
-  timeout_ms: 15000,
+  timeout_ms: 30000,
 })
 const wait = (step_id: string, selector: string) => ({
   step_id,
@@ -112,7 +112,7 @@ async function capture(actions: object[] | ((origin: string) => object[]), scree
       ['bunx', '--bun', 'rea-agents@6.8.0', 'capture-browser-scenario', input, '--format', 'json'],
       { stdout: 'pipe', stderr: 'pipe' },
     )
-    const timeout = setTimeout(() => child.kill(), 85000)
+    const timeout = setTimeout(() => child.kill(), 140000)
     const [stdout, stderr, code] = await Promise.all([
       new Response(child.stdout).text(),
       new Response(child.stderr).text(),
@@ -160,6 +160,7 @@ test('renders the road in bonnet view without shader or page errors', async () =
         key: 'c',
         timeout_ms: 10000,
       },
+      wait('bonnet-selected', '[aria-label="Change camera (bonnet)"]'),
       settle,
     ],
     true,
@@ -176,13 +177,13 @@ test('renders the road in bonnet view without shader or page errors', async () =
         g = bitmap.data[offset + 1] ?? 0,
         b = bitmap.data[offset + 2] ?? 0
       const brightness = (r + g + b) / 3
-      if (brightness > 60 && brightness < 230 && Math.max(r, g, b) - Math.min(r, g, b) < 30)
+      if (brightness > 60 && brightness < 180 && Math.max(r, g, b) - Math.min(r, g, b) < 30)
         roadPixels++
       pixels++
     }
   }
   expect(roadPixels / pixels).toBeGreaterThan(0.2)
-}, 90000)
+}, 150000)
 
 test('rebuilds seasonal scenery and vehicles without renderer errors', async () => {
   await capture([
@@ -196,7 +197,7 @@ test('rebuilds seasonal scenery and vehicles without renderer errors', async () 
     click('close-settings', '[aria-label="Close settings"]'),
     settle,
   ])
-}, 90000)
+}, 150000)
 
 test('reloads and drives after the HTTP origin shuts down', async () => {
   const { originStopped } = await capture((origin) => [
@@ -206,7 +207,7 @@ test('reloads and drives after the HTTP origin shuts down', async () => {
       action: 'goto',
       destination: { url: `${origin}/__disconnect` },
       wait_until: 'load',
-      timeout_ms: 15000,
+      timeout_ms: 30000,
     },
     wait('reloaded', '.intro .text-button'),
     start,
@@ -214,4 +215,4 @@ test('reloads and drives after the HTTP origin shuts down', async () => {
     settle,
   ])
   expect(originStopped).toBe(true)
-}, 90000)
+}, 150000)

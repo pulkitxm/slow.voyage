@@ -214,7 +214,7 @@ export function Drive() {
                 <kbd>F</kbd>
               </button>
               <span className="toolbar-divider" />
-              <IconButton label="Change camera" onClick={cycleCamera}>
+              <IconButton label={`Change camera (${settings.camera})`} onClick={cycleCamera}>
                 <Camera />
               </IconButton>
               <IconButton

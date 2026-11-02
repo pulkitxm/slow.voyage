@@ -12,7 +12,7 @@ The current official site presents a Cloudflare verification screen to both HTTP
 requests and a clean browser session in this environment. Its current rendering
 and behavior have not been measured.
 
-An accessible historical application bundle is hosted at
+The historical game now loads and drives in an isolated browser session. Its application bundle is hosted at
 <https://slowxroads.com/static/js/main.e7a33c55.chunk.js>. This is an older build,
 so findings require current-release verification. The reference files and full
 analysis artifacts are retained outside the source repository.
@@ -53,6 +53,25 @@ a bicycle approximation with limited lateral grip, rather than the historical
 four-wheel suspension solver. Matching constants alone does not establish
 matching dynamics. The additional convertible has its own handling profile.
 
+## Graphics measurements and reconstruction
+
+The historical renderer uses a default vertical field of view of 68 degrees.
+Its roadster body artifact at
+<https://slowxroads.com/static/media/roadster-07.0d45cf64.obj> has longitudinal
+bounds of -0.579 to 3.502 meters, lateral bounds of -0.823 to 0.823 meters, and a
+roof height of approximately 1.227 meters. The current procedural car body and
+chase framing use those proportions. The original mesh is retained only for
+local inspection and is not included in the application.
+
+Vegetation now uses locally painted foliage atlases on crossed planes. The
+atlas changes with the season, including bare winter branches. The ground has
+fine texture and broader color variation, with denser grass near the road and
+vertex-based wind movement. Streaming still bounds the number of terrain
+sections. Lakeside terrain and a procedural water surface extend the scenery.
+
+These changes close visible gaps against the historical build. They do not prove
+matching generation or rendering against the current official release.
+
 ## Verified implementation behavior
 
 - The live TanStack Start development server responds on port 3002.
@@ -67,6 +86,9 @@ matching dynamics. The additional convertible has its own handling profile.
 - A production browser capture waited for the offline-ready state, stopped the
   HTTP origin, reloaded the application, and drove without that origin. The
   captured steps completed without page errors.
+- The production entry page is statically prerendered. Real-browser checks cover
+  hydration errors, shader errors, visible road pixels in bonnet view, keyboard
+  button activation, and seasonal vehicle changes.
 - Build checks compile the service worker. Automated worker checks cover cached
   navigation, scripts, cache upgrades, and unrelated storage preservation.
 
@@ -80,8 +102,8 @@ Completion requires current evidence for the full requested fidelity:
 - Replace the approximate suspension and contact model where measurements demand
   independent wheel behavior.
 - Match terrain generation, road profiles, horizon detail, ground textures,
-  vegetation, and atmospheric rendering more closely. Current trees and grass
-  use simplified procedural geometry.
+  vegetation, and atmospheric rendering more closely. The current foliage atlas,
+  grass, water, and material generation require further reference comparison.
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A motorcycle and detailed cabin view are pending.
 - Verify the full controls, including controller and mouse behavior where the
