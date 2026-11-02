@@ -247,13 +247,11 @@ export class RoadEngine {
     this.scene.fog = new THREE.FogExp2('#d3ddd2', 0.00095)
     this.scene.add(this.ambient, this.sun, this.sun.target)
     this.sun.castShadow = true
-    this.sun.shadow.mapSize.set(budget.shadowSize, budget.shadowSize)
     this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -75
     this.sun.shadow.camera.right = this.sun.shadow.camera.top = 75
     this.sun.shadow.camera.near = 1
     this.sun.shadow.camera.far = 350
-    this.sun.shadow.normalBias = 0.05
-    this.sun.shadow.bias = -0.00015
+    this.configureShadows(budget)
     this.sky = new ScenicSky()
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
@@ -395,13 +393,20 @@ export class RoadEngine {
     }
     this.car.body.color.set(settings.color)
     this.renderer.setPixelRatio(budget.pixelRatio)
-    if (this.sun.shadow.mapSize.x !== budget.shadowSize) {
-      this.sun.shadow.mapSize.set(budget.shadowSize, budget.shadowSize)
-      this.sun.shadow.map?.dispose()
-      this.sun.shadow.map = null
-    }
+    this.configureShadows(budget)
     this.applyLighting()
     if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
+  }
+  configureShadows(budget: ReturnType<typeof graphicsBudget>) {
+    const shadow = this.sun.shadow
+    shadow.radius = budget.shadowRadius
+    shadow.bias = budget.shadowBias
+    shadow.normalBias = budget.shadowNormalBias
+    if (shadow.mapSize.x !== budget.shadowSize) {
+      shadow.mapSize.set(budget.shadowSize, budget.shadowSize)
+      shadow.map?.dispose()
+      shadow.map = null
+    }
   }
   configureHeadlights() {
     for (const light of this.headlights) {

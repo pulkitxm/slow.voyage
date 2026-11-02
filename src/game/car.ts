@@ -349,7 +349,7 @@ export class CarModel {
     this.group.add(this.exterior, this.firstPerson)
     this.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
-        o.castShadow = true
+        o.castShadow = o.material !== glass
         o.receiveShadow = true
       }
     })
