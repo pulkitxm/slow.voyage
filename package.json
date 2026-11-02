@@ -4,10 +4,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 3002 --strictPort",
-    "build": "vite build && node scripts/offline.mjs",
+    "build": "vite build && bun scripts/offline.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 3002 --strictPort",
     "check": "tsc --noEmit",
-    "test": "tsx --test src/game/*.test.ts"
+    "lint": "biome check .",
+    "format": "biome check --write . && prettier --write \".github/**/*.yml\" lefthook.yml",
+    "yaml": "bun scripts/yaml.ts && prettier --check \".github/**/*.yml\" lefthook.yml",
+    "test": "bun test src/game",
+    "validate": "bun run lint && bun run yaml && bun run check && bun run test",
+    "prepare": "lefthook install"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",
@@ -20,13 +25,18 @@
     "three": "^0.187.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/three": "^0.187.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "tsx": "^4.23.15",
+    "lefthook": "^2.2.2",
+    "prettier": "^3.9.10",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
-  }
+    "vite": "^8.3.5",
+    "yaml": "^2.9.1"
+  },
+  "packageManager": "bun@1.4.2"
 }

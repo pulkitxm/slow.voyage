@@ -16,22 +16,45 @@ export class RoadEngine {
     this.scene.background = new THREE.Color('#b5c6bb')
     this.scene.fog = new THREE.Fog('#b5c6bb', 150, 1800)
     this.scene.add(new THREE.HemisphereLight('#fff7df', '#64744d', 2.5))
-    const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000, 90, 90), new THREE.MeshStandardMaterial({ color: '#87916a', flatShading: true }))
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(4000, 4000, 90, 90),
+      new THREE.MeshStandardMaterial({ color: '#87916a', flatShading: true }),
+    )
     ground.rotation.x = -Math.PI / 2
-    const p = ground.geometry.attributes.position
-    for (let i = 0; i < p.count; i++) { const x=p.getX(i), y=p.getY(i); p.setZ(i, (Math.sin(x/220)+Math.cos(y/300))*40*Math.min(1,Math.abs(x)/100)) }
+    const p = ground.geometry.getAttribute('position')
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i),
+        y = p.getY(i)
+      p.setZ(i, (Math.sin(x / 220) + Math.cos(y / 300)) * 40 * Math.min(1, Math.abs(x) / 100))
+    }
     ground.geometry.computeVertexNormals()
     this.scene.add(ground)
-    const road = new THREE.Mesh(new THREE.PlaneGeometry(9, 3000), new THREE.MeshStandardMaterial({ color: '#777a75' }))
-    road.rotation.x = -Math.PI/2
+    const road = new THREE.Mesh(
+      new THREE.PlaneGeometry(9, 3000),
+      new THREE.MeshStandardMaterial({ color: '#777a75' }),
+    )
+    road.rotation.x = -Math.PI / 2
     road.position.y = 0.2
     this.scene.add(road)
     this.camera.position.set(12, 7, 23)
     this.camera.lookAt(0, 0, -150)
     this.resize()
     window.addEventListener('resize', this.resize)
-    const render=()=>{ this.frame=requestAnimationFrame(render); this.renderer.render(this.scene,this.camera) }
+    const render = () => {
+      this.frame = requestAnimationFrame(render)
+      this.renderer.render(this.scene, this.camera)
+    }
     render()
   }
-  dispose() { cancelAnimationFrame(this.frame); window.removeEventListener('resize',this.resize); this.scene.traverse(o=>{if(o instanceof THREE.Mesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose()}}); this.renderer.dispose() }
+  dispose() {
+    cancelAnimationFrame(this.frame)
+    window.removeEventListener('resize', this.resize)
+    this.scene.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose()
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) m.dispose()
+      }
+    })
+    this.renderer.dispose()
+  }
 }

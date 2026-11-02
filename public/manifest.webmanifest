@@ -1,1 +1,11 @@
-{"name":"Slow Roads","short_name":"Slow Roads","description":"An endless drive through quiet landscapes.","start_url":"/","display":"fullscreen","orientation":"landscape","background_color":"#b6c6b7","theme_color":"#73856d","icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]}
+{
+  "name": "Slow Roads",
+  "short_name": "Slow Roads",
+  "description": "An endless drive through quiet landscapes.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#b6c6b7",
+  "theme_color": "#73856d",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
