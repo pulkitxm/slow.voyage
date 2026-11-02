@@ -14,7 +14,8 @@ name does not imply ownership of the similarly named public domain.
 
 The current official site presents a Cloudflare verification screen to both HTTP
 requests and a clean browser session in this environment. Its current rendering
-and behavior have not been measured.
+and behavior have not been measured. A fresh Rea capture on November 3, 2026
+still ends at that verification screen.
 
 The [official site's indexed changelog](https://slowroads.io/) lists web version
 2.4.2, dated June 15, 2026. It records a physics rewrite in 2.1 and functional
@@ -26,8 +27,8 @@ Historical constants remain provisional for current-release handling.
 
 The historical game now loads and drives in an isolated browser session. Its application bundle is hosted at
 <https://slowxroads.com/static/js/main.e7a33c55.chunk.js>. This is an older build,
-so findings require current-release verification. The reference files and full
-analysis artifacts are retained outside the source repository.
+so findings require current-release verification. Reference files and full
+analysis artifacts remain untracked and local, outside the shipped application.
 
 Static analysis recorded artifact digest
 `5b590f09d12174cbe8d4a6e18c57c58d97940c0e3c0fb4970a3a6336e1b36113`
@@ -94,9 +95,10 @@ roof height of approximately 1.227 meters. The current procedural car body and
 chase framing use those proportions. The original mesh is retained only for
 local inspection and is not included in the application.
 
-Vehicle glazing uses the historical gray-blue Phong material, and paint uses
-nonmetallic roughness of 0.5. Guardrails now have a folded steel profile with a
-0.78-meter upper edge, informed by the historical barrier geometry. Rail sections
+The historical glazing uses a gray-blue Phong material. The reconstruction uses
+physical paint and glazing materials with separate surface properties; matching
+their reflection and tint remains visual work. Guardrails have a folded steel
+profile with a 0.78-meter upper edge, informed by the historical barrier geometry. Rail sections
 and posts are still merged into one draw per terrain section.
 
 Vegetation now uses locally painted foliage atlases on crossed planes. The
@@ -372,6 +374,64 @@ The final production checks pass all ten browser flows and five worker checks,
 including reloading and driving after the HTTP origin is unavailable. Local
 before/after views and a timestamp-preserving driving recording document this
 environment iteration. Current official release fidelity remains unproven.
+
+The latest vehicle pass independently rebuilds the touring and roadster bodies
+with lower side sills, genuine wheel openings, dark wheel-well liners and inner
+backing, and undertrays. The tail retains a higher lower edge than the sills,
+so the rear tires remain visible. Continuous width blends remove the broad
+triangular shading bands exposed in the first side-panel capture. The touring
+roof and rear glazing are shorter, leaving a distinct boot. The roadster has an
+open cockpit with two seats, headrests, a dashboard, console, steering wheel,
+shaft, floor, and inner walls. Its steering wheel follows the actual front rack.
+Lenses follow the nose and tail profiles, and the wheels have five broad spokes,
+open barrels, rim lips, and brake discs. All application geometry remains generated
+locally; historical inspection assets stay ignored and outside the shipped build.
+
+New geometry checks exercise both wheelbases through positive and negative full
+lock and all suspension-travel endpoints. Rays from the exposed tire surface
+must reach the camera side without crossing paint, liners, trays, or cabin parts.
+Separate rear-view rays protect tire visibility, downward cockpit rays verify
+both the opening and interior coverage, and front/rear rays verify visible lamp
+lenses. Existing near-plane, portrait, bonnet visibility, unit-normal, and resource
+disposal checks remain intact. The full local gate passes 249 tests, followed by
+ten production browser flows and five offline worker checks, including driving
+after the origin shuts down. Fixed-camera before/after captures and independent
+review caught and removed bright well interiors and hanging backing strips.
+The nose and tail remain boxier than the historical reference, glazing and
+interior treatment remain simple, and broader current-release fidelity is unproven.
+
+Ten-second driving samples of each updated car at high and low detail retained
+a 16.7 ms median and a 16.7 to 16.8 ms 95th percentile on the test M4 Pro at
+1280 by 720. Five cycles through all four vehicles held per-vehicle geometry,
+texture, and shader-program counts stable after warmup. These finite samples
+cover the added vehicle cost on that renderer, not performance on other devices.
+
+Static untextured coachwork, interior parts, and wheel components are batched
+by material after construction. Animated wheel pivots and the exterior steering
+wheel retain independent ownership. Batching preserves world-space vertices and
+normals under transformed parents, leaves shared live geometry allocated, and
+disposes replaced buffers. Fixed-view pixel comparisons before and after batching
+differ by at most four pixels above a two-channel-value threshold per 1280 by 720
+image across ten views. Model disposal is checked exactly once per live resource.
+Touring exterior meshes decrease from 140 to 21 and roadster meshes from 134 to
+21, without changing their 24,888 and 22,044 triangle counts. The latest native
+samples remain near 60 FPS. Forced software rendering still takes approximately
+167 to 217 ms per median frame, with longer stalls, despite fewer draw submissions.
+That renderer remains a performance limitation rather than a completed target.
+Reviewing the encoded drive also exposed a brief empty notification background
+after the vehicle-change text cleared. Empty notifications now stop their fade
+immediately while the live status element remains available. The fresh recording
+checks the first empty state for zero opacity and no active transition.
+
+Review of actual driving frames identifies contact-shadow definition and glass
+rendering as the next vehicle priorities. The car can read as suspended above
+a broad soft cast shadow, despite passing tire-pose geometry checks. Near-car
+shadow density and bias need investigation while preserving environment shadows.
+The touring rear pane also becomes a uniform bright blue in the game, where the
+historical reference appears more neutral. The global physical-material reflection
+override currently treats paint and glass alike. Frozen actual-game comparisons
+should guide separate glazing tint and reflection strength before further shape
+changes. Cross-route driving captures do not prove terrain or handling fidelity.
 
 Completion requires current evidence for the full requested fidelity:
 
