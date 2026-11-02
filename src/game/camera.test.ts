@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { DrivingCamera } from './camera'
+import { groundGeometry } from './ground'
 import { createVehicleModel } from './model'
 import { defaults, World } from './world'
 
@@ -110,3 +111,52 @@ test('the orbit boom stays clear of an intervening hillside', () => {
     expect(point.y).toBeGreaterThanOrEqual(world.height(point.x, -point.z) + 0.349)
   }
 })
+
+test.each([0, 20])(
+  'portrait bus orbit stays above the rendered alpine cut face at %i m/s',
+  (speed) => {
+    const world = new World({ ...defaults, landscape: 'alpine', vehicle: 'bus', seed: 43 })
+    const s = -1080
+    const road = world.road(s)
+    const subject = { x: road.x + 2, y: road.y, s, yaw: road.yaw, speed }
+    const camera = new THREE.PerspectiveCamera(68, 0.55, 0.1, 3600)
+    const view = new DrivingCamera(camera)
+    view.update(subject, world, 'chase', 1 / 60)
+    view.yaw = (Math.PI * 5) / 3
+    view.pitch = 0.4
+    view.zoom = 2.6
+    view.snap()
+    view.update(subject, world, 'chase', 1 / 60)
+    const start = Math.floor(-camera.position.z / 120) * 120
+    const ground = groundGeometry(
+      world,
+      start,
+      new THREE.Color('#819e48'),
+      new THREE.Color('#b2c76b'),
+    )
+    const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+    const mesh = new THREE.Mesh(ground, material)
+    mesh.updateMatrixWorld()
+    const ray = new THREE.Raycaster(
+      camera.position.clone().add(new THREE.Vector3(0, 100, 0)),
+      new THREE.Vector3(0, -1, 0),
+    )
+    const hit = ray.intersectObject(mesh)[0]
+    if (!hit) throw new Error('Rendered ground missing under camera')
+    expect(camera.position.y - hit.point.y).toBeGreaterThan(0.2)
+    const direction = new THREE.Vector3()
+    camera.getWorldDirection(direction)
+    const targetDistance =
+      Math.hypot(camera.position.x - subject.x, camera.position.z + subject.s) /
+      Math.hypot(direction.x, direction.z)
+    const sightline = new THREE.Raycaster(
+      camera.position,
+      direction,
+      camera.near,
+      targetDistance - 0.1,
+    )
+    expect(sightline.intersectObject(mesh)).toHaveLength(0)
+    ground.dispose()
+    material.dispose()
+  },
+)

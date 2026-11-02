@@ -2,11 +2,22 @@ import * as THREE from 'three'
 import { woodlandCoverage } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
-const groundOffsets = [
-  -1600, -1200, -900, -700, -520, -380, -270, -190, -130, -90, -60, -38, -24, -18.5, -15, -13, -11,
-  -9, -7.5, -6, -5.3, -4.5, 0, 4.5, 5.3, 6, 7.5, 9, 11, 13, 15, 18.5, 24, 38, 60, 90, 130, 190, 270,
-  380, 520, 700, 900, 1200, 1600,
+const sideOffsets = [
+  4.5,
+  5.3,
+  ...Array.from({ length: 38 }, (_, index) => 5.5 + index * 0.5),
+  ...Array.from({ length: 33 }, (_, index) => 26 + index * 2),
+  130,
+  190,
+  270,
+  380,
+  520,
+  700,
+  900,
+  1200,
+  1600,
 ]
+const groundOffsets = [...sideOffsets.map((offset) => -offset).reverse(), 0, ...sideOffsets]
 
 export function groundGeometry(world: World, start: number, base: THREE.Color, light: THREE.Color) {
   const positions: number[] = [],
@@ -22,8 +33,9 @@ export function groundGeometry(world: World, start: number, base: THREE.Color, l
   const shore = new THREE.Color(settings.season === 'winter' ? '#dde3dc' : '#c5c1a3')
   const snow = new THREE.Color('#dae0dc')
   const normal = new THREE.Vector3()
-  for (let row = 0; row <= 24; row++) {
-    const s = start + row * 5
+  const rows = 96
+  for (let row = 0; row <= rows; row++) {
+    const s = start + (row * 120) / rows
     const road = world.road(s)
     for (let col = 0; col < groundOffsets.length; col++) {
       const distance = groundOffsets[col] ?? 0
@@ -57,7 +69,7 @@ export function groundGeometry(world: World, start: number, base: THREE.Color, l
         forest = grove * verge * treeLine
       }
       groveCover.push(forest)
-      if (row < 24 && col < groundOffsets.length - 1) {
+      if (row < rows && col < groundOffsets.length - 1) {
         const n = row * groundOffsets.length + col
         indices.push(
           n,

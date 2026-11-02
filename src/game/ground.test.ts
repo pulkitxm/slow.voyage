@@ -36,7 +36,9 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
     const world = new World({ ...defaults, landscape })
     const a = groundGeometry(world, 360, grass, light)
     const b = groundGeometry(world, 480, grass, light)
-    const columns = a.getAttribute('position').count / 25
+    const positions = a.getAttribute('position')
+    let columns = 0
+    while (columns < positions.count && positions.getZ(columns) === -360) columns++
     for (const name of [
       'position',
       'normal',
@@ -50,7 +52,7 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
       const start = b.getAttribute(name)
       for (let column = 0; column < columns; column++)
         for (let component = 0; component < end.itemSize; component++)
-          expect(end.getComponent(24 * columns + column, component)).toBe(
+          expect(end.getComponent(positions.count - columns + column, component)).toBe(
             start.getComponent(column, component),
           )
     }
@@ -82,3 +84,48 @@ test('an uphill highlands bank has a distinct cut face above a level verge', () 
   expect(peak.offset).toBeLessThan(14)
   expect(world.height(road.x + 24, s) - road.y).toBeGreaterThan(5)
 })
+
+test.each(['highlands', 'alpine', 'desert'] as const)(
+  '%s ground within camera orbit range stays within ten centimeters of the driving surface',
+  (landscape) => {
+    let maximumError = 0
+    for (const seed of [42, 43, 99]) {
+      const world = new World({ ...defaults, landscape, seed })
+      for (const start of [-1200, -120, 0, 360, 480, 1200]) {
+        const ground = groundGeometry(world, start, grass, light)
+        const positions = ground.getAttribute('position')
+        const indices = ground.index
+        if (!indices) throw new Error('Ground triangles missing')
+        for (let triangle = 0; triangle < indices.count; triangle += 3) {
+          const a = indices.getX(triangle),
+            b = indices.getX(triangle + 1),
+            c = indices.getX(triangle + 2)
+          for (const weights of [
+            [1 / 3, 1 / 3, 1 / 3],
+            [0.5, 0.5, 0],
+            [0, 0.5, 0.5],
+            [0.5, 0, 0.5],
+          ] as const) {
+            const x =
+              positions.getX(a) * weights[0] +
+              positions.getX(b) * weights[1] +
+              positions.getX(c) * weights[2]
+            const s = -(
+              positions.getZ(a) * weights[0] +
+              positions.getZ(b) * weights[1] +
+              positions.getZ(c) * weights[2]
+            )
+            if (Math.abs(x - world.road(s).x) > 90) continue
+            const height =
+              positions.getY(a) * weights[0] +
+              positions.getY(b) * weights[1] +
+              positions.getY(c) * weights[2]
+            maximumError = Math.max(maximumError, Math.abs(height - world.height(x, s)))
+          }
+        }
+        ground.dispose()
+      }
+    }
+    expect(maximumError).toBeLessThan(0.1)
+  },
+)
