@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { groundGeometry } from './ground'
+import { roadLayout, roadPoint } from './road'
 import { defaults, World } from './world'
 
 const grass = new THREE.Color('#819e48')
@@ -67,8 +68,10 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
     const world = new World({ ...defaults, landscape })
     for (const s of [-1200, 180, 450, 12000, 1000000]) {
       const road = world.road(s)
-      for (const offset of [-5.3, -4.5, 0, 4.5, 5.3])
-        expect(world.height(road.x + offset, s)).toBeCloseTo(road.y - 0.16, 8)
+      for (const offset of [-1, 0, 1]) {
+        const point = roadPoint(road, s, offset * (roadLayout.halfWidth + roadLayout.verge))
+        expect(world.height(point.x, point.s)).toBeCloseTo(road.y - roadLayout.surfaceRecess, 6)
+      }
     }
   })
 }

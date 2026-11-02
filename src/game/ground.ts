@@ -1,11 +1,15 @@
 import * as THREE from 'three'
+import { roadCoordinates, roadLayout } from './road'
 import { rockTexture } from './rock'
 import { woodlandCoverage } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 const sideOffsets = [
+  roadLayout.halfWidth,
+  roadLayout.halfWidth + roadLayout.verge,
+  4,
   4.5,
-  5.3,
+  5,
   ...Array.from({ length: 38 }, (_, index) => 5.5 + index * 0.5),
   ...Array.from({ length: 33 }, (_, index) => 26 + index * 2),
   130,
@@ -56,8 +60,9 @@ export function groundGeometry(
         )
         .normalize()
       normals.push(normal.x, normal.y, normal.z)
-      roadDistances.push(Math.abs(distance) - 4.5)
-      bankHeights.push(elevation - road.y)
+      const frame = Math.abs(distance) < 20 ? roadCoordinates(world, x, s) : null
+      roadDistances.push(Math.abs(frame?.distance ?? distance) - roadLayout.halfWidth)
+      bankHeights.push(elevation - (frame?.road.y ?? road.y))
       uv.push(x / 7, s / 7)
       const variation =
         0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055

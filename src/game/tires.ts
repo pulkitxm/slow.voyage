@@ -1,6 +1,6 @@
 import { surfaceGrip } from './grip'
 import type { ChassisPose, WheelState } from './suspension'
-import { vehicleMetrics } from './vehicles'
+import { vehicleMetrics, yawInertia } from './vehicles'
 import { clamp, type Settings } from './world'
 
 function applyImpulse(
@@ -39,8 +39,7 @@ export function solveTires(
 ) {
   const metrics = vehicleMetrics[settings.vehicle]
   const inverseMass = 1 / metrics.mass
-  const inverseInertia =
-    12 / (metrics.mass * ((metrics.wheelbase * 1.5) ** 2 + metrics.trackWidth ** 2))
+  const inverseInertia = 1 / yawInertia(metrics)
   const quarterMass = metrics.mass / wheels.length
   const speedBefore = pose.speed,
     lateralBefore = pose.lateralSpeed

@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
+import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { SimulationClock } from './simulation-clock'
+import { vehicleMetrics } from './vehicles'
 import { defaults, type Settings, World } from './world'
 
 class FlatWorld extends World {
@@ -264,17 +266,29 @@ function railContact(
   normalSpeed: number,
   tangentSpeed: number,
   rails = true,
+  vehicle: Settings['vehicle'] = 'touring',
 ) {
-  const car = new CarPhysics(new GuardrailWorld({ ...defaults }, gradient, rails))
+  const settings = { ...defaults, vehicle }
+  const car = new CarPhysics(new GuardrailWorld(settings, gradient, rails))
   const road = car.world.road(car.s)
-  car.x = road.x + side * 5.3491
+  const metrics = vehicleMetrics[vehicle]
+  const extent =
+    (Math.abs(Math.cos(yaw)) * metrics.trackWidth + Math.abs(Math.sin(yaw)) * metrics.wheelbase) / 2
+  const point = roadPoint(
+    road,
+    car.s,
+    side * (roadLayout.railOffset - roadLayout.railClearance - extent - 0.0009),
+  )
+  car.x = point.x
+  car.s = point.s
   car.yaw = road.yaw + yaw
+  car.suspension.reset(car)
   const length = Math.hypot(1, gradient)
   const velocityX = (side * normalSpeed + gradient * tangentSpeed) / length
   const velocityS = (-side * gradient * normalSpeed + tangentSpeed) / length
   car.speed = -Math.sin(car.yaw) * velocityX + Math.cos(car.yaw) * velocityS
   car.lateralSpeed = Math.cos(car.yaw) * velocityX + Math.sin(car.yaw) * velocityS
-  car.update(1 / 120, coast, defaults)
+  car.update(1 / 120, coast, settings)
   const worldX = -Math.sin(car.yaw) * car.speed + Math.cos(car.yaw) * car.lateralSpeed
   const worldS = Math.cos(car.yaw) * car.speed + Math.sin(car.yaw) * car.lateralSpeed
   return {
@@ -286,6 +300,23 @@ function railContact(
 }
 
 describe('guardrail response', () => {
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s resolves the outer wheel crossing at the visible rail on either side',
+    (vehicle) => {
+      for (const side of [-1, 1])
+        for (const yaw of [0, 0.2, -0.2, Math.PI / 2]) {
+          const { car } = railContact(side, yaw, 0.4, 2, 0, true, vehicle)
+          expect(car.impact).toBeGreaterThan(0)
+          for (const wheel of car.suspension.wheels) {
+            const frame = roadCoordinates(car.world, wheel.x, wheel.s)
+            expect(Math.abs(frame.distance)).toBeLessThan(
+              roadLayout.railOffset - roadLayout.railClearance,
+            )
+          }
+        }
+    },
+  )
+
   test.each([-1, 1])('a gentle contact on side %i cannot inject kinetic energy', (side) => {
     const free = railContact(side, 0, 0, 0.2, 0, false)
     const contact = railContact(side, 0, 0, 0.2, 0)
@@ -570,7 +601,9 @@ describe('world continuity', () => {
       const b = world.road(s + 0.001)
       expect(Math.abs(a.x - b.x)).toBeLessThan(0.005)
       expect(Math.abs(a.y - b.y)).toBeLessThan(0.005)
-      expect(Math.abs(world.height(b.x, s + 0.001) + 0.16 - b.y)).toBeLessThan(0.001)
+      expect(Math.abs(world.height(b.x, s + 0.001) + roadLayout.surfaceRecess - b.y)).toBeLessThan(
+        0.001,
+      )
     }
   })
 })

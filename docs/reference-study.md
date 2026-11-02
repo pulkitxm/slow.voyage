@@ -541,8 +541,32 @@ contains that full envelope rather than reducing travel to fit a static mesh.
 The historical autodriver targets the road centerline. Reset and automatic
 steering now use that path instead of a fixed two-meter right offset. Flat-road
 checks cover recovery from both sides for all four vehicles, with final lateral
-error below two centimeters. Narrower pavement and its contact/rail geometry
-remain the next road-scale correction.
+error below two centimeters.
+
+The generated road now has a six-meter paved width measured along its normal,
+including on bends. The historical builder offsets both edges by its three-meter
+half-width along node normals, rather than along world X. A shared layout and
+road-coordinate projection now connect pavement, markings, surface classification,
+near-road ground, and steel barriers. Steel barriers follow the historical
+3.4-meter offset. Collision checks test each oriented wheel axis against the
+3.2-meter inside crossing threshold. Contact impulses include rotational point
+velocity, lever arms and the same yaw inertia used by the tire solver. They
+preserve tangential motion and dissipate impact energy while opposing a spinning
+vehicle's approach. Tests cover all four vehicles, both sides, different headings,
+single-point rotation and simultaneous axle contacts.
+This remains a wheel-based barrier model rather than full body collision.
+Rendering and collision share the same five-meter segment occupancy query, so a
+continuous terrain predicate cannot leave a rendered rail section without contact.
+
+The near-road ground follows the projected centerline grade, with a two-centimeter
+rendering recess replacing the former sixteen-centimeter artificial step. A
+gravel ribbon separates pavement and tall grass. Edge markings retain meter-based
+widths, and center dashes use three meters in a six-meter repeat, informed by the
+historical texture's half-repeat paint coverage. The exact reference texture-to-
+distance cadence and current-release road profiles still require measurement.
+Geometry checks measure width, tangent alignment, surface agreement and terrain
+clearance, including triangle interiors. Broad terrain remains an independent
+field beyond the road corridor.
 
 Completion requires current evidence for the full requested fidelity:
 
