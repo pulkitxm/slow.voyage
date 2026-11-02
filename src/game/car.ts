@@ -67,8 +67,11 @@ export class CarModel {
   exteriorVisible = true
   wheelSpin = 0
   wheelbase: number
+  wheelRadius: number
   constructor(settings: Settings) {
-    this.wheelbase = vehicleMetrics[settings.vehicle].wheelbase
+    const dimensions = vehicleMetrics[settings.vehicle]
+    this.wheelbase = dimensions.wheelbase
+    this.wheelRadius = dimensions.wheelRadius
     this.body = new THREE.MeshStandardMaterial({
       color: settings.color,
       metalness: 0.22,
@@ -168,7 +171,7 @@ export class CarModel {
           0.055,
         )
         box([0.03, 0.27, 0.045], [side * 0.63, 1.04, 0.56], black)
-        box([0.13, 0.085, 0.2], [side * 0.87, 0.89, -0.58], this.body)
+        box([0.085, 0.085, 0.2], [side * 0.78, 0.89, -0.58], this.body)
         box([0.022, 0.025, 0.14], [side * 0.817, 0.84, 0.47], chrome)
       }
     }
@@ -249,10 +252,10 @@ export class CarModel {
       for (const side of [-1, 1]) {
         const pivot = new THREE.Group(),
           spin = new THREE.Group()
-        pivot.position.set(side * (width - 0.025), isBus ? 0.3955 : 0.342665, z)
+        pivot.position.set(side * dimensions.trackWidth * 0.5, this.wheelRadius, z)
         pivot.add(spin)
         const wheel = new THREE.Mesh(
-          new THREE.CylinderGeometry(isBus ? 0.3955 : 0.342665, isBus ? 0.3955 : 0.342665, 0.2, 24),
+          new THREE.CylinderGeometry(this.wheelRadius, this.wheelRadius, 0.2, 24),
           tire,
         )
         wheel.rotation.z = Math.PI / 2
@@ -287,7 +290,7 @@ export class CarModel {
     })
   }
   update(speed: number, steering: number, braking: boolean, night: boolean, dt: number) {
-    this.wheelSpin -= (speed * dt) / 0.36
+    this.wheelSpin -= (speed * dt) / this.wheelRadius
     for (const wheel of this.wheels) wheel.rotation.x = this.wheelSpin
     for (const pivot of this.frontWheels) {
       const radius = Math.abs(steering) < 0.0001 ? Infinity : this.wheelbase / Math.tan(steering)

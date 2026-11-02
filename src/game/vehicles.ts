@@ -8,6 +8,8 @@ export interface VehicleMetrics {
   drag: number
   rollingResistance: number
   wheelbase: number
+  trackWidth: number
+  wheelRadius: number
   maxSpeed: number
   maxSteering: number
 }
@@ -20,6 +22,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     drag: 0.001,
     rollingResistance: 0.06,
     wheelbase: 2.75,
+    trackWidth: 1.36,
+    wheelRadius: 0.342665,
     maxSpeed: 45,
     maxSteering: 0.68,
   },
@@ -31,6 +35,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     drag: 0.001,
     rollingResistance: 0.04,
     wheelbase: 2.4,
+    trackWidth: 1.36,
+    wheelRadius: 0.342665,
     maxSpeed: 53,
     maxSteering: 0.68,
   },
@@ -42,6 +48,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     drag: 0.002,
     rollingResistance: 0.03,
     wheelbase: 5.47,
+    trackWidth: 2.24,
+    wheelRadius: 0.3955,
     maxSpeed: 32,
     maxSteering: 0.65,
   },
