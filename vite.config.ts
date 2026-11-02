@@ -6,7 +6,13 @@ export default defineConfig({
   server: { host: '0.0.0.0', port: 3002, strictPort: true },
   plugins: [
     tanstackStart({
-      spa: { enabled: true, prerender: { outputPath: '/index.html' } },
+      prerender: {
+        enabled: true,
+        crawlLinks: false,
+        autoStaticPathsDiscovery: false,
+        failOnError: true,
+      },
+      pages: [{ path: '/' }],
       router: { routeTreeFileHeader: [] },
     }),
     react(),

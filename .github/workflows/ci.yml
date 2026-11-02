@@ -20,3 +20,6 @@ jobs:
       - run: bun run validate
       - run: bun run build
       - run: bun run test:offline
+      - run: bun run test:browser
+        env:
+          BROWSER_EXECUTABLE: /usr/bin/google-chrome
