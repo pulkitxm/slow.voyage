@@ -107,6 +107,8 @@ cache upgrades, and isolation from unrelated requests and storage.
 and lint checks, strict YAML 1.2 validation, YAML formatting, route generation,
 application and worker type checks, and dynamics and preference tests. YAML must
 contain one document with unique keys, without anchors or aliases.
+The hook uses the project runner through Bun and rejects commits when that runner
+is unavailable.
 
 Run `bun install --frozen-lockfile`, `bun run validate`, `bun run build`,
 `bun run test:offline`, and `bun run test:browser` locally before a release
