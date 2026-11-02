@@ -3,6 +3,7 @@ import { Atmosphere, atmosphereProfile } from './atmosphere'
 import { DriveAudio } from './audio'
 import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 import { type ControllerStatus, GamepadControls } from './gamepad'
+import { graphicsBudget } from './graphics'
 import { createVehicleModel, type VehicleModel } from './model'
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
@@ -183,9 +184,8 @@ export class RoadEngine {
       powerPreference: 'high-performance',
       preserveDrawingBuffer: true,
     })
-    this.renderer.setPixelRatio(
-      Math.min(devicePixelRatio, this.settings.quality === 'low' ? 1 : 1.7),
-    )
+    const budget = graphicsBudget(this.renderer, this.settings.quality)
+    this.renderer.setPixelRatio(budget.pixelRatio)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -193,7 +193,7 @@ export class RoadEngine {
     this.scene.fog = new THREE.FogExp2('#d3ddd2', 0.00095)
     this.scene.add(this.ambient, this.sun, this.sun.target)
     this.sun.castShadow = true
-    this.sun.shadow.mapSize.set(2048, 2048)
+    this.sun.shadow.mapSize.set(budget.shadowSize, budget.shadowSize)
     this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -75
     this.sun.shadow.camera.right = this.sun.shadow.camera.top = 75
     this.sun.shadow.camera.near = 1
@@ -324,7 +324,13 @@ export class RoadEngine {
       this.physics.suspension.reset(this.physics)
     }
     this.car.body.color.set(settings.color)
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, settings.quality === 'low' ? 1 : 1.7))
+    const budget = graphicsBudget(this.renderer, settings.quality)
+    this.renderer.setPixelRatio(budget.pixelRatio)
+    if (this.sun.shadow.mapSize.x !== budget.shadowSize) {
+      this.sun.shadow.mapSize.set(budget.shadowSize, budget.shadowSize)
+      this.sun.shadow.map?.dispose()
+      this.sun.shadow.map = null
+    }
     this.applyLighting()
     if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
   }
