@@ -34,6 +34,7 @@ function tractionAcceleration(settings: Settings, onRoad: boolean) {
   return surfaceGrip(settings, onRoad) * 9.81
 }
 const directionChangeSpeed = 0.05
+const brakeResponseSeconds = 0.1
 export class CarPhysics {
   x = 0
   s = 180
@@ -177,7 +178,10 @@ export class CarPhysics {
       input.regenBrake,
     )
     this.brakeForce = brake
-      ? Math.min(vehicle.brake * brake, this.brakeForce + vehicle.brake * 4 * dt)
+      ? Math.min(
+          vehicle.brake * brake,
+          this.brakeForce + (vehicle.brake * dt) / brakeResponseSeconds,
+        )
       : 0
     this.steeringControl.update(dt, input.steer, input.steeringSource, this.speed, settings.vehicle)
     this.suspension.updateSteering(this.steering)
