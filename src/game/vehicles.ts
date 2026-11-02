@@ -10,6 +10,10 @@ export interface VehicleMetrics {
   wheelbase: number
   trackWidth: number
   wheelRadius: number
+  mass: number
+  suspensionTravel: number
+  suspensionDamping: number
+  centerOfMassHeight: number
   maxSpeed: number
   maxSteering: number
 }
@@ -24,6 +28,10 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     wheelbase: 2.75,
     trackWidth: 1.36,
     wheelRadius: 0.342665,
+    mass: 700,
+    suspensionTravel: 0.07,
+    suspensionDamping: 0.8,
+    centerOfMassHeight: 0.42,
     maxSpeed: 45,
     maxSteering: 0.68,
   },
@@ -37,6 +45,10 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     wheelbase: 2.4,
     trackWidth: 1.36,
     wheelRadius: 0.342665,
+    mass: 700,
+    suspensionTravel: 0.07,
+    suspensionDamping: 0.8,
+    centerOfMassHeight: 0.4,
     maxSpeed: 53,
     maxSteering: 0.68,
   },
@@ -50,6 +62,10 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     wheelbase: 1.95,
     trackWidth: 0,
     wheelRadius: 0.26,
+    mass: 700,
+    suspensionTravel: 0.07,
+    suspensionDamping: 0.85,
+    centerOfMassHeight: 0.6,
     maxSpeed: 53,
     maxSteering: 0.4,
   },
@@ -63,6 +79,10 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     wheelbase: 5.47,
     trackWidth: 2.24,
     wheelRadius: 0.3955,
+    mass: 1400,
+    suspensionTravel: 0.16,
+    suspensionDamping: 0.85,
+    centerOfMassHeight: 1.1,
     maxSpeed: 32,
     maxSteering: 0.65,
   },

@@ -51,10 +51,13 @@ Gravity is 9.81 meters per second squared.
 | Maximum steering angle, radians | 0.68                | 0.65             |
 | Wheelbase, meters               | 2.75                | 5.47             |
 
-These values now inform the touring car and bus. The present physics model uses
-a bicycle approximation with limited lateral grip, rather than the historical
-four-wheel suspension solver. Matching constants alone does not establish
-matching dynamics. The additional convertible has its own handling profile.
+These values now inform the touring car and bus. Each wheel has an independent
+ground contact, spring and damper, suspension travel, steering angle, and rolling
+distance. Spring loads drive chassis heave, pitch, and roll, including loss of
+contact, landing, and acceleration weight transfer. Wheel motion in the renderer
+uses those states. The lateral motion still uses a bicycle approximation with
+limited grip. Matching constants alone does not establish matching dynamics.
+The additional convertible has its own handling profile.
 
 The historical bundle also includes an enclosed two-wheel motorcycle, disabled
 in that release's menu. Its wheelbase is 1.95 meters, tire radius is 0.26 meters,
@@ -110,8 +113,8 @@ Completion requires current evidence for the full requested fidelity:
 - Inspect the current official game after browser verification is available.
 - Measure and compare acceleration, braking distance, steering response, grip,
   reverse, suspension, and behavior at high speed against the reference.
-- Replace the approximate suspension and contact model where measurements demand
-  independent wheel behavior.
+- Replace the bicycle approximation with wheel-local traction forces and verify
+  the suspension response against reference measurements.
 - Match terrain generation, road profiles, horizon detail, ground textures,
   vegetation, and atmospheric rendering more closely. The current foliage atlas,
   grass, water, and material generation require further reference comparison.

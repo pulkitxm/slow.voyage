@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
 
@@ -21,8 +22,7 @@ export class MotorcycleModel {
   })
   headlightPositions: [number, number, number][] = [[0, 0.61, -1.33]]
   wheels: THREE.Group[] = []
-  steering = new THREE.Group()
-  wheelSpin = 0
+  wheelPivots: THREE.Group[] = []
   exteriorVisible = true
   constructor(settings: Settings) {
     this.body = new THREE.MeshStandardMaterial({
@@ -114,7 +114,7 @@ export class MotorcycleModel {
     }
     const metrics = vehicleMetrics.motorcycle
     for (const z of [metrics.wheelbase * 0.5, -metrics.wheelbase * 0.5]) {
-      const pivot = z < 0 ? this.steering : new THREE.Group()
+      const pivot = new THREE.Group()
       pivot.position.set(0, metrics.wheelRadius, z)
       const spin = new THREE.Group()
       const tire = new THREE.Mesh(new THREE.TorusGeometry(0.2215, 0.0385, 10, 32), this.rubber)
@@ -133,6 +133,7 @@ export class MotorcycleModel {
       spin.add(hub)
       pivot.add(spin)
       this.wheels.push(spin)
+      this.wheelPivots.push(pivot)
       this.group.add(pivot)
     }
     this.group.traverse((object) => {
@@ -149,10 +150,16 @@ export class MotorcycleModel {
       if (object instanceof THREE.Mesh) object.visible = visible
     })
   }
-  update(speed: number, steering: number, braking: boolean, night: boolean, dt: number) {
-    this.wheelSpin -= (speed * dt) / vehicleMetrics.motorcycle.wheelRadius
-    for (const wheel of this.wheels) wheel.rotation.x = this.wheelSpin
-    this.steering.rotation.y = steering
+  update(wheels: readonly WheelState[], braking: boolean, night: boolean) {
+    for (let i = 0; i < wheels.length; i++) {
+      const state = wheels[i],
+        pivot = this.wheelPivots[i],
+        wheel = this.wheels[i]
+      if (!state || !pivot || !wheel) continue
+      pivot.position.y = vehicleMetrics.motorcycle.wheelRadius + state.offset
+      pivot.rotation.y = state.steering
+      wheel.rotation.x = state.rotation
+    }
     this.brake.emissiveIntensity = braking ? 3 : night ? 0.8 : 0.02
     this.lamp.emissiveIntensity = night ? 4 : 0.5
   }

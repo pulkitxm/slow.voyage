@@ -87,4 +87,10 @@ export class World {
   guardrail(s: number, side: number) {
     return side > 0 ? Math.sin(s / 260) > -0.2 : Math.cos(s / 350) < -0.25
   }
+
+  surface(x: number, s: number) {
+    const road = this.road(s)
+    const onRoad = Math.abs(x - road.x) <= 4.5
+    return { height: onRoad ? road.y : this.height(x, s), onRoad }
+  }
 }
