@@ -67,8 +67,10 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
         '#include <common>',
         `#include <common>
 attribute float roadDistance;
+attribute float groveCover;
 varying vec2 fieldPosition;
 varying float fieldRoadDistance;
+varying float fieldGroveCover;
 varying float fieldSlope;`,
       )
       shader.vertexShader = shader.vertexShader.replace(
@@ -76,6 +78,7 @@ varying float fieldSlope;`,
         `#include <begin_vertex>
 fieldPosition = (modelMatrix * vec4(position, 1.0)).xz;
 fieldRoadDistance = roadDistance;
+fieldGroveCover = groveCover;
 fieldSlope = clamp((1.0 - abs(normalize((modelMatrix * vec4(normal, 0.0)).xyz).y)) * 2.0, 0.0, 1.0);`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
@@ -83,6 +86,7 @@ fieldSlope = clamp((1.0 - abs(normalize((modelMatrix * vec4(normal, 0.0)).xyz).y
         `#include <common>
 varying vec2 fieldPosition;
 varying float fieldRoadDistance;
+varying float fieldGroveCover;
 varying float fieldSlope;
 uniform vec3 fieldDryGrass;
 uniform float fieldDryness;
@@ -100,7 +104,8 @@ diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
 float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fieldVariation);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldRock * sampledDiffuseColor.rgb * (0.8 + fieldVariation * 0.4), rockBlend);
 float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
-diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);`,
+diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);
+diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSlope)) * 0.32;`,
       )
     }
   }
@@ -116,7 +121,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, 
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'textured-meadow-surface'
+    return 'textured-meadow-woodland-surface'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
