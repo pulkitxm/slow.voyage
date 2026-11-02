@@ -16,6 +16,24 @@ class OpposingBends extends World {
   }
 }
 
+class GradeWorld extends World {
+  constructor(
+    settings: Settings,
+    public grade: number,
+  ) {
+    super(settings)
+  }
+  override road(s: number) {
+    return { x: 0, y: s * this.grade, dx: 0, dy: this.grade, yaw: 0 }
+  }
+  override surface(_x: number, s: number) {
+    return { height: s * this.grade, onRoad: true, slopeX: 0, slopeS: this.grade }
+  }
+  override guardrail(_s: number, _side: number) {
+    return false
+  }
+}
+
 class GuardrailWorld extends World {
   constructor(
     settings: Settings,
@@ -114,6 +132,72 @@ describe('guardrail response', () => {
 })
 
 describe('vehicle dynamics', () => {
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s coasts downhill equally while facing forward or backward',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const backward = new CarPhysics(new GradeWorld(settings, 0.1))
+      const forward = new CarPhysics(new GradeWorld(settings, 0.1))
+      forward.yaw = Math.PI
+      forward.suspension.reset(forward)
+      simulate(backward, 20, coast, 1 / 120, settings)
+      simulate(forward, 20, coast, 1 / 120, settings)
+      expect(backward.speed).toBeLessThan(-5)
+      expect(Math.abs(backward.speed + forward.speed)).toBeLessThan(0.001)
+      expect(Math.abs(backward.s - forward.s)).toBeLessThan(0.01)
+    },
+  )
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s governs powered reverse and responds to forward throttle',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      for (const dt of [1 / 60, 1 / 120]) {
+        const car = new CarPhysics(new FlatWorld(settings))
+        let reversePeak = 0
+        for (let step = 0; step < 30 / dt; step++) {
+          car.update(dt, { ...coast, brake: 1 }, settings)
+          reversePeak = Math.min(reversePeak, car.speed)
+        }
+        expect(car.speed).toBeLessThan(-4.7)
+        expect(reversePeak).toBeGreaterThanOrEqual(-5)
+        simulate(car, 6, { ...coast, throttle: 1 }, dt, settings)
+        expect(car.speed).toBeGreaterThan(10)
+        expect(car.telemetry().gear).not.toBe('R')
+      }
+    },
+  )
+  test('the reverse governor cannot brake or clip unpowered downhill motion', () => {
+    const settings = { ...defaults }
+    const free = new CarPhysics(new GradeWorld(settings, 0.1))
+    const governed = new CarPhysics(new GradeWorld(settings, 0.1))
+    free.speed = governed.speed = -9
+    simulate(free, 2)
+    simulate(governed, 2, { ...coast, brake: 1 })
+    expect(governed.speed).toBeLessThan(-9)
+    expect(governed.speed).toBeCloseTo(free.speed, 8)
+    expect(governed.s).toBeCloseTo(free.s, 8)
+  })
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s retains full braking before transitioning into reverse',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      car.speed = 20
+      let stoppingTime: number | null = null
+      let stoppingDistance = 0
+      for (let step = 0; step < 120 * 8; step++) {
+        car.update(1 / 120, { ...coast, brake: 1 }, settings)
+        if (stoppingTime === null && car.speed <= 0) {
+          stoppingTime = step / 120
+          stoppingDistance = car.distance
+        }
+      }
+      expect(stoppingTime).not.toBeNull()
+      expect(stoppingTime).toBeLessThan(6)
+      expect(stoppingDistance).toBeLessThan(80)
+      expect(car.speed).toBeLessThan(-1)
+    },
+  )
   test('autodrive sees opposing bends even when their net heading change cancels', () => {
     const car = new CarPhysics(new OpposingBends({ ...defaults }))
     car.speed = 20
