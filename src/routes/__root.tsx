@@ -1,4 +1,5 @@
 import { createRootRoute, HeadContent, Outlet, Scripts } from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import styles from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -19,15 +20,20 @@ export const Route = createRootRoute({
       { rel: 'manifest', href: '/manifest.webmanifest' },
     ],
   }),
-  component: () => (
+  component: Outlet,
+  shellComponent: RootDocument,
+})
+
+function RootDocument({ children }: { children: ReactNode }) {
+  return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <Outlet />
+        {children}
         <Scripts />
       </body>
     </html>
-  ),
-})
+  )
+}

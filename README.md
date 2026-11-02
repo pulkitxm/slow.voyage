@@ -20,6 +20,7 @@ so a conflicting process causes an explicit failure.
 bun run validate
 bun run build
 bun run test:offline
+bun run test:browser
 bun run preview
 ```
 
@@ -52,6 +53,11 @@ worker. Once the interface displays "Offline ready", reloading and driving work
 with the origin unavailable. Development mode uses live source updates and leaves
 service worker registration disabled.
 
+The browser suite uses an isolated Chrome profile and verifies renderer errors,
+bonnet visibility, keyboard button activation, seasonal vehicle changes, and
+reloading with its test origin shut down. Chrome is discovered automatically on
+macOS and Linux; set `BROWSER_EXECUTABLE` to override its location.
+
 The worker has its own TypeScript configuration. CI builds the worker and tests
 installation, application reloads with the origin unavailable, cached scripts,
 cache upgrades, and isolation from unrelated requests and storage.
@@ -64,7 +70,7 @@ application and worker type checks, and dynamics and preference tests. YAML must
 contain one document with unique keys, without anchors or aliases.
 
 CI installs from the frozen Bun lockfile, runs the same checks, creates the
-production build, and tests the compiled offline worker. Use `bun run format` to
+production build, tests the compiled offline worker, and runs real-browser checks. Use `bun run format` to
 apply formatting.
 
 ## Structure
