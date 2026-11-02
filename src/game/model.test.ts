@@ -223,6 +223,38 @@ test.each(['touring', 'roadster'] as const)(
         expect(first.object.material).toBe(direction < 0 ? model.lights : model.brake)
       }
     }
+    for (const direction of [-1, 1]) {
+      const material = direction < 0 ? model.lights : model.brake
+      const eye = new THREE.Vector3(0, 2, direction * 4.42)
+      let samples = 0
+      model.exterior.traverse((object) => {
+        if (!(object instanceof THREE.Mesh) || object.material !== material) return
+        const positions = object.geometry.getAttribute('position'),
+          indices = object.geometry.index
+        for (let i = 0; i < (indices?.count ?? positions.count); i += 3) {
+          const points = [0, 1, 2].map((corner) =>
+            new THREE.Vector3()
+              .fromBufferAttribute(positions, indices ? indices.getX(i + corner) : i + corner)
+              .applyMatrix4(object.matrixWorld),
+          )
+          const [a, b, c] = points
+          if (!a || !b || !c) throw new Error('Lamp triangle missing')
+          const point = a
+            .clone()
+            .add(b)
+            .add(c)
+            .multiplyScalar(1 / 3)
+          const normal = b.clone().sub(a).cross(c.clone().sub(a))
+          if (normal.dot(eye.clone().sub(point)) <= 0) continue
+          samples++
+          ray.set(eye, point.clone().sub(eye).normalize())
+          const first = ray.intersectObject(model.exterior, true)[0]
+          if (!(first?.object instanceof THREE.Mesh)) throw new Error('Lamp triangle hidden')
+          expect(first.object.material).toBe(material)
+        }
+      })
+      expect(samples).toBeGreaterThan(20)
+    }
     model.dispose()
   },
 )
