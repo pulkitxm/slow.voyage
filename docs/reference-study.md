@@ -475,6 +475,13 @@ before projection so they remain on the curved body rather than cutting through
 it. Actual-camera visibility remains above twenty percent of camera-facing lower
 tread samples on both tires across the tested neutral-pose views.
 
+Triangle-centroid lamp checks also exposed a pre-existing clearance issue: the
+side-panel bevel covered two of 36 sampled triangles on each front and rear lens
+material. Lamp surrounds now stand 18 millimeters from the nominal surface and
+lenses 21 millimeters, clearing the 14-millimeter body bevel while preserving
+their three-millimeter separation. Dense front and rear checks now verify every
+camera-facing lens triangle on both cars rather than only the center of each lamp.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

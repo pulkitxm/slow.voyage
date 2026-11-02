@@ -176,7 +176,7 @@ export class CarModel {
       points: [number, number][],
       material: THREE.Material,
       direction = 1,
-      depth = 0.006,
+      depth = 0.018,
     ) => {
       const mesh = carSurface(
         points.map(([x, y]) => [x, y, 0]),
@@ -268,7 +268,7 @@ export class CarModel {
           ],
           this.brake,
           1,
-          0.009,
+          0.021,
         )
         endPanel(
           [
@@ -289,7 +289,7 @@ export class CarModel {
           ],
           this.lights,
           -1,
-          0.009,
+          0.021,
         )
       }
       if (isBus) box([0.45, 0.07, 0.035], [side * (width - 0.27), 0.94, front + 0.06], this.lights)
