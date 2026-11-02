@@ -1,11 +1,17 @@
 {
   "name": "Slow Roads",
   "short_name": "Slow Roads",
-  "description": "An endless drive through quiet landscapes.",
+  "description": "An endless scenic driving game with changing landscapes, four vehicles and offline play.",
+  "id": "/",
   "start_url": "/",
   "display": "fullscreen",
-  "orientation": "landscape",
+  "lang": "en",
+  "categories": ["games", "simulation"],
   "background_color": "#b6c6b7",
   "theme_color": "#73856d",
-  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
 }
