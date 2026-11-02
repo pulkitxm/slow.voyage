@@ -11,6 +11,7 @@ export const neutralInput: Readonly<Input> = {
   throttle: 0,
   brake: 0,
   steer: 0,
+  steeringSource: null,
   handbrake: false,
   regenBrake: 0,
 }
@@ -22,10 +23,19 @@ export function mergeManualInput(
   mouse: Input | null,
 ): Input {
   const device = mouse ?? controller
+  const steering =
+    keyboard.steer || keyboard.steeringSource === 'digital'
+      ? keyboard
+      : touch.steer || touch.steeringSource === 'digital'
+        ? touch
+        : device.steer
+          ? device
+          : mouse
   return {
     throttle: Math.max(keyboard.throttle, touch.throttle, device.throttle),
     brake: Math.max(keyboard.brake, touch.brake, device.brake),
-    steer: keyboard.steer || touch.steer || device.steer,
+    steer: steering?.steer ?? 0,
+    steeringSource: steering?.steeringSource ?? null,
     handbrake: keyboard.handbrake || touch.handbrake || device.handbrake,
     regenBrake: 0,
   }
@@ -52,6 +62,7 @@ export function resolveInput(
     throttle: speed ? automatic.throttle : manual.throttle,
     brake: speed ? automatic.brake : manual.brake,
     steer: steer ? automatic.steer : manual.steer,
+    steeringSource: steer ? automatic.steeringSource : manual.steeringSource,
     handbrake: manual.handbrake,
     regenBrake: !speed && onePedal && !manual.throttle && !manual.brake ? 0.15 : 0,
   }

@@ -7,6 +7,7 @@ export type Weather = 'clear' | 'overcast' | 'rain' | 'fog'
 export type Vehicle = 'touring' | 'roadster' | 'motorcycle' | 'bus'
 export type CameraMode = 'chase' | 'bonnet' | 'cinematic'
 export type AssistanceMode = 'off' | 'full' | 'steer' | 'speed'
+export type SteeringSource = 'digital' | 'analog' | 'mouse' | 'automatic'
 const roadProfiles = {
   highlands: [24, 10, 3],
   alpine: [100, 28, 8],

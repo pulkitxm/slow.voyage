@@ -2,12 +2,20 @@ import { surfaceGrip } from './grip'
 import { Suspension } from './suspension'
 import { solveTires } from './tires'
 import { vehicleMetrics } from './vehicles'
-import { angleDifference, clamp, damp, type Settings, type World } from './world'
+import {
+  angleDifference,
+  clamp,
+  damp,
+  type Settings,
+  type SteeringSource,
+  type World,
+} from './world'
 
 export interface Input {
   throttle: number
   brake: number
   steer: number
+  steeringSource: SteeringSource | null
   handbrake: boolean
   regenBrake: number
 }
@@ -131,6 +139,7 @@ export class CarPhysics {
         Math.min(1, Math.max(0, traction * 0.5 - rolling) / metrics.brake),
       ),
       steer: clamp(steer, -1, 1),
+      steeringSource: 'automatic',
       handbrake: false,
       regenBrake: 0,
     }

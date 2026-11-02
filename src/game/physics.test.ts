@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { CarPhysics } from './physics'
+import { CarPhysics, type Input } from './physics'
 import { defaults, type Settings, World } from './world'
 
 class FlatWorld extends World {
@@ -59,11 +59,18 @@ class GuardrailWorld extends World {
   }
 }
 
-const coast = { throttle: 0, brake: 0, steer: 0, handbrake: false, regenBrake: 0 }
+const coast: Input = {
+  throttle: 0,
+  brake: 0,
+  steer: 0,
+  steeringSource: null,
+  handbrake: false,
+  regenBrake: 0,
+}
 function simulate(
   car: CarPhysics,
   duration: number,
-  input = coast,
+  input: Input = coast,
   dt = 1 / 120,
   settings: Settings = defaults,
 ) {
