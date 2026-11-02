@@ -157,7 +157,7 @@ export class MotorcycleModel {
     this.firstPerson.visible = !visible
   }
   update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number) {
-    this.bonnet.update(speed, wheels.find((wheel) => wheel.front)?.steering ?? 0)
+    this.bonnet.update(speed, wheels.find((wheel) => wheel.front)?.steering ?? 0, night)
     for (let i = 0; i < wheels.length; i++) {
       const state = wheels[i],
         pivot = this.wheelPivots[i],
@@ -182,6 +182,7 @@ export class MotorcycleModel {
       this.metal,
       this.brake,
       this.lamp,
+      ...this.bonnet.materials,
     ])
       material.dispose()
   }

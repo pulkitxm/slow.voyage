@@ -1,10 +1,11 @@
 import * as THREE from 'three'
+import { createBusCabin } from './bus-cabin'
 import type { Vehicle } from './world'
 
 export function createBonnet(vehicle: Vehicle, paint: THREE.Material, trim: THREE.Material) {
+  if (vehicle === 'bus') return createBusCabin(trim)
   const group = new THREE.Group()
   group.visible = false
-  let steeringWheel: THREE.Mesh | null = null
   let speedNeedle: THREE.Group | null = null
   const box = (
     size: [number, number, number],
@@ -45,22 +46,7 @@ export function createBonnet(vehicle: Vehicle, paint: THREE.Material, trim: THRE
     speedNeedle.add(pointer)
     group.add(speedNeedle)
   }
-  if (vehicle === 'bus') {
-    box([2.12, 0.16, 0.45], [0, 2, -3.03], trim)
-    steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.015, 8, 32), trim)
-    steeringWheel.name = 'steering-wheel'
-    steeringWheel.position.set(-0.28, 2.04, -2.95)
-    steeringWheel.rotation.x = -0.45
-    for (const angle of [0, (Math.PI * 2) / 3, (Math.PI * 4) / 3]) {
-      const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.17, 0.014), trim)
-      spoke.position.set(-Math.sin(angle) * 0.07, Math.cos(angle) * 0.07, 0)
-      spoke.rotation.z = angle
-      steeringWheel.add(spoke)
-    }
-    group.add(steeringWheel)
-    box([0.23, 0.11, 0.22], [0.02, 2.145, -3.04], trim)
-    speedometer(0.02, 2.205, -3.04, 0.075)
-  } else if (vehicle === 'motorcycle') {
+  if (vehicle === 'motorcycle') {
     const cowl = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.22, 4, 16), trim)
     cowl.rotation.z = Math.PI / 2
     cowl.position.set(0, 0.9, -1.1)
@@ -88,10 +74,10 @@ export function createBonnet(vehicle: Vehicle, paint: THREE.Material, trim: THRE
   })
   return {
     group,
-    update(speed: number, steering: number) {
+    materials: [] as THREE.Material[],
+    update(speed: number, _steering: number, _night: boolean) {
       if (speedNeedle)
         speedNeedle.rotation.y = (2 / 3 - (Math.min(Math.abs(speed) / 70, 1) * 4) / 3) * Math.PI
-      if (steeringWheel) steeringWheel.rotation.z = steering * 5
     },
   }
 }
