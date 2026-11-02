@@ -3,6 +3,7 @@ import { DriveAudio } from './audio'
 import { CarModel } from './car'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Terrain } from './terrain'
+import { Water } from './water'
 import { angleDifference, damp, defaults, type Settings, World } from './world'
 
 export interface DriveState extends Telemetry {
@@ -13,10 +14,11 @@ export interface DriveState extends Telemetry {
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
   scene = new THREE.Scene()
-  camera = new THREE.PerspectiveCamera(55, 1, 0.1, 3600)
+  camera = new THREE.PerspectiveCamera(68, 1, 0.1, 3600)
   settings: Settings
   world: World
   physics: CarPhysics
+  water: Water
   terrain: Terrain
   car: CarModel
   audio = new DriveAudio()
@@ -35,6 +37,7 @@ export class RoadEngine {
   accumulator = 0
   lastTelemetry = 0
   cameraYaw = 0
+  cameraAnchor = new THREE.Vector3()
   cameraReady = false
   disposed = false
   onState?: (state: DriveState) => void
@@ -130,6 +133,7 @@ export class RoadEngine {
     )
     this.sky.frustumCulled = false
     this.scene.add(this.sky)
+    this.water = new Water(this.scene)
     this.terrain = new Terrain(this.scene, this.world)
     this.car = new CarModel(this.settings)
     this.scene.add(this.car.group)
@@ -183,11 +187,12 @@ export class RoadEngine {
     this.applyLighting()
   }
   applyLighting() {
+    this.water.setAppearance(this.settings.daylight, this.settings.season === 'winter')
     const time = this.settings.daylight,
       night = time === 'night',
       sunset = time === 'sunset'
-    const horizon = night ? '#283a4a' : sunset ? '#ebbd94' : '#dae2d2'
-    this.sky.material.uniforms.top?.value.set(night ? '#111c31' : sunset ? '#8e9fae' : '#8dbbc9')
+    const horizon = night ? '#283a4a' : sunset ? '#ebbd94' : '#e5eeeb'
+    this.sky.material.uniforms.top?.value.set(night ? '#111c31' : sunset ? '#8e9fae' : '#abd2e2')
     this.sky.material.uniforms.horizon?.value.set(horizon)
     if (this.sky.material.uniforms.clouds)
       this.sky.material.uniforms.clouds.value = night ? 0.02 : 0.7
@@ -195,7 +200,7 @@ export class RoadEngine {
       this.scene.fog.color.set(horizon)
       this.scene.fog.density = night ? 0.0018 : 0.00095
     }
-    this.sun.color.set(night ? '#9cb4dc' : sunset ? '#ffd09d' : '#fff1cf')
+    this.sun.color.set(night ? '#9cb4dc' : sunset ? '#ffd09d' : '#fffaf0')
     this.sun.intensity = night ? 0.45 : sunset ? 2.1 : 2.6
     this.ambient.intensity = night ? 0.65 : 1.9
     this.renderer.toneMappingExposure = night ? 0.78 : 1.05
@@ -229,6 +234,7 @@ export class RoadEngine {
     }
     const p = this.physics
     this.terrain.update(p.s, time / 1000)
+    this.water.update(p.x, p.s, time / 1000)
     this.car.group.position.set(p.x, p.y, -p.s)
     this.car.group.rotation.order = 'YXZ'
     this.car.group.rotation.y = p.yaw
@@ -269,13 +275,22 @@ export class RoadEngine {
         .add(new THREE.Vector3(0, 5.5, 0))
     else
       position
-        .addScaledVector(f, -5.5 - Math.abs(p.speed) * 0.015)
-        .add(new THREE.Vector3(0, this.settings.vehicle === 'bus' ? 4.7 : 2.9, 0))
+        .addScaledVector(f, -4.2 - Math.abs(p.speed) * 0.01)
+        .add(new THREE.Vector3(0, this.settings.vehicle === 'bus' ? 4.7 : 2.0, 0))
     position.y = Math.max(position.y, this.world.height(position.x, -position.z) + 1)
+    if (cameraMode === 'chase' && this.settings.vehicle !== 'bus') {
+      const pitch = 0.3 - Math.min(1, Math.abs(p.speed) / 45) * 0.1
+      target.copy(position).addScaledVector(f, 30)
+      target.y += this.world.road(p.s + 20).y - p.y - Math.tan(pitch) * 30
+    }
+    if (this.cameraReady) {
+      this.camera.position.x += p.x - this.cameraAnchor.x
+      this.camera.position.y += p.y - this.cameraAnchor.y
+      this.camera.position.z += -p.s - this.cameraAnchor.z
+    }
+    this.cameraAnchor.set(p.x, p.y, -p.s)
     this.camera.position.lerp(position, this.cameraReady ? 1 - Math.exp(-7 * dt) : 1)
     this.camera.lookAt(target)
-    this.camera.fov = damp(this.camera.fov, 55 + Math.abs(p.speed) * 0.13, 2, dt)
-    this.camera.updateProjectionMatrix()
     this.cameraReady = true
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
@@ -312,6 +327,7 @@ export class RoadEngine {
     window.removeEventListener('blur', this.blur)
     document.removeEventListener('visibilitychange', this.visibility)
     this.terrain.dispose()
+    this.water.dispose()
     this.car.dispose()
     this.sky.geometry.dispose()
     this.sky.material.dispose()

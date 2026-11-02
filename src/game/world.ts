@@ -23,7 +23,7 @@ export const defaults: Settings = {
   daylight: 'day',
   vehicle: 'touring',
   camera: 'chase',
-  color: '#edece3',
+  color: '#f8f8f8',
   volume: 0.25,
   quality: 'high',
   units: 'km',
@@ -72,9 +72,18 @@ export class World {
       12 * Math.sin(x / 190 + s / 320 + phase) +
       8 * Math.cos(s / 300 - x / 200) +
       3 * Math.sin(x / 75 + s / 120)
-    const mountain = Math.max(0, distance - 210) * (0.1 + 0.1 * Math.sin(s / 180))
-    return road.y - 0.16 + blend * (hills * amplitude + mountain)
+    const mountain =
+      Math.max(0, distance - 210) *
+      (0.1 + 0.1 * Math.sin(s / 180)) *
+      (this.settings.landscape === 'highlands' && d > 0 ? 0 : 1)
+    const coastFactor =
+      this.settings.landscape === 'highlands' && d > 6
+        ? clamp((Math.sin(s / 1300 + this.settings.seed * 0.01) + 0.4) / 1.2, 0, 1)
+        : 0
+    const coast = Math.min(95, Math.max(0, d - 6) * 0.24) * coastFactor
+    return road.y - 0.16 + blend * (hills * amplitude * (1 - coastFactor * 0.9) + mountain) - coast
   }
+
   guardrail(s: number, side: number) {
     return side > 0 ? Math.sin(s / 260) > -0.2 : Math.cos(s / 350) < -0.25
   }

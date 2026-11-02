@@ -43,4 +43,4 @@ export const vehicles = [
   { id: 'roadster', icon: Gauge },
   { id: 'bus', icon: BusFront },
 ] as const
-export const colors = ['#edece3', '#6f8a77', '#b65a44', '#3b515c', '#c8aa66', '#343b39']
+export const colors = ['#f8f8f8', '#6f8a77', '#b65a44', '#3b515c', '#c8aa66', '#343b39']

@@ -55,9 +55,9 @@ export class CarModel {
   materials: THREE.Material[] = []
   body: THREE.MeshStandardMaterial
   brake = new THREE.MeshStandardMaterial({
-    color: '#841c18',
+    color: '#260e0c',
     emissive: '#ff3424',
-    emissiveIntensity: 0.3,
+    emissiveIntensity: 0.02,
   })
   lights = new THREE.MeshStandardMaterial({
     color: '#fff7de',
@@ -90,17 +90,24 @@ export class CarModel {
     this.materials = [this.body, this.brake, this.lights, glass, black, chrome, tire, plate]
     const isBus = settings.vehicle === 'bus',
       isRoadster = settings.vehicle === 'roadster'
-    const width = isBus ? 1.18 : 0.94,
-      back = isBus ? 3.3 : 2.23,
-      front = isBus ? -3.3 : -2.23
+    const width = isBus ? 1.18 : 0.823,
+      back = isBus ? 3.3 : 2.02,
+      front = isBus ? -3.3 : -2.06
     this.group.add(
       shell(
-        [
-          [0.38, width - 0.1, back - 0.06, front + 0.08],
-          [0.6, width, back, front],
-          [0.96, width - 0.02, back - 0.06, front + 0.1],
-          [1.08, width - 0.09, back - 0.15, front + 0.22],
-        ],
+        isBus
+          ? [
+              [0.38, width - 0.1, back - 0.06, front + 0.08],
+              [0.6, width, back, front],
+              [0.96, width - 0.02, back - 0.06, front + 0.1],
+              [1.08, width - 0.09, back - 0.15, front + 0.22],
+            ]
+          : [
+              [0.24, width - 0.12, back - 0.1, front + 0.12],
+              [0.48, width - 0.025, back, front],
+              [0.79, width, back - 0.015, front + 0.04],
+              [0.88, width - 0.09, back - 0.08, front + 0.19],
+            ],
         this.body,
       ),
     )
@@ -125,8 +132,8 @@ export class CarModel {
     } else {
       const cabin = shell(
         [
-          [1.065, 0.83, 1.13, -1.18],
-          [isRoadster ? 1.48 : 1.66, 0.68, 0.58, -0.65],
+          [0.88, 0.712, 1.55, -0.85],
+          [isRoadster ? 1.17 : 1.22, 0.55, 1.05, -0.04],
         ],
         glass,
       )
@@ -135,38 +142,119 @@ export class CarModel {
         this.group.add(
           shell(
             [
-              [1.64, 0.7, 0.61, -0.68],
-              [1.69, 0.64, 0.55, -0.62],
+              [1.205, 0.575, 1.07, -0.06],
+              [1.23, 0.545, 1.025, -0.01],
             ],
             this.body,
           ),
         )
-      else box([1.4, 0.2, 0.86], [0, 1.33, 0.45], black)
+      else box([1.15, 0.12, 0.7], [0, 1.02, 0.76], black)
+      const upright = new THREE.Vector3(0, 1, 0)
+      const pillar = (start: THREE.Vector3, end: THREE.Vector3, width: number) => {
+        const vector = end.clone().sub(start)
+        const mesh = box([width, vector.length(), width], [0, 0, 0], this.body)
+        mesh.position.copy(start).lerp(end, 0.5)
+        mesh.quaternion.setFromUnitVectors(upright, vector.normalize())
+      }
       for (const side of [-1, 1]) {
-        const pillar = box([0.065, 0.59, 0.065], [side * 0.75, 1.36, -0.92], this.body)
-        pillar.rotation.x = 0.75
-        const rear = box([0.11, 0.72, 0.07], [side * 0.76, 1.34, 0.87], this.body)
-        rear.rotation.x = -0.68
-        box([0.05, 0.54, 0.075], [side * 0.77, 1.35, 0.08], black)
-        box([0.18, 0.12, 0.28], [side * 1.01, 1.13, -0.73], this.body)
-        box([0.028, 0.035, 0.2], [side * 0.935, 1.0, 0.25], chrome)
+        pillar(
+          new THREE.Vector3(side * 0.7, 0.89, -0.84),
+          new THREE.Vector3(side * 0.55, 1.215, -0.035),
+          0.045,
+        )
+        pillar(
+          new THREE.Vector3(side * 0.7, 0.89, 1.54),
+          new THREE.Vector3(side * 0.55, 1.215, 1.05),
+          0.055,
+        )
+        box([0.03, 0.27, 0.045], [side * 0.63, 1.04, 0.56], black)
+        box([0.13, 0.085, 0.2], [side * 0.87, 0.89, -0.58], this.body)
+        box([0.022, 0.025, 0.14], [side * 0.817, 0.84, 0.47], chrome)
       }
     }
-    box([width * 1.8, 0.17, 0.06], [0, 0.55, back + 0.005], black)
-    box([width * 1.7, 0.2, 0.04], [0, 0.56, front - 0.005], black)
-    box([0.44, 0.13, 0.025], [0, 0.73, back + 0.02], plate)
+    const rearPanel = (points: [number, number][], material: THREE.Material, depth = 0.03) => {
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(
+          points.flatMap(([x, y]) => {
+            const rear =
+              y >= 0.79
+                ? back - 0.015 - ((y - 0.79) / 0.09) * 0.065
+                : y >= 0.48
+                  ? back - ((y - 0.48) / 0.31) * 0.015
+                  : back - ((0.48 - y) / 0.24) * 0.1
+            return [x, y, rear + depth]
+          }),
+          3,
+        ),
+      )
+      let area = 0
+      for (let i = 0; i < points.length; i++) {
+        const current = points[i],
+          next = points[(i + 1) % points.length]
+        if (current && next) area += current[0] * next[1] - next[0] * current[1]
+      }
+      geometry.setIndex(area > 0 ? [0, 1, 2, 0, 2, 3] : [2, 1, 0, 3, 2, 0])
+      geometry.computeVertexNormals()
+      const mesh = new THREE.Mesh(geometry, material)
+      this.group.add(mesh)
+    }
+    if (isBus) {
+      box([width * 1.8, 0.17, 0.06], [0, 0.55, back + 0.005], black)
+      box([0.44, 0.13, 0.025], [0, 0.73, back + 0.02], plate)
+    } else
+      rearPanel(
+        [
+          [-0.72, 0.23],
+          [0.72, 0.23],
+          [0.65, 0.52],
+          [-0.65, 0.52],
+        ],
+        black,
+        0.035,
+      )
+    box([width * 1.7, 0.14, 0.04], [0, 0.42, front - 0.005], black)
     for (const side of [-1, 1]) {
-      box([0.52, 0.13, 0.04], [side * (width - 0.33), 0.94, back - 0.035], this.brake)
-      box([0.54, 0.09, 0.035], [side * (width - 0.33), 0.94, front + 0.06], this.lights)
+      if (isBus) box([0.52, 0.13, 0.04], [side * (width - 0.33), 0.94, back - 0.035], this.brake)
+      else {
+        rearPanel(
+          [
+            [side * 0.29, 0.86],
+            [side * 0.75, 0.86],
+            [side * 0.71, 0.735],
+            [side * 0.345, 0.735],
+          ],
+          black,
+        )
+        rearPanel(
+          [
+            [side * 0.33, 0.826],
+            [side * 0.715, 0.826],
+            [side * 0.695, 0.795],
+            [side * 0.35, 0.795],
+          ],
+          this.brake,
+          0.04,
+        )
+      }
+      box(
+        [0.45, 0.07, 0.035],
+        [side * (width - 0.27), isBus ? 0.94 : 0.77, front + 0.06],
+        this.lights,
+      )
     }
     const axles = [this.wheelbase / 2, -this.wheelbase / 2]
     for (const z of axles)
       for (const side of [-1, 1]) {
         const pivot = new THREE.Group(),
           spin = new THREE.Group()
-        pivot.position.set(side * (width - 0.025), 0.38, z)
+        pivot.position.set(side * (width - 0.025), isBus ? 0.3955 : 0.342665, z)
         pivot.add(spin)
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.24, 24), tire)
+        const wheel = new THREE.Mesh(
+          new THREE.CylinderGeometry(isBus ? 0.3955 : 0.342665, isBus ? 0.3955 : 0.342665, 0.2, 24),
+          tire,
+        )
         wheel.rotation.z = Math.PI / 2
         spin.add(wheel)
         const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.25, 20), black)
@@ -205,7 +293,7 @@ export class CarModel {
       const radius = Math.abs(steering) < 0.0001 ? Infinity : this.wheelbase / Math.tan(steering)
       pivot.rotation.y = Math.atan(this.wheelbase / (radius + pivot.position.x))
     }
-    this.brake.emissiveIntensity = braking ? 3 : night ? 0.8 : 0.15
+    this.brake.emissiveIntensity = braking ? 3 : night ? 0.8 : 0.02
     this.lights.emissiveIntensity = night ? 4 : 0.5
   }
   dispose() {
