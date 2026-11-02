@@ -6,7 +6,8 @@ Reconstruct the graphics, controls, vehicle physics, speed handling, vehicle
 selection, and endless driving experience of <https://slowroads.io/>, including
 use after the first load without a network connection.
 
-Development and preview stay local at <http://localhost:3002>. The repository
+Development, verification, checkpoint commits, and preview stay local at
+<http://localhost:3002>. Remote build and deployment workflows are disabled. The repository
 name does not imply ownership of the similarly named public domain.
 
 ## Available evidence
