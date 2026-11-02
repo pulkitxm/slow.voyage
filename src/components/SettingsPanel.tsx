@@ -178,7 +178,7 @@ export function SettingsPanel({
               <input
                 id="grip"
                 type="range"
-                min="0.5"
+                min="0.2"
                 max="2"
                 step="0.1"
                 value={settings.grip}
