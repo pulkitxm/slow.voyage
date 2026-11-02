@@ -193,6 +193,12 @@ review rejected overly wide grass blades; the next capture verified thinner
 strands. The rear fascia, lamp framing, tire visibility, and meadow coverage remain
 visible reconstruction gaps. These captures and review records stay local.
 
+A subsequent vehicle pass raised and narrowed the lower shell, integrated a
+contoured rear panel, and reduced lamp surrounds. The follow-up captures show
+both rear tires and remove the hanging rectangular panel. The review accepted
+that improvement while retaining the fascia depth, bottom seam, and overall
+body sculpting as further visual work.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
