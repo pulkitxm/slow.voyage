@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { clamp, random, type Settings, type World } from './world'
 
 export const palettes = {
-  summer: { grass: '#839b59', light: '#adba76', tree: '#426341', shrub: '#72804d' },
+  summer: { grass: '#839b59', light: '#adba76', tree: '#698344', shrub: '#72804d' },
   autumn: { grass: '#a69a64', light: '#c9b77a', tree: '#ad703b', shrub: '#b58d43' },
   winter: { grass: '#d7dfdc', light: '#edf0e7', tree: '#6f8176', shrub: '#9bada2' },
 }
@@ -235,6 +235,7 @@ export class Terrain {
       const x = this.world.road(s).x + d,
         y = this.world.height(x, s),
         h = 4.5 + rng() * 6
+      matrix.rotation.set(0, 0, 0)
       matrix.position.set(x, y + h * 0.34, -s)
       matrix.scale.set(h * 0.14, h * 0.7, h * 0.14)
       matrix.updateMatrix()
