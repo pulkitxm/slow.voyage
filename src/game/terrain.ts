@@ -73,22 +73,30 @@ export class Terrain {
       shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float windTime;\nvarying vec2 fieldGrassPosition;',
+        '#include <common>\nuniform float windTime;\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\nvec3 root = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;\nfieldGrassPosition = root.xz;\nfloat wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);\ntransformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;',
+        '#include <begin_vertex>\nvec3 root = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;\nfieldGrassPosition = root.xz;\nfieldGrassVariation = fract(sin(dot(root.xz, vec2(12.9898, 78.233))) * 43758.5453);\nfloat wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);\ntransformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        `#include <common>\nvarying vec2 fieldGrassPosition;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\n${meadowNoise}`,
+        `#include <common>\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\n${meadowNoise}`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
-        '#include <color_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * 1.08, dryBlend);',
+        '#include <color_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * 1.08, max(dryBlend, strawBlend));',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <opaque_fragment>',
+        `#if NUM_DIR_LIGHTS > 0
+float grassBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
+outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBacklight * 0.12);
+#endif
+#include <opaque_fragment>`,
       )
     }
-    this.bladeMaterial.customProgramCacheKey = () => 'textured-meadow-blades'
+    this.bladeMaterial.customProgramCacheKey = () => 'translucent-meadow-blades'
     const canvas = document.createElement('canvas')
     canvas.width = canvas.height = 256
     const ctx = canvas.getContext('2d')
