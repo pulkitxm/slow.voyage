@@ -100,7 +100,9 @@ repeatable 1280 × 720 comparisons with the accessible historical v1.0.1 build.
 Each clean browser session enables autodrive and captures six and twelve seconds
 of driving. The generated `.review/pass-name/index.html` compares the frames;
 the manifest records the revision and browser errors. Capture files remain local
-and are ignored by Git. Different routes and seeds limit terrain comparisons.
+and are ignored by Git. Open `http://localhost:3002/__review/pass-name/` to view
+the comparison. This viewer is available only in development. Different routes
+and seeds limit terrain comparisons.
 Review visual findings, change one related concern, and capture again with a new
 label. Verify handling changes with measured input-response and simulation checks.
 

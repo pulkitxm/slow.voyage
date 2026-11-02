@@ -181,4 +181,5 @@ for (const source of comparisons)
     `${source.name}: ${source.failures.length ? source.failures.join('; ') : 'capture passed'}`,
   )
 console.log(`Comparison: ${directory}/index.html`)
+console.log(`Viewer: http://localhost:3002/__review/${label}/`)
 if (comparisons.some((source) => source.failures.length)) process.exitCode = 1
