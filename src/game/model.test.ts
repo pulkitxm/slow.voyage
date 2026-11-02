@@ -300,6 +300,32 @@ test('the bus steering rim stays in front of the dashboard in the seated driving
 })
 
 test.each(['motorcycle', 'bus'] as const)(
+  '%s instrument contrast is independent of exterior paint and responds to night lighting',
+  (vehicle) => {
+    const colors = []
+    for (const color of ['#f8f8f8', '#151919']) {
+      const world = new World({ ...defaults, vehicle, color })
+      const model = createVehicleModel(world.settings)
+      const suspension = new Suspension(world)
+      const pointer = model.firstPerson.getObjectByName('speed-needle')?.children[0]
+      if (
+        !(pointer instanceof THREE.Mesh) ||
+        !(pointer.material instanceof THREE.MeshStandardMaterial)
+      )
+        throw new Error('Instrument pointer missing')
+      expect(pointer.material).not.toBe(model.body)
+      colors.push(pointer.material.color.getHex())
+      model.update(suspension.wheels, false, false, 20)
+      const day = pointer.material.emissiveIntensity
+      model.update(suspension.wheels, false, true, 20)
+      expect(pointer.material.emissiveIntensity).toBeGreaterThan(day)
+      model.dispose()
+    }
+    expect(colors[0]).toBe(colors[1])
+  },
+)
+
+test.each(['motorcycle', 'bus'] as const)(
   '%s instruments follow speed magnitude and steering without changing the chassis',
   (vehicle) => {
     const world = new World({ ...defaults, vehicle })
