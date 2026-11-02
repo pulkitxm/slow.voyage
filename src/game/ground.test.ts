@@ -32,33 +32,36 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
     ground.dispose()
   })
 
-  test(`${landscape} adjacent ground tiles share positions, normals, colors, and bank metadata`, () => {
-    const world = new World({ ...defaults, landscape })
-    const a = groundGeometry(world, 360, grass, light)
-    const b = groundGeometry(world, 480, grass, light)
-    const positions = a.getAttribute('position')
-    let columns = 0
-    while (columns < positions.count && positions.getZ(columns) === -360) columns++
-    for (const name of [
-      'position',
-      'normal',
-      'color',
-      'uv',
-      'roadDistance',
-      'groveCover',
-      'bankHeight',
-    ]) {
-      const end = a.getAttribute(name)
-      const start = b.getAttribute(name)
-      for (let column = 0; column < columns; column++)
-        for (let component = 0; component < end.itemSize; component++)
-          expect(end.getComponent(positions.count - columns + column, component)).toBe(
-            start.getComponent(column, component),
-          )
-    }
-    a.dispose()
-    b.dispose()
-  })
+  test.each([12, 96])(
+    `${landscape} adjacent ground tiles share boundary data with %i rows`,
+    (rows) => {
+      const world = new World({ ...defaults, landscape })
+      const a = groundGeometry(world, 360, grass, light)
+      const b = groundGeometry(world, 480, grass, light, rows)
+      const positions = a.getAttribute('position')
+      let columns = 0
+      while (columns < positions.count && positions.getZ(columns) === -360) columns++
+      for (const name of [
+        'position',
+        'normal',
+        'color',
+        'uv',
+        'roadDistance',
+        'groveCover',
+        'bankHeight',
+      ]) {
+        const end = a.getAttribute(name)
+        const start = b.getAttribute(name)
+        for (let column = 0; column < columns; column++)
+          for (let component = 0; component < end.itemSize; component++)
+            expect(end.getComponent(positions.count - columns + column, component)).toBe(
+              start.getComponent(column, component),
+            )
+      }
+      a.dispose()
+      b.dispose()
+    },
+  )
 
   test(`${landscape} preserves a level shoulder before the terrain bank`, () => {
     const world = new World({ ...defaults, landscape })
