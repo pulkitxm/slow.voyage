@@ -82,7 +82,6 @@ svg {
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(180deg, #1f3e4429, transparent 22%, transparent 75%, #18291f45);
 }
 .is-welcome .scene-shade {
   background:
