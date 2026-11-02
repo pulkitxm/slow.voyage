@@ -436,15 +436,23 @@ after the vehicle-change text cleared. Empty notifications now stop their fade
 immediately while the live status element remains available. The fresh recording
 checks the first empty state for zero opacity and no active transition.
 
-Review of actual driving frames identifies contact-shadow definition and glass
-rendering as the next vehicle priorities. The car can read as suspended above
-a broad soft cast shadow, despite passing tire-pose geometry checks. Near-car
-shadow density and bias need investigation while preserving environment shadows.
-The touring rear pane also becomes a uniform bright blue in the game, where the
-historical reference appears more neutral. The global physical-material reflection
-override currently treats paint and glass alike. Frozen actual-game comparisons
-should guide separate glazing tint and reflection strength before further shape
-changes. Cross-route driving captures do not prove terrain or handling fidelity.
+Native shadows now use a smaller depth and normal bias with tighter filtering,
+keeping contact closer to the tires without an extra shadow pass or fake contact
+plane. The existing map sizes and full environment coverage remain intact.
+Touring glazing has a neutral tint and independent reflection strength; lighting
+changes preserve the separate paint and glass settings. Glass receives shadows
+without casting an opaque pane shadow, avoiding the heading-dependent artifacts
+seen in backface-only experiments. This remains a glazing approximation.
+
+Twenty-six frozen captures of the actual engine cover both detail levels, both
+headings, banked and airborne positions, all four vehicles, sunset, winter fog,
+and night rain. Independent review found no pane checkerboarding or new visible
+paint or terrain acne. The smaller low-detail map remains visibly coarser.
+A fresh 20.53-second encoded drive covers touring, a roadster change, orbit, and
+camera return. Ten-second native samples for both cars and detail levels retain
+a 16.7 ms median and 16.7 to 16.8 ms 95th percentile on the test M4 Pro, with
+bounded resources across five vehicle cycles. Software-renderer performance and
+cross-route terrain or handling fidelity remain open limitations.
 
 Completion requires current evidence for the full requested fidelity:
 
