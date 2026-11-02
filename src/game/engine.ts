@@ -249,6 +249,7 @@ export class RoadEngine {
       dt,
     )
     const cameraMode = this.started ? this.settings.camera : 'cinematic'
+    this.car.setExteriorVisible(cameraMode !== 'bonnet')
     this.cameraYaw +=
       angleDifference(p.yaw, this.cameraYaw) * (this.cameraReady ? 1 - Math.exp(-3 * dt) : 1)
     const yaw = this.cameraYaw,
