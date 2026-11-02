@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { Atmosphere, atmosphereProfile } from './atmosphere'
 import { DriveAudio } from './audio'
+import { DrivingCamera } from './camera'
 import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 import { type ControllerStatus, GamepadControls } from './gamepad'
 import { graphicsBudget } from './graphics'
@@ -10,17 +11,8 @@ import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
 import { SimulationClock } from './simulation-clock'
 import { Terrain } from './terrain'
-import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
-import {
-  type AssistanceMode,
-  angleDifference,
-  clamp,
-  damp,
-  defaults,
-  type Settings,
-  World,
-} from './world'
+import { type AssistanceMode, clamp, damp, defaults, type Settings, World } from './world'
 
 export interface DriveState extends Telemetry {
   assistance: AssistanceMode
@@ -60,9 +52,7 @@ export class RoadEngine {
   lastTime = 0
   simulation = new SimulationClock()
   lastTelemetry = 0
-  cameraYaw = 0
-  cameraAnchor = new THREE.Vector3()
-  cameraReady = false
+  view = new DrivingCamera(this.camera)
   disposed = false
   rendered = false
   frameRate = 60
@@ -314,7 +304,7 @@ export class RoadEngine {
   }
   reset() {
     this.physics.reset()
-    this.cameraReady = false
+    this.view.snap()
   }
   setSettings(settings: Settings) {
     const budget = graphicsBudget(this.renderer, settings.quality)
@@ -334,7 +324,7 @@ export class RoadEngine {
       const speed = this.physics.speed
       this.physics.reset()
       this.physics.speed = speed
-      this.cameraReady = false
+      this.view.snap()
     }
     if (mouseChange) this.mouse.reset()
     if (refresh) this.terrain.refresh(this.settings, budget.detail)
@@ -344,7 +334,7 @@ export class RoadEngine {
       this.car = createVehicleModel(this.settings)
       this.scene.add(this.car.group)
       this.configureHeadlights()
-      this.cameraReady = false
+      this.view.snap()
       this.physics.suspension.configure(settings.vehicle)
       this.physics.suspension.reset(this.physics)
     }
@@ -484,9 +474,7 @@ export class RoadEngine {
       })
     }
     const p = this.physics
-    const metrics = vehicleMetrics[this.settings.vehicle]
     const isBike = this.settings.vehicle === 'motorcycle'
-    const isBus = this.settings.vehicle === 'bus'
     this.terrain.update(p.s, time / 1000)
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
@@ -509,49 +497,7 @@ export class RoadEngine {
     )
     const cameraMode = this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
-    this.cameraYaw +=
-      angleDifference(p.yaw, this.cameraYaw) * (this.cameraReady ? 1 - Math.exp(-3 * dt) : 1)
-    const yaw = this.cameraYaw,
-      f = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw)),
-      side = new THREE.Vector3(Math.cos(yaw), 0, -Math.sin(yaw))
-    const position = new THREE.Vector3(p.x, p.y, -p.s)
-    const target = position.clone().addScaledVector(f, cameraMode === 'bonnet' ? 35 : 15)
-    target.y += cameraMode === 'bonnet' ? 1.2 : 1.0
-    if (cameraMode === 'bonnet')
-      position
-        .addScaledVector(f, 0.9)
-        .add(new THREE.Vector3(0, isBus ? 2.5 : isBike ? 1.1 : 1.45, 0))
-    else if (cameraMode === 'cinematic')
-      position
-        .addScaledVector(f, -12)
-        .addScaledVector(side, -8)
-        .add(new THREE.Vector3(0, 5.5, 0))
-    else
-      position
-        .addScaledVector(
-          f,
-          isBus
-            ? -9 - 2 * clamp(Math.abs(p.speed) / 32, 0, 1)
-            : isBike
-              ? -3.5 - clamp(Math.abs(p.speed) / 50, 0, 1)
-              : -4.2 - Math.abs(p.speed) * 0.01,
-        )
-        .add(new THREE.Vector3(0, isBus ? 4.7 : isBike ? 1.8 : 2.0, 0))
-    position.y = Math.max(position.y, this.world.height(position.x, -position.z) + 1)
-    if (cameraMode === 'chase' && !isBus) {
-      const pitch = 0.3 - clamp(Math.abs(p.speed) / metrics.maxSpeed, 0, 1) * 0.1
-      target.copy(position).addScaledVector(f, 30)
-      target.y += this.world.road(p.s + 20).y - p.y - Math.tan(pitch) * 30
-    }
-    if (this.cameraReady) {
-      this.camera.position.x += p.x - this.cameraAnchor.x
-      this.camera.position.y += p.y - this.cameraAnchor.y
-      this.camera.position.z += -p.s - this.cameraAnchor.z
-    }
-    this.cameraAnchor.set(p.x, p.y, -p.s)
-    this.camera.position.lerp(position, this.cameraReady ? 1 - Math.exp(-7 * dt) : 1)
-    this.camera.lookAt(target)
-    this.cameraReady = true
+    this.view.update(p, this.world, cameraMode, dt)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
     this.sun.position.set(
