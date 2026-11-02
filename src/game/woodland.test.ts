@@ -1,6 +1,17 @@
 import { expect, test } from 'bun:test'
-import { createWoodland, woodlandCoverage, woodlandDensity } from './woodland'
+import { createWoodland, roadsidePlantHeight, woodlandCoverage, woodlandDensity } from './woodland'
 import { defaults, World } from './world'
+
+test.each(['highlands', 'alpine'] as const)(
+  '%s roadside shrubs avoid the exposed cut and return above it',
+  (landscape) => {
+    const world = new World({ ...defaults, landscape })
+    const s = 450
+    const road = world.road(s)
+    expect(roadsidePlantHeight(world, road.x + 10, s)).toBe(null)
+    expect(roadsidePlantHeight(world, road.x + 24, s)).toBeCloseTo(world.height(road.x + 24, s), 8)
+  },
+)
 
 test('woodland is deterministic and preserves tree positions across seasons', () => {
   const world = new World({ ...defaults })
