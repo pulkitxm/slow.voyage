@@ -2,8 +2,8 @@ import * as THREE from 'three'
 import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js'
 
 const rearProfile = [
-  [0.22, 1.91],
-  [0.44, 2.02],
+  [0.38, 1.91],
+  [0.5, 2.02],
   [0.78, 2],
   [0.88, 1.86],
 ] as const
@@ -90,15 +90,10 @@ export function createCarBody(
   const opening = 0.44
   const shape = new THREE.Shape()
   shape.moveTo(-1.98, 0.22)
-  shape.lineTo(-2.1, 0.44)
-  shape.lineTo(-2.07, 0.76)
-  shape.lineTo(-1.91, 0.88)
-  shape.lineTo(1.86, 0.88)
-  shape.lineTo(2, 0.78)
-  shape.lineTo(2.02, 0.44)
-  shape.lineTo(1.91, 0.22)
+  for (const [y, z] of frontProfile.slice(1)) shape.lineTo(z, y)
+  for (const [y, z] of [...rearProfile].reverse()) shape.lineTo(z, y)
   for (const axle of [wheelbase / 2, -wheelbase / 2]) {
-    shape.lineTo(axle + opening, 0.22)
+    if (axle < 0) shape.lineTo(axle + opening, 0.22)
     shape.lineTo(axle + opening, wheelRadius)
     shape.absarc(axle, wheelRadius, opening, 0, Math.PI, false)
     shape.lineTo(axle - opening, 0.22)
@@ -143,10 +138,8 @@ export function createCarBody(
       liner.position.set(side * 0.54, wheelRadius, axle)
       group.add(liner)
       const backing = new THREE.Shape()
-      backing.moveTo(-radius, 0.22)
-      backing.lineTo(-radius, wheelRadius)
+      backing.moveTo(-radius, wheelRadius)
       backing.absarc(0, wheelRadius, radius, Math.PI, 0, true)
-      backing.lineTo(radius, 0.22)
       backing.closePath()
       const wall = new THREE.Mesh(new THREE.ShapeGeometry(backing, 24), wheelWell)
       wall.rotation.y = (side * Math.PI) / 2
@@ -252,5 +245,23 @@ export function createCarBody(
         interior,
       ),
     )
+  for (const [start, end] of [
+    [-1.98, frontBulkhead],
+    [rearBulkhead, 1.91],
+  ]) {
+    if (start === undefined || end === undefined) continue
+    const undertray = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.05, end - start), interior)
+    undertray.position.set(0, 0.425, (start + end) / 2)
+    group.add(undertray)
+  }
+  for (const [start, end] of [
+    [-1.98, -wheelbase / 2 - opening],
+    [wheelbase / 2 + opening, 1.91],
+  ]) {
+    if (start === undefined || end === undefined) continue
+    const undertray = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.05, end - start), interior)
+    undertray.position.set(0, 0.425, (start + end) / 2)
+    group.add(undertray)
+  }
   return group
 }
