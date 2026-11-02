@@ -16,6 +16,18 @@ function visible(object: THREE.Object3D) {
   return true
 }
 
+function coachwork(model: CarModel) {
+  const meshes: THREE.Mesh[] = []
+  model.exterior.traverse((object) => {
+    if (
+      object instanceof THREE.Mesh &&
+      !model.wheelPivots.some((pivot) => pivot.getObjectById(object.id))
+    )
+      meshes.push(object)
+  })
+  return meshes
+}
+
 test.each(['touring', 'roadster'] as const)(
   '%s coachwork has wheel openings through full suspension travel and steering lock',
   (vehicle) => {
@@ -23,13 +35,12 @@ test.each(['touring', 'roadster'] as const)(
     const metrics = vehicleMetrics[vehicle]
     const model = new CarModel(world.settings)
     const suspension = new Suspension(world)
-    const paint: THREE.Mesh[] = [],
-      coachwork: THREE.Mesh[] = []
+    const paint: THREE.Mesh[] = []
     model.exterior.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       if (object.material === model.body) paint.push(object)
-      if (!model.wheelPivots.some((pivot) => pivot.getObjectById(object.id))) coachwork.push(object)
     })
+    const occluders = coachwork(model)
     const bounds = new THREE.Box3()
     for (const mesh of paint) bounds.expandByObject(mesh)
     expect(bounds.min.y).toBeLessThan(0.25)
@@ -59,13 +70,46 @@ test.each(['touring', 'roadster'] as const)(
             if (side * point.x < side * pivot.position.x) continue
             ray.set(new THREE.Vector3(side * 2, point.y, point.z), new THREE.Vector3(-side, 0, 0))
             ray.far = 2 - side * point.x - 0.005
-            expect(ray.intersectObjects(coachwork, false)).toHaveLength(0)
+            expect(ray.intersectObjects(occluders, false)).toHaveLength(0)
             samples++
           }
         }
       }
     }
     expect(samples).toBeGreaterThan(1000)
+    model.dispose()
+  },
+)
+
+test.each(['touring', 'roadster'] as const)(
+  '%s rear tires remain visible below the tail from the chase direction',
+  (vehicle) => {
+    const model = new CarModel({ ...defaults, vehicle })
+    model.group.updateMatrixWorld(true)
+    const occluders = coachwork(model)
+    const eye = new THREE.Vector3(0, 1.7, 6.5)
+    const ray = new THREE.Raycaster()
+    for (const spin of model.wheels.slice(0, 2)) {
+      const tire = spin.children[0]
+      if (!(tire instanceof THREE.Mesh)) throw new Error('Rear tire missing')
+      const position = tire.geometry.getAttribute('position'),
+        normals = tire.geometry.getAttribute('normal'),
+        normalMatrix = new THREE.Matrix3().getNormalMatrix(tire.matrixWorld)
+      let exposed = 0
+      for (let i = 0; i < position.count; i++) {
+        const point = new THREE.Vector3()
+          .fromBufferAttribute(position, i)
+          .applyMatrix4(tire.matrixWorld)
+        const normal = new THREE.Vector3()
+          .fromBufferAttribute(normals, i)
+          .applyNormalMatrix(normalMatrix)
+        if (point.y < 0.03 || point.y > 0.28 || normal.dot(eye.clone().sub(point)) <= 0) continue
+        ray.set(eye, point.clone().sub(eye).normalize())
+        ray.far = eye.distanceTo(point) - 0.003
+        if (!ray.intersectObjects(occluders, false).length) exposed++
+      }
+      expect(exposed).toBeGreaterThan(10)
+    }
     model.dispose()
   },
 )

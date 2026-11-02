@@ -191,11 +191,11 @@ export class CarModel {
       box([0.44, 0.13, 0.025], [0, 0.73, back + 0.02], plate)
     } else {
       const rows = [
-        [0.22, 0.56],
-        [0.34, 0.68],
-        [0.44, 0.705],
-        [0.5, 0.71],
-        [0.62, 0.62],
+        [0.38, 0.56],
+        [0.44, 0.68],
+        [0.5, 0.705],
+        [0.56, 0.71],
+        [0.65, 0.62],
       ] as const
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute(
