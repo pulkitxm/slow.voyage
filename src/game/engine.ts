@@ -97,7 +97,7 @@ export class RoadEngine {
       Math.min(devicePixelRatio, this.settings.quality === 'low' ? 1 : 1.7),
     )
     this.renderer.shadowMap.enabled = true
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
     this.renderer.toneMappingExposure = 1.1
     this.scene.fog = new THREE.FogExp2('#d3ddd2', 0.00095)
@@ -266,8 +266,8 @@ export class RoadEngine {
         .add(new THREE.Vector3(0, 5.5, 0))
     else
       position
-        .addScaledVector(f, -8.7 - Math.abs(p.speed) * 0.025)
-        .add(new THREE.Vector3(0, this.settings.vehicle === 'bus' ? 4.7 : 3.6, 0))
+        .addScaledVector(f, -5.5 - Math.abs(p.speed) * 0.015)
+        .add(new THREE.Vector3(0, this.settings.vehicle === 'bus' ? 4.7 : 2.9, 0))
     position.y = Math.max(position.y, this.world.height(position.x, -position.z) + 1)
     this.camera.position.lerp(position, this.cameraReady ? 1 - Math.exp(-7 * dt) : 1)
     this.camera.lookAt(target)
