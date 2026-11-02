@@ -221,7 +221,7 @@ export class RoadEngine {
     this.sky.frustumCulled = false
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
-    this.terrain = new Terrain(this.scene, this.world)
+    this.terrain = new Terrain(this.scene, this.world, budget.detail)
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings)
@@ -293,6 +293,7 @@ export class RoadEngine {
     this.cameraReady = false
   }
   setSettings(settings: Settings) {
+    const budget = graphicsBudget(this.renderer, settings.quality)
     const roadChange =
       settings.landscape !== this.settings.landscape || settings.seed !== this.settings.seed
     const refresh =
@@ -312,7 +313,7 @@ export class RoadEngine {
       this.cameraReady = false
     }
     if (mouseChange) this.mouse.reset()
-    if (refresh) this.terrain.refresh(this.settings)
+    if (refresh) this.terrain.refresh(this.settings, budget.detail)
     if (vehicleChange) {
       this.scene.remove(this.car.group)
       this.car.dispose()
@@ -324,7 +325,6 @@ export class RoadEngine {
       this.physics.suspension.reset(this.physics)
     }
     this.car.body.color.set(settings.color)
-    const budget = graphicsBudget(this.renderer, settings.quality)
     this.renderer.setPixelRatio(budget.pixelRatio)
     if (this.sun.shadow.mapSize.x !== budget.shadowSize) {
       this.sun.shadow.mapSize.set(budget.shadowSize, budget.shadowSize)
