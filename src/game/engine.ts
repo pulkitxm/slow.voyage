@@ -10,6 +10,7 @@ import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
 import { SimulationClock } from './simulation-clock'
+import { ScenicSky } from './sky'
 import { Terrain } from './terrain'
 import { Water } from './water'
 import { type AssistanceMode, clamp, damp, defaults, type Settings, World } from './world'
@@ -37,7 +38,7 @@ export class RoadEngine {
   sun = new THREE.DirectionalLight('#fff3d5', 2.5)
   ambient = new THREE.HemisphereLight('#dae9ec', '#9ba47c', 1.9)
   headlights: THREE.SpotLight[] = []
-  sky: THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial>
+  sky: ScenicSky
   frame = 0
   started = false
   paused = false
@@ -253,25 +254,7 @@ export class RoadEngine {
     this.sun.shadow.camera.far = 350
     this.sun.shadow.normalBias = 0.05
     this.sun.shadow.bias = -0.00015
-    this.sky = new THREE.Mesh(
-      new THREE.SphereGeometry(2800, 24, 16),
-      new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        depthWrite: false,
-        uniforms: {
-          top: { value: new THREE.Color('#8dbac7') },
-          horizon: { value: new THREE.Color('#e1e5d1') },
-          clouds: { value: 0.5 },
-          cloudColor: { value: new THREE.Color('#e9ece8') },
-          time: { value: 0 },
-        },
-        vertexShader:
-          'varying vec3 direction;void main(){direction=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-        fragmentShader:
-          'varying vec3 direction;uniform vec3 top;uniform vec3 horizon;uniform vec3 cloudColor;uniform float clouds;uniform float time;float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}float noise(vec2 p){vec2 i=floor(p);vec2 f=fract(p);f=f*f*(3.-2.*f);return mix(mix(hash(i),hash(i+vec2(1.,0.)),f.x),mix(hash(i+vec2(0.,1.)),hash(i+vec2(1.,1.)),f.x),f.y);}void main(){vec3 d=normalize(direction);float h=max(d.y,0.);vec3 color=mix(horizon,top,pow(h,.5));vec2 p=d.xz/max(.12,d.y)*1.4+time*.0005;float n=noise(p)*.55+noise(p*2.3)*.28+noise(p*5.)*.17;float c=smoothstep(mix(.58,.2,clouds),mix(.87,.75,clouds),n)*smoothstep(.03,.3,h);color=mix(color,cloudColor,c*.65);gl_FragColor=vec4(color,1.);\n#include <tonemapping_fragment>\n#include <colorspace_fragment>\n}',
-      }),
-    )
-    this.sky.frustumCulled = false
+    this.sky = new ScenicSky()
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
     this.terrain = new Terrain(this.scene, this.world, budget.detail)
@@ -448,12 +431,7 @@ export class RoadEngine {
     })
     this.precipitation.setAppearance(this.settings)
     const night = this.settings.daylight === 'night'
-    this.sky.material.uniforms.top?.value.set(profile.sky)
-    this.sky.material.uniforms.horizon?.value.set(profile.horizon)
-    this.sky.material.uniforms.cloudColor?.value.set(
-      this.settings.weather === 'clear' ? '#e9ece8' : profile.horizon,
-    )
-    if (this.sky.material.uniforms.clouds) this.sky.material.uniforms.clouds.value = profile.clouds
+    this.sky.setAppearance(profile)
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.color.set(profile.horizon)
       this.scene.fog.density = profile.fog

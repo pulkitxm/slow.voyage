@@ -15,7 +15,7 @@ export function atmosphereProfile(settings: Settings) {
           : '#8c9da6'
         : sunset
           ? '#829bb6'
-          : '#82b3d7',
+          : '#69b7ef',
     horizon: night
       ? '#27384b'
       : weather === 'fog'
@@ -26,7 +26,16 @@ export function atmosphereProfile(settings: Settings) {
             ? '#c4cfce'
             : sunset
               ? '#e8b899'
-              : '#dbe6df',
+              : '#e1f2ec',
+    cloudColor: night
+      ? '#35465e'
+      : covered
+        ? weather === 'rain'
+          ? '#9dafb4'
+          : '#d0d9d7'
+        : sunset
+          ? '#f3cfb6'
+          : '#f3f8f6',
     sun: night ? '#9ab6dc' : sunset ? '#ffd0a0' : covered ? '#d8e3e9' : '#fff3db',
     sunlight: night
       ? 0.3

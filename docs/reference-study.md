@@ -199,6 +199,15 @@ both tire response and assisted corner planning use the same surface coefficient
 The lighting review corrected excessive indirect fill and bright fog outlines on
 cutout vegetation. Rain uses world-space roughness variation on asphalt.
 
+A further clear-weather comparison found that sky tone mapping and the gameplay
+CSS tint muted blue regions into gray. The sky now uses a separate display-color
+gradient with broader procedural cloud masses and distant wisps. The welcome
+screen retains its text tint; active driving shows the renderer directly.
+Night clouds use a dark palette rather than the daytime cloud color. Twelve
+daylight/weather combinations rendered without page or console errors, and the
+production bonnet and scenery-switch checks passed. These captures support a
+historical visual comparison, not current-release fidelity.
+
 Guardrail response now dissipates contact-normal energy and preserves tangential
 motion in road coordinates. Gentle contact no longer injects a fixed lateral kick.
 A reverse torque governor limits powered reversing while allowing gravity-driven
