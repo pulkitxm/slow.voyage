@@ -135,6 +135,17 @@ assisted axis. A browser flow verifies those handoffs and the control settings;
 simulation checks verify that one-pedal braking stops without selecting reverse.
 The precise current-release response and mappings still require comparison.
 
+The controls review reproduced missed steering handoff during gradual stick
+movement. Activity now accumulates from the last accepted position, so slow
+deliberate movement releases assistance while unchanged held input does not.
+The dynamics review also reproduced road departures at high requested cruise
+speeds and low grip. Autodrive now samples local curvature with braking lookahead
+and reserves wheel traction for steering. A 216-scenario regression covers all
+four vehicles, three grip settings, summer and winter, all landscapes, and three
+seeds over three simulated minutes per scenario. Power settings are paired with
+seeds, rather than tested as a full cross-product. Those scenarios keep wheels on
+pavement and avoid rail impacts without changing the saved cruise preference.
+
 Standard-layout controller input now uses the browser's
 [Gamepad API mapping](https://www.w3.org/TR/gamepad/#remapping), polled per frame.
 Analog triggers retain pressure values, sticks have an adjustable deadzone,

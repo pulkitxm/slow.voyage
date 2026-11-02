@@ -24,6 +24,9 @@ function steeringLimit(speed: number, settings: Settings) {
   const metrics = vehicleMetrics[settings.vehicle]
   return metrics.maxSteering * (1 - 0.75 * clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1))
 }
+function tractionAcceleration(settings: Settings, onRoad: boolean) {
+  return settings.grip * (settings.season === 'winter' ? 0.58 : 1) * (onRoad ? 1 : 0.64) * 9.81
+}
 export class CarPhysics {
   x = 0
   s = 180
@@ -61,6 +64,31 @@ export class CarPhysics {
     this.steeringRate = 0
     this.suspension.reset(this)
   }
+  routeSpeed(targetSpeed: number) {
+    const settings = this.world.settings
+    const metrics = vehicleMetrics[settings.vehicle]
+    const surface = this.world.surface(this.x, this.s)
+    const traction = tractionAcceleration(settings, surface.onRoad)
+    const lateralAcceleration = Math.min(4, traction * 0.6)
+    const speed = Math.abs(this.speed)
+    const braking = Math.max(
+      0.2,
+      Math.min(metrics.brake * 0.7, traction * 0.5) - Math.max(0, -surface.slopeS) * 9.81,
+    )
+    const preview = clamp((speed * speed) / (2 * braking) + speed, 80, 1200)
+    let limit = targetSpeed
+    for (let distance = 0; distance <= preview; distance += 10) {
+      const sample = this.world.road(this.s + distance)
+      const before = this.world.road(this.s + distance - 4)
+      const after = this.world.road(this.s + distance + 4)
+      const curvature =
+        Math.abs(angleDifference(after.yaw, before.yaw)) / (8 * Math.hypot(1, sample.dx))
+      const cornerSpeedSquared = lateralAcceleration / Math.max(curvature, 0.000001)
+      const availableDistance = Math.max(0, distance - speed)
+      limit = Math.min(limit, Math.sqrt(cornerSpeedSquared + 2 * braking * availableDistance))
+    }
+    return limit
+  }
   autoInput(targetSpeed: number): Input {
     const lookahead = 13 + Math.abs(this.speed) * 0.8
     const target = this.world.road(this.s + lookahead)
@@ -70,13 +98,36 @@ export class CarPhysics {
     const metrics = vehicleMetrics[this.world.settings.vehicle]
     const steer =
       Math.atan(metrics.wheelbase * curvature) / steeringLimit(this.speed, this.world.settings)
-    const bend = Math.abs(
-      angleDifference(this.world.road(this.s + 65).yaw, this.world.road(this.s).yaw),
+    const safeSpeed = this.routeSpeed(targetSpeed)
+    const settings = this.world.settings
+    const surface = this.world.surface(this.x, this.s)
+    const nominalLoad = (metrics.mass * 9.81) / this.suspension.wheels.length
+    const traction = this.suspension.wheels.reduce(
+      (limit, wheel) =>
+        Math.min(
+          limit,
+          wheel.contact
+            ? (tractionAcceleration(settings, wheel.onRoad) * wheel.load) / nominalLoad
+            : 0,
+        ),
+      tractionAcceleration(settings, surface.onRoad),
     )
-    const safeSpeed = Math.min(targetSpeed, 16 + 6 / (bend + 0.1))
+    const speed = Math.abs(this.speed)
+    const rolling =
+      0.1 + metrics.rollingResistance * speed + (surface.onRoad ? 0 : 1.4 + speed * 0.04)
+    const drive =
+      metrics.acceleration * settings.power * 0.5 * (1 + Math.max(0, 0.5 * (1 - speed / 27)))
     return {
-      throttle: clamp((safeSpeed - this.speed) * 0.5, 0, 1),
-      brake: clamp((this.speed - safeSpeed) * 0.3, 0, 1),
+      throttle: clamp(
+        (safeSpeed - this.speed) * 0.5,
+        0,
+        Math.min(1, (traction * 0.5 + rolling) / drive),
+      ),
+      brake: clamp(
+        (this.speed - safeSpeed) * 0.3,
+        0,
+        Math.min(1, Math.max(0, traction * 0.5 - rolling) / metrics.brake),
+      ),
       steer: clamp(steer, -1, 1),
       handbrake: false,
       regenBrake: 0,
