@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { chmod, mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PNG } from 'pngjs'
@@ -98,21 +98,11 @@ async function capture(
   })
   const directory = await mkdtemp(join(tmpdir(), 'slowroads-browser-'))
   const input = join(directory, 'scenario.json')
-  let launcher = executable
-  if (process.platform === 'linux') {
-    launcher = join(directory, 'chrome')
-    const quoted = `'${executable.replaceAll("'", "'\\''")}'`
-    await Bun.write(
-      launcher,
-      `#!/bin/sh\nexec ${quoted} --use-angle=swiftshader --enable-unsafe-swiftshader "$@"\n`,
-    )
-    await chmod(launcher, 0o700)
-  }
   try {
     await Bun.write(
       input,
       JSON.stringify({
-        browser: { mode: 'launch', executable_path: launcher },
+        browser: { mode: 'launch', executable_path: executable },
         start_url: { url: `http://127.0.0.1:${server.port}/` },
         environment: { service_workers: 'allow' },
         actions:
