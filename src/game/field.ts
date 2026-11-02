@@ -11,9 +11,8 @@ export function smoothStep(value: number) {
 
 export function terrainField(x: number, s: number, seed: number) {
   let height = 0
-  const scales = [1000, 250, 125]
-  for (let layer = 0; layer < scales.length; layer++) {
-    const scale = scales[layer] ?? 1000
+  for (let layer = 0; layer < terrainScales.length; layer++) {
+    const scale = terrainScales[layer] ?? 1000
     const u = x / scale - 0.5,
       v = s / scale - 0.5
     const column = Math.floor(u),
@@ -44,3 +43,4 @@ export function roadCurve(s: number, length: number, seed: number) {
     derivative: ((end - start) * 30 * t * t * (t - 1) * (t - 1)) / length,
   }
 }
+const terrainScales = [1000, 250, 125] as const
