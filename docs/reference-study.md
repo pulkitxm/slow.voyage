@@ -505,6 +505,9 @@ pod seated on a curved fairing. Both instrument themes retain contrast with dark
 exterior paint and gain subdued night illumination. Calibration checks cover zero,
 midscale, full scale, reverse, and overspeed. Model checks cover paint independence,
 lighting changes, geometry normals, and exact material and geometry disposal.
+Lower fascia, a floor, side cards, and sills now close the bus dashboard ends
+when looking sideways or down. Wide-angle look captures retain the road view;
+upper cabin frames, glazing, seats, and detailed controls remain further work.
 
 Completion requires current evidence for the full requested fidelity:
 
