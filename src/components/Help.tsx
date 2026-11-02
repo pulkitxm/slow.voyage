@@ -18,6 +18,8 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['A D / ← →', 'Steer'],
             ['Space', 'Handbrake'],
             ['F', 'Toggle autodrive'],
+            ['G', 'Choose assistance mode'],
+            ['+ / -', 'Adjust cruise speed'],
             ['C', 'Change camera'],
             ['R', 'Return to the road'],
             ['P / Esc', 'Pause the drive'],
@@ -28,6 +30,10 @@ export function Help({ onClose }: { onClose: () => void }) {
             </div>
           ))}
         </div>
+        <p>
+          Steering takes over steering assistance. Using the pedals takes over speed assistance.
+          Choose assistance and one-pedal driving in Controls settings.
+        </p>
         <div className="help-note">
           <ShieldCheck size={19} />
           <p>

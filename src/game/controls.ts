@@ -1,0 +1,42 @@
+import type { Input } from './physics'
+import type { AssistanceMode } from './world'
+
+export const assistanceLabels: Record<AssistanceMode, string> = {
+  off: 'Manual',
+  full: 'Autodrive',
+  steer: 'Autosteer',
+  speed: 'Autospeed',
+}
+export const neutralInput: Readonly<Input> = {
+  throttle: 0,
+  brake: 0,
+  steer: 0,
+  handbrake: false,
+  regenBrake: 0,
+}
+
+export function releaseAssistance(
+  mode: AssistanceMode,
+  axis: 'steer' | 'speed' | 'all',
+): AssistanceMode {
+  const steer = (mode === 'full' || mode === 'steer') && axis !== 'steer' && axis !== 'all'
+  const speed = (mode === 'full' || mode === 'speed') && axis !== 'speed' && axis !== 'all'
+  return steer ? (speed ? 'full' : 'steer') : speed ? 'speed' : 'off'
+}
+
+export function resolveInput(
+  manual: Input,
+  automatic: Input,
+  mode: AssistanceMode,
+  onePedal: boolean,
+): Input {
+  const steer = mode === 'full' || mode === 'steer'
+  const speed = mode === 'full' || mode === 'speed'
+  return {
+    throttle: speed ? automatic.throttle : manual.throttle,
+    brake: speed ? automatic.brake : manual.brake,
+    steer: steer ? automatic.steer : manual.steer,
+    handbrake: manual.handbrake,
+    regenBrake: !speed && onePedal && !manual.throttle && !manual.brake ? 0.15 : 0,
+  }
+}

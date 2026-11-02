@@ -13,6 +13,7 @@ export function decodeSettings(stored: unknown): Settings {
       'camera',
       'quality',
       'units',
+      'autodriveMode',
     ] as const) {
       const options: Record<typeof key, readonly string[]> = {
         landscape: ['highlands', 'alpine', 'desert'],
@@ -22,11 +23,12 @@ export function decodeSettings(stored: unknown): Settings {
         camera: cameras,
         quality: ['high', 'low'],
         units: ['km', 'mi'],
+        autodriveMode: ['full', 'steer', 'speed'],
       }
       if (typeof values[key] === 'string' && options[key].includes(values[key]))
         Object.assign(result, { [key]: values[key] })
     }
-    for (const key of ['volume', 'grip', 'power', 'seed'] as const)
+    for (const key of ['volume', 'grip', 'power', 'seed', 'cruiseSpeed'] as const)
       if (typeof values[key] === 'number' && Number.isFinite(values[key])) {
         const range =
           key === 'volume'
@@ -35,11 +37,14 @@ export function decodeSettings(stored: unknown): Settings {
               ? [0, 99999]
               : key === 'grip'
                 ? [0.2, 2]
-                : [0.5, 2]
+                : key === 'cruiseSpeed'
+                  ? [5, 45]
+                  : [0.5, 2]
         Object.assign(result, {
           [key]: Math.max(range[0] ?? 0, Math.min(range[1] ?? 1, values[key])),
         })
       }
+    if (typeof values.onePedal === 'boolean') result.onePedal = values.onePedal
     if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))
       result.color = values.color
     return result

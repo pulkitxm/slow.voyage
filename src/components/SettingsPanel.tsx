@@ -1,13 +1,15 @@
 import { AudioLines, Camera, Check, RotateCcw, ShieldCheck, X } from 'lucide-react'
+import { assistanceLabels } from '../game/controls'
 import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
 import { IconButton } from './IconButton'
 import { cameras, colors, daylight, landscapes, seasons, vehicles } from './options'
 
+export type SettingsTab = 'journey' | 'vehicle' | 'controls' | 'display'
 interface Props {
   settings: Settings
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void
-  tab: 'journey' | 'vehicle' | 'display'
+  tab: SettingsTab
   setTab: (tab: Props['tab']) => void
   offline: boolean
   onClose: () => void
@@ -36,7 +38,7 @@ export function SettingsPanel({
         </IconButton>
       </div>
       <div className="panel-tabs" role="tablist" aria-label="Settings categories">
-        {(['journey', 'vehicle', 'display'] as const).map((item) => (
+        {(['journey', 'vehicle', 'controls', 'display'] as const).map((item) => (
           <button
             key={item}
             type="button"
@@ -185,6 +187,67 @@ export function SettingsPanel({
                 onChange={(e) => update('grip', Number(e.target.value))}
               />
               <p>Less grip, a little more adventure.</p>
+            </section>
+          </>
+        )}
+        {tab === 'controls' && (
+          <>
+            <section className="setting-section">
+              <h3>Driving assistance</h3>
+              <div className="segmented">
+                {(['full', 'steer', 'speed'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={settings.autodriveMode === mode}
+                    className={settings.autodriveMode === mode ? 'selected' : ''}
+                    onClick={() => update('autodriveMode', mode)}
+                  >
+                    {assistanceLabels[mode]}
+                  </button>
+                ))}
+              </div>
+              <p>
+                Autodrive handles both. Autosteer follows the road while you use the pedals.
+                Autospeed holds your speed while you steer.
+              </p>
+            </section>
+            <section className="setting-section">
+              <label className="slider-label" htmlFor="cruise-speed">
+                Cruise speed{' '}
+                <span>
+                  {Math.round(settings.cruiseSpeed * (settings.units === 'km' ? 3.6 : 2.23694))}{' '}
+                  {settings.units === 'km' ? 'km/h' : 'mph'}
+                </span>
+              </label>
+              <input
+                id="cruise-speed"
+                type="range"
+                min={Math.ceil(5 * (settings.units === 'km' ? 3.6 : 2.23694))}
+                max={Math.floor(45 * (settings.units === 'km' ? 3.6 : 2.23694))}
+                step="1"
+                value={Math.round(settings.cruiseSpeed * (settings.units === 'km' ? 3.6 : 2.23694))}
+                onChange={(event) =>
+                  update(
+                    'cruiseSpeed',
+                    Number(event.target.value) / (settings.units === 'km' ? 3.6 : 2.23694),
+                  )
+                }
+              />
+              <p>Use + and - to adjust your cruising speed while driving.</p>
+            </section>
+            <section className="setting-section">
+              <label className="check-option">
+                <input
+                  type="checkbox"
+                  checked={settings.onePedal}
+                  onChange={(event) => update('onePedal', event.target.checked)}
+                />
+                One-pedal driving
+              </label>
+              <p>
+                Gently brake when you release the accelerator. Use S or the brake pedal to reverse.
+              </p>
             </section>
           </>
         )}

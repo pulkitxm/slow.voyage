@@ -129,6 +129,12 @@ approximation of the historical terrain-constrained generator.
 
 ## Verified implementation behavior
 
+The local controls now include full autodrive, autosteer, autospeed, adjustable
+forward cruise speed, and one-pedal braking. Manual input releases the matching
+assisted axis. A browser flow verifies those handoffs and the control settings;
+simulation checks verify that one-pedal braking stops without selecting reverse.
+The precise current-release response and mappings still require comparison.
+
 - The live TanStack Start development server responds on port 3002.
 - Manual driving, autodrive, pause/resume, vehicle and scenery changes render in a
   real Chrome session without page errors in the captured flows.
@@ -162,9 +168,9 @@ Completion requires current evidence for the full requested fidelity:
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A detailed cabin view is pending; the local selection
   now includes the touring car, convertible, enclosed motorcycle, and bus.
-- Implement and verify mouse and controller input, autosteer, autospeed,
-  one-pedal driving, chase orbit and zoom, and first-person look-around. Current
-  implementation covers keyboard, touch input, and full autodrive.
+- Implement and verify mouse and controller input, reverse cruise, chase orbit
+  and zoom, speed-dependent field of view, and first-person look-around. Compare
+  the reconstructed assistance modes and one-pedal response with the current game.
 - Verify extended driving performance, resource bounds, mobile layouts, and
   offline upgrades across repeated releases and browser sessions.
 

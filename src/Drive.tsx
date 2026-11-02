@@ -22,6 +22,7 @@ import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
 import { landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
+import { assistanceLabels } from './game/controls'
 import { useDrive } from './useDrive'
 
 export function Drive() {
@@ -190,12 +191,16 @@ export function Drive() {
       {started && (
         <>
           <div className="drive-indicator">
-            <span className={state.autodrive ? 'status-dot' : 'tiny-dot'} />
-            {state.autodrive
+            <span className={state.assistance !== 'off' ? 'status-dot' : 'tiny-dot'} />
+            {state.assistance === 'full'
               ? 'TAKING THE SCENIC ROUTE'
-              : state.offroad
-                ? 'A LITTLE OFF THE BEATEN PATH'
-                : 'THE ROAD IS YOURS'}
+              : state.assistance === 'steer'
+                ? 'STEERING ASSISTED'
+                : state.assistance === 'speed'
+                  ? 'CRUISING AT YOUR PACE'
+                  : state.offroad
+                    ? 'A LITTLE OFF THE BEATEN PATH'
+                    : 'THE ROAD IS YOURS'}
           </div>
           <section className="telemetry" aria-label="Driving dashboard">
             <div className="speed">
@@ -215,12 +220,18 @@ export function Drive() {
               <span className="toolbar-divider" />
               <button
                 type="button"
-                className={`auto-button ${state.autodrive ? 'enabled' : ''}`}
+                className={`auto-button ${state.assistance !== 'off' ? 'enabled' : ''}`}
+                data-assistance={state.assistance}
                 onClick={toggleAuto}
               >
                 <Route size={16} />
                 <span>
-                  Autodrive <b>{state.autodrive ? 'on' : 'off'}</b>
+                  {
+                    assistanceLabels[
+                      state.assistance === 'off' ? settings.autodriveMode : state.assistance
+                    ]
+                  }{' '}
+                  <b>{state.assistance !== 'off' ? 'on' : 'off'}</b>
                 </span>
                 <kbd>F</kbd>
               </button>
