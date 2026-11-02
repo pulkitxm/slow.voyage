@@ -1,8 +1,11 @@
+import { roadCurve, smoothStep, terrainField } from './field'
+
 export type Landscape = 'highlands' | 'alpine' | 'desert'
 export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'day' | 'sunset' | 'night'
 export type Vehicle = 'touring' | 'roadster' | 'motorcycle' | 'bus'
 export type CameraMode = 'chase' | 'bonnet' | 'cinematic'
+export type AssistanceMode = 'off' | 'full' | 'steer' | 'speed'
 const roadProfiles = {
   highlands: [24, 10, 3],
   alpine: [100, 28, 8],
@@ -21,6 +24,9 @@ export interface Settings {
   grip: number
   power: number
   seed: number
+  autodriveMode: Exclude<AssistanceMode, 'off'>
+  cruiseSpeed: number
+  onePedal: boolean
 }
 export const defaults: Settings = {
   landscape: 'highlands',
@@ -35,6 +41,9 @@ export const defaults: Settings = {
   grip: 1,
   power: 1,
   seed: 42,
+  autodriveMode: 'full',
+  cruiseSpeed: 22,
+  onePedal: false,
 }
 export const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 export const damp = (a: number, b: number, rate: number, dt: number) =>
@@ -100,5 +109,3 @@ export class World {
     }
   }
 }
-
-import { roadCurve, smoothStep, terrainField } from './field'

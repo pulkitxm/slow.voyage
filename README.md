@@ -37,6 +37,8 @@ HTTPS or localhost. No application server is required.
 | A D / Left Right | Steer               |
 | Space            | Handbrake           |
 | F                | Autodrive           |
+| G                | Assistance mode     |
+| + / -            | Cruise speed        |
 | C                | Cycle camera        |
 | R                | Reset to the road   |
 | P / Escape       | Pause               |
@@ -45,6 +47,11 @@ HTTPS or localhost. No application server is required.
 Touch devices have steering and pedal buttons. Settings include four vehicles,
 three landscapes, three seasons, lighting, paint, camera, grip, power, sound,
 detail, and units. Preferences are stored on the device.
+
+The Controls tab selects full autodrive, steering assistance, or speed assistance.
+Steering input releases steering assistance; pedal input releases speed
+assistance. One-pedal driving gently brakes on accelerator release without
+selecting reverse. Cruise speed follows the selected display units.
 
 ## Offline behavior
 

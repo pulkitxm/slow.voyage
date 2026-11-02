@@ -1,14 +1,23 @@
 import * as THREE from 'three'
 import { DriveAudio } from './audio'
+import { neutralInput, releaseAssistance, resolveInput } from './controls'
 import { createVehicleModel, type VehicleModel } from './model'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Terrain } from './terrain'
 import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
-import { angleDifference, clamp, damp, defaults, type Settings, World } from './world'
+import {
+  type AssistanceMode,
+  angleDifference,
+  clamp,
+  damp,
+  defaults,
+  type Settings,
+  World,
+} from './world'
 
 export interface DriveState extends Telemetry {
-  autodrive: boolean
+  assistance: AssistanceMode
   paused: boolean
   fps: number
 }
@@ -30,10 +39,10 @@ export class RoadEngine {
   frame = 0
   started = false
   paused = false
-  autodrive = false
-  cruiseSpeed = 22
+  assistance: AssistanceMode = 'off'
+  controlsBlocked = false
   keys = new Set<string>()
-  touch: Input = { throttle: 0, brake: 0, steer: 0, handbrake: false }
+  touch: Input = { ...neutralInput }
   lastTime = 0
   accumulator = 0
   lastTelemetry = 0
@@ -41,15 +50,20 @@ export class RoadEngine {
   cameraAnchor = new THREE.Vector3()
   cameraReady = false
   disposed = false
+  rendered = false
+  frameRate = 60
   onState?: (state: DriveState) => void
-  onAction?: (action: 'pause' | 'auto' | 'camera' | 'help') => void
+  onAction?: (
+    action: 'pause' | 'auto' | 'camera' | 'help' | 'autoMode' | 'cruiseUp' | 'cruiseDown',
+  ) => void
   resize = () => {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
   }
   keyDown = (event: KeyboardEvent) => {
-    if (document.querySelector('dialog[open]')) return
+    if (this.controlsBlocked || document.querySelector('dialog[open]')) return
+    if (event.metaKey || event.ctrlKey || event.altKey) return
     if (
       event.target instanceof HTMLElement &&
       ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)
@@ -61,13 +75,14 @@ export class RoadEngine {
     if (event.repeat) return
     this.keys.add(event.code)
     if (!this.started && ['KeyW', 'ArrowUp'].includes(event.code)) this.start()
-    if (
-      ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(
-        event.code,
-      )
-    )
-      this.autodrive = false
+    if (['KeyW', 'KeyS', 'ArrowUp', 'ArrowDown'].includes(event.code)) this.manualOverride('speed')
+    if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight'].includes(event.code))
+      this.manualOverride('steer')
+    if (event.code === 'Space') this.manualOverride('all')
     if (event.code === 'KeyF') this.onAction?.('auto')
+    if (event.code === 'KeyG') this.onAction?.('autoMode')
+    if (['Equal', 'NumpadAdd'].includes(event.code)) this.onAction?.('cruiseUp')
+    if (['Minus', 'NumpadSubtract'].includes(event.code)) this.onAction?.('cruiseDown')
     if (event.code === 'KeyP' || event.code === 'Escape') this.onAction?.('pause')
     if (event.code === 'KeyC') this.onAction?.('camera')
     if (event.code === 'KeyH') this.onAction?.('help')
@@ -78,7 +93,7 @@ export class RoadEngine {
   }
   blur = () => {
     this.keys.clear()
-    this.touch = { throttle: 0, brake: 0, steer: 0, handbrake: false }
+    this.touch = { ...neutralInput }
   }
   visibility = () => {
     this.lastTime = 0
@@ -148,13 +163,49 @@ export class RoadEngine {
     document.addEventListener('visibilitychange', this.visibility)
     this.frame = requestAnimationFrame(this.render)
   }
-  start(auto = false) {
+  start(assistance: AssistanceMode = 'off') {
     this.started = true
-    this.autodrive = auto
+    this.assistance = assistance
     this.paused = false
     this.audio.start(this.settings.volume)
     this.physics.distance = 0
-    if (!auto) this.physics.speed = 0
+    if (assistance === 'off' || assistance === 'steer') this.physics.speed = 0
+    this.emitState()
+  }
+  setAssistance(mode: AssistanceMode) {
+    if (!this.started && mode !== 'off') this.start(mode)
+    else {
+      this.assistance = mode
+      this.emitState()
+    }
+  }
+  manualOverride(axis: 'steer' | 'speed' | 'all') {
+    const next = releaseAssistance(this.assistance, axis)
+    if (next !== this.assistance) this.setAssistance(next)
+  }
+  setPaused(paused: boolean) {
+    if (!this.started) return
+    this.paused = paused
+    this.blur()
+    this.emitState()
+  }
+  setControlsBlocked(blocked: boolean) {
+    this.controlsBlocked = blocked
+    if (blocked) this.blur()
+  }
+  setTouch(key: 'throttle' | 'brake' | 'steer', value: number) {
+    if (this.controlsBlocked) return
+    this.touch[key] = value
+    if (value) this.manualOverride(key === 'steer' ? 'steer' : 'speed')
+  }
+  emitState() {
+    if (!this.rendered) return
+    this.onState?.({
+      ...this.physics.telemetry(),
+      assistance: this.assistance,
+      paused: this.paused,
+      fps: this.frameRate,
+    })
   }
   reset() {
     this.physics.reset()
@@ -167,6 +218,7 @@ export class RoadEngine {
       settings.quality !== this.settings.quality ||
       settings.seed !== this.settings.seed
     const vehicleChange = settings.vehicle !== this.settings.vehicle
+    const assistanceChange = settings.autodriveMode !== this.settings.autodriveMode
     this.settings = { ...settings }
     this.world.settings = this.settings
     if (refresh) this.terrain.refresh(this.settings)
@@ -181,6 +233,7 @@ export class RoadEngine {
     this.car.body.color.set(settings.color)
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, settings.quality === 'low' ? 1 : 1.7))
     this.applyLighting()
+    if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
   }
   configureHeadlights() {
     for (const light of this.headlights) {
@@ -217,27 +270,35 @@ export class RoadEngine {
     for (const light of this.headlights) light.intensity = night ? 65 : 0
   }
   manualInput(): Input {
+    if (this.controlsBlocked) return { ...neutralInput }
     const has = (...codes: string[]) => codes.some((c) => this.keys.has(c))
     return {
       throttle: has('KeyW', 'ArrowUp') ? 1 : this.touch.throttle,
       brake: has('KeyS', 'ArrowDown') ? 1 : this.touch.brake,
       steer: has('KeyA', 'ArrowLeft') ? 1 : has('KeyD', 'ArrowRight') ? -1 : this.touch.steer,
       handbrake: has('Space') || this.touch.handbrake,
+      regenBrake: 0,
     }
   }
   render = (time: number) => {
     if (this.disposed) return
     this.frame = requestAnimationFrame(this.render)
-    const dt = this.lastTime ? Math.min((time - this.lastTime) / 1000, 0.05) : 1 / 60
+    const elapsed = this.lastTime ? (time - this.lastTime) / 1000 : 1 / 60
+    const dt = Math.min(elapsed, 0.05)
+    this.frameRate = Math.round(1 / Math.max(elapsed, 0.001))
     this.lastTime = time
     let input = this.manualInput()
-    if (!this.paused && !document.hidden) {
+    if (
+      !this.paused &&
+      !document.hidden &&
+      (!this.controlsBlocked || !this.started || this.assistance === 'full')
+    ) {
       this.accumulator += dt
       while (this.accumulator >= 1 / 120) {
-        input =
-          !this.started || this.autodrive
-            ? this.physics.autoInput(this.started ? this.cruiseSpeed : 10)
-            : this.manualInput()
+        const automatic = this.physics.autoInput(this.started ? this.settings.cruiseSpeed : 10)
+        input = !this.started
+          ? automatic
+          : resolveInput(this.manualInput(), automatic, this.assistance, this.settings.onePedal)
         this.physics.update(1 / 120, input, this.settings)
         this.accumulator -= 1 / 120
       }
@@ -260,7 +321,11 @@ export class RoadEngine {
           dt,
         )
       : p.roll
-    this.car.update(p.suspension.wheels, input.brake > 0, this.settings.daylight === 'night')
+    this.car.update(
+      p.suspension.wheels,
+      input.brake > 0 || input.regenBrake > 0,
+      this.settings.daylight === 'night',
+    )
     const cameraMode = this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
     this.cameraYaw +=
@@ -316,13 +381,9 @@ export class RoadEngine {
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p.speed, input.throttle, this.settings, this.paused || !this.started)
     this.renderer.render(this.scene, this.camera)
+    this.rendered = true
     if (!this.lastTelemetry || time - this.lastTelemetry > 100) {
-      this.onState?.({
-        ...p.telemetry(),
-        autodrive: this.autodrive,
-        paused: this.paused,
-        fps: Math.round(1 / dt),
-      })
+      this.emitState()
       this.lastTelemetry = time
     }
   }

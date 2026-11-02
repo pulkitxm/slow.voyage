@@ -8,6 +8,7 @@ export interface Input {
   brake: number
   steer: number
   handbrake: boolean
+  regenBrake: number
 }
 export interface Telemetry {
   speed: number
@@ -45,7 +46,6 @@ export class CarPhysics {
   brakeForce = 0
   offroad = false
   suspension: Suspension
-  input: Input = { throttle: 0, brake: 0, steer: 0, handbrake: false }
   constructor(public world: World) {
     this.suspension = new Suspension(world)
     this.reset()
@@ -79,6 +79,7 @@ export class CarPhysics {
       brake: clamp((this.speed - safeSpeed) * 0.3, 0, 1),
       steer: clamp(steer, -1, 1),
       handbrake: false,
+      regenBrake: 0,
     }
   }
   update(dt: number, input: Input, settings: Settings) {
@@ -104,10 +105,10 @@ export class CarPhysics {
       -vehicle.jerk * dt * 0.5,
       vehicle.jerk * dt * 0.5,
     )
-    this.brakeForce =
-      input.brake && !reversing
-        ? Math.min(vehicle.brake * input.brake, this.brakeForce + vehicle.brake * 4 * dt)
-        : 0
+    const brake = Math.max(reversing ? 0 : input.brake, input.regenBrake)
+    this.brakeForce = brake
+      ? Math.min(vehicle.brake * brake, this.brakeForce + vehicle.brake * 4 * dt)
+      : 0
     const steeringError = input.steer * steeringLimit(this.speed, settings) - this.steering
     const desiredSteeringRate = clamp(
       steeringError * 7,

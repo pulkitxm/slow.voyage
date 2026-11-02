@@ -1267,3 +1267,15 @@ input[type="range"] {
     bottom: 65px;
   }
 }
+.check-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.check-option input {
+  accent-color: #657b4e;
+  width: 16px;
+  height: 16px;
+}

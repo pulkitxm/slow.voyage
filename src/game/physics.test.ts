@@ -8,7 +8,7 @@ class FlatWorld extends World {
   }
 }
 
-const coast = { throttle: 0, brake: 0, steer: 0, handbrake: false }
+const coast = { throttle: 0, brake: 0, steer: 0, handbrake: false, regenBrake: 0 }
 function simulate(
   car: CarPhysics,
   duration: number,
@@ -19,6 +19,16 @@ function simulate(
   for (let t = 0; t < duration; t += dt) car.update(dt, input, settings)
 }
 describe('vehicle dynamics', () => {
+  test('one-pedal braking stops without selecting reverse', () => {
+    const free = new CarPhysics(new FlatWorld({ ...defaults }))
+    const braking = new CarPhysics(new FlatWorld({ ...defaults }))
+    free.speed = braking.speed = 15
+    simulate(free, 18)
+    simulate(braking, 18, { ...coast, regenBrake: 0.15 })
+    expect(braking.distance).toBeLessThan(free.distance)
+    expect(braking.speed).toBeGreaterThanOrEqual(-0.000001)
+    expect(braking.speed).toBeLessThan(0.01)
+  })
   test('accelerates, coasts, and brakes with distinct stopping forces', () => {
     const car = new CarPhysics(new FlatWorld({ ...defaults }))
     simulate(car, 4, { ...coast, throttle: 1 })

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { SettingsTab } from './components/SettingsPanel'
+import { assistanceLabels } from './game/controls'
 import { type DriveState, RoadEngine } from './game/engine'
 import { cameras, loadSettings } from './game/settings'
-import { defaults, type Settings } from './game/world'
+import { clamp, defaults, type Settings } from './game/world'
 
 const initial: DriveState = {
   speed: 0,
@@ -12,7 +14,7 @@ const initial: DriveState = {
   offroad: false,
   gear: 'N',
   impact: 0,
-  autodrive: false,
+  assistance: 'off',
   paused: false,
   fps: 60,
 }
@@ -25,7 +27,7 @@ export function useDrive() {
   const [ready, setReady] = useState(false)
   const [panel, setPanel] = useState(false)
   const [help, setHelp] = useState(false)
-  const [tab, setTab] = useState<'journey' | 'vehicle' | 'display'>('journey')
+  const [tab, setTab] = useState<SettingsTab>('journey')
   const [offline, setOffline] = useState(false)
   const [online, setOnline] = useState(true)
   const [error, setError] = useState('')
@@ -49,29 +51,38 @@ export function useDrive() {
   const start = (auto = false) => {
     const instance = engine.current
     if (!instance) return
-    instance.start(auto)
-    setState((current) => ({
-      ...current,
-      speed: instance.physics.speed,
-      distance: 0,
-      autodrive: auto,
-      paused: false,
-    }))
+    instance.start(auto ? settingsRef.current.autodriveMode : 'off')
     setStarted(true)
     setPanel(false)
   }
   const pause = () => {
     if (!engine.current?.started) return
-    engine.current.paused = !engine.current.paused
-    setState((current) => ({ ...current, paused: engine.current?.paused ?? false }))
+    engine.current.setPaused(!engine.current.paused)
   }
   const toggleAuto = () => {
     if (!engine.current) return
     if (!engine.current.started) start(true)
-    else engine.current.autodrive = !engine.current.autodrive
-    const autodrive = engine.current.autodrive
-    setState((current) => ({ ...current, autodrive }))
-    announce(engine.current.autodrive ? 'Autodrive on. Enjoy the view.' : 'You have the wheel.')
+    else
+      engine.current.setAssistance(
+        engine.current.assistance === 'off' ? settingsRef.current.autodriveMode : 'off',
+      )
+    const mode = engine.current.assistance
+    announce(mode === 'off' ? 'You have the wheel.' : `${assistanceLabels[mode]} on.`)
+  }
+  const cycleAssistance = () => {
+    const modes = ['full', 'steer', 'speed'] as const
+    const next =
+      modes[(modes.indexOf(settingsRef.current.autodriveMode) + 1) % modes.length] ?? 'full'
+    update('autodriveMode', next)
+    announce(`${assistanceLabels[next]} selected.`)
+  }
+  const adjustCruise = (direction: number) => {
+    const factor = settingsRef.current.units === 'km' ? 3.6 : 2.23694
+    const speed = clamp(settingsRef.current.cruiseSpeed + (direction * 5) / factor, 5, 45)
+    update('cruiseSpeed', speed)
+    announce(
+      `Cruise speed ${Math.round(speed * factor)} ${settingsRef.current.units === 'km' ? 'km/h' : 'mph'}`,
+    )
   }
   const cycleCamera = () => {
     if (!engine.current) return
@@ -80,8 +91,8 @@ export function useDrive() {
     update('camera', next)
     announce(`${next === 'bonnet' ? 'Bonnet' : next === 'chase' ? 'Chase' : 'Cinematic'} camera`)
   }
-  const handlers = useRef({ pause, toggleAuto, cycleCamera })
-  handlers.current = { pause, toggleAuto, cycleCamera }
+  const handlers = useRef({ pause, toggleAuto, cycleCamera, cycleAssistance, adjustCruise })
+  handlers.current = { pause, toggleAuto, cycleCamera, cycleAssistance, adjustCruise }
   useEffect(() => {
     if (!canvas.current) return
     let rendered = false
@@ -103,6 +114,9 @@ export function useDrive() {
       instance.onAction = (action) => {
         if (action === 'pause') handlers.current.pause()
         if (action === 'auto') handlers.current.toggleAuto()
+        if (action === 'autoMode') handlers.current.cycleAssistance()
+        if (action === 'cruiseUp') handlers.current.adjustCruise(1)
+        if (action === 'cruiseDown') handlers.current.adjustCruise(-1)
         if (action === 'camera') handlers.current.cycleCamera()
         if (action === 'help') setHelp((current) => !current)
       }
@@ -137,6 +151,9 @@ export function useDrive() {
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
   }, [announce])
+  useEffect(() => {
+    engine.current?.setControlsBlocked(panel || help)
+  }, [panel, help])
   const fullscreen = () => {
     if (document.fullscreenElement)
       void document.exitFullscreen().catch(() => announce('Fullscreen is unavailable'))
@@ -147,8 +164,7 @@ export function useDrive() {
   }
   const touch = (key: 'throttle' | 'brake' | 'steer', value: number) => {
     if (!engine.current) return
-    engine.current.touch[key] = value
-    if (value) engine.current.autodrive = false
+    engine.current.setTouch(key, value)
   }
   return {
     canvas,

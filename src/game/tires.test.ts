@@ -15,7 +15,7 @@ class FlatWorld extends World {
     return false
   }
 }
-const coast: Input = { throttle: 0, brake: 0, steer: 0, handbrake: false }
+const coast: Input = { throttle: 0, brake: 0, steer: 0, handbrake: false, regenBrake: 0 }
 const step = 1 / 120
 function car(settings: Settings = defaults) {
   return new CarPhysics(new FlatWorld(settings))

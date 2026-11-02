@@ -47,6 +47,13 @@ const wait = (step_id: string, selector: string) => ({
 })
 const settle = { step_id: 'render', action: 'wait_for_timeout', duration_ms: 1800 }
 const start = click('start', '.intro .text-button')
+const press = (step_id: string, key: string, selector = 'body') => ({
+  step_id,
+  action: 'press',
+  locator: { kind: 'css', selector },
+  key,
+  timeout_ms: 20000,
+})
 
 async function capture(actions: object[] | ((origin: string) => object[]), screenshot = false) {
   const executable =
@@ -228,4 +235,33 @@ test('reloads and drives after the HTTP origin shuts down', async () => {
     settle,
   ])
   expect(originStopped).toBe(true)
+}, 150000)
+
+test('hands assisted axes to the driver and configures one-pedal and cruise controls', async () => {
+  await capture([
+    start,
+    wait('full', '[data-assistance="full"]'),
+    press('take-steering', 'a'),
+    wait('speed-only', '[data-assistance="speed"]'),
+    press('take-pedals', 'w'),
+    wait('manual', '[data-assistance="off"]'),
+    press('select-steering', 'g'),
+    press('enable-steering', 'f'),
+    wait('steering-only', '[data-assistance="steer"]'),
+    press('pedals-remain-manual', 'w'),
+    wait('still-steering', '[data-assistance="steer"]'),
+    press('take-all', 'd'),
+    wait('all-manual', '[data-assistance="off"]'),
+    click('settings', '[aria-label="Open settings"]'),
+    click('controls', '[role="tab"]:has-text("controls")'),
+    click('one-pedal', '.check-option:has-text("One-pedal") input'),
+    wait('one-pedal-enabled', '.check-option:has-text("One-pedal") input:checked'),
+    press('minimum-cruise', 'Home', '#cruise-speed'),
+    wait('cruise-updated', 'label[for="cruise-speed"] span:has-text("18 km/h")'),
+    click('choose-speed', '.segmented button:has-text("Autospeed")'),
+    click('close', '[aria-label="Close settings"]'),
+    press('enable-speed', 'f'),
+    wait('speed-active', '[data-assistance="speed"]'),
+    settle,
+  ])
 }, 150000)

@@ -10,6 +10,9 @@ describe('saved preferences', () => {
       volume: Number.NaN,
       power: '2',
       camera: {},
+      autodriveMode: 'unknown',
+      onePedal: 'yes',
+      cruiseSpeed: Number.NaN,
     })
     expect(settings).toEqual(defaults)
   })
@@ -19,12 +22,14 @@ describe('saved preferences', () => {
       grip: -10,
       seed: 1e8,
       power: 50,
+      cruiseSpeed: 200,
       color: 'url(example)',
       extra: true,
     })
     expect(settings.volume).toBe(1)
     expect(settings.grip).toBe(0.2)
     expect(settings.power).toBe(2)
+    expect(settings.cruiseSpeed).toBe(45)
     expect(settings.seed).toBe(99999)
     expect(settings.color).toBe(defaults.color)
     expect('extra' in settings).toBe(false)
@@ -36,6 +41,9 @@ describe('saved preferences', () => {
       season: 'winter' as const,
       volume: 0,
       grip: 0.2,
+      onePedal: true,
+      autodriveMode: 'steer' as const,
+      cruiseSpeed: 12.5,
       units: 'mi' as const,
       color: '#b65a44',
     }
