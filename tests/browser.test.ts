@@ -276,6 +276,35 @@ test('hands assisted axes to the driver and configures one-pedal and cruise cont
   ])
 }, 150000)
 
+test('keeps driving free of decorative overlays and switches scenery and cars with shortcuts', async () => {
+  await capture([
+    start,
+    wait(
+      'clean-driving-view',
+      '.is-driving:not(:has(.brand, .location, .drive-indicator, .bottom-line, .offline-status))',
+    ),
+    press('next-scenery', 'e'),
+    wait(
+      'autumn-evening',
+      '[data-landscape="highlands"][data-season="autumn"][data-daylight="sunset"]',
+    ),
+    press('previous-scenery', 'q'),
+    wait('summer-hills', '[data-landscape="highlands"][data-season="summer"][data-daylight="day"]'),
+    press('wrap-scenery', 'q'),
+    wait('alpine-night', '[data-landscape="alpine"][data-season="winter"][data-daylight="night"]'),
+    wait('still-moving', '.speed-value:not(:text-is("00"))'),
+    press('next-vehicle', 'v'),
+    wait('roadster', '[data-vehicle="roadster"]'),
+    press('previous-vehicle', 'Shift+V'),
+    wait('touring', '[data-vehicle="touring"]'),
+    click('settings-available', '[aria-label="Open settings"]'),
+    click('vehicle-tab', '[role="tab"]:has-text("vehicle")'),
+    wait('selected-vehicle', '.vehicle-options button.selected:has-text("Grand tourer")'),
+    click('close', '[aria-label="Close settings"]'),
+    settle,
+  ])
+}, 150000)
+
 test('polls a simulated browser gamepad for driving, buttons, and disconnects', async () => {
   await capture(
     [

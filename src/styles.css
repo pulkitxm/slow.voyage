@@ -99,6 +99,10 @@ svg {
   align-items: center;
   gap: 20px;
 }
+.is-driving .topbar {
+  justify-content: flex-end;
+  padding: 20px 24px;
+}
 .brand {
   font:
     300 28px / 1 "Manrope",
@@ -420,22 +424,6 @@ svg {
 }
 .bottom-line > button:hover {
   opacity: 0.7;
-}
-.drive-indicator {
-  position: absolute;
-  top: 124px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8px;
-  letter-spacing: 2px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  opacity: 0.8;
-  white-space: nowrap;
-}
-.drive-indicator .status-dot {
-  background: #d8e9b6;
 }
 .telemetry {
   position: absolute;
@@ -1136,11 +1124,6 @@ input[type="range"] {
   .distance > span:last-child {
     font-size: 8px;
   }
-  .drive-indicator {
-    top: 109px;
-    font-size: 7px;
-    letter-spacing: 1.7px;
-  }
   .dialog {
     padding: 30px;
   }
@@ -1219,9 +1202,6 @@ input[type="range"] {
   }
   .journey-preview {
     bottom: 80px;
-  }
-  .drive-indicator {
-    top: 90px;
   }
   .telemetry {
     bottom: 70px;

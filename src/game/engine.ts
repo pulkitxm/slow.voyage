@@ -62,7 +62,19 @@ export class RoadEngine {
   frameRate = 60
   onState?: (state: DriveState) => void
   onAction?: (
-    action: 'pause' | 'auto' | 'camera' | 'help' | 'autoMode' | 'cruiseUp' | 'cruiseDown' | 'mouse',
+    action:
+      | 'pause'
+      | 'auto'
+      | 'camera'
+      | 'help'
+      | 'autoMode'
+      | 'cruiseUp'
+      | 'cruiseDown'
+      | 'mouse'
+      | 'journeyNext'
+      | 'journeyPrevious'
+      | 'vehicleNext'
+      | 'vehiclePrevious',
   ) => void
   resize = () => {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -90,6 +102,9 @@ export class RoadEngine {
     if (event.code === 'KeyF') this.onAction?.('auto')
     if (event.code === 'KeyG') this.onAction?.('autoMode')
     if (event.code === 'KeyM') this.onAction?.('mouse')
+    if (event.code === 'KeyQ') this.onAction?.('journeyPrevious')
+    if (event.code === 'KeyE') this.onAction?.('journeyNext')
+    if (event.code === 'KeyV') this.onAction?.(event.shiftKey ? 'vehiclePrevious' : 'vehicleNext')
     if (['Equal', 'NumpadAdd'].includes(event.code)) this.onAction?.('cruiseUp')
     if (['Minus', 'NumpadSubtract'].includes(event.code)) this.onAction?.('cruiseDown')
     if (event.code === 'KeyP' || event.code === 'Escape') this.onAction?.('pause')
@@ -270,6 +285,8 @@ export class RoadEngine {
     this.cameraReady = false
   }
   setSettings(settings: Settings) {
+    const roadChange =
+      settings.landscape !== this.settings.landscape || settings.seed !== this.settings.seed
     const refresh =
       settings.season !== this.settings.season ||
       settings.landscape !== this.settings.landscape ||
@@ -280,6 +297,12 @@ export class RoadEngine {
     const mouseChange = settings.mouseEnabled !== this.settings.mouseEnabled
     this.settings = { ...settings }
     this.world.settings = this.settings
+    if (roadChange) {
+      const speed = this.physics.speed
+      this.physics.reset()
+      this.physics.speed = speed
+      this.cameraReady = false
+    }
     if (mouseChange) this.mouse.reset()
     if (refresh) this.terrain.refresh(this.settings)
     if (vehicleChange) {
@@ -289,6 +312,8 @@ export class RoadEngine {
       this.scene.add(this.car.group)
       this.configureHeadlights()
       this.cameraReady = false
+      this.physics.suspension.configure(settings.vehicle)
+      this.physics.suspension.reset(this.physics)
     }
     this.car.body.color.set(settings.color)
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, settings.quality === 'low' ? 1 : 1.7))
