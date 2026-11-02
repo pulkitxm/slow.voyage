@@ -67,6 +67,7 @@ export class RoadEngine {
   rendered = false
   frameRate = 60
   onState?: (state: DriveState) => void
+  onError?: () => void
   onAction?: (
     action:
       | 'pause'
@@ -88,6 +89,7 @@ export class RoadEngine {
     this.camera.updateProjectionMatrix()
   }
   keyDown = (event: KeyboardEvent) => {
+    if (!this.rendered) return
     if (this.controlsBlocked || document.querySelector('dialog[open]')) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
     if (
@@ -240,7 +242,29 @@ export class RoadEngine {
     canvas.addEventListener('pointercancel', this.pointerCancel)
     canvas.addEventListener('pointerleave', this.pointerLeave)
     canvas.addEventListener('contextmenu', this.contextMenu)
-    this.frame = requestAnimationFrame(this.render)
+    void this.prepare().catch(() => {
+      if (!this.disposed) this.onError?.()
+    })
+  }
+  async prepare() {
+    this.canvas.style.visibility = 'hidden'
+    this.terrain.update(this.physics.s, 0)
+    const p = this.physics
+    this.car.group.position.set(p.x, p.y, -p.s)
+    this.camera.position.set(p.x, p.y + 5, -p.s + 12)
+    this.camera.lookAt(p.x, p.y + 1, -p.s)
+    this.sky.position.copy(this.camera.position)
+    this.water.update(p.x, p.s, 0)
+    this.precipitation.update(p.x, p.y, p.s, 0)
+    this.sun.position.set(p.x - 90, p.y + 110, -p.s - 80)
+    this.sun.target.position.set(p.x, p.y, -p.s - 15)
+    this.precipitation.rain.visible = this.precipitation.snow.visible = true
+    await this.renderer.compileAsync(this.scene, this.camera)
+    if (this.disposed) return
+    this.renderer.render(this.scene, this.camera)
+    this.renderer.getContext().finish()
+    this.precipitation.setAppearance(this.settings)
+    if (!this.disposed) this.frame = requestAnimationFrame(this.render)
   }
   start(assistance: AssistanceMode = 'off') {
     this.started = true
@@ -538,6 +562,7 @@ export class RoadEngine {
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p.speed, input.throttle, this.settings, this.paused || !this.started)
     this.renderer.render(this.scene, this.camera)
+    if (!this.rendered) this.canvas.style.visibility = ''
     this.rendered = true
     if (!this.lastTelemetry || time - this.lastTelemetry > 100) {
       this.emitState()
