@@ -366,9 +366,17 @@ export class Terrain {
     for (let i = 0; i < count; i++) {
       const s = start + rng() * 120,
         d = (rng() > 0.5 ? 1 : -1) * (4.8 + rng() ** 2.2 * 23)
-      const x = this.world.road(s).x + d
-      if (this.world.height(x, s) < 0.3) continue
-      matrix.position.set(x, this.world.height(x, s), -s)
+      const road = this.world.road(s)
+      const x = road.x + d
+      const elevation = this.world.height(x, s)
+      if (elevation < 0.3) continue
+      if (elevation - road.y > 0.15 && Math.abs(d) < 18.5) {
+        const slope = Math.abs(
+          (this.world.height(x + 0.25, s) - this.world.height(x - 0.25, s)) / 0.5,
+        )
+        if (rng() < clamp((slope - 0.55) / 0.4, 0, 1)) continue
+      }
+      matrix.position.set(x, elevation, -s)
       matrix.rotation.set(0, rng() * 6.28, 0)
       matrix.scale.set(0.8 + rng() * 0.8, 0.55 + rng() * 0.65, 0.8 + rng() * 0.8)
       matrix.updateMatrix()
