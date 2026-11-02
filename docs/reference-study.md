@@ -211,6 +211,12 @@ cover all four vehicles with service braking, one-pedal braking, and simultaneou
 pedal input. Historical wheel-motion logic also gives braking priority over drive;
 current-release response still requires direct comparison.
 
+Direction changes now brake opposing motion and suppress any stale torque that
+opposes the requested drive direction. Accelerating reverse cannot gain backward
+speed when forward is selected, and selecting reverse near rest cannot add a
+forward kick. Eight flat-road regressions and sixteen grade cases cover all four
+vehicles, including starting a forward transition from powered reverse.
+
 The render clock now accumulates up to a quarter second of elapsed time into fixed
 120 Hz simulation steps. Driving therefore retains its pace across slower render
 frames. A ten-second acceleration check agrees at 8, 15, 30, 60, and 144 rendering
