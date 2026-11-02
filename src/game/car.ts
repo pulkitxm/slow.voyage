@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { createBonnet } from './bonnet'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
@@ -51,6 +52,9 @@ function shell(rings: [number, number, number, number][], material: THREE.Materi
 }
 export class CarModel {
   group = new THREE.Group()
+  exterior = new THREE.Group()
+  firstPerson: THREE.Group
+  bonnet: ReturnType<typeof createBonnet>
   wheels: THREE.Group[] = []
   wheelPivots: THREE.Group[] = []
   materials: THREE.Material[] = []
@@ -115,7 +119,7 @@ export class CarModel {
     const width = isBus ? 1.18 : 0.823,
       back = isBus ? 3.3 : 2.02,
       front = isBus ? -3.3 : -2.06
-    this.group.add(
+    this.exterior.add(
       shell(
         isBus
           ? [
@@ -141,7 +145,7 @@ export class CarModel {
     ) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material)
       mesh.position.set(...position)
-      this.group.add(mesh)
+      this.exterior.add(mesh)
       return mesh
     }
     if (isBus) {
@@ -160,9 +164,9 @@ export class CarModel {
         ],
         glass,
       )
-      this.group.add(cabin)
+      this.exterior.add(cabin)
       if (!isRoadster)
-        this.group.add(
+        this.exterior.add(
           shell(
             [
               [1.205, 0.575, 1.07, -0.06],
@@ -224,7 +228,7 @@ export class CarModel {
       geometry.setIndex(indices)
       geometry.computeVertexNormals()
       const mesh = new THREE.Mesh(geometry, material)
-      this.group.add(mesh)
+      this.exterior.add(mesh)
     }
     if (isBus) {
       box([width * 1.8, 0.17, 0.06], [0, 0.55, back + 0.005], black)
@@ -258,7 +262,7 @@ export class CarModel {
       }
       geometry.setIndex(indices)
       geometry.computeVertexNormals()
-      this.group.add(new THREE.Mesh(geometry, diffuser))
+      this.exterior.add(new THREE.Mesh(geometry, diffuser))
     }
     box([width * 1.7, 0.14, 0.04], [0, 0.42, front - 0.005], black)
     for (const side of [-1, 1]) {
@@ -298,10 +302,11 @@ export class CarModel {
         pivot.position.set(side * dimensions.trackWidth * 0.5, this.wheelRadius, z)
         pivot.add(spin)
         const wheel = new THREE.Mesh(
-          new THREE.CylinderGeometry(this.wheelRadius, this.wheelRadius, 0.2, 24),
+          new THREE.TorusGeometry(this.wheelRadius - 0.054, 0.054, 12, 32),
           tire,
         )
-        wheel.rotation.z = Math.PI / 2
+        wheel.rotation.y = Math.PI / 2
+        wheel.scale.z = 1.7
         spin.add(wheel)
         const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.235, 0.235, 0.18, 20), black)
         rim.rotation.z = Math.PI / 2
@@ -316,8 +321,11 @@ export class CarModel {
         spin.add(hub)
         this.wheels.push(spin)
         this.wheelPivots.push(pivot)
-        this.group.add(pivot)
+        this.exterior.add(pivot)
       }
+    this.bonnet = createBonnet(settings.vehicle, this.body, black)
+    this.firstPerson = this.bonnet.group
+    this.group.add(this.exterior, this.firstPerson)
     this.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
         o.castShadow = true
@@ -328,11 +336,11 @@ export class CarModel {
   setExteriorVisible(visible: boolean) {
     if (this.exteriorVisible === visible) return
     this.exteriorVisible = visible
-    this.group.traverse((object) => {
-      if (object instanceof THREE.Mesh) object.visible = visible
-    })
+    this.exterior.visible = visible
+    this.firstPerson.visible = !visible
   }
-  update(wheels: readonly WheelState[], braking: boolean, night: boolean) {
+  update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number) {
+    this.bonnet.update(speed, wheels[0]?.steering ?? 0)
     for (let i = 0; i < wheels.length; i++) {
       const state = wheels[i],
         pivot = this.wheelPivots[i],

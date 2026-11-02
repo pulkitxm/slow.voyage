@@ -562,6 +562,7 @@ export class RoadEngine {
       p.suspension.wheels,
       input.brake > 0 || input.regenBrake > 0,
       this.settings.daylight === 'night',
+      p.speed,
     )
     const cameraMode = this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
