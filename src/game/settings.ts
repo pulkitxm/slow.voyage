@@ -7,6 +7,7 @@ const numericRanges = {
   seed: [0, 99999],
   cruiseSpeed: [5, 45],
   controllerDeadzone: [0.05, 0.4],
+  mouseSensitivity: [0.5, 2],
 } as const
 export const cameras = ['chase', 'bonnet', 'cinematic'] as const
 export function decodeSettings(stored: unknown): Settings {
@@ -43,7 +44,7 @@ export function decodeSettings(stored: unknown): Settings {
           [key]: Math.max(minimum, Math.min(maximum, values[key])),
         })
       }
-    for (const key of ['onePedal', 'controllerEnabled'] as const)
+    for (const key of ['onePedal', 'controllerEnabled', 'mouseEnabled'] as const)
       if (typeof values[key] === 'boolean') result[key] = values[key]
     if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))
       result.color = values.color

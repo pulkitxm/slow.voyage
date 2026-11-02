@@ -15,6 +15,22 @@ export const neutralInput: Readonly<Input> = {
   regenBrake: 0,
 }
 
+export function mergeManualInput(
+  keyboard: Input,
+  touch: Input,
+  controller: Input,
+  mouse: Input | null,
+): Input {
+  const device = mouse ?? controller
+  return {
+    throttle: Math.max(keyboard.throttle, touch.throttle, device.throttle),
+    brake: Math.max(keyboard.brake, touch.brake, device.brake),
+    steer: keyboard.steer || touch.steer || device.steer,
+    handbrake: keyboard.handbrake || touch.handbrake || device.handbrake,
+    regenBrake: 0,
+  }
+}
+
 export function releaseAssistance(
   mode: AssistanceMode,
   axis: 'steer' | 'speed' | 'all',

@@ -1,8 +1,23 @@
 import { expect, test } from 'bun:test'
-import { neutralInput, releaseAssistance, resolveInput } from './controls'
+import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 
 const manual = { ...neutralInput, throttle: 0.8, brake: 0.2, steer: 0.7 }
 const automatic = { ...neutralInput, throttle: 0.3, steer: -0.4 }
+
+test('enabled mouse replaces controller axes while keyboard and touch remain available', () => {
+  const controller = { ...neutralInput, throttle: 1, steer: -0.8, handbrake: true }
+  expect(mergeManualInput(neutralInput, neutralInput, controller, null)).toEqual(controller)
+  expect(mergeManualInput(neutralInput, neutralInput, controller, neutralInput)).toEqual(
+    neutralInput,
+  )
+  const mouse = { ...neutralInput, brake: 1, steer: 0.6 }
+  expect(mergeManualInput({ ...neutralInput, steer: -1 }, neutralInput, controller, mouse)).toEqual(
+    { ...mouse, steer: -1 },
+  )
+  expect(
+    mergeManualInput(neutralInput, { ...neutralInput, throttle: 1 }, controller, mouse),
+  ).toEqual({ ...mouse, throttle: 1 })
+})
 
 test('full assistance owns both axes until the driver takes one over', () => {
   const input = resolveInput(manual, automatic, 'full', true)

@@ -1279,3 +1279,40 @@ input[type="range"] {
   width: 16px;
   height: 16px;
 }
+.mouse-steering {
+  position: absolute;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(42vw, 300px);
+  text-align: center;
+  pointer-events: none;
+  color: #fff;
+  text-shadow: 0 1px 8px #20362880;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+}
+.mouse-track {
+  position: relative;
+  height: 2px;
+  margin-top: 12px;
+  background: #ffffff70;
+}
+.mouse-track::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 1px;
+  height: 8px;
+  background: #ffffffb0;
+}
+.mouse-track i {
+  position: absolute;
+  top: -3px;
+  height: 8px;
+  width: 8px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateX(-50%);
+}

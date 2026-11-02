@@ -290,6 +290,35 @@ export function SettingsPanel({
             <p>Increase the deadzone if your stick drifts when released.</p>
           </section>
         )}
+        {tab === 'controls' && (
+          <section className="setting-section">
+            <label className="check-option">
+              <input
+                type="checkbox"
+                checked={settings.mouseEnabled}
+                onChange={(event) => update('mouseEnabled', event.target.checked)}
+              />
+              Mouse driving
+            </label>
+            <p>
+              Move left or right to steer. Hold left click to accelerate; right click to brake and
+              reverse. Press M to toggle.
+            </p>
+            <label className="slider-label" htmlFor="mouse-sensitivity">
+              Mouse sensitivity <span>{settings.mouseSensitivity.toFixed(1)}×</span>
+            </label>
+            <input
+              id="mouse-sensitivity"
+              type="range"
+              min="0.5"
+              max="2"
+              step="0.1"
+              value={settings.mouseSensitivity}
+              onChange={(event) => update('mouseSensitivity', Number(event.target.value))}
+            />
+            <p>Mouse driving takes priority over controller pedals and steering.</p>
+          </section>
+        )}
         {tab === 'display' && (
           <>
             <section className="setting-section">
