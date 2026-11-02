@@ -80,6 +80,26 @@ function simulate(
 }
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s resets on the centerline and autosteer recovers from either side',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    for (const offset of [-1.2, 1.2]) {
+      const car = new CarPhysics(new FlatWorld(settings))
+      expect(car.x).toBe(car.world.road(car.s).x)
+      car.x += offset
+      car.speed = 15
+      car.suspension.reset(car)
+      for (let step = 0; step < 30 * 120; step++) {
+        car.update(1 / 120, car.autoInput(15), settings)
+        expect(Math.abs(car.x)).toBeLessThan(1.21)
+        expect(car.offroad).toBe(false)
+      }
+      expect(Math.abs(car.x)).toBeLessThan(0.02)
+    }
+  },
+)
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   '%s autosteer recovers after taking over a moving digital rack',
   (vehicle) => {
     const settings = { ...defaults, vehicle }

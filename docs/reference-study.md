@@ -538,6 +538,12 @@ The historical travel parameter is confirmed as a half-stroke: 0.16 meters
 permits offsets from -0.16 to +0.16 meters. The generated opening deliberately
 contains that full envelope rather than reducing travel to fit a static mesh.
 
+The historical autodriver targets the road centerline. Reset and automatic
+steering now use that path instead of a fixed two-meter right offset. Flat-road
+checks cover recovery from both sides for all four vehicles, with final lateral
+error below two centimeters. Narrower pavement and its contact/rail geometry
+remain the next road-scale correction.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
