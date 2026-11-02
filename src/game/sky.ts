@@ -14,6 +14,7 @@ export class ScenicSky extends THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMate
           horizon: { value: new THREE.Color() },
           clouds: { value: 0 },
           cloudColor: { value: new THREE.Color() },
+          haze: { value: 0 },
           time: { value: 0 },
         },
         vertexShader: `
@@ -28,6 +29,7 @@ uniform vec3 top;
 uniform vec3 horizon;
 uniform vec3 cloudColor;
 uniform float clouds;
+uniform float haze;
 uniform float time;
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -57,6 +59,7 @@ void main() {
   float cloud = smoothstep(mix(0.68, 0.27, clouds), mix(0.88, 0.72, clouds), field);
   cloud *= smoothstep(0.025, 0.2, height);
   color = mix(color, cloudColor, cloud * 0.82);
+  color = mix(color, horizon, haze * (1.0 - smoothstep(0.25, 0.9, height)));
   gl_FragColor = vec4(color, 1.0);
   #include <colorspace_fragment>
 }`,
@@ -70,5 +73,7 @@ void main() {
     this.material.uniforms.horizon?.value.set(profile.horizon)
     this.material.uniforms.cloudColor?.value.set(profile.cloudColor)
     if (this.material.uniforms.clouds) this.material.uniforms.clouds.value = profile.clouds
+    if (this.material.uniforms.haze)
+      this.material.uniforms.haze.value = Math.max(0, Math.min(1, (profile.fog - 0.0032) / 0.0048))
   }
 }
