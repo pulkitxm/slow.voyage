@@ -25,6 +25,8 @@ export interface WheelState {
   s: number
   ground: number
   groundSpeed: number
+  slopeX: number
+  slopeS: number
   onRoad: boolean
   contact: boolean
   compression: number
@@ -35,6 +37,9 @@ export interface WheelState {
   rollingSpeed: number
   lateralSpeed: number
   slip: number
+  longitudinalImpulse: number
+  lateralImpulse: number
+  locked: boolean
 }
 
 export class Suspension {
@@ -61,6 +66,8 @@ export class Suspension {
           s: 0,
           ground: 0,
           groundSpeed: 0,
+          slopeX: 0,
+          slopeS: 0,
           onRoad: true,
           contact: true,
           compression: 0.5,
@@ -71,6 +78,9 @@ export class Suspension {
           rollingSpeed: 0,
           lateralSpeed: 0,
           slip: 0,
+          longitudinalImpulse: 0,
+          lateralImpulse: 0,
+          locked: false,
         })
   }
   sample(pose: ChassisPose, dt = 0) {
@@ -83,6 +93,8 @@ export class Suspension {
       wheel.groundSpeed = dt ? (surface.height - wheel.ground) / dt : 0
       wheel.ground = surface.height
       wheel.onRoad = surface.onRoad
+      wheel.slopeX = surface.slopeX
+      wheel.slopeS = surface.slopeS
     }
   }
   reset(pose: ChassisPose) {
@@ -104,6 +116,7 @@ export class Suspension {
     pose.verticalSpeed = pose.pitchRate = pose.rollRate = 0
     for (const wheel of this.wheels) {
       wheel.rotation = wheel.rollingSpeed = wheel.lateralSpeed = wheel.slip = 0
+      wheel.locked = false
       wheel.load = (metrics.mass * 9.81) / this.wheels.length
     }
     this.updateOffsets(pose)
@@ -124,6 +137,12 @@ export class Suspension {
       wheel.compression = clamp((travel - gap) / (2 * travel), 0, 1)
       wheel.contact = gap < travel
     }
+  }
+  updateSteering(steering: number) {
+    const metrics = vehicleMetrics[this.vehicle]
+    const radius = Math.abs(steering) < 0.0001 ? Infinity : metrics.wheelbase / Math.tan(steering)
+    for (const wheel of this.wheels)
+      wheel.steering = wheel.front ? Math.atan(metrics.wheelbase / (radius + wheel.localX)) : 0
   }
   update(
     dt: number,
@@ -175,10 +194,8 @@ export class Suspension {
       pose.verticalSpeed = Math.max(0, pose.verticalSpeed)
     }
     this.updateOffsets(pose)
-    const radius =
-      Math.abs(pose.steering) < 0.0001 ? Infinity : metrics.wheelbase / Math.tan(pose.steering)
+    this.updateSteering(pose.steering)
     for (const wheel of this.wheels) {
-      wheel.steering = wheel.front ? Math.atan(metrics.wheelbase / (radius + wheel.localX)) : 0
       const rightSpeed = pose.lateralSpeed - pose.yawRate * wheel.localS
       const forwardSpeed = pose.speed + pose.yawRate * wheel.localX
       if (wheel.contact) {
@@ -187,7 +204,7 @@ export class Suspension {
         wheel.lateralSpeed =
           rightSpeed * Math.cos(wheel.steering) + forwardSpeed * Math.sin(wheel.steering)
       }
-      if (!(handbrake && !wheel.front))
+      if (!wheel.locked && !(handbrake && !wheel.front))
         wheel.rotation -= (wheel.rollingSpeed * dt) / metrics.wheelRadius
     }
   }

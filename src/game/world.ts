@@ -91,6 +91,11 @@ export class World {
   surface(x: number, s: number) {
     const road = this.road(s)
     const onRoad = Math.abs(x - road.x) <= 4.5
-    return { height: onRoad ? road.y : this.height(x, s), onRoad }
+    return {
+      height: onRoad ? road.y : this.height(x, s),
+      onRoad,
+      slopeX: onRoad ? 0 : (this.height(x + 0.2, s) - this.height(x - 0.2, s)) / 0.4,
+      slopeS: onRoad ? road.dy : (this.height(x, s + 0.2) - this.height(x, s - 0.2)) / 0.4,
+    }
   }
 }
