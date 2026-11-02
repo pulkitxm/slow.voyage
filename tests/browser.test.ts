@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PNG } from 'pngjs'
 import { z } from 'zod'
+import { browserExecutable } from '../scripts/browser'
 import { controllerFixture } from './controller-fixture'
 
 const captureTimeout = 210000
@@ -64,13 +65,7 @@ async function capture(
   screenshot = false,
   controller = false,
 ) {
-  const executable =
-    process.env.BROWSER_EXECUTABLE ??
-    (process.platform === 'darwin'
-      ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-      : Bun.which('google-chrome'))
-  if (!executable || !(await Bun.file(executable).exists()))
-    throw new Error('A Chrome executable is required. Set BROWSER_EXECUTABLE to its absolute path.')
+  const executable = browserExecutable()
   const assets = new Map<string, Bun.BunFile>()
   for (const path of new Bun.Glob('**/*').scanSync({ cwd: 'dist/client', onlyFiles: true }))
     assets.set(`/${path}`, Bun.file(`dist/client/${path}`))

@@ -8,3 +8,6 @@ src/routeTree.gen.ts
 .DS_Store
 .review/
 .vercel/
+.env
+.env.*
+!.env.example
