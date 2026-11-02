@@ -70,6 +70,27 @@ function simulate(
   for (let t = 0; t < duration; t += dt) car.update(dt, input, settings)
 }
 
+describe('brake priority after powered acceleration', () => {
+  for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const)
+    test.each([
+      { name: 'service brake', throttle: 0, brake: 1, regenBrake: 0 },
+      { name: 'one-pedal brake', throttle: 0, brake: 0, regenBrake: 0.15 },
+      { name: 'simultaneous pedals', throttle: 1, brake: 1, regenBrake: 0 },
+    ])(`${vehicle} slows immediately with $name`, ({ throttle, brake, regenBrake }) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      simulate(car, 4, { ...coast, throttle: 1 }, 1 / 120, settings)
+      expect(car.speed).toBeGreaterThan(5)
+      expect(car.driveForce).toBeGreaterThan(0)
+      for (let step = 0; step < 30; step++) {
+        const previous = car.speed
+        car.update(1 / 120, { ...coast, throttle, brake, regenBrake }, settings)
+        expect(car.speed).toBeLessThanOrEqual(previous)
+        if (step === 0) expect(car.driveForce).toBeGreaterThan(0)
+      }
+    })
+})
+
 function railContact(
   side: number,
   yaw: number,
