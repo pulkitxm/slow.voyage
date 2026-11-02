@@ -482,6 +482,18 @@ lenses 21 millimeters, clearing the 14-millimeter body bevel while preserving
 their three-millimeter separation. Dense front and rear checks now verify every
 camera-facing lens triangle on both cars rather than only the center of each lamp.
 
+The bus first-person view now uses a low rounded dashboard, a shallow tilted
+instrument pod, separate vents and controls, and a steering wheel mounted on the
+cabin side of the dashboard. The seated eye is left of center with headroom below
+the windshield top. Dedicated dial markings and pointer materials retain contrast
+when exterior paint changes and gain restrained emission at night. The speedometer
+uses a 140 km/h range, and the wheel follows the physical steering rack. Static
+parts are batched while the needle and wheel remain independently animated.
+Actual-camera rays verify that the visible rim is not cut off by the dashboard
+in landscape and portrait views through positive and negative steering. The
+historical bus first-person mode hides the vehicle, so this is an original cabin
+design rather than a recovered reference interior. Full cabin detail is pending.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

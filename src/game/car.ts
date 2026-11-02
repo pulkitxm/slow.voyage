@@ -358,6 +358,7 @@ export class CarModel {
       ...(this.cabinSteering ? [this.cabinSteering] : []),
     ])
     this.bonnet = createBonnet(settings.vehicle, this.body, black)
+    this.materials.push(...this.bonnet.materials)
     this.firstPerson = this.bonnet.group
     this.group.add(this.exterior, this.firstPerson)
     this.group.traverse((o) => {
@@ -375,7 +376,7 @@ export class CarModel {
   }
   update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number) {
     const steering = wheels.find((wheel) => wheel.front)?.steering ?? 0
-    this.bonnet.update(speed, steering)
+    this.bonnet.update(speed, steering, night)
     if (this.cabinSteering) this.cabinSteering.rotation.z = steering * 2.2
     for (let i = 0; i < wheels.length; i++) {
       const state = wheels[i],

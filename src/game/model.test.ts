@@ -259,6 +259,46 @@ test.each(['touring', 'roadster'] as const)(
   },
 )
 
+test('the bus steering rim stays in front of the dashboard in the seated driving view', () => {
+  const world = new World({ ...defaults, vehicle: 'bus' })
+  world.road = () => ({ x: 0, y: 0, dx: 0, dy: 0, yaw: 0 })
+  world.height = () => 0
+  const model = createVehicleModel(world.settings)
+  const suspension = new Suspension(world)
+  const wheel = model.firstPerson.getObjectByName('steering-wheel')
+  if (!wheel) throw new Error('Steering wheel missing')
+  model.setExteriorVisible(false)
+  const ray = new THREE.Raycaster()
+  for (const aspect of [16 / 9, 9 / 16]) {
+    const camera = new THREE.PerspectiveCamera(68, aspect, 0.1, 3600)
+    new DrivingCamera(camera).update({ x: 0, y: 0, s: 0, yaw: 0, speed: 20 }, world, 'bonnet', 0)
+    camera.updateMatrixWorld()
+    for (const steering of [-0.3, 0, 0.3]) {
+      suspension.updateSteering(steering)
+      model.update(suspension.wheels, false, false, 20)
+      model.group.updateMatrixWorld(true)
+      let samples = 0
+      for (let i = 0; i < 32; i++) {
+        const angle = (i / 32) * Math.PI * 2
+        const point = new THREE.Vector3(
+          Math.sin(angle) * 0.22,
+          Math.cos(angle) * 0.22,
+          0.018,
+        ).applyMatrix4(wheel.matrixWorld)
+        const screen = point.clone().project(camera)
+        if (Math.abs(screen.x) > 1 || Math.abs(screen.y) > 1) continue
+        ray.set(camera.position, point.clone().sub(camera.position).normalize())
+        const first = ray.intersectObject(model.firstPerson, true)[0]
+        if (!first) throw new Error('Visible steering rim missing')
+        expect(wheel.getObjectById(first.object.id)).toBeDefined()
+        samples++
+      }
+      expect(samples).toBeGreaterThan(5)
+    }
+  }
+  model.dispose()
+})
+
 test.each(['motorcycle', 'bus'] as const)(
   '%s instruments follow speed magnitude and steering without changing the chassis',
   (vehicle) => {
