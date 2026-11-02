@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { z } from 'zod'
+import { browserExecutable } from './browser'
 
 const resultSchema = z.object({
   normalized_result: z.object({
@@ -35,12 +36,7 @@ if (await Bun.file(`${directory}/index.html`).exists())
     'This capture label already exists. Choose another to preserve the previous comparison.',
   )
 await mkdir(directory, { recursive: true })
-const executable =
-  process.env.BROWSER_EXECUTABLE ??
-  (process.platform === 'darwin'
-    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-    : Bun.which('google-chrome'))
-if (!executable) throw new Error('Set BROWSER_EXECUTABLE to a Chrome executable.')
+const executable = browserExecutable()
 async function readGit(args: string[]) {
   const process = Bun.spawn(['git', ...args], { stdout: 'pipe', stderr: 'pipe' })
   const [stdout, stderr, code] = await Promise.all([

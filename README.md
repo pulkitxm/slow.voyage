@@ -91,8 +91,11 @@ service worker registration disabled.
 
 The browser suite uses an isolated Chrome profile and verifies renderer errors,
 bonnet visibility, keyboard button activation, seasonal vehicle changes, and
-reloading with its test origin shut down. Chrome is discovered automatically on
-macOS and Linux; set `BROWSER_EXECUTABLE` to override its location.
+reloading with its test origin shut down. Chrome is discovered automatically
+through PATH lookup and installed-browser discovery. Set `BROWSER_EXECUTABLE` to an
+executable command name or path to override discovery. Relative paths resolve
+from the project directory, so local wrappers can move with the project.
+Local environment files stay untracked; `.env.example` lists the optional settings.
 
 The worker has its own TypeScript configuration. Local checks build the worker and test
 installation, application reloads with the origin unavailable, cached scripts,
