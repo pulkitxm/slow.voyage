@@ -154,11 +154,14 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
       if (object instanceof THREE.Mesh)
         expect(visible(object)).toBe(!model.firstPerson.getObjectById(object.id))
     })
-    const disposed = new Set<THREE.BufferGeometry | THREE.Material>()
+    const disposed = new Map<THREE.BufferGeometry | THREE.Material, number>()
     for (const resource of [...geometries, ...materials])
-      resource.addEventListener('dispose', () => disposed.add(resource))
+      resource.addEventListener('dispose', () =>
+        disposed.set(resource, (disposed.get(resource) ?? 0) + 1),
+      )
     model.dispose()
     expect(disposed.size).toBe(geometries.size + materials.size)
+    expect([...disposed.values()].every((count) => count === 1)).toBe(true)
     light.dispose()
   },
 )
