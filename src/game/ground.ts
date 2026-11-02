@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { random } from './world'
+import { random, type Settings } from './world'
 
 export function groundTexture() {
   const canvas = document.createElement('canvas')
@@ -30,38 +30,94 @@ export function groundTexture() {
   texture.anisotropy = 8
   return texture
 }
-const noise = `
-float fieldHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float fieldNoise(vec2 p) {
-  vec2 i = floor(p), f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  return mix(mix(fieldHash(i), fieldHash(i + vec2(1.0, 0.0)), f.x), mix(fieldHash(i + vec2(0.0, 1.0)), fieldHash(i + vec2(1.0, 1.0)), f.x), f.y);
+export const meadowNoise = `
+uniform sampler2D fieldNoiseMap;
+float fieldVariationAt(vec2 p) {
+  return texture2D(fieldNoiseMap, (p * 0.007 + 0.5) / 128.0).r * 0.6
+    + texture2D(fieldNoiseMap, (p * 0.037 + 0.5) / 128.0).r * 0.28
+    + texture2D(fieldNoiseMap, (p * 0.17 + 0.5) / 128.0).r * 0.12;
 }
 `
-export function meadowMaterial(texture: THREE.Texture) {
-  const material = new THREE.MeshStandardMaterial({
-    map: texture,
-    vertexColors: true,
-    roughness: 1,
-  })
-  material.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <common>',
-      '#include <common>\nvarying vec2 fieldPosition;',
-    )
-    shader.vertexShader = shader.vertexShader.replace(
-      '#include <begin_vertex>',
-      '#include <begin_vertex>\nfieldPosition = (modelMatrix * vec4(position, 1.0)).xz;',
-    )
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <common>',
-      `#include <common>\nvarying vec2 fieldPosition;\n${noise}`,
-    )
-    shader.fragmentShader = shader.fragmentShader.replace(
-      '#include <map_fragment>',
-      '#include <map_fragment>\nfloat fieldVariation = fieldNoise(fieldPosition * 0.031) * 0.6 + fieldNoise(fieldPosition * 0.12) * 0.3 + fieldNoise(fieldPosition * 0.57) * 0.1;\ndiffuseColor.rgb *= 0.82 + fieldVariation * 0.32;',
-    )
+function meadowNoiseTexture() {
+  const pixels = new Uint8Array(128 * 128)
+  const rng = random(941)
+  for (let i = 0; i < pixels.length; i++) pixels[i] = Math.floor(rng() * 256)
+  const texture = new THREE.DataTexture(pixels, 128, 128, THREE.RedFormat)
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping
+  texture.magFilter = THREE.LinearFilter
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.generateMipmaps = true
+  texture.needsUpdate = true
+  return texture
+}
+export class MeadowMaterial extends THREE.MeshStandardMaterial {
+  fieldUniforms = {
+    fieldNoiseMap: { value: meadowNoiseTexture() },
+    fieldDryGrass: { value: new THREE.Color() },
+    fieldDryness: { value: 0 },
+    fieldRock: { value: new THREE.Color() },
+    fieldGravel: { value: new THREE.Color() },
   }
-  material.customProgramCacheKey = () => 'meadow-surface'
-  return material
+  constructor(texture: THREE.Texture, settings: Settings) {
+    super({ map: texture, vertexColors: true, roughness: 1 })
+    this.setAppearance(settings)
+    this.onBeforeCompile = (shader) => {
+      Object.assign(shader.uniforms, this.fieldUniforms)
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        `#include <common>
+attribute float roadDistance;
+varying vec2 fieldPosition;
+varying float fieldRoadDistance;
+varying float fieldSlope;`,
+      )
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+fieldPosition = (modelMatrix * vec4(position, 1.0)).xz;
+fieldRoadDistance = roadDistance;
+fieldSlope = clamp((1.0 - abs(normalize((modelMatrix * vec4(normal, 0.0)).xyz).y)) * 2.0, 0.0, 1.0);`,
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <common>',
+        `#include <common>
+varying vec2 fieldPosition;
+varying float fieldRoadDistance;
+varying float fieldSlope;
+uniform vec3 fieldDryGrass;
+uniform float fieldDryness;
+uniform vec3 fieldRock;
+uniform vec3 fieldGravel;
+${meadowNoise}`,
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+float fieldVariation = fieldVariationAt(fieldPosition);
+float dryBlend = smoothstep(0.35, 0.7, fieldVariation) * fieldDryness;
+diffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb, dryBlend);
+diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
+float rockBlend = smoothstep(0.12, 0.45, fieldSlope + fieldVariation * 0.1);
+diffuseColor.rgb = mix(diffuseColor.rgb, fieldRock * sampledDiffuseColor.rgb * (0.8 + fieldVariation * 0.4), rockBlend);
+float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
+diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);`,
+      )
+    }
+  }
+  setAppearance(settings: Settings) {
+    const winter = settings.season === 'winter',
+      autumn = settings.season === 'autumn',
+      desert = settings.landscape === 'desert'
+    this.fieldUniforms.fieldDryGrass.value.set(winter ? '#d2dad4' : desert ? '#c5ae7b' : '#b5a66b')
+    this.fieldUniforms.fieldDryness.value = winter ? 0.08 : autumn ? 0.65 : desert ? 0.2 : 0.45
+    this.fieldUniforms.fieldRock.value.set(winter ? '#aab2b0' : desert ? '#9f8160' : '#8c877a')
+    this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
+  }
+  override customProgramCacheKey() {
+    return 'textured-meadow-surface'
+  }
+  override dispose() {
+    this.fieldUniforms.fieldNoiseMap.value.dispose()
+    super.dispose()
+  }
 }
