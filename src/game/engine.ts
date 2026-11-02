@@ -251,26 +251,16 @@ export class RoadEngine {
     this.car.group.position.set(p.x, p.y, -p.s)
     this.car.group.rotation.order = 'YXZ'
     this.car.group.rotation.y = p.yaw
-    const axle = metrics.wheelbase * 0.5
-    const front = this.world.height(p.x - Math.sin(p.yaw) * axle, p.s + Math.cos(p.yaw) * axle)
-    const rear = this.world.height(p.x + Math.sin(p.yaw) * axle, p.s - Math.cos(p.yaw) * axle)
-    this.car.group.rotation.x = damp(
-      this.car.group.rotation.x,
-      Math.atan2(front - rear, metrics.wheelbase) + input.throttle * 0.008 - input.brake * 0.025,
-      8,
-      dt,
-    )
-    const lean = isBike
-      ? clamp(Math.atan((p.yawRate * p.speed) / 9.81), -0.65, 0.65)
-      : -p.yawRate * p.speed * 0.003
-    this.car.group.rotation.z = damp(this.car.group.rotation.z, lean, 5, dt)
-    this.car.update(
-      this.paused ? 0 : p.speed,
-      p.steering,
-      input.brake > 0,
-      this.settings.daylight === 'night',
-      dt,
-    )
+    this.car.group.rotation.x = p.pitch
+    this.car.group.rotation.z = isBike
+      ? damp(
+          this.car.group.rotation.z,
+          clamp(Math.atan((p.yawRate * p.speed) / 9.81), -0.65, 0.65),
+          5,
+          dt,
+        )
+      : p.roll
+    this.car.update(p.suspension.wheels, input.brake > 0, this.settings.daylight === 'night')
     const cameraMode = this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
     this.cameraYaw +=

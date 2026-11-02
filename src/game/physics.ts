@@ -1,3 +1,4 @@
+import { Suspension } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import { angleDifference, clamp, damp, type Settings, type World } from './world'
 
@@ -22,6 +23,10 @@ export class CarPhysics {
   s = 180
   y = 0
   yaw = 0
+  pitch = 0
+  roll = 0
+  pitchRate = 0
+  rollRate = 0
   speed = 0
   steering = 0
   yawRate = 0
@@ -33,8 +38,10 @@ export class CarPhysics {
   driveForce = 0
   brakeForce = 0
   offroad = false
+  suspension: Suspension
   input: Input = { throttle: 0, brake: 0, steer: 0, handbrake: false }
   constructor(public world: World) {
+    this.suspension = new Suspension(world)
     this.reset()
   }
   reset(s = this.s) {
@@ -45,6 +52,7 @@ export class CarPhysics {
     this.y = road.y
     this.yaw = road.yaw
     this.speed = this.steering = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
+    this.suspension.reset(this)
   }
   autoInput(targetSpeed: number): Input {
     const lookahead = 13 + Math.abs(this.speed) * 0.8
@@ -64,6 +72,11 @@ export class CarPhysics {
   }
   update(dt: number, input: Input, settings: Settings) {
     const vehicle = vehicleMetrics[settings.vehicle]
+    if (this.suspension.vehicle !== settings.vehicle) {
+      this.suspension.configure(settings.vehicle)
+      this.suspension.reset(this)
+    }
+    const previousSpeed = this.speed
     const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
     const road = this.world.road(this.s)
     const offset = this.x - road.x
@@ -131,14 +144,13 @@ export class CarPhysics {
       this.lateralSpeed = -side * 1.2
       this.impact = 1
     }
-    const ground = this.world.height(this.x, this.s) + 0.16
-    if (this.y <= ground + 0.08) {
-      this.y = ground
-      this.verticalSpeed = 0
-    } else {
-      this.verticalSpeed -= 9.81 * dt
-      this.y = Math.max(ground, this.y + this.verticalSpeed * dt)
-    }
+    this.suspension.update(
+      dt,
+      this,
+      (this.speed - previousSpeed) / dt,
+      -this.yawRate * this.speed,
+      handbrake,
+    )
   }
   telemetry(): Telemetry {
     return {
