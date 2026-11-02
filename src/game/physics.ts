@@ -188,7 +188,7 @@ export class CarPhysics {
       this,
       this.suspension.wheels,
       settings,
-      this.driveForce,
+      brake > 0 ? 0 : this.driveForce,
       this.brakeForce,
       handbrake,
     )

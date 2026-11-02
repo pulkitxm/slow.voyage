@@ -204,6 +204,13 @@ motion in road coordinates. Gentle contact no longer injects a fixed lateral kic
 A reverse torque governor limits powered reversing while allowing gravity-driven
 backward rolling. Flat-grade reversal probes now agree in both orientations.
 
+Service and one-pedal braking now suppress applied engine torque while the
+internal drive request continues its jerk-limited transition. This removes the
+initial speed increase after braking from powered motion. Twelve regressions
+cover all four vehicles with service braking, one-pedal braking, and simultaneous
+pedal input. Historical wheel-motion logic also gives braking priority over drive;
+current-release response still requires direct comparison.
+
 The render clock now accumulates up to a quarter second of elapsed time into fixed
 120 Hz simulation steps. Driving therefore retains its pace across slower render
 frames. A ten-second acceleration check agrees at 8, 15, 30, 60, and 144 rendering
