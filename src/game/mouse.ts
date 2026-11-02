@@ -27,6 +27,7 @@ export class MouseControls {
     return {
       ...neutralInput,
       steer: this.steer,
+      steeringSource: 'mouse',
       throttle: !brake && (this.buttons & 1) !== 0 ? 1 : 0,
       brake: brake ? 1 : 0,
     }

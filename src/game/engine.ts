@@ -352,6 +352,7 @@ export class RoadEngine {
   setTouch(key: 'throttle' | 'brake' | 'steer', value: number) {
     if (this.controlsBlocked) return
     this.touch[key] = value
+    if (key === 'steer') this.touch.steeringSource = value ? 'digital' : null
     if (value) this.manualOverride(key === 'steer' ? 'steer' : 'speed')
   }
   emitState() {
@@ -477,6 +478,7 @@ export class RoadEngine {
         throttle: has('KeyW', 'ArrowUp') ? 1 : 0,
         brake: has('KeyS', 'ArrowDown') ? 1 : 0,
         steer: (has('KeyA', 'ArrowLeft') ? 1 : 0) - (has('KeyD', 'ArrowRight') ? 1 : 0),
+        steeringSource: has('KeyA', 'ArrowLeft', 'KeyD', 'ArrowRight') ? 'digital' : null,
         handbrake: has('Space'),
       },
       this.touch,

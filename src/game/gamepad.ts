@@ -44,6 +44,7 @@ export function decodeGamepad(pad: PadSnapshot, deadzone: number): Input {
     throttle: trigger(pad, 7),
     brake: trigger(pad, 6),
     steer,
+    steeringSource: 'analog',
     handbrake: pressed(pad, 1),
   }
 }
