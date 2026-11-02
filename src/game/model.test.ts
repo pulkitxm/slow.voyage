@@ -146,6 +146,27 @@ test('the roadster cockpit is open over both seats and has a continuous interior
   model.dispose()
 })
 
+test.each(['touring', 'roadster'] as const)(
+  '%s lamp lenses remain visible ahead of their body panels',
+  (vehicle) => {
+    const model = new CarModel({ ...defaults, vehicle })
+    model.group.updateMatrixWorld(true)
+    const ray = new THREE.Raycaster()
+    for (const side of [-1, 1]) {
+      for (const direction of [-1, 1]) {
+        ray.set(
+          new THREE.Vector3(side * 0.5, direction < 0 ? 0.786 : 0.825, direction * 3),
+          new THREE.Vector3(0, 0, -direction),
+        )
+        const first = ray.intersectObject(model.exterior, true)[0]
+        if (!(first?.object instanceof THREE.Mesh)) throw new Error('Lamp lens missing')
+        expect(first.object.material).toBe(direction < 0 ? model.lights : model.brake)
+      }
+    }
+    model.dispose()
+  },
+)
+
 test.each(['motorcycle', 'bus'] as const)(
   '%s instruments follow speed magnitude and steering without changing the chassis',
   (vehicle) => {
