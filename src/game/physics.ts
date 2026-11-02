@@ -144,8 +144,10 @@ export class CarPhysics {
     const offset = this.x - road.x
     const v = Math.abs(this.speed)
     const reversing = input.brake > 0 && input.throttle === 0 && this.speed < 0.4
+    const reverseRunout = Math.max(0, -this.driveForce) ** 2 / vehicle.jerk
+    const reverseGovernor = clamp((5 + this.speed - reverseRunout) / 0.5, 0, 1)
     const targetForce = reversing
-      ? -input.brake * vehicle.reverse * 0.5
+      ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
       : input.throttle *
         vehicle.acceleration *
         settings.power *
@@ -195,7 +197,7 @@ export class CarPhysics {
     const turn = this.yawRate * dt
     const forwardSpeed = this.speed * Math.cos(turn) - this.lateralSpeed * Math.sin(turn)
     this.lateralSpeed = this.lateralSpeed * Math.cos(turn) + this.speed * Math.sin(turn)
-    this.speed = clamp(forwardSpeed, -5, 110)
+    this.speed = forwardSpeed
     this.yaw += turn
     const nextRoad = this.world.road(this.s)
     const nextOffset = this.x - nextRoad.x
