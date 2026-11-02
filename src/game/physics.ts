@@ -144,7 +144,8 @@ export class CarPhysics {
     const road = this.world.road(this.s)
     const offset = this.x - road.x
     const v = Math.abs(this.speed)
-    const reversing = input.brake > 0 && input.throttle === 0 && this.speed < 0.4
+    const reversing = input.brake > 0 && input.throttle === 0 && this.speed <= 0
+    const forwardBraking = input.throttle > 0 && input.brake === 0 && this.speed < 0
     const reverseRunout = Math.max(0, -this.driveForce) ** 2 / vehicle.jerk
     const reverseGovernor = clamp((5 + this.speed - reverseRunout) / 0.5, 0, 1)
     const targetForce = reversing
@@ -159,7 +160,11 @@ export class CarPhysics {
       -vehicle.jerk * dt * 0.5,
       vehicle.jerk * dt * 0.5,
     )
-    const brake = Math.max(reversing ? 0 : input.brake, input.regenBrake)
+    const brake = Math.max(
+      reversing ? 0 : input.brake,
+      forwardBraking ? input.throttle : 0,
+      input.regenBrake,
+    )
     this.brakeForce = brake
       ? Math.min(vehicle.brake * brake, this.brakeForce + vehicle.brake * 4 * dt)
       : 0
@@ -188,7 +193,7 @@ export class CarPhysics {
       this,
       this.suspension.wheels,
       settings,
-      brake > 0 ? 0 : this.driveForce,
+      brake > 0 || targetForce * this.driveForce < 0 ? 0 : this.driveForce,
       this.brakeForce,
       handbrake,
     )

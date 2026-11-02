@@ -91,6 +91,57 @@ describe('brake priority after powered acceleration', () => {
     })
 })
 
+describe('powered direction handoff', () => {
+  for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const) {
+    test(`${vehicle} slows accelerating reverse before driving forward`, () => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      simulate(car, 1, { ...coast, brake: 1 }, 1 / 120, settings)
+      expect(car.speed).toBeLessThan(-0.5)
+      expect(car.driveForce).toBeLessThan(0)
+      const reverseSpeed = car.speed
+      for (let step = 0; step < 300; step++) {
+        const previous = car.speed
+        car.update(1 / 120, { ...coast, throttle: 1 }, settings)
+        expect(car.speed).toBeGreaterThanOrEqual(reverseSpeed)
+        if (previous < -0.05) expect(car.speed).toBeGreaterThanOrEqual(previous - 1e-10)
+      }
+      expect(car.speed).toBeGreaterThan(0)
+    })
+    test(`${vehicle} cannot receive a forward kick when reverse is selected near rest`, () => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      for (let step = 0; step < 120 && car.speed < 0.2; step++)
+        car.update(1 / 120, { ...coast, throttle: 1 }, settings)
+      expect(car.speed).toBeGreaterThanOrEqual(0.2)
+      expect(car.driveForce).toBeGreaterThan(0)
+      const forwardSpeed = car.speed
+      for (let step = 0; step < 120; step++) {
+        const previous = car.speed
+        car.update(1 / 120, { ...coast, brake: 1 }, settings)
+        expect(car.speed).toBeLessThanOrEqual(forwardSpeed)
+        if (previous > 0.05) expect(car.speed).toBeLessThanOrEqual(previous + 1e-10)
+      }
+      expect(car.speed).toBeLessThan(0)
+    })
+    test.each([0.05, 0.1, 0.2, -0.1])(
+      `${vehicle} completes a reverse-to-forward change on grade %f`,
+      (grade) => {
+        const settings = { ...defaults, vehicle }
+        const car = new CarPhysics(new GradeWorld(settings, grade))
+        simulate(car, 1, { ...coast, brake: 1 }, 1 / 120, settings)
+        let forward = false
+        for (let step = 0; step < 2400; step++) {
+          car.update(1 / 120, { ...coast, throttle: 1 }, settings)
+          if (forward) expect(car.speed).toBeGreaterThan(-0.01)
+          forward ||= car.speed > 0.1
+        }
+        expect(forward).toBe(true)
+      },
+    )
+  }
+})
+
 function railContact(
   side: number,
   yaw: number,
