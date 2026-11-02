@@ -257,7 +257,7 @@ export class RoadEngine {
     this.sky = new ScenicSky()
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
-    this.terrain = new Terrain(this.scene, this.world, budget.detail)
+    this.terrain = new Terrain(this.scene, this.world, budget.detail, budget.software)
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings)
@@ -285,8 +285,8 @@ export class RoadEngine {
   }
   async prepare() {
     this.canvas.style.visibility = 'hidden'
-    this.terrain.update(this.physics.s, 0)
     const p = this.physics
+    this.terrain.update(p.s, 0, p.s)
     this.car.group.position.set(p.x, p.y, -p.s)
     this.camera.position.set(p.x, p.y + 5, -p.s + 12)
     this.camera.lookAt(p.x, p.y + 1, -p.s)
@@ -526,7 +526,6 @@ export class RoadEngine {
     }
     const p = this.physics
     const isBike = this.settings.vehicle === 'motorcycle'
-    this.terrain.update(p.s, time / 1000)
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
     this.car.group.position.set(p.x, p.y, -p.s)
@@ -550,6 +549,7 @@ export class RoadEngine {
     const cameraMode = this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
     this.view.update(p, this.world, cameraMode, dt)
+    this.terrain.update(p.s, time / 1000, -this.camera.position.z)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
     this.sun.position.set(

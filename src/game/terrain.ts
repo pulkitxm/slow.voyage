@@ -10,6 +10,13 @@ export const palettes = {
   autumn: { grass: '#a69a64', light: '#c9b77a', tree: '#ad703b', shrub: '#b58d43' },
   winter: { grass: '#d7dfdc', light: '#edf0e7', tree: '#6f8176', shrub: '#9bada2' },
 }
+function terrainColors(settings: Settings) {
+  const palette = palettes[settings.season]
+  return {
+    base: new THREE.Color(settings.landscape === 'desert' ? '#c8ad7f' : palette.grass),
+    light: new THREE.Color(settings.landscape === 'desert' ? '#ddc291' : palette.light),
+  }
+}
 function geometry(positions: number[], indices: number[], colors?: number[]) {
   const g = new THREE.BufferGeometry()
   g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
@@ -56,6 +63,7 @@ export class Terrain {
     public scene: THREE.Scene,
     public world: World,
     public quality: Settings['quality'],
+    public software: boolean,
   ) {
     this.groundTexture = groundTexture()
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings)
@@ -199,16 +207,20 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
     for (const part of parts) part.dispose()
     this.addMesh(group, merged, material)
   }
-  createTile(id: number) {
+  createTile(id: number, rows: number) {
     const start = id * 120,
       group = new THREE.Group(),
       settings = this.world.settings
     const rng = random(id * 967 + settings.seed * 137)
-    const palette = palettes[settings.season]
-    const base = new THREE.Color(settings.landscape === 'desert' ? '#c8ad7f' : palette.grass)
-    const light = new THREE.Color(settings.landscape === 'desert' ? '#ddc291' : palette.light)
+    const { base, light } = terrainColors(settings)
     const color = new THREE.Color()
-    this.addMesh(group, groundGeometry(this.world, start, base, light), this.grassMaterial)
+    const ground = this.addMesh(
+      group,
+      groundGeometry(this.world, start, base, light, rows),
+      this.grassMaterial,
+    )
+    ground.name = 'ground'
+    group.userData.groundRows = rows
     const road = strip(this.world, start, -4.5, 4.5, 0)
     const uv: number[] = []
     for (let i = 0; i <= 24; i++) uv.push(0, i / 24, 1, i / 24)
@@ -368,7 +380,13 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
       trees.castShadow = true
       group.add(trees)
     }
-    const count = settings.landscape === 'desert' ? 1200 : this.quality === 'low' ? 2800 : 10000
+    const count = this.software
+      ? 600
+      : settings.landscape === 'desert'
+        ? 1200
+        : this.quality === 'low'
+          ? 2800
+          : 10000
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
     grass.name = 'meadow'
     let placedGrass = 0
@@ -401,15 +419,29 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
     this.tiles.set(id, group)
     this.scene.add(group)
   }
-  update(s: number, time: number) {
+  update(s: number, time: number, cameraS: number) {
     this.windTime.value = time
     const current = Math.floor(s / 120),
       ahead = this.quality === 'low' ? 8 : 14
+    const cameraTile = Math.floor(cameraS / 120)
+    const near = Math.min(current, cameraTile) - 1
+    const far = Math.max(current, cameraTile) + 1
+    const rowsFor = (id: number) => (this.software && (id < near || id > far) ? 12 : 96)
     for (const [id, group] of this.tiles)
       if (id < current - 4 || id > current + ahead) this.removeTile(id, group)
     for (let id = current - 4; id <= current + ahead; id++)
-      if (!this.tiles.has(id)) this.createTile(id)
+      if (!this.tiles.has(id)) this.createTile(id, rowsFor(id))
     for (const [id, group] of this.tiles) {
+      const rows = rowsFor(id)
+      if (group.userData.groundRows !== rows) {
+        const ground = group.getObjectByName('ground')
+        if (ground instanceof THREE.Mesh) {
+          const { base, light } = terrainColors(this.world.settings)
+          ground.geometry.dispose()
+          ground.geometry = groundGeometry(this.world, id * 120, base, light, rows)
+          group.userData.groundRows = rows
+        }
+      }
       const grass = group.getObjectByName('meadow')
       if (grass) grass.visible = id >= current - 1 && id <= current + 2
     }

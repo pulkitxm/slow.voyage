@@ -20,7 +20,13 @@ const sideOffsets = [
 ]
 const groundOffsets = [...sideOffsets.map((offset) => -offset).reverse(), 0, ...sideOffsets]
 
-export function groundGeometry(world: World, start: number, base: THREE.Color, light: THREE.Color) {
+export function groundGeometry(
+  world: World,
+  start: number,
+  base: THREE.Color,
+  light: THREE.Color,
+  rows = 96,
+) {
   const positions: number[] = [],
     indices: number[] = [],
     colors: number[] = [],
@@ -34,7 +40,6 @@ export function groundGeometry(world: World, start: number, base: THREE.Color, l
   const shore = new THREE.Color(settings.season === 'winter' ? '#dde3dc' : '#c5c1a3')
   const snow = new THREE.Color('#dae0dc')
   const normal = new THREE.Vector3()
-  const rows = 96
   for (let row = 0; row <= rows; row++) {
     const s = start + (row * 120) / rows
     const road = world.road(s)
