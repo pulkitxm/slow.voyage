@@ -91,7 +91,7 @@ export class World {
     const road = this.road(s)
     const d = x - road.x
     const distance = Math.abs(d)
-    const blend = smoothStep(clamp((distance - 4.5) / 14, 0, 1))
+    if (distance <= 5.3) return road.y - 0.16
     const amplitude =
       this.settings.landscape === 'alpine' ? 2.4 : this.settings.landscape === 'desert' ? 0.45 : 1
     const hills =
@@ -100,7 +100,10 @@ export class World {
     const coastFactor =
       this.settings.landscape === 'highlands' ? clamp(0.5 + coastDirection * Math.sign(d), 0, 1) : 0
     const coast = Math.min(110, Math.max(0, distance - 4.5) * 0.26) * coastFactor
-    return road.y - 0.16 + blend * (hills * amplitude - coast)
+    const relief = hills * amplitude - coast
+    const cut = smoothStep(clamp((relief - 0.6) / 3, 0, 1))
+    const blend = smoothStep(clamp((distance - 5.3) / (13.2 - cut * 6.5), 0, 1))
+    return road.y - 0.16 + blend * relief
   }
 
   guardrail(s: number, side: number) {

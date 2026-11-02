@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { Foliage } from './foliage'
-import { groundTexture, MeadowMaterial, meadowNoise } from './ground'
-import { createWoodland, woodlandCoverage } from './woodland'
+import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './ground'
+import { createWoodland } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 export const palettes = {
@@ -199,64 +199,8 @@ export class Terrain {
     const palette = palettes[settings.season]
     const base = new THREE.Color(settings.landscape === 'desert' ? '#c8ad7f' : palette.grass)
     const light = new THREE.Color(settings.landscape === 'desert' ? '#ddc291' : palette.light)
-    const offsets = [
-      -1600, -1200, -900, -700, -520, -380, -270, -190, -130, -90, -60, -38, -24, -15, -9, -6, 0, 6,
-      9, 15, 24, 38, 60, 90, 130, 190, 270, 380, 520, 700, 900, 1200, 1600,
-    ]
-    const p: number[] = [],
-      indices: number[] = [],
-      colors: number[] = [],
-      roadDistances: number[] = [],
-      groveCover: number[] = [],
-      color = new THREE.Color()
-    for (let row = 0; row <= 24; row++) {
-      const s = start + row * 5,
-        r = this.world.road(s)
-      for (let col = 0; col < offsets.length; col++) {
-        const d = offsets[col] ?? 0,
-          x = r.x + d
-        p.push(x, this.world.height(x, s), -s)
-        roadDistances.push(Math.abs(d) - 4.5)
-        const variation =
-          0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055
-        color.copy(base).lerp(light, variation)
-        const elevation = this.world.height(x, s)
-        if (elevation < 1.2 && settings.landscape !== 'desert')
-          color.lerp(
-            new THREE.Color(settings.season === 'winter' ? '#dde3dc' : '#c5c1a3'),
-            clamp((1.2 - elevation) / 1.5, 0, 1),
-          )
-        if (settings.landscape === 'alpine' && this.world.height(x, s) > 120)
-          color.lerp(new THREE.Color('#dae0dc'), clamp((this.world.height(x, s) - 120) / 80, 0, 1))
-        let forest = 0
-        if (settings.landscape !== 'desert' && elevation > 0.7) {
-          const grove = woodlandCoverage(x, s, settings.seed, settings.landscape)
-          const verge = clamp((Math.abs(d) - 45) / 30, 0, 1)
-          const treeLine = settings.landscape === 'alpine' ? clamp((220 - elevation) / 60, 0, 1) : 1
-          forest = grove * verge * treeLine
-        }
-        groveCover.push(forest)
-        colors.push(color.r, color.g, color.b)
-        if (row < 24 && col < offsets.length - 1) {
-          const n = row * offsets.length + col
-          indices.push(
-            n,
-            n + 1,
-            n + offsets.length,
-            n + 1,
-            n + offsets.length + 1,
-            n + offsets.length,
-          )
-        }
-      }
-    }
-    const ground = geometry(p, indices, colors)
-    ground.setAttribute('roadDistance', new THREE.Float32BufferAttribute(roadDistances, 1))
-    ground.setAttribute('groveCover', new THREE.Float32BufferAttribute(groveCover, 1))
-    const groundUv: number[] = []
-    for (let i = 0; i < p.length; i += 3) groundUv.push((p[i] ?? 0) / 7, -(p[i + 2] ?? 0) / 7)
-    ground.setAttribute('uv', new THREE.Float32BufferAttribute(groundUv, 2))
-    this.addMesh(group, ground, this.grassMaterial)
+    const color = new THREE.Color()
+    this.addMesh(group, groundGeometry(this.world, start, base, light), this.grassMaterial)
     const road = strip(this.world, start, -4.5, 4.5, 0)
     const uv: number[] = []
     for (let i = 0; i <= 24; i++) uv.push(0, i / 24, 1, i / 24)
