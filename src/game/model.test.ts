@@ -116,6 +116,33 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   },
 )
 
+test('the roadster cockpit is open over both seats and has a continuous interior floor', () => {
+  const model = new CarModel({ ...defaults, vehicle: 'roadster' })
+  model.group.updateMatrixWorld(true)
+  const ray = new THREE.Raycaster()
+  for (const x of [-0.58, -0.34, 0, 0.34, 0.58]) {
+    for (const z of [-0.08, 0.2, 0.5]) {
+      ray.set(new THREE.Vector3(x, 2, z), new THREE.Vector3(0, -1, 0))
+      const first = ray.intersectObject(model.exterior, true)[0]
+      if (!first) throw new Error('The cockpit opens through the floor')
+      expect(first.point.y).toBeGreaterThanOrEqual(0.3)
+      expect(first.point.y).toBeLessThan(1.15)
+      if (Math.abs(x) > 0.55) expect(first.point.y).toBeLessThan(0.5)
+      if (x === 0) expect(first.point.y).toBeLessThan(0.65)
+    }
+  }
+  const suspension = new Suspension(new World({ ...defaults, vehicle: 'roadster' }))
+  const wheel = model.exterior.getObjectByName('exterior-steering-wheel')
+  if (!wheel) throw new Error('Exterior steering wheel missing')
+  suspension.updateSteering(0.2)
+  model.update(suspension.wheels, false, false, 0)
+  expect(wheel.rotation.z).toBeGreaterThan(0)
+  suspension.updateSteering(-0.2)
+  model.update(suspension.wheels, false, false, 0)
+  expect(wheel.rotation.z).toBeLessThan(0)
+  model.dispose()
+})
+
 test.each(['motorcycle', 'bus'] as const)(
   '%s instruments follow speed magnitude and steering without changing the chassis',
   (vehicle) => {
