@@ -402,6 +402,35 @@ test('coach glazing stays separated from the painted body through profile change
   model.dispose()
 })
 
+test('coach tires retain their measured width and reference wheel-axis inset', () => {
+  const world = new World({ ...defaults, vehicle: 'bus' })
+  const model = new CarModel(world.settings)
+  const suspension = new Suspension(world)
+  const radius = vehicleMetrics.bus.wheelRadius
+  for (const offset of [-0.16, 0, 0.16])
+    for (const steering of [-0.65, 0, 0.65]) {
+      suspension.updateSteering(steering)
+      for (const wheel of suspension.wheels) wheel.offset = offset
+      model.update(suspension.wheels, false, false, 0)
+      model.group.updateMatrixWorld(true)
+      for (let i = 0; i < model.wheels.length; i++) {
+        const tire = model.wheels[i]?.children[0],
+          state = suspension.wheels[i]
+        if (!(tire instanceof THREE.Mesh) || !state) throw new Error('Coach tire missing')
+        const center = tire.getWorldPosition(new THREE.Vector3())
+        const axis = new THREE.Vector3(state.localX, radius + offset, -state.localS)
+        expect(center.distanceTo(axis)).toBeCloseTo(0.076, 5)
+        expect(center.distanceTo(axis)).toBeLessThan(0.248 / 2)
+        if (steering === 0)
+          expect(new THREE.Box3().setFromObject(tire).getSize(new THREE.Vector3()).x).toBeCloseTo(
+            0.248,
+            5,
+          )
+      }
+    }
+  model.dispose()
+})
+
 test('coach wheel openings clear full suspension travel and Ackermann steering', () => {
   const world = new World({ ...defaults, vehicle: 'bus' })
   const model = new CarModel(world.settings)

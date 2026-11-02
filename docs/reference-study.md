@@ -518,8 +518,19 @@ expressed relative to its seated eye. The new openings provide clearance through
 the full 0.16-meter suspension travel and actual Ackermann steering angles.
 Glazing clearance checks cover the side surfaces and the bend in the rear profile;
 the latter exposed and corrected a pane that initially crossed behind the body.
-Historical meshes remain ignored inspection assets and are not shipped. Wheel
-style, exterior detail, and current-release fidelity remain further work.
+Historical meshes remain ignored inspection assets and are not shipped. Exterior
+finish and current-release fidelity remain further work.
+
+Coach wheels now use a 0.248-meter tire width, a larger metal rim, a vented disc,
+recessed backing, hub, and ten studs rather than the car's five-spoke wheel. The
+historical loader places tire centers about 0.076 meters inboard of its nominal
+wheel axes; the generated wheels preserve that measured inset and the existing
+2.24-meter force-point track. A tested 2.09-meter contact-track alternative caused
+large roll-limit excursions during ordinary-grip hard turns despite unchanged
+straight stopping distances, so it is not treated as a cosmetic adjustment.
+Tests retain the measured wheel width/inset and body clearance through steering
+and suspension travel. The point-contact approximation and high-grip roll-limit
+behavior still require broader dynamics/reference work.
 
 Completion requires current evidence for the full requested fidelity:
 

@@ -3,6 +3,7 @@ import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js
 import { createBonnet } from './bonnet'
 import { createBusBody } from './bus-body'
 import { busLayout } from './bus-layout'
+import { createBusWheel } from './bus-wheel'
 import { carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
 import { createCarCabin } from './car-cabin'
 import { batchUntexturedMeshes } from './mesh-batch'
@@ -231,55 +232,59 @@ export class CarModel {
     for (const z of axles)
       for (const side of [-1, 1]) {
         const pivot = new THREE.Group(),
-          spin = new THREE.Group()
+          spin = isBus
+            ? createBusWheel(this.wheelRadius, side, tire, chrome, black)
+            : new THREE.Group()
         pivot.position.set(side * dimensions.trackWidth * 0.5, this.wheelRadius, z)
         pivot.add(spin)
-        const wheel = new THREE.Mesh(
-          new THREE.TorusGeometry(this.wheelRadius - 0.054, 0.054, 12, 32),
-          tire,
-        )
-        wheel.rotation.y = Math.PI / 2
-        wheel.scale.z = 1.7
-        spin.add(wheel)
-        const rim = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.235, 0.235, 0.16, 24, 1, true),
-          chrome,
-        )
-        rim.rotation.z = Math.PI / 2
-        spin.add(rim)
-        for (const face of [-1, 1]) {
-          const lip = new THREE.Mesh(new THREE.TorusGeometry(0.224, 0.011, 8, 24), chrome)
-          lip.rotation.y = Math.PI / 2
-          lip.position.x = face * 0.085
-          spin.add(lip)
+        if (!isBus) {
+          const wheel = new THREE.Mesh(
+            new THREE.TorusGeometry(this.wheelRadius - 0.054, 0.054, 12, 32),
+            tire,
+          )
+          wheel.rotation.y = Math.PI / 2
+          wheel.scale.z = 1.7
+          spin.add(wheel)
+          const rim = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.235, 0.235, 0.16, 24, 1, true),
+            chrome,
+          )
+          rim.rotation.z = Math.PI / 2
+          spin.add(rim)
+          for (const face of [-1, 1]) {
+            const lip = new THREE.Mesh(new THREE.TorusGeometry(0.224, 0.011, 8, 24), chrome)
+            lip.rotation.y = Math.PI / 2
+            lip.position.x = face * 0.085
+            spin.add(lip)
+          }
+          const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.012, 24), black)
+          disc.rotation.z = Math.PI / 2
+          spin.add(disc)
+          for (let i = 0; i < 5; i++) {
+            const shape = new THREE.Shape()
+            shape.moveTo(-0.035, 0.055)
+            shape.lineTo(0.035, 0.055)
+            shape.lineTo(0.1, 0.222)
+            shape.lineTo(-0.055, 0.222)
+            shape.closePath()
+            const geometry = new THREE.ExtrudeGeometry(shape, {
+              depth: 0.17,
+              steps: 1,
+              bevelEnabled: true,
+              bevelSize: 0.004,
+              bevelThickness: 0.004,
+              bevelSegments: 1,
+            })
+            geometry.translate(0, 0, -0.085)
+            geometry.rotateY(Math.PI / 2)
+            const spoke = new THREE.Mesh(geometry, chrome)
+            spoke.rotation.x = (i * Math.PI * 2) / 5
+            spin.add(spoke)
+          }
+          const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.195, 16), chrome)
+          hub.rotation.z = Math.PI / 2
+          spin.add(hub)
         }
-        const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.012, 24), black)
-        disc.rotation.z = Math.PI / 2
-        spin.add(disc)
-        for (let i = 0; i < 5; i++) {
-          const shape = new THREE.Shape()
-          shape.moveTo(-0.035, 0.055)
-          shape.lineTo(0.035, 0.055)
-          shape.lineTo(0.1, 0.222)
-          shape.lineTo(-0.055, 0.222)
-          shape.closePath()
-          const geometry = new THREE.ExtrudeGeometry(shape, {
-            depth: 0.17,
-            steps: 1,
-            bevelEnabled: true,
-            bevelSize: 0.004,
-            bevelThickness: 0.004,
-            bevelSegments: 1,
-          })
-          geometry.translate(0, 0, -0.085)
-          geometry.rotateY(Math.PI / 2)
-          const spoke = new THREE.Mesh(geometry, chrome)
-          spoke.rotation.x = (i * Math.PI * 2) / 5
-          spin.add(spoke)
-        }
-        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.195, 16), chrome)
-        hub.rotation.z = Math.PI / 2
-        spin.add(hub)
         batchUntexturedMeshes(spin)
         this.wheels.push(spin)
         this.wheelPivots.push(pivot)
