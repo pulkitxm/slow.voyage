@@ -1,3 +1,4 @@
+import { surfaceGrip } from './grip'
 import type { ChassisPose, WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import { clamp, type Settings } from './world'
@@ -45,8 +46,7 @@ export function solveTires(
     lateralBefore = pose.lateralSpeed
   const capacities: number[] = []
   for (const wheel of wheels) {
-    const friction =
-      settings.grip * (settings.season === 'winter' ? 0.58 : 1) * (wheel.onRoad ? 1 : 0.64)
+    const friction = surfaceGrip(settings, wheel.onRoad)
     const capacity = wheel.contact ? friction * wheel.load * dt : 0
     capacities.push(capacity)
     wheel.longitudinalImpulse = wheel.lateralImpulse = wheel.slip = 0

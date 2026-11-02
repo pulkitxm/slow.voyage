@@ -7,6 +7,7 @@ describe('saved preferences', () => {
     const settings = decodeSettings({
       vehicle: 'unknown',
       season: null,
+      weather: 'storm',
       volume: Number.NaN,
       power: '2',
       camera: {},
@@ -47,6 +48,7 @@ describe('saved preferences', () => {
       ...defaults,
       vehicle: 'bus' as const,
       season: 'winter' as const,
+      weather: 'rain' as const,
       volume: 0,
       grip: 0.2,
       onePedal: true,

@@ -145,7 +145,7 @@ export class Foliage {
       map: this.texture,
       side: THREE.DoubleSide,
       alphaTest: 0.46,
-      alphaToCoverage: true,
+      alphaToCoverage: false,
       roughness: 1,
       emissive: '#657745',
       emissiveIntensity: 0.18,

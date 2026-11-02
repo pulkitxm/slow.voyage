@@ -3,6 +3,7 @@ import { roadCurve, smoothStep, terrainField } from './field'
 export type Landscape = 'highlands' | 'alpine' | 'desert'
 export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'day' | 'sunset' | 'night'
+export type Weather = 'clear' | 'overcast' | 'rain' | 'fog'
 export type Vehicle = 'touring' | 'roadster' | 'motorcycle' | 'bus'
 export type CameraMode = 'chase' | 'bonnet' | 'cinematic'
 export type AssistanceMode = 'off' | 'full' | 'steer' | 'speed'
@@ -15,6 +16,7 @@ export interface Settings {
   landscape: Landscape
   season: Season
   daylight: Daylight
+  weather: Weather
   vehicle: Vehicle
   camera: CameraMode
   color: string
@@ -36,6 +38,7 @@ export const defaults: Settings = {
   landscape: 'highlands',
   season: 'summer',
   daylight: 'day',
+  weather: 'clear',
   vehicle: 'touring',
   camera: 'chase',
   color: '#f8f8f8',

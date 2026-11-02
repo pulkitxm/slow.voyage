@@ -63,6 +63,7 @@ export function Drive() {
       data-landscape={settings.landscape}
       data-season={settings.season}
       data-daylight={settings.daylight}
+      data-weather={settings.weather}
       data-vehicle={settings.vehicle}
     >
       <canvas

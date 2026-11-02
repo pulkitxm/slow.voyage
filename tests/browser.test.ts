@@ -202,7 +202,7 @@ test('renders the road in bonnet view without shader or page errors', async () =
   expect(roadPixels / pixels).toBeGreaterThan(0.2)
 }, 150000)
 
-test('rebuilds landscapes, seasons, and vehicles without renderer errors', async () => {
+test('rebuilds landscapes, weather, seasons, and vehicles without renderer errors', async () => {
   await capture([
     start,
     wait('driving', '.drive.is-driving'),
@@ -210,7 +210,13 @@ test('rebuilds landscapes, seasons, and vehicles without renderer errors', async
     click('alpine', '.landscape-option:has-text("Alpine Pass")'),
     click('desert', '.landscape-option:has-text("Desert Highway")'),
     click('highlands', '.landscape-option:has-text("The Highlands")'),
+    click('rain', '.weather-options button:has-text("Rain")'),
+    wait('rain-active', '[data-weather="rain"]'),
+    click('fog', '.weather-options button:has-text("Fog")'),
+    wait('fog-active', '[data-weather="fog"]'),
     click('winter', '.option-row button:has-text("Winter")'),
+    click('snow', '.weather-options button:has-text("Snow")'),
+    wait('snow-active', '[data-weather="rain"][data-season="winter"]'),
     click('night', '.option-row button:has-text("Night")'),
     click('vehicle-tab', '[role="tab"]:has-text("vehicle")'),
     {

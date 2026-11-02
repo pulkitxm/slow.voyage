@@ -1,3 +1,4 @@
+import { surfaceGrip } from './grip'
 import { Suspension } from './suspension'
 import { solveTires } from './tires'
 import { vehicleMetrics } from './vehicles'
@@ -25,7 +26,7 @@ function steeringLimit(speed: number, settings: Settings) {
   return metrics.maxSteering * (1 - 0.75 * clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1))
 }
 function tractionAcceleration(settings: Settings, onRoad: boolean) {
-  return settings.grip * (settings.season === 'winter' ? 0.58 : 1) * (onRoad ? 1 : 0.64) * 9.81
+  return surfaceGrip(settings, onRoad) * 9.81
 }
 export class CarPhysics {
   x = 0

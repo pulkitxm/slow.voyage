@@ -181,6 +181,28 @@ clicks and fixture-generated cursor movement through the canvas input handlers.
 
 ## Remaining reconstruction work
 
+Broader visual references for this pass include the official
+[Forza Horizon 5 biome study](https://forza.net/news/forza-horizon-5-road-to-mexico-july-update)
+and [Assetto Corsa EVO imagery](https://assettocorsa.gg/assetto-corsa-evo/).
+The selected principles are layered vegetation, directional light with controlled
+ambient fill, weather-dependent visibility, and coherent material reflections.
+Their artwork and vehicle assets are kept outside the application.
+[BeamNG's spring and damping explanation](https://www.beamng.com/game/about/physics/)
+also provides a useful reference for response and energy checks.
+
+The local driving interface now removes branding and decorative messages after
+starting. Q/E cycles scenery and seasonal conditions; V and Shift V cycle vehicles.
+Weather now changes clouds, fog, precipitation, material reflections, and road
+traction. Winter precipitation uses snow. Wet grip is reconstructed tuning, and
+both tire response and assisted corner planning use the same surface coefficient.
+The lighting review corrected excessive indirect fill and bright fog outlines on
+cutout vegetation. Rain uses world-space roughness variation on asphalt.
+
+Guardrail response now dissipates contact-normal energy and preserves tangential
+motion in road coordinates. Gentle contact no longer injects a fixed lateral kick.
+A reverse torque governor limits powered reversing while allowing gravity-driven
+backward rolling. Flat-grade reversal probes now agree in both orientations.
+
 The first visual review cycle compared clean 1280 × 720 captures of both builds.
 The initial reference attempt was stationary because its keyboard listener needs
 focus on the game panel. The retry verified active autodrive and visible movement.

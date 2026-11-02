@@ -11,6 +11,7 @@ test('scenery shortcuts cycle every preset and wrap in both directions', () => {
       landscape: next.landscape,
       season: next.season,
       daylight: next.daylight,
+      weather: next.weather,
     }
   }
   expect(settings).toEqual(defaults)

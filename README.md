@@ -68,6 +68,11 @@ accelerate or right click to brake and reverse. Enable it with M or in Controls
 settings, where sensitivity is adjustable. Keyboard and touch remain available;
 mouse driving takes priority over controller pedals and steering.
 
+Q and E move through scenery, seasonal weather, and time-of-day presets. V cycles
+vehicles; Shift V cycles backward. Branding and decorative status messages disappear
+once driving starts. Weather settings include clear skies, overcast, rain, and fog.
+Rain becomes snow in winter. Wet road traction also informs assisted corner speeds.
+
 ## Offline behavior
 
 The production build precaches every bundled asset before activating its service

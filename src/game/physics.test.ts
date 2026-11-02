@@ -229,6 +229,30 @@ describe('vehicle dynamics', () => {
     expect(icy.routeSpeed(45)).toBeLessThan(slippery.routeSpeed(45))
     expect(dry.world.settings.cruiseSpeed).toBe(defaults.cruiseSpeed)
   })
+  test('assisted corner planning uses the reduced traction of a wet road', () => {
+    const dry = new CarPhysics(new OpposingBends({ ...defaults, grip: 0.5 }))
+    const wet = new CarPhysics(new OpposingBends({ ...defaults, grip: 0.5, weather: 'rain' }))
+    expect(wet.routeSpeed(45)).toBeLessThan(dry.routeSpeed(45) * 0.9)
+    expect(wet.world.settings.cruiseSpeed).toBe(defaults.cruiseSpeed)
+  })
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s autodrive reserves steering traction in rain',
+    (vehicle) => {
+      for (const grip of [0.2, 1]) {
+        const settings: Settings = { ...defaults, vehicle, grip, weather: 'rain', cruiseSpeed: 45 }
+        const car = new CarPhysics(new World(settings))
+        let leftRoad = false,
+          collided = false
+        for (let step = 0; step < 120 * 120; step++) {
+          car.update(1 / 120, car.autoInput(settings.cruiseSpeed), settings)
+          leftRoad ||= car.offroad
+          collided ||= car.impact > 0.99
+        }
+        expect({ grip, leftRoad, collided }).toEqual({ grip, leftRoad: false, collided: false })
+        expect(car.distance).toBeGreaterThan(600)
+      }
+    },
+  )
   test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
     '%s autodrive handles maximum cruise across traction and terrain extremes',
     (vehicle) => {

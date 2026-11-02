@@ -56,7 +56,12 @@ export function useDrive() {
     applySettings({ [key]: value })
   const cycleJourney = (direction: number) => {
     const next = nextJourney(settingsRef.current, direction)
-    applySettings({ landscape: next.landscape, season: next.season, daylight: next.daylight })
+    applySettings({
+      landscape: next.landscape,
+      season: next.season,
+      daylight: next.daylight,
+      weather: next.weather,
+    })
     announce(next.name)
   }
   const cycleVehicle = (direction: number) => {

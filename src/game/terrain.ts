@@ -50,6 +50,7 @@ export class Terrain {
   asphalt: THREE.CanvasTexture
   groundTexture: THREE.CanvasTexture
   windTime = { value: 0 }
+  roadWetness = { value: 0 }
   constructor(
     public scene: THREE.Scene,
     public world: World,
@@ -107,6 +108,31 @@ export class Terrain {
       color: '#c4ccd1',
       roughness: 0.98,
     })
+    this.roadMaterial.onBeforeCompile = (shader) => {
+      shader.uniforms.roadWetness = this.roadWetness
+      shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        '#include <common>\nvarying vec2 roadPosition;',
+      )
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <begin_vertex>',
+        '#include <begin_vertex>\nroadPosition = (modelMatrix * vec4(position, 1.0)).xz;',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <common>',
+        `#include <common>\nvarying vec2 roadPosition;\nuniform float roadWetness;\n${meadowNoise}`,
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <roughnessmap_fragment>',
+        '#include <roughnessmap_fragment>\nfloat surfaceWetness = smoothstep(0.25, 0.75, fieldVariationAt(roadPosition * 45.0));\nroughnessFactor = mix(roughnessFactor, mix(0.1, 0.46, surfaceWetness), roadWetness);',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        '#include <color_fragment>\ndiffuseColor.rgb *= mix(1.0, 0.68 + fieldVariationAt(roadPosition * 45.0) * 0.3, roadWetness);',
+      )
+    }
+    this.roadMaterial.customProgramCacheKey = () => 'weathered-asphalt'
     const bladePositions: number[] = [],
       bladeIndices: number[] = [],
       bladeColors: number[] = []
