@@ -531,6 +531,12 @@ straight stopping distances, so it is not treated as a cosmetic adjustment.
 Tests retain the measured wheel width/inset and body clearance through steering
 and suspension travel. The point-contact approximation and high-grip roll-limit
 behavior still require broader dynamics/reference work.
+Wheel openings now use vertical sides and a narrower upper cap centered at the
+full-bump axle height, reducing the fore/aft gaps and exposed undertray ends.
+Clearance rays cover 21 steering commands and all three travel checkpoints.
+The historical travel parameter is confirmed as a half-stroke: 0.16 meters
+permits offsets from -0.16 to +0.16 meters. The generated opening deliberately
+contains that full envelope rather than reducing travel to fit a static mesh.
 
 Completion requires current evidence for the full requested fidelity:
 

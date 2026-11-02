@@ -47,6 +47,7 @@ export function createBusBody(materials: BusMaterials) {
   const { paint, glass, trim, metal, well, brake, lights, plate } = materials
   const { halfWidth, archRadius } = busLayout
   const metrics = vehicleMetrics.bus
+  const archCenter = metrics.wheelRadius + metrics.suspensionTravel
   const corner = 0.1
   const side = new THREE.Shape()
   side.moveTo(frontProfile[0][1] + corner, frontProfile[0][0])
@@ -54,8 +55,8 @@ export function createBusBody(materials: BusMaterials) {
   for (const [y, z] of [...rearProfile].reverse()) side.lineTo(z - corner, y)
   for (const axle of [metrics.wheelbase / 2, -metrics.wheelbase / 2]) {
     side.lineTo(axle + archRadius, 0.22)
-    side.lineTo(axle + archRadius, metrics.wheelRadius)
-    side.absarc(axle, metrics.wheelRadius, archRadius, 0, Math.PI, false)
+    side.lineTo(axle + archRadius, archCenter)
+    side.absarc(axle, archCenter, archRadius, 0, Math.PI, false)
     side.lineTo(axle - archRadius, 0.22)
   }
   side.closePath()
@@ -88,16 +89,33 @@ export function createBusBody(materials: BusMaterials) {
         well,
       )
       liner.rotation.z = Math.PI / 2
-      liner.position.set(sign * 0.88, metrics.wheelRadius, axle)
+      liner.position.set(sign * 0.88, archCenter, axle)
       group.add(liner)
       const wallShape = new THREE.Shape()
-      wallShape.moveTo(-archRadius, metrics.wheelRadius)
-      wallShape.absarc(0, metrics.wheelRadius, archRadius, Math.PI, 0, true)
+      wallShape.moveTo(-archRadius, 0.22)
+      wallShape.lineTo(-archRadius, archCenter)
+      wallShape.absarc(0, archCenter, archRadius, Math.PI, 0, true)
+      wallShape.lineTo(archRadius, 0.22)
       wallShape.closePath()
       const wall = new THREE.Mesh(new THREE.ShapeGeometry(wallShape, 32), well)
       wall.rotation.y = (sign * Math.PI) / 2
       wall.position.set(sign * 0.6, 0, axle)
       group.add(wall)
+      for (const end of [-1, 1]) {
+        const z = axle + end * archRadius
+        group.add(
+          carSurface(
+            [
+              [sign * 0.6, 0.22, z],
+              [sign * halfWidth, 0.22, z],
+              [sign * halfWidth, archCenter, z],
+              [sign * 0.6, archCenter, z],
+            ],
+            [0, 0, end],
+            well,
+          ),
+        )
+      }
     }
   }
   const end = (profile: readonly (readonly [number, number])[], direction: number) => {
