@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { createBonnet } from './bonnet'
 import { carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
 import { createCarCabin } from './car-cabin'
+import { batchUntexturedMeshes } from './mesh-batch'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
@@ -333,10 +334,16 @@ export class CarModel {
         const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.195, 16), chrome)
         hub.rotation.z = Math.PI / 2
         spin.add(hub)
+        batchUntexturedMeshes(spin)
         this.wheels.push(spin)
         this.wheelPivots.push(pivot)
         this.exterior.add(pivot)
       }
+    if (this.cabinSteering instanceof THREE.Group) batchUntexturedMeshes(this.cabinSteering)
+    batchUntexturedMeshes(this.exterior, [
+      ...this.wheelPivots,
+      ...(this.cabinSteering ? [this.cabinSteering] : []),
+    ])
     this.bonnet = createBonnet(settings.vehicle, this.body, black)
     this.firstPerson = this.bonnet.group
     this.group.add(this.exterior, this.firstPerson)
