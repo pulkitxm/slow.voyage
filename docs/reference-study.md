@@ -255,6 +255,26 @@ the rims and spokes in side views instead of hiding them behind solid black caps
 An independent review accepted the desktop framing, revised portrait scale, and
 wheel visibility. Local captures and moving demos document the remaining details.
 
+The foliage atlas now includes evergreen and narrow-crown silhouettes alongside
+broadleaf trees and shrubs. Seasonal changes keep species and positions stable;
+deciduous crowns lose foliage in winter while evergreens retain their structure.
+Global-coordinate grove masks add woodland beyond the road corridor. High detail
+uses eight-meter cells, with a stable 24-meter subset in low detail. Placement
+rejects water, steep faces, deserts, and exposed alpine peaks. Instances join the
+existing species batches, and shared grove coverage shades the understory while
+leaving the verge and steep rock clear.
+
+Distant foliage gradually lowers its alpha threshold from 0.46 to 0.28 to retain
+canopy coverage through mip levels. Fog remains active. Distant woodland is still
+stylized and requires further comparison, especially during side-view movement.
+
+A ten-second Chrome frame sample on the M4 Pro stayed near 16.7 milliseconds in
+both detail modes. The high-detail sample rendered about 1.264 million triangles;
+low detail rendered about 356 thousand. Forty section advances, covering 4.8 km,
+kept terrain sections bounded at 19 and 13 respectively. Observed geometry maxima
+were 141 and 117, with nine textures in both modes. These local samples do not
+establish performance on other devices or across a full driving session.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

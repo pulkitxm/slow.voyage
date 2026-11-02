@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { Foliage } from './foliage'
 import { groundTexture, MeadowMaterial, meadowNoise } from './ground'
+import { createWoodland, woodlandCoverage } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 export const palettes = {
@@ -206,6 +207,7 @@ export class Terrain {
       indices: number[] = [],
       colors: number[] = [],
       roadDistances: number[] = [],
+      groveCover: number[] = [],
       color = new THREE.Color()
     for (let row = 0; row <= 24; row++) {
       const s = start + row * 5,
@@ -226,6 +228,14 @@ export class Terrain {
           )
         if (settings.landscape === 'alpine' && this.world.height(x, s) > 120)
           color.lerp(new THREE.Color('#dae0dc'), clamp((this.world.height(x, s) - 120) / 80, 0, 1))
+        let forest = 0
+        if (settings.landscape !== 'desert' && elevation > 0.7) {
+          const grove = woodlandCoverage(x, s, settings.seed, settings.landscape)
+          const verge = clamp((Math.abs(d) - 45) / 30, 0, 1)
+          const treeLine = settings.landscape === 'alpine' ? clamp((220 - elevation) / 60, 0, 1) : 1
+          forest = grove * verge * treeLine
+        }
+        groveCover.push(forest)
         colors.push(color.r, color.g, color.b)
         if (row < 24 && col < offsets.length - 1) {
           const n = row * offsets.length + col
@@ -242,6 +252,7 @@ export class Terrain {
     }
     const ground = geometry(p, indices, colors)
     ground.setAttribute('roadDistance', new THREE.Float32BufferAttribute(roadDistances, 1))
+    ground.setAttribute('groveCover', new THREE.Float32BufferAttribute(groveCover, 1))
     const groundUv: number[] = []
     for (let i = 0; i < p.length; i += 3) groundUv.push((p[i] ?? 0) / 7, -(p[i + 2] ?? 0) / 7)
     ground.setAttribute('uv', new THREE.Float32BufferAttribute(groundUv, 2))
@@ -331,6 +342,7 @@ export class Terrain {
       d: (rng() > 0.5 ? 1 : -1) * (12 + rng() ** 1.5 * 250),
     }))
     const matrix = new THREE.Object3D()
+    const woodland = createWoodland(this.world, id, this.quality)
     const conifers =
       settings.landscape === 'desert'
         ? 0
@@ -353,8 +365,13 @@ export class Terrain {
       if (!geometry) continue
       const shrub = variant >= 2 && variant < 4
       const count = vegetationCounts[variant] ?? 0
-      if (!count) continue
-      const trees = new THREE.InstancedMesh(geometry, this.foliage.treeMaterial, count)
+      const forest = woodland.filter((tree) => tree.variant === variant)
+      if (!count && !forest.length) continue
+      const trees = new THREE.InstancedMesh(
+        geometry,
+        this.foliage.treeMaterial,
+        count + forest.length,
+      )
       let placed = 0
       for (let i = 0; i < count; i++) {
         const cluster = clusters[Math.floor(rng() * clusters.length)]
@@ -385,6 +402,14 @@ export class Terrain {
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
         trees.setColorAt(placed++, new THREE.Color().setScalar(0.88 + rng() * 0.24))
+      }
+      for (const tree of forest) {
+        matrix.position.set(tree.x, tree.y, -tree.s)
+        matrix.rotation.set(0, tree.yaw, 0)
+        matrix.scale.set(tree.width, tree.height, tree.width)
+        matrix.updateMatrix()
+        trees.setMatrixAt(placed, matrix.matrix)
+        trees.setColorAt(placed++, color.setScalar(tree.shade))
       }
       trees.count = placed
       trees.castShadow = true

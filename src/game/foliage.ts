@@ -215,6 +215,25 @@ export class Foliage {
       emissive: '#657745',
       emissiveIntensity: 0.18,
     })
+    this.treeMaterial.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <common>',
+        '#include <common>\nvarying float foliageDistance;',
+      )
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <project_vertex>',
+        '#include <project_vertex>\nfoliageDistance = length(mvPosition.xyz);',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <common>',
+        '#include <common>\nvarying float foliageDistance;',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <alphatest_fragment>',
+        '#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif',
+      )
+    }
+    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-coverage'
     for (let variant = 0; variant < 8; variant++) {
       const planes: THREE.BufferGeometry[] = []
       const shrub = variant >= 2 && variant < 4
