@@ -12,7 +12,8 @@
     "yaml": "bun scripts/yaml.ts && prettier --check \".github/**/*.yml\" lefthook.yml",
     "test": "bun test src/game",
     "validate": "bun run lint && bun run yaml && bun run check && bun run test",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "test:offline": "bun test tests/offline.test.ts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",
