@@ -95,64 +95,64 @@ const sources = [
     ],
   },
 ]
-const comparisons = await Promise.all(
-  sources.map(async (source) => {
-    const input = `${directory}/${source.id}-scenario.json`
-    await Bun.write(
-      input,
-      JSON.stringify({
-        browser: { mode: 'launch', executable_path: executable },
-        start_url: { url: source.url },
-        environment: {
-          viewport: { width: 1280, height: 720, device_scale_factor: 1 },
-          reduced_motion: 'no-preference',
-        },
-        actions: [...source.actions, pause('six-seconds', 6000), pause('twelve-seconds', 6000)],
-        capture: {
-          after_each_step: ['screenshot'],
-          at_end: ['screenshot', 'dom', 'url'],
-          events: ['page-errors', 'console'],
-        },
-      }),
+async function captureSource(source: (typeof sources)[number]) {
+  const input = `${directory}/${source.id}-scenario.json`
+  await Bun.write(
+    input,
+    JSON.stringify({
+      browser: { mode: 'launch', executable_path: executable },
+      start_url: { url: source.url },
+      environment: {
+        viewport: { width: 1280, height: 720, device_scale_factor: 1 },
+        reduced_motion: 'no-preference',
+      },
+      actions: [...source.actions, pause('six-seconds', 6000), pause('twelve-seconds', 6000)],
+      capture: {
+        after_each_step: ['screenshot'],
+        at_end: ['screenshot', 'dom', 'url'],
+        events: ['page-errors', 'console'],
+      },
+    }),
+  )
+  const child = Bun.spawn(
+    ['bunx', '--bun', 'rea-agents@6.8.0', 'capture-browser-scenario', input, '--format', 'json'],
+    { stdout: 'pipe', stderr: 'pipe' },
+  )
+  const timeout = setTimeout(() => child.kill(), 90000)
+  try {
+    const [stdout, stderr, code] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ])
+    if (code !== 0) throw new Error(`Capture process exited ${code}: ${stderr.slice(0, 500)}`)
+    await Bun.write(`${directory}/${source.id}-capture.json`, stdout)
+    const result = resultSchema.parse(JSON.parse(stdout)).normalized_result
+    const failures = result.steps
+      .filter((step) => step.status !== 'completed')
+      .map((step) => `${step.step_id}: ${step.error}`)
+    failures.push(
+      ...result.events.items
+        .filter((event) => event.kind.startsWith('page-error') || event.level === 'error')
+        .map((event) => event.text ?? event.message ?? event.kind),
     )
-    const child = Bun.spawn(
-      ['bunx', '--bun', 'rea-agents@6.8.0', 'capture-browser-scenario', input, '--format', 'json'],
-      { stdout: 'pipe', stderr: 'pipe' },
-    )
-    const timeout = setTimeout(() => child.kill(), 90000)
-    try {
-      const [stdout, stderr, code] = await Promise.all([
-        new Response(child.stdout).text(),
-        new Response(child.stderr).text(),
-        child.exited,
-      ])
-      if (code !== 0) throw new Error(`Capture process exited ${code}: ${stderr.slice(0, 500)}`)
-      await Bun.write(`${directory}/${source.id}-capture.json`, stdout)
-      const result = resultSchema.parse(JSON.parse(stdout)).normalized_result
-      const failures = result.steps
-        .filter((step) => step.status !== 'completed')
-        .map((step) => `${step.step_id}: ${step.error}`)
-      failures.push(
-        ...result.events.items
-          .filter((event) => event.kind.startsWith('page-error') || event.level === 'error')
-          .map((event) => event.text ?? event.message ?? event.kind),
-      )
-      for (const step of result.steps) {
-        const picture = step.artifacts.screenshot.value
-        if (picture)
-          await Bun.write(
-            `${directory}/${source.id}-${step.step_id}.png`,
-            Buffer.from(picture.data_base64, 'base64'),
-          )
-      }
-      return { ...source, failures }
-    } catch (error) {
-      return { ...source, failures: [error instanceof Error ? error.message : String(error)] }
-    } finally {
-      clearTimeout(timeout)
+    for (const step of result.steps) {
+      const picture = step.artifacts.screenshot.value
+      if (picture)
+        await Bun.write(
+          `${directory}/${source.id}-${step.step_id}.png`,
+          Buffer.from(picture.data_base64, 'base64'),
+        )
     }
-  }),
-)
+    return { ...source, failures }
+  } catch (error) {
+    return { ...source, failures: [error instanceof Error ? error.message : String(error)] }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+const comparisons = []
+for (const source of sources) comparisons.push(await captureSource(source))
 const metadata = {
   recordedAt: new Date().toISOString(),
   revision,
