@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { DrivingCamera } from './camera'
+import { CarModel } from './car'
 import { createVehicleModel } from './model'
 import { Suspension } from './suspension'
+import { vehicleMetrics } from './vehicles'
 import { defaults, World } from './world'
 
 function visible(object: THREE.Object3D) {
@@ -13,6 +15,57 @@ function visible(object: THREE.Object3D) {
   }
   return true
 }
+
+test.each(['touring', 'roadster'] as const)(
+  '%s coachwork has wheel openings through full suspension travel and steering lock',
+  (vehicle) => {
+    const world = new World({ ...defaults, vehicle })
+    const metrics = vehicleMetrics[vehicle]
+    const model = new CarModel(world.settings)
+    const suspension = new Suspension(world)
+    const paint: THREE.Mesh[] = []
+    model.exterior.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.material === model.body) paint.push(object)
+    })
+    const bounds = new THREE.Box3()
+    for (const mesh of paint) bounds.expandByObject(mesh)
+    expect(bounds.min.y).toBeLessThan(0.25)
+    expect(bounds.max.y).toBeGreaterThan(1.2)
+    expect(bounds.max.y).toBeLessThan(1.26)
+    expect(bounds.getSize(new THREE.Vector3()).z).toBeGreaterThan(4)
+    expect(bounds.getSize(new THREE.Vector3()).z).toBeLessThan(4.4)
+    const ray = new THREE.Raycaster()
+    let samples = 0
+    for (const offset of [-metrics.suspensionTravel, 0, metrics.suspensionTravel]) {
+      for (const steering of [-metrics.maxSteering, 0, metrics.maxSteering]) {
+        suspension.updateSteering(steering)
+        for (const wheel of suspension.wheels) wheel.offset = offset
+        model.update(suspension.wheels, false, false, 0)
+        model.group.updateMatrixWorld(true)
+        for (let wheel = 0; wheel < model.wheels.length; wheel++) {
+          const spin = model.wheels[wheel],
+            pivot = model.wheelPivots[wheel],
+            tire = spin?.children[0]
+          if (!(tire instanceof THREE.Mesh) || !pivot) throw new Error('Tire missing')
+          const position = tire.geometry.getAttribute('position')
+          const side = Math.sign(pivot.position.x)
+          for (let i = 0; i < position.count; i += 4) {
+            const point = new THREE.Vector3()
+              .fromBufferAttribute(position, i)
+              .applyMatrix4(tire.matrixWorld)
+            if (side * point.x < side * pivot.position.x) continue
+            ray.set(new THREE.Vector3(side * 2, point.y, point.z), new THREE.Vector3(-side, 0, 0))
+            ray.far = 2 - side * point.x - 0.005
+            expect(ray.intersectObjects(paint, false)).toHaveLength(0)
+            samples++
+          }
+        }
+      }
+    }
+    expect(samples).toBeGreaterThan(1000)
+    model.dispose()
+  },
+)
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   '%s model has valid geometry, preserves lights in bonnet view, and releases its resources',
