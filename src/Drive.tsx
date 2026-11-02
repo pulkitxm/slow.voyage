@@ -31,6 +31,7 @@ export function Drive() {
     settings,
     state,
     started,
+    ready,
     panel,
     setPanel,
     help,
@@ -129,11 +130,21 @@ export function Drive() {
             An endless road, and all the time in the world.
           </p>
           <div className="start-actions">
-            <button type="button" className="primary-button" onClick={() => start()}>
-              <span>Start driving</span>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={!ready}
+              onClick={() => start()}
+            >
+              <span>{ready ? 'Start driving' : 'Preparing the road...'}</span>
               <ArrowUpRight size={19} />
             </button>
-            <button type="button" className="text-button" onClick={() => start(true)}>
+            <button
+              type="button"
+              className="text-button"
+              disabled={!ready}
+              onClick={() => start(true)}
+            >
               Or, just enjoy the ride <ChevronRight size={14} />
             </button>
           </div>
