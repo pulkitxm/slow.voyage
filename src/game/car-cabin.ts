@@ -145,6 +145,10 @@ export function createCarCabin(
   const column = new THREE.Group()
   column.position.set(-0.34, 0.82, -0.39)
   column.rotation.x = -0.35
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.035, 0.22, 10), trim)
+  shaft.rotation.x = Math.PI / 2
+  shaft.position.z = -0.11
+  column.add(shaft)
   column.add(steering)
   group.add(column)
   return group

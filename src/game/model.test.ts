@@ -23,9 +23,12 @@ test.each(['touring', 'roadster'] as const)(
     const metrics = vehicleMetrics[vehicle]
     const model = new CarModel(world.settings)
     const suspension = new Suspension(world)
-    const paint: THREE.Mesh[] = []
+    const paint: THREE.Mesh[] = [],
+      coachwork: THREE.Mesh[] = []
     model.exterior.traverse((object) => {
-      if (object instanceof THREE.Mesh && object.material === model.body) paint.push(object)
+      if (!(object instanceof THREE.Mesh)) return
+      if (object.material === model.body) paint.push(object)
+      if (!model.wheelPivots.some((pivot) => pivot.getObjectById(object.id))) coachwork.push(object)
     })
     const bounds = new THREE.Box3()
     for (const mesh of paint) bounds.expandByObject(mesh)
@@ -56,7 +59,7 @@ test.each(['touring', 'roadster'] as const)(
             if (side * point.x < side * pivot.position.x) continue
             ray.set(new THREE.Vector3(side * 2, point.y, point.z), new THREE.Vector3(-side, 0, 0))
             ray.far = 2 - side * point.x - 0.005
-            expect(ray.intersectObjects(paint, false)).toHaveLength(0)
+            expect(ray.intersectObjects(coachwork, false)).toHaveLength(0)
             samples++
           }
         }
