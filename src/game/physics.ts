@@ -67,7 +67,7 @@ export class CarPhysics {
     this.s = s
     this.driveForce = this.brakeForce = 0
     const road = this.world.road(s)
-    this.x = road.x + 2
+    this.x = road.x
     this.y = road.y
     this.yaw = road.yaw
     this.speed = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
@@ -102,7 +102,7 @@ export class CarPhysics {
   autoInput(targetSpeed: number): Input {
     const lookahead = 13 + Math.abs(this.speed) * 0.8
     const target = this.world.road(this.s + lookahead)
-    const targetX = target.x + 2 - this.x
+    const targetX = target.x - this.x
     const targetRight = targetX * Math.cos(this.yaw) + lookahead * Math.sin(this.yaw)
     const curvature = (-2 * targetRight) / (targetX * targetX + lookahead * lookahead)
     const metrics = vehicleMetrics[this.world.settings.vehicle]
