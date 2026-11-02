@@ -1,0 +1,41 @@
+import { ShieldCheck, X } from 'lucide-react'
+import { IconButton } from './IconButton'
+import { Modal } from './Modal'
+export function Help({ onClose }: { onClose: () => void }) {
+  return (
+    <Modal titleId="help-title" onClose={onClose}>
+      <section className="dialog help-dialog" aria-labelledby="help-title">
+        <IconButton label="Close help" onClick={onClose}>
+          <X />
+        </IconButton>
+        <span className="eyebrow">A FEW THINGS FOR THE ROAD</span>
+        <h2 id="help-title">You’re in no hurry.</h2>
+        <p>There’s no score, no traffic, and nowhere you need to be.</p>
+        <div className="key-list">
+          {[
+            ['W / ↑', 'Accelerate'],
+            ['S / ↓', 'Brake, then reverse'],
+            ['A D / ← →', 'Steer'],
+            ['Space', 'Handbrake'],
+            ['F', 'Toggle autodrive'],
+            ['C', 'Change camera'],
+            ['R', 'Return to the road'],
+            ['P / Esc', 'Pause the drive'],
+          ].map(([key, label]) => (
+            <div key={key}>
+              <span>{label}</span>
+              <kbd>{key}</kbd>
+            </div>
+          ))}
+        </div>
+        <div className="help-note">
+          <ShieldCheck size={19} />
+          <p>
+            Once you see “Offline ready”, this entire world works without the internet. Your
+            preferences stay on this device.
+          </p>
+        </div>
+      </section>
+    </Modal>
+  )
+}
