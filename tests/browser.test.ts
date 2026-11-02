@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { chmod, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PNG } from 'pngjs'
@@ -83,11 +83,21 @@ async function capture(actions: object[] | ((origin: string) => object[]), scree
   })
   const directory = await mkdtemp(join(tmpdir(), 'slowroads-browser-'))
   const input = join(directory, 'scenario.json')
+  let launcher = executable
+  if (process.platform === 'linux') {
+    launcher = join(directory, 'chrome')
+    const quoted = `'${executable.replaceAll("'", "'\\''")}'`
+    await Bun.write(
+      launcher,
+      `#!/bin/sh\nexec ${quoted} --use-angle=swiftshader --enable-unsafe-swiftshader "$@"\n`,
+    )
+    await chmod(launcher, 0o700)
+  }
   try {
     await Bun.write(
       input,
       JSON.stringify({
-        browser: { mode: 'launch', executable_path: executable },
+        browser: { mode: 'launch', executable_path: launcher },
         start_url: { url: `http://127.0.0.1:${server.port}/` },
         environment: { service_workers: 'allow' },
         actions:
@@ -114,13 +124,15 @@ async function capture(actions: object[] | ((origin: string) => object[]), scree
       )
     const result = captureSchema.parse(JSON.parse(stdout)).normalized_result
     const failed = result.steps.filter((step) => step.status !== 'completed')
-    expect(failed.map((step) => `${step.step_id}: ${step.error}`)).toEqual([])
     const errors = result.events.items.filter(
       (event) =>
         event.kind.startsWith('page-error') ||
         (event.kind === 'console' && event.level === 'error'),
     )
-    expect(errors.map((event) => event.text ?? event.message ?? event.kind)).toEqual([])
+    expect([
+      ...failed.map((step) => `${step.step_id}: ${step.error}`),
+      ...errors.map((event) => event.text ?? event.message ?? event.kind),
+    ]).toEqual([])
     return { result, originStopped }
   } finally {
     server.stop(true)
