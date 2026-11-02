@@ -66,12 +66,12 @@ export class World {
     const blend = clamp((distance - 6) / 70, 0, 1)
     const phase = this.settings.seed * 0.13
     const amplitude =
-      this.settings.landscape === 'alpine' ? 2.4 : this.settings.landscape === 'desert' ? 0.8 : 1
+      this.settings.landscape === 'alpine' ? 2.8 : this.settings.landscape === 'desert' ? 0.8 : 1
     const hills =
-      23 +
-      29 * Math.sin(x / 140 + s / 210 + phase) +
-      17 * Math.cos(s / 140 - x / 230) +
-      8 * Math.sin(x / 55 + s / 90)
+      6 +
+      12 * Math.sin(x / 190 + s / 320 + phase) +
+      8 * Math.cos(s / 300 - x / 200) +
+      3 * Math.sin(x / 75 + s / 120)
     const mountain = Math.max(0, distance - 210) * (0.1 + 0.1 * Math.sin(s / 180))
     return road.y - 0.16 + blend * (hills * amplitude + mountain)
   }
