@@ -30,20 +30,22 @@ HTTPS or localhost. No application server is required.
 
 ## Controls
 
-| Key              | Action               |
-| ---------------- | -------------------- |
-| W / Up           | Accelerate           |
-| S / Down         | Brake, then reverse  |
-| A D / Left Right | Steer                |
-| Space            | Handbrake            |
-| F                | Autodrive            |
-| G                | Assistance mode      |
-| + / -            | Cruise speed         |
-| C                | Cycle camera         |
-| M                | Toggle mouse driving |
-| R                | Reset to the road    |
-| P / Escape       | Pause                |
-| H                | Help                 |
+| Key              | Action                  |
+| ---------------- | ----------------------- |
+| W / Up           | Accelerate              |
+| S / Down         | Brake, then reverse     |
+| A D / Left Right | Steer                   |
+| Space            | Handbrake               |
+| F                | Autodrive               |
+| G                | Assistance mode         |
+| + / -            | Cruise speed            |
+| C                | Cycle camera            |
+| Q / E            | Previous / next scenery |
+| V / Shift V      | Next / previous vehicle |
+| M                | Toggle mouse driving    |
+| R                | Reset to the road       |
+| P / Escape       | Pause                   |
+| H                | Help                    |
 
 Touch devices have steering and pedal buttons. Settings include four vehicles,
 three landscapes, three seasons, lighting, paint, camera, grip, power, sound,

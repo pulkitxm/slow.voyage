@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SettingsTab } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
 import { type DriveState, RoadEngine } from './game/engine'
+import { nextJourney } from './game/journeys'
 import { cameras, loadSettings } from './game/settings'
+import { vehicleNames } from './game/vehicles'
 import { clamp, defaults, type Settings } from './game/world'
 
 const initial: DriveState = {
@@ -41,14 +43,31 @@ export function useDrive() {
     toastTimer.current = setTimeout(() => setToast(''), 2800)
   }, [])
   const settingsRef = useRef(settings)
-  const update = <K extends keyof Settings>(key: K, value: Settings[K]) => {
-    const next = { ...settingsRef.current, [key]: value }
+  const applySettings = (changes: Partial<Settings>) => {
+    const next = { ...settingsRef.current, ...changes }
     settingsRef.current = next
     engine.current?.setSettings(next)
     setSettings(next)
     try {
       localStorage.setItem('slowroads-settings', JSON.stringify(next))
     } catch {}
+  }
+  const update = <K extends keyof Settings>(key: K, value: Settings[K]) =>
+    applySettings({ [key]: value })
+  const cycleJourney = (direction: number) => {
+    const next = nextJourney(settingsRef.current, direction)
+    applySettings({ landscape: next.landscape, season: next.season, daylight: next.daylight })
+    announce(next.name)
+  }
+  const cycleVehicle = (direction: number) => {
+    const vehicles = ['touring', 'roadster', 'motorcycle', 'bus'] as const
+    const next =
+      vehicles[
+        (vehicles.indexOf(settingsRef.current.vehicle) + direction + vehicles.length) %
+          vehicles.length
+      ] ?? 'touring'
+    update('vehicle', next)
+    announce(vehicleNames[next])
   }
   const start = (auto = false) => {
     const instance = engine.current
@@ -69,7 +88,7 @@ export function useDrive() {
         engine.current.assistance === 'off' ? settingsRef.current.autodriveMode : 'off',
       )
     const mode = engine.current.assistance
-    announce(mode === 'off' ? 'You have the wheel.' : `${assistanceLabels[mode]} on.`)
+    announce(mode === 'off' ? 'Manual driving' : `${assistanceLabels[mode]} on`)
   }
   const cycleAssistance = () => {
     const modes = ['full', 'steer', 'speed'] as const
@@ -107,8 +126,19 @@ export function useDrive() {
     cycleAssistance,
     adjustCruise,
     toggleMouse,
+    cycleJourney,
+    cycleVehicle,
   })
-  handlers.current = { pause, toggleAuto, cycleCamera, cycleAssistance, adjustCruise, toggleMouse }
+  handlers.current = {
+    pause,
+    toggleAuto,
+    cycleCamera,
+    cycleAssistance,
+    adjustCruise,
+    toggleMouse,
+    cycleJourney,
+    cycleVehicle,
+  }
   useEffect(() => {
     if (!canvas.current) return
     let rendered = false
@@ -135,6 +165,10 @@ export function useDrive() {
         if (action === 'cruiseDown') handlers.current.adjustCruise(-1)
         if (action === 'camera') handlers.current.cycleCamera()
         if (action === 'mouse') handlers.current.toggleMouse()
+        if (action === 'journeyNext') handlers.current.cycleJourney(1)
+        if (action === 'journeyPrevious') handlers.current.cycleJourney(-1)
+        if (action === 'vehicleNext') handlers.current.cycleVehicle(1)
+        if (action === 'vehiclePrevious') handlers.current.cycleVehicle(-1)
         if (action === 'help') setHelp((current) => !current)
       }
     } catch {

@@ -21,6 +21,8 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['G', 'Choose assistance mode'],
             ['+ / -', 'Adjust cruise speed'],
             ['C', 'Change camera'],
+            ['Q / E', 'Previous / next scenery'],
+            ['V / Shift V', 'Next / previous vehicle'],
             ['M', 'Toggle mouse driving'],
             ['R', 'Return to the road'],
             ['P / Esc', 'Pause the drive'],

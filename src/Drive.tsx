@@ -60,6 +60,10 @@ export function Drive() {
     <main
       className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''}`}
       data-controller={state.controller}
+      data-landscape={settings.landscape}
+      data-season={settings.season}
+      data-daylight={settings.daylight}
+      data-vehicle={settings.vehicle}
     >
       <canvas
         ref={canvas}
@@ -72,42 +76,52 @@ export function Drive() {
           data-mouse-steer={state.mouseSteering.toFixed(2)}
           aria-hidden="true"
         >
-          <span>mouse steering</span>
           <div className="mouse-track">
             <i style={{ left: `${50 - state.mouseSteering * 50}%` }} />
           </div>
         </div>
       )}
       <header className="topbar">
-        <a href="/" className="brand" aria-label="Slow Roads home">
-          slow roads<span>TAKE THE LONG WAY HOME</span>
-        </a>
-        <div className="location">
-          <span className="location-dot" />
-          <span>{landscape.title}</span>
-          <span className="location-divider" />
-          <span>
-            {settings.daylight === 'day'
-              ? 'A clear afternoon'
-              : settings.daylight === 'sunset'
-                ? 'The golden hour'
-                : 'Under the stars'}
-          </span>
-        </div>
+        {!started && (
+          <>
+            <a href="/" className="brand" aria-label="Slow Roads home">
+              slow roads<span>TAKE THE LONG WAY HOME</span>
+            </a>
+            <div className="location">
+              <span className="location-dot" />
+              <span>{landscape.title}</span>
+              <span className="location-divider" />
+              <span>
+                {settings.daylight === 'day'
+                  ? 'A clear afternoon'
+                  : settings.daylight === 'sunset'
+                    ? 'The golden hour'
+                    : 'Under the stars'}
+              </span>
+            </div>
+          </>
+        )}
         <div className="top-actions">
-          <span
-            className="offline-status"
-            title={
-              offline
-                ? 'Ready to play without an internet connection'
-                : online
-                  ? 'Everything runs on your device'
-                  : 'You are offline'
-            }
-          >
-            <span className="status-dot" />
-            {offline ? 'Offline ready' : online ? 'Free to wander' : 'Offline'}
-          </span>
+          {!started && (
+            <span
+              className="offline-status"
+              title={
+                offline
+                  ? 'Ready to play without an internet connection'
+                  : online
+                    ? 'Everything runs on your device'
+                    : 'You are offline'
+              }
+            >
+              <span className="status-dot" />
+              {offline ? 'Offline ready' : online ? 'Online' : 'Offline'}
+            </span>
+          )}
+          {started && (
+            <IconButton label="Driving controls" onClick={() => setHelp(true)}>
+              <CircleHelp />
+            </IconButton>
+          )}
           <IconButton
             label={settings.volume ? 'Mute sound' : 'Unmute sound'}
             onClick={() => {
@@ -205,18 +219,6 @@ export function Drive() {
       )}
       {started && (
         <>
-          <div className="drive-indicator">
-            <span className={state.assistance !== 'off' ? 'status-dot' : 'tiny-dot'} />
-            {state.assistance === 'full'
-              ? 'TAKING THE SCENIC ROUTE'
-              : state.assistance === 'steer'
-                ? 'STEERING ASSISTED'
-                : state.assistance === 'speed'
-                  ? 'CRUISING AT YOUR PACE'
-                  : state.offroad
-                    ? 'A LITTLE OFF THE BEATEN PATH'
-                    : 'THE ROAD IS YOURS'}
-          </div>
           <section className="telemetry" aria-label="Driving dashboard">
             <div className="speed">
               <span className="speed-value">{speed.toFixed(0).padStart(2, '0')}</span>
@@ -266,7 +268,7 @@ export function Drive() {
             </div>
             <div className="distance">
               <span className="distance-value">{distance.toFixed(1)}</span>
-              <span>{settings.units === 'km' ? 'kilometers' : 'miles'} wandered</span>
+              <span>{settings.units === 'km' ? 'km' : 'mi'}</span>
             </div>
           </section>
           <div className="touch-controls">
@@ -313,15 +315,16 @@ export function Drive() {
           </div>
         </>
       )}
-      <footer className="bottom-line">
-        <span>
-          <span className="tiny-dot" />{' '}
-          {started ? `${landscape.title} / ${settings.season}` : 'An endless escape. Right here.'}
-        </span>
-        <button type="button" onClick={() => setHelp(true)}>
-          <CircleHelp size={14} /> Controls &amp; a little help
-        </button>
-      </footer>
+      {!started && (
+        <footer className="bottom-line">
+          <span>
+            <span className="tiny-dot" /> An endless escape. Right here.
+          </span>
+          <button type="button" onClick={() => setHelp(true)}>
+            <CircleHelp size={14} /> Controls &amp; a little help
+          </button>
+        </footer>
+      )}
       {panel && (
         <SettingsPanel
           settings={settings}
