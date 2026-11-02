@@ -208,6 +208,13 @@ daylight/weather combinations rendered without page or console errors, and the
 production bonnet and scenery-switch checks passed. These captures support a
 historical visual comparison, not current-release fidelity.
 
+The follow-up review caught a distant silhouette band in fog. The sky's lower
+hemisphere now converges to the same display color as fully fogged geometry.
+A GPU probe compared a distant opaque surface with the adjacent sky horizon
+across all twelve daylight/weather states: covered and night cases matched
+exactly, while clear day and sunset differed by at most two 8-bit channel values
+because a small amount of the surface remains visible through their lighter fog.
+
 Guardrail response now dissipates contact-normal energy and preserves tangential
 motion in road coordinates. Gentle contact no longer injects a fixed lateral kick.
 A reverse torque governor limits powered reversing while allowing gravity-driven
