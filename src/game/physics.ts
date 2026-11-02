@@ -28,6 +28,7 @@ function steeringLimit(speed: number, settings: Settings) {
 function tractionAcceleration(settings: Settings, onRoad: boolean) {
   return surfaceGrip(settings, onRoad) * 9.81
 }
+const directionChangeSpeed = 0.05
 export class CarPhysics {
   x = 0
   s = 180
@@ -144,8 +145,9 @@ export class CarPhysics {
     const road = this.world.road(this.s)
     const offset = this.x - road.x
     const v = Math.abs(this.speed)
-    const reversing = input.brake > 0 && input.throttle === 0 && this.speed <= 0
-    const forwardBraking = input.throttle > 0 && input.brake === 0 && this.speed < 0
+    const reversing = input.brake > 0 && input.throttle === 0 && this.speed < directionChangeSpeed
+    const forwardBraking =
+      input.throttle > 0 && input.brake === 0 && this.speed < -directionChangeSpeed
     const reverseRunout = Math.max(0, -this.driveForce) ** 2 / vehicle.jerk
     const reverseGovernor = clamp((5 + this.speed - reverseRunout) / 0.5, 0, 1)
     const targetForce = reversing

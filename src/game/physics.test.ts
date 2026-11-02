@@ -139,6 +139,13 @@ describe('powered direction handoff', () => {
         expect(forward).toBe(true)
       },
     )
+    test(`${vehicle} completes the handoff on the generated curved road`, () => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new World(settings))
+      simulate(car, 1, { ...coast, brake: 1 }, 1 / 120, settings)
+      simulate(car, 3, { ...coast, throttle: 1 }, 1 / 120, settings)
+      expect(car.speed).toBeGreaterThan(0.1)
+    })
   }
 })
 
