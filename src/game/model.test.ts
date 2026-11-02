@@ -440,7 +440,10 @@ test('coach wheel openings clear full suspension travel and Ackermann steering',
   const ray = new THREE.Raycaster()
   let samples = 0
   for (const offset of [-metrics.suspensionTravel, 0, metrics.suspensionTravel]) {
-    for (const steering of [-metrics.maxSteering, 0, metrics.maxSteering]) {
+    for (const steering of Array.from(
+      { length: 21 },
+      (_, i) => metrics.maxSteering * (i / 10 - 1),
+    )) {
       suspension.updateSteering(steering)
       for (const wheel of suspension.wheels) wheel.offset = offset
       model.update(suspension.wheels, false, false, 0)
