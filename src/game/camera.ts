@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { busLayout } from './bus-layout'
 import { vehicleMetrics } from './vehicles'
 import { angleDifference, type CameraMode, clamp, damp, type World } from './world'
 
@@ -101,9 +102,9 @@ export class DrivingCamera {
     position.set(subject.x, subject.y, -subject.s)
     target.copy(position)
     if (mode === 'bonnet') {
-      position.addScaledVector(forward, bus ? 2.15 : bike ? 0.65 : 0.9)
-      if (bus) position.addScaledVector(side, -0.48)
-      position.y += bus ? 2.35 : bike ? 1.1 : 1.45
+      position.addScaledVector(forward, bus ? -busLayout.driver.z : bike ? 0.65 : 0.9)
+      if (bus) position.addScaledVector(side, busLayout.driver.x)
+      position.y += bus ? busLayout.driver.y : bike ? 1.1 : 1.45
       const pitch = Math.atan2(world.road(subject.s + 25).y - subject.y, 25) + this.pitch - 0.007
       const yaw = heading + this.yaw
       target.set(
