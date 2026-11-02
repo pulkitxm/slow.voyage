@@ -101,7 +101,7 @@ export class DrivingCamera {
     position.set(subject.x, subject.y, -subject.s)
     target.copy(position)
     if (mode === 'bonnet') {
-      position.addScaledVector(forward, bus ? 2.8 : bike ? 0.65 : 0.9)
+      position.addScaledVector(forward, bus ? 2.15 : bike ? 0.65 : 0.9)
       position.y += bus ? 2.5 : bike ? 1.1 : 1.45
       const pitch = Math.atan2(world.road(subject.s + 25).y - subject.y, 25) + this.pitch - 0.007
       const yaw = heading + this.yaw
@@ -121,7 +121,7 @@ export class DrivingCamera {
         : bike
           ? 3.5 + clamp(Math.abs(subject.speed) / 50, 0, 1)
           : 4.2 + Math.abs(subject.speed) * 0.01
-      const distance = baseDistance * Math.max(1, 1.3 / camera.aspect)
+      const distance = baseDistance * Math.max(1, 0.9 / camera.aspect)
       const height = bus ? 4.7 : bike ? 1.8 : 2
       const pitch = 0.3 - clamp(Math.abs(subject.speed) / metrics.maxSpeed, 0, 1) * 0.1
       const slope = (world.road(subject.s + 20).y - subject.y) / 30

@@ -6,10 +6,11 @@ import type { Settings } from './world'
 
 export interface VehicleModel {
   group: THREE.Group
+  firstPerson: THREE.Group
   body: THREE.MeshStandardMaterial
   headlightPositions: [number, number, number][]
   setExteriorVisible(visible: boolean): void
-  update(wheels: readonly WheelState[], braking: boolean, night: boolean): void
+  update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number): void
   dispose(): void
 }
 

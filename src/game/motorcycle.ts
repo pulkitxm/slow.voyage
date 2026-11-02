@@ -1,10 +1,14 @@
 import * as THREE from 'three'
+import { createBonnet } from './bonnet'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
 
 export class MotorcycleModel {
   group = new THREE.Group()
+  exterior = new THREE.Group()
+  firstPerson: THREE.Group
+  bonnet: ReturnType<typeof createBonnet>
   body: THREE.MeshStandardMaterial
   glass = new THREE.MeshPhongMaterial({ color: '#666b77', specular: '#222222', shininess: 30 })
   rubber = new THREE.MeshStandardMaterial({ color: '#1c211f', roughness: 0.95 })
@@ -95,7 +99,7 @@ export class MotorcycleModel {
     geometry.addGroup(capStart, indices.length - capStart, 0)
     geometry.setIndex(indices)
     geometry.computeVertexNormals()
-    this.group.add(new THREE.Mesh(geometry, [this.body, this.glass, this.trim]))
+    this.exterior.add(new THREE.Mesh(geometry, [this.body, this.glass, this.trim]))
     const box = (
       size: [number, number, number],
       position: [number, number, number],
@@ -103,7 +107,7 @@ export class MotorcycleModel {
     ) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material)
       mesh.position.set(...position)
-      this.group.add(mesh)
+      this.exterior.add(mesh)
       return mesh
     }
     box([0.31, 0.13, 0.025], [0, 0.98, 1.218], this.brake)
@@ -134,8 +138,11 @@ export class MotorcycleModel {
       pivot.add(spin)
       this.wheels.push(spin)
       this.wheelPivots.push(pivot)
-      this.group.add(pivot)
+      this.exterior.add(pivot)
     }
+    this.bonnet = createBonnet(settings.vehicle, this.body, this.trim)
+    this.firstPerson = this.bonnet.group
+    this.group.add(this.exterior, this.firstPerson)
     this.group.traverse((object) => {
       if (object instanceof THREE.Mesh) {
         object.castShadow = true
@@ -146,11 +153,11 @@ export class MotorcycleModel {
   setExteriorVisible(visible: boolean) {
     if (this.exteriorVisible === visible) return
     this.exteriorVisible = visible
-    this.group.traverse((object) => {
-      if (object instanceof THREE.Mesh) object.visible = visible
-    })
+    this.exterior.visible = visible
+    this.firstPerson.visible = !visible
   }
-  update(wheels: readonly WheelState[], braking: boolean, night: boolean) {
+  update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number) {
+    this.bonnet.update(speed, wheels[0]?.steering ?? 0)
     for (let i = 0; i < wheels.length; i++) {
       const state = wheels[i],
         pivot = this.wheelPivots[i],

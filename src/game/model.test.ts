@@ -1,7 +1,18 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
+import { DrivingCamera } from './camera'
 import { createVehicleModel } from './model'
-import { defaults } from './world'
+import { Suspension } from './suspension'
+import { defaults, World } from './world'
+
+function visible(object: THREE.Object3D) {
+  let current: THREE.Object3D | null = object
+  while (current) {
+    if (!current.visible) return false
+    current = current.parent
+  }
+  return true
+}
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   '%s model has valid geometry, preserves lights in bonnet view, and releases its resources',
@@ -33,13 +44,15 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
     expect(bounds.z).toBeLessThan(7)
     model.setExteriorVisible(false)
     model.group.traverse((object) => {
-      if (object instanceof THREE.Mesh) expect(object.visible).toBe(false)
+      if (object instanceof THREE.Mesh)
+        expect(visible(object)).toBe(!!model.firstPerson.getObjectById(object.id))
     })
     expect(light.visible).toBe(true)
     expect(light.target.visible).toBe(true)
     model.setExteriorVisible(true)
     model.group.traverse((object) => {
-      if (object instanceof THREE.Mesh) expect(object.visible).toBe(true)
+      if (object instanceof THREE.Mesh)
+        expect(visible(object)).toBe(!model.firstPerson.getObjectById(object.id))
     })
     const disposed = new Set<THREE.BufferGeometry | THREE.Material>()
     for (const resource of [...geometries, ...materials])
@@ -47,5 +60,74 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
     model.dispose()
     expect(disposed.size).toBe(geometries.size + materials.size)
     light.dispose()
+  },
+)
+
+test.each(['motorcycle', 'bus'] as const)(
+  '%s instruments follow speed magnitude and steering without changing the chassis',
+  (vehicle) => {
+    const world = new World({ ...defaults, vehicle })
+    const model = createVehicleModel(world.settings)
+    const suspension = new Suspension(world)
+    const needle = model.firstPerson.getObjectByName('speed-needle')
+    if (!needle) throw new Error('Speed instrument missing')
+    model.update(suspension.wheels, false, false, 0)
+    const stopped = needle.rotation.y
+    model.update(suspension.wheels, false, false, 25)
+    const moving = needle.rotation.y
+    expect(moving).toBeLessThan(stopped)
+    model.update(suspension.wheels, false, false, -25)
+    expect(needle.rotation.y).toBe(moving)
+    model.update(suspension.wheels, false, false, 70)
+    const maximum = needle.rotation.y
+    model.update(suspension.wheels, false, false, 120)
+    expect(needle.rotation.y).toBe(maximum)
+    const wheel = model.firstPerson.getObjectByName('steering-wheel')
+    if (wheel) {
+      const front = suspension.wheels[0]
+      if (!front) throw new Error('Front wheel missing')
+      front.steering = 0.2
+      model.update(suspension.wheels, false, false, 25)
+      const right = wheel.rotation.z
+      front.steering = -0.2
+      model.update(suspension.wheels, false, false, 25)
+      expect(right).toBeGreaterThan(0)
+      expect(wheel.rotation.z).toBe(-right)
+    }
+    expect(model.group.rotation.toArray()).toEqual([0, 0, 0, 'XYZ'])
+    model.dispose()
+  },
+)
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s bonnet view shows a vehicle anchor below the road sightline',
+  (vehicle) => {
+    const world = new World({ ...defaults, vehicle })
+    const road = world.road(0)
+    const subject = { x: road.x, y: road.y, s: 0, yaw: road.yaw, speed: 0 }
+    const camera = new THREE.PerspectiveCamera(68, 16 / 9, 0.1, 3600)
+    new DrivingCamera(camera).update(subject, world, 'bonnet', 1 / 60)
+    camera.updateMatrixWorld()
+    const model = createVehicleModel(world.settings)
+    model.group.position.set(subject.x, subject.y, -subject.s)
+    model.group.rotation.y = subject.yaw
+    model.setExteriorVisible(false)
+    model.group.updateMatrixWorld(true)
+    const points: THREE.Vector3[] = []
+    model.firstPerson.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      const position = object.geometry.getAttribute('position')
+      for (let i = 0; i < position.count; i++) {
+        const point = new THREE.Vector3()
+          .fromBufferAttribute(position, i)
+          .applyMatrix4(object.matrixWorld)
+          .project(camera)
+        if (Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && Math.abs(point.z) <= 1)
+          points.push(point)
+      }
+    })
+    expect(points.length).toBeGreaterThan(0)
+    expect(points.every((point) => point.y < -0.25)).toBe(true)
+    model.dispose()
   },
 )

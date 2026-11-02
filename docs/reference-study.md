@@ -214,7 +214,8 @@ Software renderers now use bounded pixel resolution, shadow buffers, scenery
 density, and view distance to prioritize responsiveness. Hardware rendering keeps
 its full quality budget. Reflection maps are reused when their actual lighting
 and ground colors are unchanged. This addresses interaction stalls reproduced in
-the Linux software-rendered browser checks; assertions and timeouts remain unchanged.
+the Linux software-rendered browser checks; assertions and individual action deadlines
+remain unchanged.
 
 Rain and snow programs are compiled and exercised during the initial preparation
 phase. The start controls become available after the first normal frame, keeping
@@ -238,6 +239,22 @@ both rear tires and remove the hanging rectangular panel. The review accepted
 that improvement while retaining the fascia depth, bottom seam, and overall
 body sculpting as further visual work.
 
+The camera now supports chase orbit and zoom, bonnet look-around with smooth
+recentering, portrait framing, and a bounded 68-to-76-degree speed field of view.
+Those response curves are reconstructed tuning. Camera gestures retain the
+current assistance mode, and middle-button movement leaves mouse-driving pedals
+available. A real pointer sequence verified looking around while holding the
+accelerator. Geometry checks cover near-plane clearance and an intervening
+hillside. A full-body view is preserved at the default zoom; the closest zoom
+deliberately allows a tighter crop.
+
+Bonnet views now show a vehicle-specific hood or dashboard. Bus and motorcycle
+instruments respond to speed, and the bus wheel follows steering. These anchors
+are simplified, with detailed cabins still pending. Open tire geometry exposes
+the rims and spokes in side views instead of hiding them behind solid black caps.
+An independent review accepted the desktop framing, revised portrait scale, and
+wheel visibility. Local captures and moving demos document the remaining details.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
@@ -251,8 +268,7 @@ Completion requires current evidence for the full requested fidelity:
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A detailed cabin view is pending; the local selection
   now includes the touring car, convertible, enclosed motorcycle, and bus.
-- Implement custom controller mappings, reverse cruise, chase orbit
-  and zoom, speed-dependent field of view, and first-person look-around. Compare
+- Implement custom controller mappings and reverse cruise. Compare
   the reconstructed assistance modes and one-pedal response with the current game.
 - Verify extended driving performance, resource bounds, mobile layouts, and
   offline upgrades across repeated releases and browser sessions.
