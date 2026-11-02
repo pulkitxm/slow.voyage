@@ -1,4 +1,5 @@
 import { surfaceGrip } from './grip'
+import { Steering, steeringLimit } from './steering'
 import { Suspension } from './suspension'
 import { solveTires } from './tires'
 import { vehicleMetrics } from './vehicles'
@@ -29,10 +30,6 @@ export interface Telemetry {
   gear: string
   impact: number
 }
-function steeringLimit(speed: number, settings: Settings) {
-  const metrics = vehicleMetrics[settings.vehicle]
-  return metrics.maxSteering * (1 - 0.75 * clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1))
-}
 function tractionAcceleration(settings: Settings, onRoad: boolean) {
   return surfaceGrip(settings, onRoad) * 9.81
 }
@@ -47,8 +44,7 @@ export class CarPhysics {
   pitchRate = 0
   rollRate = 0
   speed = 0
-  steering = 0
-  steeringRate = 0
+  steeringControl = new Steering()
   yawRate = 0
   lateralSpeed = 0
   verticalSpeed = 0
@@ -63,6 +59,9 @@ export class CarPhysics {
     this.suspension = new Suspension(world)
     this.reset()
   }
+  get steering() {
+    return this.steeringControl.angle
+  }
   reset(s = this.s) {
     this.s = s
     this.driveForce = this.brakeForce = 0
@@ -70,8 +69,8 @@ export class CarPhysics {
     this.x = road.x + 2
     this.y = road.y
     this.yaw = road.yaw
-    this.speed = this.steering = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
-    this.steeringRate = 0
+    this.speed = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
+    this.steeringControl.reset()
     this.suspension.reset(this)
   }
   routeSpeed(targetSpeed: number) {
@@ -107,7 +106,8 @@ export class CarPhysics {
     const curvature = (-2 * targetRight) / (targetX * targetX + lookahead * lookahead)
     const metrics = vehicleMetrics[this.world.settings.vehicle]
     const steer =
-      Math.atan(metrics.wheelbase * curvature) / steeringLimit(this.speed, this.world.settings)
+      Math.atan(metrics.wheelbase * curvature) /
+      steeringLimit(this.speed, this.world.settings.vehicle)
     const safeSpeed = this.routeSpeed(targetSpeed)
     const settings = this.world.settings
     const surface = this.world.surface(this.x, this.s)
@@ -179,25 +179,7 @@ export class CarPhysics {
     this.brakeForce = brake
       ? Math.min(vehicle.brake * brake, this.brakeForce + vehicle.brake * 4 * dt)
       : 0
-    const steeringError = input.steer * steeringLimit(this.speed, settings) - this.steering
-    const desiredSteeringRate = clamp(
-      steeringError * 7,
-      -vehicle.steeringSpeed,
-      vehicle.steeringSpeed,
-    )
-    this.steeringRate += clamp(
-      desiredSteeringRate - this.steeringRate,
-      -vehicle.steeringAcceleration * dt,
-      vehicle.steeringAcceleration * dt,
-    )
-    const steeringStep = this.steeringRate * dt
-    if (
-      Math.sign(steeringStep) === Math.sign(steeringError) &&
-      Math.abs(steeringStep) >= Math.abs(steeringError)
-    ) {
-      this.steering += steeringError
-      this.steeringRate = 0
-    } else this.steering += steeringStep
+    this.steeringControl.update(dt, input.steer, input.steeringSource, this.speed, settings.vehicle)
     this.suspension.updateSteering(this.steering)
     const acceleration = solveTires(
       dt,

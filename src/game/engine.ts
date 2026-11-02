@@ -121,6 +121,7 @@ export class RoadEngine {
     this.controllerInput = { ...neutralInput }
     this.controller.suspend()
     this.mouse.reset()
+    this.physics.steeringControl.releaseInput()
     this.cancelLook()
   }
   visibility = () => {
@@ -367,6 +368,7 @@ export class RoadEngine {
     })
   }
   reset() {
+    this.mouse.reset()
     this.physics.reset()
     this.view.center()
     this.view.snap()
@@ -394,6 +396,7 @@ export class RoadEngine {
     }
     if (mouseChange || cameraChange) {
       this.mouse.reset()
+      this.physics.steeringControl.releaseInput()
       this.cancelLook()
     }
     if (refresh) this.terrain.refresh(this.settings, budget.detail)
