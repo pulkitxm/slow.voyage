@@ -6,7 +6,7 @@
     "dev": "vite --host 0.0.0.0 --port 3002 --strictPort",
     "build": "vite build && bun scripts/offline.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 3002 --strictPort",
-    "check": "tsc --noEmit",
+    "check": "tsr generate && tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write . && prettier --write \".github/**/*.yml\" lefthook.yml",
     "yaml": "bun scripts/yaml.ts && prettier --check \".github/**/*.yml\" lefthook.yml",
@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.4",
+    "@tanstack/router-cli": "^1.167.46",
     "@types/bun": "^1.4.4",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
