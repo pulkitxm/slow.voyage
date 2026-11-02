@@ -59,18 +59,18 @@ export class Atmosphere {
     this.generator = new THREE.PMREMGenerator(renderer)
   }
   setAppearance(settings: Settings) {
-    const key = `${settings.daylight}/${settings.weather}/${settings.season}/${settings.landscape}`
-    if (key === this.key && this.reflection) return this.reflection.texture
-    const profile = atmosphereProfile(settings)
-    const sky = new THREE.Color(profile.sky)
-    const horizon = new THREE.Color(profile.horizon)
-    const ground = new THREE.Color(
+    const groundColor =
       settings.season === 'winter'
         ? '#c8d1cc'
         : settings.landscape === 'desert'
           ? '#8d7554'
-          : '#556c3c',
-    )
+          : '#556c3c'
+    const profile = atmosphereProfile(settings)
+    const key = `${profile.sky}/${profile.horizon}/${profile.sun}/${profile.sunlight}/${profile.ambient}/${groundColor}/${settings.daylight === 'sunset'}`
+    if (key === this.key && this.reflection) return this.reflection.texture
+    const sky = new THREE.Color(profile.sky)
+    const horizon = new THREE.Color(profile.horizon)
+    const ground = new THREE.Color(groundColor)
     const sun = new THREE.Color(profile.sun)
     const direction = new THREE.Vector3(
       -90,

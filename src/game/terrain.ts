@@ -54,6 +54,7 @@ export class Terrain {
   constructor(
     public scene: THREE.Scene,
     public world: World,
+    public quality: Settings['quality'],
   ) {
     this.groundTexture = groundTexture()
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings)
@@ -323,8 +324,8 @@ export class Terrain {
       }
     }
     this.addBatch(group, rails, this.railMaterial)
-    const treeCount = settings.landscape === 'desert' ? 4 : settings.quality === 'low' ? 16 : 28
-    const shrubCount = settings.landscape === 'desert' ? 12 : settings.quality === 'low' ? 70 : 180
+    const treeCount = settings.landscape === 'desert' ? 4 : this.quality === 'low' ? 16 : 28
+    const shrubCount = settings.landscape === 'desert' ? 12 : this.quality === 'low' ? 70 : 180
     const clusters = Array.from({ length: 6 }, () => ({
       s: start + rng() * 120,
       d: (rng() > 0.5 ? 1 : -1) * (12 + rng() ** 1.5 * 250),
@@ -366,7 +367,7 @@ export class Terrain {
       trees.castShadow = true
       group.add(trees)
     }
-    const count = settings.landscape === 'desert' ? 1200 : settings.quality === 'low' ? 2800 : 10000
+    const count = settings.landscape === 'desert' ? 1200 : this.quality === 'low' ? 2800 : 10000
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
     grass.name = 'meadow'
     let placedGrass = 0
@@ -394,7 +395,7 @@ export class Terrain {
   update(s: number, time: number) {
     this.windTime.value = time
     const current = Math.floor(s / 120),
-      ahead = this.world.settings.quality === 'low' ? 8 : 14
+      ahead = this.quality === 'low' ? 8 : 14
     for (const [id, group] of this.tiles)
       if (id < current - 4 || id > current + ahead) this.removeTile(id, group)
     for (let id = current - 4; id <= current + ahead; id++)
@@ -413,7 +414,8 @@ export class Terrain {
     })
     this.tiles.delete(id)
   }
-  refresh(settings: Settings) {
+  refresh(settings: Settings, quality: Settings['quality']) {
+    this.quality = quality
     for (const [id, group] of this.tiles) this.removeTile(id, group)
     this.foliage.update(settings.season)
     this.grassMaterial.setAppearance(settings)

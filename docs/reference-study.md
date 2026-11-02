@@ -209,10 +209,11 @@ frames. A ten-second acceleration check agrees at 8, 15, 30, 60, and 144 renderi
 frames per second. Longer stalls are bounded, and focus changes reset residual
 time before resuming.
 
-Software renderers now use bounded pixel resolution and shadow buffers while
-retaining the same scene content and effects. Hardware rendering keeps its full
-quality budget. This addresses interaction stalls reproduced in the Linux
-software-rendered browser checks; their assertions and timeouts remain unchanged.
+Software renderers now use bounded pixel resolution, shadow buffers, scenery
+density, and view distance to prioritize responsiveness. Hardware rendering keeps
+its full quality budget. Reflection maps are reused when their actual lighting
+and ground colors are unchanged. This addresses interaction stalls reproduced in
+the Linux software-rendered browser checks; assertions and timeouts remain unchanged.
 
 The first visual review cycle compared clean 1280 × 720 captures of both builds.
 The initial reference attempt was stationary because its keyboard listener needs
