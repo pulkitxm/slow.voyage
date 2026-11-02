@@ -1225,6 +1225,14 @@ input[type="range"] {
     transition: none;
   }
 }
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 600px) {
+  .touch-controls {
+    bottom: calc(18px + env(safe-area-inset-bottom));
+  }
+  .telemetry {
+    bottom: calc(100px + env(safe-area-inset-bottom));
+  }
+}
 
 .modal-shell {
   border: 0;
