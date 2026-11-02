@@ -154,7 +154,12 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
     expect(bounds.x).toBeGreaterThan(0.7)
     expect(bounds.x).toBeLessThan(2.5)
     expect(bounds.y).toBeGreaterThan(1.2)
-    expect(bounds.z).toBeLessThan(7)
+    if (vehicle === 'bus') {
+      expect(bounds.z).toBeGreaterThan(9.25)
+      expect(bounds.z).toBeLessThan(9.5)
+      expect(bounds.y).toBeGreaterThan(2.9)
+      expect(bounds.y).toBeLessThan(3)
+    } else expect(bounds.z).toBeLessThan(7)
     model.setExteriorVisible(false)
     model.group.traverse((object) => {
       if (object instanceof THREE.Mesh)
@@ -364,6 +369,75 @@ test.each(['motorcycle', 'bus'] as const)(
     model.dispose()
   },
 )
+
+test('coach glazing stays separated from the painted body through profile changes', () => {
+  const model = new CarModel({ ...defaults, vehicle: 'bus' })
+  model.group.updateMatrixWorld(true)
+  const paint: THREE.Mesh[] = []
+  model.exterior.traverse((object) => {
+    if (object instanceof THREE.Mesh && object.material === model.body) paint.push(object)
+  })
+  const ray = new THREE.Raycaster()
+  for (const sign of [-1, 1])
+    for (const y of [1.9, 2.25, 2.6])
+      for (const z of [-1, 0, 2, 4]) {
+        ray.set(new THREE.Vector3(sign * 3, y, z), new THREE.Vector3(-sign, 0, 0))
+        const first = ray.intersectObject(model.exterior, true)[0]
+        const body = ray.intersectObjects(paint, false)[0]
+        if (!(first?.object instanceof THREE.Mesh) || !body)
+          throw new Error('Coach window surface missing')
+        expect(first.object.material).not.toBe(model.body)
+        expect(body.distance - first.distance).toBeGreaterThan(0.004)
+      }
+  for (const x of [-0.8, 0, 0.8])
+    for (const y of [1.8, 2.1, 2.4, 2.6]) {
+      ray.set(new THREE.Vector3(x, y, 6), new THREE.Vector3(0, 0, -1))
+      const first = ray.intersectObject(model.exterior, true)[0]
+      const body = ray.intersectObjects(paint, false)[0]
+      if (!(first?.object instanceof THREE.Mesh) || !body)
+        throw new Error('Coach rear window missing')
+      expect(first.object.material).not.toBe(model.body)
+      expect(body.distance - first.distance).toBeGreaterThan(0.008)
+    }
+  model.dispose()
+})
+
+test('coach wheel openings clear full suspension travel and Ackermann steering', () => {
+  const world = new World({ ...defaults, vehicle: 'bus' })
+  const model = new CarModel(world.settings)
+  const suspension = new Suspension(world)
+  const metrics = vehicleMetrics.bus
+  const panels = coachwork(model)
+  const ray = new THREE.Raycaster()
+  let samples = 0
+  for (const offset of [-metrics.suspensionTravel, 0, metrics.suspensionTravel]) {
+    for (const steering of [-metrics.maxSteering, 0, metrics.maxSteering]) {
+      suspension.updateSteering(steering)
+      for (const wheel of suspension.wheels) wheel.offset = offset
+      model.update(suspension.wheels, false, false, 0)
+      model.group.updateMatrixWorld(true)
+      for (let i = 0; i < model.wheels.length; i++) {
+        const tire = model.wheels[i]?.children[0],
+          pivot = model.wheelPivots[i]
+        if (!(tire instanceof THREE.Mesh) || !pivot) throw new Error('Coach tire missing')
+        const positions = tire.geometry.getAttribute('position')
+        const sign = Math.sign(pivot.position.x)
+        for (let vertex = 0; vertex < positions.count; vertex += 4) {
+          const point = new THREE.Vector3()
+            .fromBufferAttribute(positions, vertex)
+            .applyMatrix4(tire.matrixWorld)
+          if (sign * point.x < sign * pivot.position.x) continue
+          ray.set(new THREE.Vector3(sign * 2, point.y, point.z), new THREE.Vector3(-sign, 0, 0))
+          ray.far = 2 - sign * point.x - 0.005
+          expect(ray.intersectObjects(panels, false)).toHaveLength(0)
+          samples++
+        }
+      }
+    }
+  }
+  expect(samples).toBeGreaterThan(1000)
+  model.dispose()
+})
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   '%s bonnet view shows a vehicle anchor below the road sightline',

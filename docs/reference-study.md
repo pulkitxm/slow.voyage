@@ -509,6 +509,18 @@ Lower fascia, a floor, side cards, and sills now close the bus dashboard ends
 when looking sideways or down. Wide-angle look captures retain the road view;
 upper cabin frames, glazing, seats, and detailed controls remain further work.
 
+The coach exterior is now generated at the historical body's measured proportions:
+approximately 9.31 meters long, 2.33 meters wide, and 2.93 meters high, retaining
+the existing 5.47-meter wheelbase. A raked front, rounded roof shoulder, continuous
+side window band, shaped driver glazing, and rear window replace the short box
+body. Camera, cabin, and headlight anchors share a bus layout, with the cabin
+expressed relative to its seated eye. The new openings provide clearance through
+the full 0.16-meter suspension travel and actual Ackermann steering angles.
+Glazing clearance checks cover the side surfaces and the bend in the rear profile;
+the latter exposed and corrected a pane that initially crossed behind the body.
+Historical meshes remain ignored inspection assets and are not shipped. Wheel
+style, exterior detail, and current-release fidelity remain further work.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

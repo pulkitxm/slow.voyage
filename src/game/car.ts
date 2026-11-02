@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js'
 import { createBonnet } from './bonnet'
+import { createBusBody } from './bus-body'
+import { busLayout } from './bus-layout'
 import { carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
 import { createCarCabin } from './car-cabin'
 import { batchUntexturedMeshes } from './mesh-batch'
@@ -8,52 +10,6 @@ import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
 
-function shell(rings: [number, number, number, number][], material: THREE.Material) {
-  const p: number[] = [],
-    indices: number[] = []
-  for (const [y, width, back, front] of rings) {
-    const c = 0.12
-    p.push(
-      -width + c,
-      y,
-      back,
-      width - c,
-      y,
-      back,
-      width,
-      y,
-      back - c,
-      width,
-      y,
-      front + c,
-      width - c,
-      y,
-      front,
-      -width + c,
-      y,
-      front,
-      -width,
-      y,
-      front + c,
-      -width,
-      y,
-      back - c,
-    )
-  }
-  for (let r = 0; r < rings.length - 1; r++)
-    for (let i = 0; i < 8; i++) {
-      const a = r * 8 + i,
-        b = r * 8 + ((i + 1) % 8)
-      indices.push(a, b, a + 8, b, b + 8, a + 8)
-    }
-  const end = (rings.length - 1) * 8
-  for (let i = 1; i < 7; i++) indices.push(end, end + i, end + i + 1)
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(p, 3))
-  geometry.setIndex(indices)
-  geometry.computeVertexNormals()
-  return new THREE.Mesh(geometry, material)
-}
 export class CarModel {
   group = new THREE.Group()
   exterior = new THREE.Group()
@@ -130,113 +86,93 @@ export class CarModel {
     const isBus = settings.vehicle === 'bus',
       isRoadster = settings.vehicle === 'roadster'
     this.headlightPositions = [-1, 1].map((side) =>
-      isBus ? [side * 0.91, 0.94, -3.3] : [side * 0.553, 0.77, -2.06],
-    )
-    const width = isBus ? 1.18 : 0.823,
-      back = isBus ? 3.3 : 2.02,
-      front = isBus ? -3.3 : -2.06
-    this.exterior.add(
       isBus
-        ? shell(
-            [
-              [0.38, width - 0.1, back - 0.06, front + 0.08],
-              [0.6, width, back, front],
-              [0.96, width - 0.02, back - 0.06, front + 0.1],
-              [1.08, width - 0.09, back - 0.15, front + 0.22],
-            ],
-            this.body,
-          )
-        : createCarBody(this.wheelbase, this.wheelRadius, this.body, black, wheelWell),
+        ? [side * busLayout.headlights.x, busLayout.headlights.y, busLayout.headlights.z]
+        : [side * 0.553, 0.77, -2.06],
     )
-    const box = (
-      size: [number, number, number],
-      position: [number, number, number],
-      material: THREE.Material,
-    ) => {
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material)
-      mesh.position.set(...position)
-      this.exterior.add(mesh)
-      return mesh
-    }
     if (isBus) {
-      box([2.28, 1.75, 6.3], [0, 1.85, 0], this.body)
-      box([2.06, 0.94, 0.025], [0, 2.03, -3.17], glass)
-      box([2.0, 0.8, 0.025], [0, 2.0, 3.17], glass)
-      for (const side of [-1, 1])
-        for (let i = 0; i < 5; i++)
-          box([0.025, 0.87, 0.94], [side * 1.145, 2.02, -2.25 + i * 1.1], glass)
-      box([2.3, 0.1, 6.32], [0, 2.76, 0], chrome)
+      this.exterior.add(
+        createBusBody({
+          paint: this.body,
+          glass,
+          trim: black,
+          metal: chrome,
+          well: wheelWell,
+          brake: this.brake,
+          lights: this.lights,
+          plate,
+        }),
+      )
     } else {
+      this.exterior.add(
+        createCarBody(this.wheelbase, this.wheelRadius, this.body, black, wheelWell),
+      )
       const cabin = createCarCabin(isRoadster, this.body, glass, black, upholstery)
       this.exterior.add(cabin)
       this.cabinSteering = cabin.getObjectByName('exterior-steering-wheel')
     }
-    const rearSurface = (y: number, x: number) => carRearDepth(y, x, this.wheelbase)
-    const endPanel = (
-      points: [number, number][],
-      material: THREE.Material,
-      direction = 1,
-      depth = 0.018,
-    ) => {
-      const mesh = carSurface(
-        points.map(([x, y]) => [x, y, 0]),
-        [0, 0, direction],
-        material,
-      )
-      const geometry = new TessellateModifier(0.12, 5).modify(mesh.geometry)
-      mesh.geometry.dispose()
-      const positions = geometry.getAttribute('position')
-      for (let i = 0; i < positions.count; i++) {
-        const x = positions.getX(i),
-          y = positions.getY(i)
-        positions.setZ(
-          i,
-          (direction > 0 ? rearSurface(y, x) : carFrontDepth(y)) + direction * depth,
+    if (!isBus) {
+      const rearSurface = (y: number, x: number) => carRearDepth(y, x, this.wheelbase)
+      const endPanel = (
+        points: [number, number][],
+        material: THREE.Material,
+        direction = 1,
+        depth = 0.018,
+      ) => {
+        const mesh = carSurface(
+          points.map(([x, y]) => [x, y, 0]),
+          [0, 0, direction],
+          material,
         )
-      }
-      geometry.computeVertexNormals()
-      mesh.geometry = geometry
-      this.exterior.add(mesh)
-    }
-    if (isBus) {
-      box([width * 1.8, 0.17, 0.06], [0, 0.55, back + 0.005], black)
-      box([0.44, 0.13, 0.025], [0, 0.73, back + 0.02], plate)
-    } else {
-      const rows = [
-        [0.38, 0.56],
-        [0.44, 0.68],
-        [0.5, 0.705],
-        [0.56, 0.71],
-        [0.65, 0.62],
-      ] as const
-      const geometry = new THREE.BufferGeometry()
-      const fractions = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
-      geometry.setAttribute(
-        'position',
-        new THREE.Float32BufferAttribute(
-          rows.flatMap(([y, width]) =>
-            fractions.flatMap((fraction) => {
-              const x = width * fraction
-              return [x, y, rearSurface(y, x) + 0.014]
-            }),
-          ),
-          3,
-        ),
-      )
-      const indices: number[] = []
-      for (let i = 0; i < rows.length - 1; i++) {
-        for (let j = 0; j < fractions.length - 1; j++) {
-          const n = i * fractions.length + j,
-            next = n + fractions.length
-          indices.push(n, n + 1, next, n + 1, next + 1, next)
+        const geometry = new TessellateModifier(0.12, 5).modify(mesh.geometry)
+        mesh.geometry.dispose()
+        const positions = geometry.getAttribute('position')
+        for (let i = 0; i < positions.count; i++) {
+          const x = positions.getX(i),
+            y = positions.getY(i)
+          positions.setZ(
+            i,
+            (direction > 0 ? rearSurface(y, x) : carFrontDepth(y)) + direction * depth,
+          )
         }
+        geometry.computeVertexNormals()
+        mesh.geometry = geometry
+        this.exterior.add(mesh)
       }
-      geometry.setIndex(indices)
-      geometry.computeVertexNormals()
-      this.exterior.add(new THREE.Mesh(geometry, diffuser))
-    }
-    if (isBus) box([width * 1.7, 0.14, 0.04], [0, 0.42, front - 0.005], black)
-    else
+      {
+        const rows = [
+          [0.38, 0.56],
+          [0.44, 0.68],
+          [0.5, 0.705],
+          [0.56, 0.71],
+          [0.65, 0.62],
+        ] as const
+        const geometry = new THREE.BufferGeometry()
+        const fractions = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
+        geometry.setAttribute(
+          'position',
+          new THREE.Float32BufferAttribute(
+            rows.flatMap(([y, width]) =>
+              fractions.flatMap((fraction) => {
+                const x = width * fraction
+                return [x, y, rearSurface(y, x) + 0.014]
+              }),
+            ),
+            3,
+          ),
+        )
+        const indices: number[] = []
+        for (let i = 0; i < rows.length - 1; i++) {
+          for (let j = 0; j < fractions.length - 1; j++) {
+            const n = i * fractions.length + j,
+              next = n + fractions.length
+            indices.push(n, n + 1, next, n + 1, next + 1, next)
+          }
+        }
+        geometry.setIndex(indices)
+        geometry.computeVertexNormals()
+        this.exterior.add(new THREE.Mesh(geometry, diffuser))
+      }
       endPanel(
         [
           [-0.65, 0.25],
@@ -247,9 +183,7 @@ export class CarModel {
         black,
         -1,
       )
-    for (const side of [-1, 1]) {
-      if (isBus) box([0.52, 0.13, 0.04], [side * (width - 0.33), 0.94, back - 0.035], this.brake)
-      else {
+      for (const side of [-1, 1]) {
         endPanel(
           [
             [side * 0.29, 0.856],
@@ -292,7 +226,6 @@ export class CarModel {
           0.021,
         )
       }
-      if (isBus) box([0.45, 0.07, 0.035], [side * (width - 0.27), 0.94, front + 0.06], this.lights)
     }
     const axles = [this.wheelbase / 2, -this.wheelbase / 2]
     for (const z of axles)

@@ -1,11 +1,13 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { busLayout } from './bus-layout'
 import { createInstrumentMaterials, createSpeedometer } from './instruments'
 import { batchUntexturedMeshes } from './mesh-batch'
 
 export function createBusCabin(trim: THREE.Material) {
   const group = new THREE.Group()
   group.visible = false
+  group.position.set(busLayout.driver.x, busLayout.driver.y, busLayout.driver.z)
   const pad = new THREE.MeshStandardMaterial({ color: '#424944', roughness: 0.96 })
   const theme = createInstrumentMaterials()
   const { ring: metal, face } = theme
@@ -24,23 +26,23 @@ export function createBusCabin(trim: THREE.Material) {
     parent.add(mesh)
     return mesh
   }
-  box([2.13, 0.29, 0.35], [0, 1.82, -3.17], trim)
-  box([2.1, 0.065, 0.38], [0, 1.975, -3.17], pad)
-  box([2.04, 0.009, 0.025], [0, 1.995, -3.01], metal)
-  box([2.13, 0.88, 0.12], [0, 1.3, -3.07], trim)
-  box([2.13, 0.05, 1.78], [0, 0.85, -2.45], face)
+  box([2.13, 0.29, 0.35], [0.48, -0.53, -1.02], trim)
+  box([2.1, 0.065, 0.38], [0.48, -0.375, -1.02], pad)
+  box([2.04, 0.009, 0.025], [0.48, -0.355, -0.86], metal)
+  box([2.13, 0.88, 0.12], [0.48, -1.05, -0.92], trim)
+  box([2.13, 0.05, 1.78], [0.48, -1.5, -0.3], face)
   for (const side of [-1, 1]) {
-    box([0.08, 1.08, 1.9], [side * 1.085, 1.4, -2.4], trim)
-    box([0.11, 0.045, 1.9], [side * 1.075, 1.955, -2.4], pad)
-    box([0.09, 0.1, 0.38], [side * 1.075, 1.98, -3.16], pad)
+    box([0.08, 1.08, 1.9], [0.48 + side * 1.085, -0.95, -0.25], trim)
+    box([0.11, 0.045, 1.9], [0.48 + side * 1.075, -0.395, -0.25], pad)
+    box([0.09, 0.1, 0.38], [0.48 + side * 1.075, -0.37, -1.01], pad)
   }
   for (const x of [-0.94, 0.64]) {
-    box([0.18, 0.075, 0.015], [x, 1.9, -2.988], face)
+    box([0.18, 0.075, 0.015], [x + 0.48, -0.45, -0.838], face)
     for (let row = 0; row < 4; row++)
-      box([0.15, 0.006, 0.012], [x, 1.877 + row * 0.015, -2.976], pad)
+      box([0.15, 0.006, 0.012], [x + 0.48, -0.473 + row * 0.015, -0.826], pad)
   }
   const pod = new THREE.Group()
-  pod.position.set(-0.48, 2.045, -3.11)
+  pod.position.set(0, -0.305, -0.96)
   pod.rotation.x = -0.3
   group.add(pod)
   box([0.36, 0.23, 0.16], [0, 0, 0], trim, pod)
@@ -49,11 +51,11 @@ export function createBusCabin(trim: THREE.Material) {
   speedometer.group.position.z = 0.094
   speedometer.group.rotation.x = Math.PI / 2
   pod.add(speedometer.group)
-  box([0.24, 0.09, 0.018], [-0.12, 1.895, -2.978], face)
-  for (let i = 0; i < 4; i++) box([0.035, 0.042, 0.012], [-0.2 + i * 0.052, 1.895, -2.962], pad)
+  box([0.24, 0.09, 0.018], [0.36, -0.455, -0.828], face)
+  for (let i = 0; i < 4; i++) box([0.035, 0.042, 0.012], [0.28 + i * 0.052, -0.455, -0.812], pad)
   const steeringWheel = new THREE.Group()
   steeringWheel.name = 'steering-wheel'
-  steeringWheel.position.set(-0.48, 1.84, -2.8)
+  steeringWheel.position.set(0, -0.51, -0.65)
   steeringWheel.rotation.x = -0.55
   group.add(steeringWheel)
   const wheelRim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.018, 12, 48), trim)
