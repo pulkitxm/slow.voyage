@@ -8,6 +8,14 @@ class FlatWorld extends World {
   }
 }
 
+class OpposingBends extends World {
+  override road(s: number) {
+    const angle = ((s - 180) * 2 * Math.PI) / 65
+    const dx = ((7 * 2 * Math.PI) / 65) * Math.sin(angle)
+    return { x: 7 * (1 - Math.cos(angle)), y: 0, dx, dy: 0, yaw: Math.atan2(-dx, 1) }
+  }
+}
+
 const coast = { throttle: 0, brake: 0, steer: 0, handbrake: false, regenBrake: 0 }
 function simulate(
   car: CarPhysics,
@@ -19,6 +27,84 @@ function simulate(
   for (let t = 0; t < duration; t += dt) car.update(dt, input, settings)
 }
 describe('vehicle dynamics', () => {
+  test('autodrive sees opposing bends even when their net heading change cancels', () => {
+    const car = new CarPhysics(new OpposingBends({ ...defaults }))
+    car.speed = 20
+    expect(car.world.road(car.s).yaw).toBeCloseTo(car.world.road(car.s + 65).yaw, 8)
+    expect(car.routeSpeed(45)).toBeLessThan(12)
+    expect(car.autoInput(45).throttle).toBe(0)
+    expect(car.autoInput(45).brake).toBeGreaterThan(0)
+  })
+  test('autodrive plans braking before reaching a bend', () => {
+    class UpcomingBend extends World {
+      override road(s: number) {
+        const distance = Math.max(0, s - 280)
+        const dx = distance / 50
+        return { x: (distance * distance) / 100, y: 0, dx, dy: 0, yaw: Math.atan2(-dx, 1) }
+      }
+    }
+    const car = new CarPhysics(new UpcomingBend({ ...defaults }))
+    car.reset(230)
+    car.speed = 30
+    expect(car.world.road(car.s + 20).dx).toBe(0)
+    expect(car.routeSpeed(45)).toBeLessThan(car.speed)
+    expect(car.autoInput(45).brake).toBeGreaterThan(0)
+  })
+  test('the same corner gets a lower assisted speed with less grip or ice', () => {
+    const dry = new CarPhysics(new OpposingBends({ ...defaults }))
+    const slippery = new CarPhysics(new OpposingBends({ ...defaults, grip: 0.2 }))
+    const icy = new CarPhysics(new OpposingBends({ ...defaults, grip: 0.2, season: 'winter' }))
+    expect(slippery.routeSpeed(45)).toBeLessThan(dry.routeSpeed(45))
+    expect(icy.routeSpeed(45)).toBeLessThan(slippery.routeSpeed(45))
+    expect(dry.world.settings.cruiseSpeed).toBe(defaults.cruiseSpeed)
+  })
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s autodrive handles maximum cruise across traction and terrain extremes',
+    (vehicle) => {
+      for (const grip of [0.2, 1, 2])
+        for (const season of ['summer', 'winter'] as const)
+          for (const landscape of ['highlands', 'alpine', 'desert'] as const)
+            for (const seed of [42, 43, 99]) {
+              const power = seed === 42 ? 2 : seed === 43 ? 0.5 : 1
+              const settings: Settings = {
+                ...defaults,
+                vehicle,
+                grip,
+                season,
+                landscape,
+                seed,
+                power,
+                cruiseSpeed: 45,
+              }
+              const car = new CarPhysics(new World(settings))
+              let leftRoad = false,
+                collided = false,
+                finite = true
+              for (let step = 0; step < 120 * 180; step++) {
+                car.update(1 / 120, car.autoInput(settings.cruiseSpeed), settings)
+                leftRoad ||= car.offroad
+                collided ||= car.impact > 0.99
+                finite &&= Number.isFinite(car.x + car.y + car.s + car.speed)
+              }
+              const scenario = { grip, season, landscape, seed, power }
+              expect({
+                scenario,
+                leftRoad,
+                collided,
+                finite,
+                progressed: car.distance > 1000,
+              }).toEqual({
+                scenario,
+                leftRoad: false,
+                collided: false,
+                finite: true,
+                progressed: true,
+              })
+              expect(settings.cruiseSpeed).toBe(45)
+            }
+    },
+    30000,
+  )
   test('one-pedal braking stops without selecting reverse', () => {
     const free = new CarPhysics(new FlatWorld({ ...defaults }))
     const braking = new CarPhysics(new FlatWorld({ ...defaults }))
