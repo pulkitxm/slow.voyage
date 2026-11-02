@@ -152,7 +152,7 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
     fieldGravel: { value: new THREE.Color() },
   }
   constructor(texture: THREE.Texture, settings: Settings) {
-    super({ map: texture, vertexColors: true, roughness: 1 })
+    super({ map: texture, bumpMap: texture, bumpScale: 0.02, vertexColors: true, roughness: 1 })
     this.setAppearance(settings)
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.fieldUniforms)
@@ -161,7 +161,10 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
         `#include <common>
 attribute float roadDistance;
 attribute float groveCover;
+attribute float bankHeight;
 varying vec2 fieldPosition;
+varying float fieldHeight;
+varying float fieldBankHeight;
 varying float fieldRoadDistance;
 varying float fieldGroveCover;
 varying float fieldSlope;`,
@@ -170,6 +173,8 @@ varying float fieldSlope;`,
         '#include <begin_vertex>',
         `#include <begin_vertex>
 fieldPosition = (modelMatrix * vec4(position, 1.0)).xz;
+fieldHeight = (modelMatrix * vec4(position, 1.0)).y;
+fieldBankHeight = bankHeight;
 fieldRoadDistance = roadDistance;
 fieldGroveCover = groveCover;
 fieldSlope = clamp((1.0 - abs(normalize((modelMatrix * vec4(normal, 0.0)).xyz).y)) * 2.0, 0.0, 1.0);`,
@@ -178,6 +183,8 @@ fieldSlope = clamp((1.0 - abs(normalize((modelMatrix * vec4(normal, 0.0)).xyz).y
         '#include <common>',
         `#include <common>
 varying vec2 fieldPosition;
+varying float fieldHeight;
+varying float fieldBankHeight;
 varying float fieldRoadDistance;
 varying float fieldGroveCover;
 varying float fieldSlope;
@@ -195,7 +202,14 @@ float dryBlend = smoothstep(0.35, 0.7, fieldVariation) * fieldDryness;
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb, dryBlend);
 diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
 float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fieldVariation);
-diffuseColor.rgb = mix(diffuseColor.rgb, fieldRock * sampledDiffuseColor.rgb * (0.8 + fieldVariation * 0.4), rockBlend);
+float cutFace = smoothstep(0.06, 0.32, fieldSlope)
+  * (1.0 - smoothstep(6.0, 13.0, fieldRoadDistance))
+  * smoothstep(0.15, 1.8, fieldBankHeight);
+rockBlend = max(rockBlend, cutFace);
+float rockGrain = fieldVariationAt(fieldPosition * 80.0);
+float rockLayers = 0.5 + 0.5 * sin(fieldHeight * 7.0 + fieldVariationAt(fieldPosition * 6.0) * 10.0);
+vec3 rockColor = fieldRock * (0.72 + rockGrain * 0.3 + rockLayers * 0.16);
+diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
 float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);
 diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSlope)) * 0.32;`,
@@ -214,7 +228,7 @@ diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSl
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'textured-meadow-woodland-surface'
+    return 'layered-road-cut-meadow'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
