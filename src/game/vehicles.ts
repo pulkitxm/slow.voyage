@@ -18,6 +18,7 @@ export interface VehicleMetrics {
   maxSteering: number
   steeringSpeed: number
   steeringAcceleration: number
+  steeringInterval: number
 }
 export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   touring: {
@@ -38,6 +39,7 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     maxSteering: 0.68,
     steeringSpeed: 1.57,
     steeringAcceleration: 12,
+    steeringInterval: 1,
   },
   roadster: {
     acceleration: 11,
@@ -57,6 +59,7 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     maxSteering: 0.68,
     steeringSpeed: 1.57,
     steeringAcceleration: 12,
+    steeringInterval: 1,
   },
   motorcycle: {
     acceleration: 11,
@@ -76,6 +79,7 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     maxSteering: 0.4,
     steeringSpeed: 1.57,
     steeringAcceleration: 8,
+    steeringInterval: 1.8,
   },
   bus: {
     acceleration: 6,
@@ -95,6 +99,7 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     maxSteering: 0.65,
     steeringSpeed: 0.45,
     steeringAcceleration: 6,
+    steeringInterval: 2,
   },
 }
 export const vehicleNames: Record<Vehicle, string> = {
