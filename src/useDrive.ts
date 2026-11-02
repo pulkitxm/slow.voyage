@@ -47,7 +47,16 @@ export function useDrive() {
     } catch {}
   }
   const start = (auto = false) => {
-    engine.current?.start(auto)
+    const instance = engine.current
+    if (!instance) return
+    instance.start(auto)
+    setState((current) => ({
+      ...current,
+      speed: instance.physics.speed,
+      distance: 0,
+      autodrive: auto,
+      paused: false,
+    }))
     setStarted(true)
     setPanel(false)
   }
@@ -60,6 +69,8 @@ export function useDrive() {
     if (!engine.current) return
     if (!engine.current.started) start(true)
     else engine.current.autodrive = !engine.current.autodrive
+    const autodrive = engine.current.autodrive
+    setState((current) => ({ ...current, autodrive }))
     announce(engine.current.autodrive ? 'Autodrive on. Enjoy the view.' : 'You have the wheel.')
   }
   const cycleCamera = () => {
