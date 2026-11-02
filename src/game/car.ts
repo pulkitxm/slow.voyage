@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { createBonnet } from './bonnet'
+import { carRearDepth, createCarBody } from './car-body'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
@@ -99,6 +100,11 @@ export class CarModel {
       roughness: 0.3,
     })
     const tire = new THREE.MeshStandardMaterial({ color: '#232422', roughness: 0.95 })
+    const wheelWell = new THREE.MeshStandardMaterial({
+      color: '#151a18',
+      roughness: 1,
+      side: THREE.DoubleSide,
+    })
     const plate = new THREE.MeshStandardMaterial({ color: '#edebdb', roughness: 0.5 })
     this.materials = [
       this.body,
@@ -109,6 +115,7 @@ export class CarModel {
       diffuser,
       chrome,
       tire,
+      wheelWell,
       plate,
     ]
     const isBus = settings.vehicle === 'bus',
@@ -120,23 +127,17 @@ export class CarModel {
       back = isBus ? 3.3 : 2.02,
       front = isBus ? -3.3 : -2.06
     this.exterior.add(
-      shell(
-        isBus
-          ? [
+      isBus
+        ? shell(
+            [
               [0.38, width - 0.1, back - 0.06, front + 0.08],
               [0.6, width, back, front],
               [0.96, width - 0.02, back - 0.06, front + 0.1],
               [1.08, width - 0.09, back - 0.15, front + 0.22],
-            ]
-          : [
-              [0.4, width - 0.2, back - 0.16, front + 0.18],
-              [0.46, width - 0.11, back - 0.05, front + 0.1],
-              [0.48, width - 0.025, back, front],
-              [0.79, width, back - 0.015, front + 0.04],
-              [0.88, width - 0.09, back - 0.08, front + 0.19],
             ],
-        this.body,
-      ),
+            this.body,
+          )
+        : createCarBody(this.wheelbase, this.wheelRadius, this.body, black, wheelWell),
     )
     const box = (
       size: [number, number, number],
@@ -199,14 +200,7 @@ export class CarModel {
         box([0.022, 0.025, 0.14], [side * 0.817, 0.84, 0.47], chrome)
       }
     }
-    const rearSurface = (y: number) =>
-      y >= 0.79
-        ? back - 0.015 - ((y - 0.79) / 0.09) * 0.065
-        : y >= 0.48
-          ? back - ((y - 0.48) / 0.31) * 0.015
-          : y >= 0.46
-            ? back - ((0.48 - y) / 0.02) * 0.05
-            : back - 0.05 - ((0.46 - y) / 0.06) * 0.11
+    const rearSurface = carRearDepth
     const rearPanel = (points: [number, number][], material: THREE.Material, depth = 0.03) => {
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute(
@@ -235,8 +229,8 @@ export class CarModel {
       box([0.44, 0.13, 0.025], [0, 0.73, back + 0.02], plate)
     } else {
       const rows = [
-        [0.4, 0.56],
-        [0.46, 0.68],
+        [0.22, 0.56],
+        [0.34, 0.68],
         [0.5, 0.71],
         [0.62, 0.62],
       ] as const
@@ -264,7 +258,7 @@ export class CarModel {
       geometry.computeVertexNormals()
       this.exterior.add(new THREE.Mesh(geometry, diffuser))
     }
-    box([width * 1.7, 0.14, 0.04], [0, 0.42, front - 0.005], black)
+    box([width * 1.7, 0.14, 0.04], [0, 0.42, isBus ? front - 0.005 : -2.115], black)
     for (const side of [-1, 1]) {
       if (isBus) box([0.52, 0.13, 0.04], [side * (width - 0.33), 0.94, back - 0.035], this.brake)
       else {
@@ -290,7 +284,7 @@ export class CarModel {
       }
       box(
         [0.45, 0.07, 0.035],
-        [side * (width - 0.27), isBus ? 0.94 : 0.77, front + 0.06],
+        [side * (width - 0.27), isBus ? 0.94 : 0.77, isBus ? front + 0.06 : -2.068],
         this.lights,
       )
     }
