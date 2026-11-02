@@ -170,6 +170,18 @@ clicks and fixture-generated cursor movement through the canvas input handlers.
 
 ## Remaining reconstruction work
 
+The first visual review cycle compared clean 1280 × 720 captures of both builds.
+The initial reference attempt was stationary because its keyboard listener needs
+focus on the game panel. The retry verified active autodrive and visible movement.
+The routes and speeds differ, so these captures support graphics review only.
+
+Review identified coarse asphalt grain, repetitive isolated trees, and stiff grass
+as the strongest environment issues. Finer asphalt with anisotropic filtering,
+clustered lower shrubs, and denser curved grass addressed those findings. A second
+review rejected overly wide grass blades; the next capture verified thinner
+strands. The rear fascia, lamp framing, tire visibility, and meadow coverage remain
+visible reconstruction gaps. These captures and review records stay local.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

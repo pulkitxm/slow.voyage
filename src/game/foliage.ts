@@ -31,6 +31,21 @@ function canopy(
 function drawTree(context: CanvasRenderingContext2D, variant: number, season: Season) {
   const rng = random(324 + variant * 981)
   const centers: { x: number; y: number; radius: number }[] = []
+  if (variant >= 2) {
+    context.strokeStyle = '#68634d'
+    context.lineWidth = 9
+    for (let i = 0; i < 12; i++) {
+      const x = 90 + rng() * 330
+      const y = 280 + rng() * 130
+      context.beginPath()
+      context.moveTo(250 + (rng() - 0.5) * 80, 503)
+      context.quadraticCurveTo(256, 400, x, y)
+      context.stroke()
+      centers.push({ x, y, radius: 44 + rng() * 45 })
+    }
+    if (season !== 'winter') canopy(context, rng, season, centers)
+    return
+  }
   function branch(
     x: number,
     y: number,
@@ -76,7 +91,7 @@ function drawTree(context: CanvasRenderingContext2D, variant: number, season: Se
     if (depth > 1)
       branch(endX, endY, length * 0.8, angle + (rng() - 0.5) * 0.25, width * 0.54, depth - 1)
   }
-  branch(256, 498, 143, (rng() - 0.5) * 0.14, 20 + variant * 1.5, 3)
+  branch(256, 498, 112, (rng() - 0.5) * 0.14, 20 + variant * 1.5, 3)
   if (season !== 'winter') {
     centers.push(
       { x: 170, y: 255, radius: 80 },
@@ -84,6 +99,8 @@ function drawTree(context: CanvasRenderingContext2D, variant: number, season: Se
       { x: 205, y: 165, radius: 84 },
       { x: 300, y: 155, radius: 88 },
       { x: 254, y: 236, radius: 95 },
+      { x: 170, y: 317, radius: 82 },
+      { x: 328, y: 309, radius: 88 },
     )
     canopy(context, rng, season, centers)
   } else {

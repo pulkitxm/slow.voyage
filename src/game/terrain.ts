@@ -54,12 +54,12 @@ export class Terrain {
     public scene: THREE.Scene,
     public world: World,
   ) {
-    const palette = palettes[world.settings.season]
     this.groundTexture = groundTexture()
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings)
     this.foliage = new Foliage(world.settings.season)
     this.bladeMaterial = new THREE.MeshStandardMaterial({
-      color: palette.light,
+      color: '#ffffff',
+      vertexColors: true,
       side: THREE.DoubleSide,
       roughness: 1,
     })
@@ -87,19 +87,20 @@ export class Terrain {
     }
     this.bladeMaterial.customProgramCacheKey = () => 'textured-meadow-blades'
     const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = 128
+    canvas.width = canvas.height = 256
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Canvas is unavailable')
-    const data = ctx.createImageData(128, 128)
+    const data = ctx.createImageData(256, 256)
     const rng = random(14)
     for (let i = 0; i < data.data.length; i += 4) {
-      const c = 128 + rng() * 20
+      const c = 133 + rng() * 10
       data.data.set([c, c + 3, c + 3, 255], i)
     }
     ctx.putImageData(data, 0, 0)
     this.asphalt = new THREE.CanvasTexture(canvas)
     this.asphalt.wrapS = this.asphalt.wrapT = THREE.RepeatWrapping
-    this.asphalt.repeat.set(2, 24)
+    this.asphalt.repeat.set(6, 80)
+    this.asphalt.anisotropy = 8
     this.asphalt.colorSpace = THREE.SRGBColorSpace
     this.roadMaterial = new THREE.MeshStandardMaterial({
       map: this.asphalt,
@@ -107,27 +108,34 @@ export class Terrain {
       roughness: 0.98,
     })
     const bladePositions: number[] = [],
-      bladeIndices: number[] = []
-    for (let i = 0; i < 9; i++) {
+      bladeIndices: number[] = [],
+      bladeColors: number[] = []
+    for (let i = 0; i < 7; i++) {
       const angle = i * 2.4,
-        x = Math.cos(angle) * 0.11,
-        z = Math.sin(angle) * 0.11,
-        width = 0.018
-      const n = i * 3
-      bladePositions.push(
-        x - Math.cos(angle) * width,
-        0,
-        z - Math.sin(angle) * width,
-        x + Math.cos(angle) * width,
-        0,
-        z + Math.sin(angle) * width,
-        x + Math.cos(angle) * 0.1,
-        0.27 + i * 0.042,
-        z + Math.sin(angle) * 0.1,
-      )
-      bladeIndices.push(n, n + 1, n + 2)
+        x = Math.cos(angle) * 0.16,
+        z = Math.sin(angle) * 0.16,
+        width = 0.005 + (i % 3) * 0.002,
+        height = 0.19 + i * 0.035,
+        bend = 0.08 + (i % 3) * 0.025,
+        n = i * 5
+      for (const [elevation, offset, spread] of [
+        [0, 0, -width],
+        [0, 0, width],
+        [height * 0.6, bend * 0.25, -width * 0.55],
+        [height * 0.6, bend * 0.25, width * 0.55],
+        [height, bend, 0],
+      ] as const) {
+        bladePositions.push(
+          x + Math.cos(angle) * offset - Math.sin(angle) * spread,
+          elevation,
+          z + Math.sin(angle) * offset + Math.cos(angle) * spread,
+        )
+        const shade = elevation === 0 ? 0.75 : elevation === height ? 1 : 0.9
+        bladeColors.push(shade, shade, shade)
+      }
+      bladeIndices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2, n + 2, n + 3, n + 4)
     }
-    this.blade = geometry(bladePositions, bladeIndices)
+    this.blade = geometry(bladePositions, bladeIndices, bladeColors)
     this.materials = [
       this.grassMaterial,
       this.roadMaterial,
@@ -284,23 +292,38 @@ export class Terrain {
       }
     }
     this.addBatch(group, rails, this.railMaterial)
-    const treeCount = settings.landscape === 'desert' ? 10 : settings.quality === 'low' ? 42 : 82
+    const treeCount = settings.landscape === 'desert' ? 4 : settings.quality === 'low' ? 16 : 28
+    const shrubCount = settings.landscape === 'desert' ? 12 : settings.quality === 'low' ? 70 : 180
+    const clusters = Array.from({ length: 6 }, () => ({
+      s: start + rng() * 120,
+      d: (rng() > 0.5 ? 1 : -1) * (12 + rng() ** 1.5 * 250),
+    }))
     const matrix = new THREE.Object3D()
     for (let variant = 0; variant < 4; variant++) {
       const geometry = this.foliage.treeGeometries[variant]
       if (!geometry) continue
-      const count = Math.ceil(treeCount / 4)
+      const shrub = variant >= 2
+      const count = Math.ceil((shrub ? shrubCount : treeCount) / 2)
       const trees = new THREE.InstancedMesh(geometry, this.foliage.treeMaterial, count)
       let placed = 0
       for (let i = 0; i < count; i++) {
-        const s = start + rng() * 120
-        const d = (rng() > 0.5 ? 1 : -1) * (14 + rng() ** 1.5 * 440)
+        const cluster = clusters[Math.floor(rng() * clusters.length)]
+        if (!cluster) continue
+        const clustered = rng() < 0.8
+        const s = clustered
+          ? clamp(cluster.s + (rng() - 0.5) * 38, start, start + 120)
+          : start + rng() * 120
+        const d = clustered
+          ? cluster.d + (rng() - 0.5) * 35
+          : (rng() > 0.5 ? 1 : -1) * (8 + rng() ** 1.6 * 350)
+        if (Math.abs(d) < (shrub ? 7 : 12)) continue
         const x = this.world.road(s).x + d
         if (this.world.height(x, s) < 0.5) continue
-        const h = 6 + rng() * 5
+        const h = shrub ? 2 + rng() * 4 : 5 + rng() * 4
         matrix.position.set(x, this.world.height(x, s) - 0.1, -s)
         matrix.rotation.set(0, rng() * Math.PI, 0)
-        matrix.scale.set(h * (0.72 + rng() * 0.15), h, h * (0.72 + rng() * 0.15))
+        const width = h * (shrub ? 1.1 + rng() * 0.5 : 0.9 + rng() * 0.2)
+        matrix.scale.set(width, h, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
         trees.setColorAt(placed++, new THREE.Color().setScalar(0.88 + rng() * 0.24))
@@ -309,19 +332,25 @@ export class Terrain {
       trees.castShadow = true
       group.add(trees)
     }
-    const count = settings.quality === 'low' ? 900 : 4800
+    const count = settings.landscape === 'desert' ? 1200 : settings.quality === 'low' ? 2200 : 8500
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
+    grass.name = 'meadow'
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
       const s = start + rng() * 120,
-        d = (rng() > 0.5 ? 1 : -1) * (4.8 + rng() ** 1.7 * 24)
+        d = (rng() > 0.5 ? 1 : -1) * (4.8 + rng() ** 1.9 * 23)
       const x = this.world.road(s).x + d
       if (this.world.height(x, s) < 0.3) continue
       matrix.position.set(x, this.world.height(x, s), -s)
       matrix.rotation.set(0, rng() * 6.28, 0)
-      matrix.scale.setScalar(0.5 + rng() * 0.9)
+      matrix.scale.set(0.8 + rng() * 0.8, 0.55 + rng() * 0.65, 0.8 + rng() * 0.8)
       matrix.updateMatrix()
-      grass.setMatrixAt(placedGrass++, matrix.matrix)
+      grass.setMatrixAt(placedGrass, matrix.matrix)
+      color
+        .copy(base)
+        .lerp(light, 0.3 + rng() * 0.7)
+        .multiplyScalar(0.88 + rng() * 0.2)
+      grass.setColorAt(placedGrass++, color)
     }
     grass.count = placedGrass
     group.add(grass)
@@ -336,6 +365,10 @@ export class Terrain {
       if (id < current - 4 || id > current + ahead) this.removeTile(id, group)
     for (let id = current - 4; id <= current + ahead; id++)
       if (!this.tiles.has(id)) this.createTile(id)
+    for (const [id, group] of this.tiles) {
+      const grass = group.getObjectByName('meadow')
+      if (grass) grass.visible = id >= current - 1 && id <= current + 2
+    }
   }
   removeTile(id: number, group: THREE.Group) {
     this.scene.remove(group)
@@ -350,9 +383,6 @@ export class Terrain {
     for (const [id, group] of this.tiles) this.removeTile(id, group)
     this.foliage.update(settings.season)
     this.grassMaterial.setAppearance(settings)
-    this.bladeMaterial.color.set(
-      settings.landscape === 'desert' ? '#c5af79' : palettes[settings.season].light,
-    )
   }
   dispose() {
     for (const [id, group] of this.tiles) this.removeTile(id, group)
