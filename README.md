@@ -28,12 +28,8 @@ Stop the development server before starting the production preview on port 3002.
 The production build is a static site in `dist/client` and can be served over
 HTTPS or localhost. No application server is required.
 
-## Vercel
-
-Import this repository with its root directory unchanged. `vercel.json` selects
-the static build, installs with the frozen Bun lockfile, and publishes only
-`dist/client`. The service worker revalidates on every update check. Local review
-captures and the development review viewer are excluded from production.
+Development, verification, checkpoint commits, and previews stay local. There is
+no remote build or deployment pipeline.
 
 ## Controls
 
@@ -92,7 +88,7 @@ bonnet visibility, keyboard button activation, seasonal vehicle changes, and
 reloading with its test origin shut down. Chrome is discovered automatically on
 macOS and Linux; set `BROWSER_EXECUTABLE` to override its location.
 
-The worker has its own TypeScript configuration. CI builds the worker and tests
+The worker has its own TypeScript configuration. Local checks build the worker and test
 installation, application reloads with the origin unavailable, cached scripts,
 cache upgrades, and isolation from unrelated requests and storage.
 
@@ -103,9 +99,9 @@ and lint checks, strict YAML 1.2 validation, YAML formatting, route generation,
 application and worker type checks, and dynamics and preference tests. YAML must
 contain one document with unique keys, without anchors or aliases.
 
-CI installs from the frozen Bun lockfile, runs the same checks, creates the
-production build, tests the compiled offline worker, and runs real-browser checks. Use `bun run format` to
-apply formatting.
+Run `bun install --frozen-lockfile`, `bun run validate`, `bun run build`,
+`bun run test:offline`, and `bun run test:browser` locally before a release
+checkpoint. Use `bun run format` to apply formatting.
 
 ## Visual review
 
