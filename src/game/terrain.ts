@@ -331,14 +331,29 @@ export class Terrain {
       d: (rng() > 0.5 ? 1 : -1) * (12 + rng() ** 1.5 * 250),
     }))
     const matrix = new THREE.Object3D()
-    for (let variant = 0; variant < 4; variant++) {
+    const conifers =
+      settings.landscape === 'desert'
+        ? 0
+        : Math.round(treeCount * (settings.landscape === 'alpine' ? 0.7 : 0.3))
+    const narrow = settings.landscape === 'desert' ? 0 : Math.round(treeCount * 0.15)
+    const broadleaf = treeCount - conifers - narrow
+    const vegetationCounts = [
+      Math.ceil(broadleaf / 2),
+      Math.floor(broadleaf / 2),
+      Math.ceil(shrubCount / 2),
+      Math.floor(shrubCount / 2),
+      conifers,
+      narrow,
+    ]
+    for (let variant = 0; variant < vegetationCounts.length; variant++) {
       const geometry =
-        settings.season === 'winter' && variant >= 2
+        settings.season === 'winter' && variant >= 2 && variant < 4
           ? this.foliage.winterShrubGeometries[variant - 2]
           : this.foliage.treeGeometries[variant]
       if (!geometry) continue
-      const shrub = variant >= 2
-      const count = Math.ceil((shrub ? shrubCount : treeCount) / 2)
+      const shrub = variant >= 2 && variant < 4
+      const count = vegetationCounts[variant] ?? 0
+      if (!count) continue
       const trees = new THREE.InstancedMesh(geometry, this.foliage.treeMaterial, count)
       let placed = 0
       for (let i = 0; i < count; i++) {
@@ -354,10 +369,18 @@ export class Terrain {
         if (Math.abs(d) < (shrub ? 7 : 12)) continue
         const x = this.world.road(s).x + d
         if (this.world.height(x, s) < 0.5) continue
-        const h = shrub ? 2 + rng() * 4 : 5 + rng() * 4
+        const h = shrub ? 2 + rng() * 4 : variant >= 4 ? 6 + rng() * 6 : 5 + rng() * 4
         matrix.position.set(x, this.world.height(x, s) - 0.1, -s)
         matrix.rotation.set(0, rng() * Math.PI, 0)
-        const width = h * (shrub ? 0.85 + rng() * 0.35 : 0.9 + rng() * 0.2)
+        const width =
+          h *
+          (shrub
+            ? 0.85 + rng() * 0.35
+            : variant === 4
+              ? 0.42 + rng() * 0.16
+              : variant === 5
+                ? 0.42 + rng() * 0.13
+                : 0.9 + rng() * 0.2)
         matrix.scale.set(width, h, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
