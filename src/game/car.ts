@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createBonnet } from './bonnet'
 import { carRearDepth, createCarBody } from './car-body'
+import { createCarCabin } from './car-cabin'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
@@ -74,6 +75,7 @@ export class CarModel {
   wheelbase: number
   wheelRadius: number
   headlightPositions: [number, number, number][]
+  cabinSteering: THREE.Object3D | undefined
   constructor(settings: Settings) {
     const dimensions = vehicleMetrics[settings.vehicle]
     this.wheelbase = dimensions.wheelbase
@@ -91,8 +93,10 @@ export class CarModel {
       roughness: 0.12,
       clearcoat: 1,
       clearcoatRoughness: 0.06,
+      side: THREE.DoubleSide,
     })
     const black = new THREE.MeshStandardMaterial({ color: '#222724', roughness: 0.7 })
+    const upholstery = new THREE.MeshStandardMaterial({ color: '#463e34', roughness: 0.94 })
     const diffuser = new THREE.MeshStandardMaterial({ color: '#303432', roughness: 0.88 })
     const chrome = new THREE.MeshStandardMaterial({
       color: '#bec5c0',
@@ -112,6 +116,7 @@ export class CarModel {
       this.lights,
       glass,
       black,
+      upholstery,
       diffuser,
       chrome,
       tire,
@@ -158,47 +163,9 @@ export class CarModel {
           box([0.025, 0.87, 0.94], [side * 1.145, 2.02, -2.25 + i * 1.1], glass)
       box([2.3, 0.1, 6.32], [0, 2.76, 0], chrome)
     } else {
-      const cabin = shell(
-        [
-          [0.88, 0.712, 1.55, -0.85],
-          [isRoadster ? 1.17 : 1.22, 0.55, 1.05, -0.04],
-        ],
-        glass,
-      )
+      const cabin = createCarCabin(isRoadster, this.body, glass, black, upholstery)
       this.exterior.add(cabin)
-      if (!isRoadster)
-        this.exterior.add(
-          shell(
-            [
-              [1.205, 0.575, 1.07, -0.06],
-              [1.23, 0.545, 1.025, -0.01],
-            ],
-            this.body,
-          ),
-        )
-      else box([1.15, 0.12, 0.7], [0, 1.02, 0.76], black)
-      const upright = new THREE.Vector3(0, 1, 0)
-      const pillar = (start: THREE.Vector3, end: THREE.Vector3, width: number) => {
-        const vector = end.clone().sub(start)
-        const mesh = box([width, vector.length(), width], [0, 0, 0], this.body)
-        mesh.position.copy(start).lerp(end, 0.5)
-        mesh.quaternion.setFromUnitVectors(upright, vector.normalize())
-      }
-      for (const side of [-1, 1]) {
-        pillar(
-          new THREE.Vector3(side * 0.7, 0.89, -0.84),
-          new THREE.Vector3(side * 0.55, 1.215, -0.035),
-          0.045,
-        )
-        pillar(
-          new THREE.Vector3(side * 0.7, 0.89, 1.54),
-          new THREE.Vector3(side * 0.55, 1.215, 1.05),
-          0.055,
-        )
-        box([0.03, 0.27, 0.045], [side * 0.63, 1.04, 0.56], black)
-        box([0.085, 0.085, 0.2], [side * 0.78, 0.89, -0.58], this.body)
-        box([0.022, 0.025, 0.14], [side * 0.817, 0.84, 0.47], chrome)
-      }
+      this.cabinSteering = cabin.getObjectByName('exterior-steering-wheel')
     }
     const rearSurface = carRearDepth
     const rearPanel = (points: [number, number][], material: THREE.Material, depth = 0.03) => {
@@ -334,7 +301,9 @@ export class CarModel {
     this.firstPerson.visible = !visible
   }
   update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number) {
-    this.bonnet.update(speed, wheels.find((wheel) => wheel.front)?.steering ?? 0)
+    const steering = wheels.find((wheel) => wheel.front)?.steering ?? 0
+    this.bonnet.update(speed, steering)
+    if (this.cabinSteering) this.cabinSteering.rotation.z = steering * 2.2
     for (let i = 0; i < wheels.length; i++) {
       const state = wheels[i],
         pivot = this.wheelPivots[i],
