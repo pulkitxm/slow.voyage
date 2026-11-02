@@ -97,6 +97,11 @@ executable command name or path to override discovery. Relative paths resolve
 from the project directory, so local wrappers can move with the project.
 Local environment files stay untracked; `.env.example` lists the optional settings.
 
+Held-key flows also use Playwright with the same browser discovery and isolated
+production fixture. They verify braking from powered motion and switching from
+accelerating reverse into forward travel through the rendered dashboard.
+Captures and readout traces remain in the ignored `.review/held-driving/` folder.
+
 The worker has its own TypeScript configuration. Local checks build the worker and test
 installation, application reloads with the origin unavailable, cached scripts,
 cache upgrades, and isolation from unrelated requests and storage.
