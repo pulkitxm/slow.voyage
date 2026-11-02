@@ -84,6 +84,7 @@ export class CarModel {
       shininess: 30,
     })
     const black = new THREE.MeshStandardMaterial({ color: '#222724', roughness: 0.7 })
+    const diffuser = new THREE.MeshStandardMaterial({ color: '#303432', roughness: 0.88 })
     const chrome = new THREE.MeshStandardMaterial({
       color: '#bec5c0',
       metalness: 0.8,
@@ -91,7 +92,17 @@ export class CarModel {
     })
     const tire = new THREE.MeshStandardMaterial({ color: '#232422', roughness: 0.95 })
     const plate = new THREE.MeshStandardMaterial({ color: '#edebdb', roughness: 0.5 })
-    this.materials = [this.body, this.brake, this.lights, glass, black, chrome, tire, plate]
+    this.materials = [
+      this.body,
+      this.brake,
+      this.lights,
+      glass,
+      black,
+      diffuser,
+      chrome,
+      tire,
+      plate,
+    ]
     const isBus = settings.vehicle === 'bus',
       isRoadster = settings.vehicle === 'roadster'
     this.headlightPositions = [-1, 1].map((side) =>
@@ -110,7 +121,8 @@ export class CarModel {
               [1.08, width - 0.09, back - 0.15, front + 0.22],
             ]
           : [
-              [0.24, width - 0.12, back - 0.1, front + 0.12],
+              [0.4, width - 0.2, back - 0.16, front + 0.18],
+              [0.46, width - 0.11, back - 0.05, front + 0.1],
               [0.48, width - 0.025, back, front],
               [0.79, width, back - 0.015, front + 0.04],
               [0.88, width - 0.09, back - 0.08, front + 0.19],
@@ -179,20 +191,20 @@ export class CarModel {
         box([0.022, 0.025, 0.14], [side * 0.817, 0.84, 0.47], chrome)
       }
     }
+    const rearSurface = (y: number) =>
+      y >= 0.79
+        ? back - 0.015 - ((y - 0.79) / 0.09) * 0.065
+        : y >= 0.48
+          ? back - ((y - 0.48) / 0.31) * 0.015
+          : y >= 0.46
+            ? back - ((0.48 - y) / 0.02) * 0.05
+            : back - 0.05 - ((0.46 - y) / 0.06) * 0.11
     const rearPanel = (points: [number, number][], material: THREE.Material, depth = 0.03) => {
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute(
         'position',
         new THREE.Float32BufferAttribute(
-          points.flatMap(([x, y]) => {
-            const rear =
-              y >= 0.79
-                ? back - 0.015 - ((y - 0.79) / 0.09) * 0.065
-                : y >= 0.48
-                  ? back - ((y - 0.48) / 0.31) * 0.015
-                  : back - ((0.48 - y) / 0.24) * 0.1
-            return [x, y, rear + depth]
-          }),
+          points.flatMap(([x, y]) => [x, y, rearSurface(y) + depth]),
           3,
         ),
       )
@@ -202,7 +214,10 @@ export class CarModel {
           next = points[(i + 1) % points.length]
         if (current && next) area += current[0] * next[1] - next[0] * current[1]
       }
-      geometry.setIndex(area > 0 ? [0, 1, 2, 0, 2, 3] : [2, 1, 0, 3, 2, 0])
+      const indices: number[] = []
+      for (let i = 1; i < points.length - 1; i++)
+        indices.push(...(area > 0 ? [0, i, i + 1] : [i + 1, i, 0]))
+      geometry.setIndex(indices)
       geometry.computeVertexNormals()
       const mesh = new THREE.Mesh(geometry, material)
       this.group.add(mesh)
@@ -210,36 +225,56 @@ export class CarModel {
     if (isBus) {
       box([width * 1.8, 0.17, 0.06], [0, 0.55, back + 0.005], black)
       box([0.44, 0.13, 0.025], [0, 0.73, back + 0.02], plate)
-    } else
-      rearPanel(
-        [
-          [-0.72, 0.23],
-          [0.72, 0.23],
-          [0.65, 0.52],
-          [-0.65, 0.52],
-        ],
-        black,
-        0.035,
+    } else {
+      const rows = [
+        [0.4, 0.56],
+        [0.46, 0.68],
+        [0.5, 0.71],
+        [0.62, 0.62],
+      ] as const
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(
+          rows.flatMap(([y, width]) => [
+            -width,
+            y,
+            rearSurface(y) + 0.014,
+            width,
+            y,
+            rearSurface(y) + 0.014,
+          ]),
+          3,
+        ),
       )
+      const indices: number[] = []
+      for (let i = 0; i < rows.length - 1; i++) {
+        const n = i * 2
+        indices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2)
+      }
+      geometry.setIndex(indices)
+      geometry.computeVertexNormals()
+      this.group.add(new THREE.Mesh(geometry, diffuser))
+    }
     box([width * 1.7, 0.14, 0.04], [0, 0.42, front - 0.005], black)
     for (const side of [-1, 1]) {
       if (isBus) box([0.52, 0.13, 0.04], [side * (width - 0.33), 0.94, back - 0.035], this.brake)
       else {
         rearPanel(
           [
-            [side * 0.29, 0.86],
-            [side * 0.75, 0.86],
-            [side * 0.71, 0.735],
-            [side * 0.345, 0.735],
+            [side * 0.29, 0.856],
+            [side * 0.75, 0.856],
+            [side * 0.72, 0.786],
+            [side * 0.325, 0.786],
           ],
           black,
         )
         rearPanel(
           [
-            [side * 0.33, 0.826],
-            [side * 0.715, 0.826],
-            [side * 0.695, 0.795],
-            [side * 0.35, 0.795],
+            [side * 0.32, 0.839],
+            [side * 0.728, 0.839],
+            [side * 0.71, 0.814],
+            [side * 0.335, 0.814],
           ],
           this.brake,
           0.04,
