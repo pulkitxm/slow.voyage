@@ -59,6 +59,12 @@ Steering input releases steering assistance; pedal input releases speed
 assistance. One-pedal driving gently brakes on accelerator release without
 selecting reverse. Cruise speed follows the selected display units.
 
+Drag the scenery to orbit in chase view or look around in bonnet view. Scroll to
+zoom in chase view and double-click to reset the camera. When mouse driving is
+enabled, use the middle mouse button for camera movement. Bonnet look-around
+returns smoothly to the road after release. The field of view widens subtly at
+speed, and portrait framing gives the vehicle more room.
+
 Standard controllers use the left stick to steer, right trigger to accelerate,
 and left trigger to brake. A starts, B is the handbrake, X toggles assistance,
 Y changes camera, Start pauses, and Back resets to the road. The left bumper
