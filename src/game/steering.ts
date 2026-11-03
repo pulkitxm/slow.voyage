@@ -1,6 +1,8 @@
 import { vehicleMetrics } from './vehicles'
 import { clamp, type SteeringSource, type Vehicle } from './world'
 
+const keyboardSoftening = { startSpeed: 20, span: 12, gripShare: 2 }
+
 export function steeringLimit(speed: number, vehicle: Vehicle) {
   const metrics = vehicleMetrics[vehicle]
   return metrics.maxSteering * (1 - 0.75 * clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1))
@@ -39,10 +41,18 @@ export class Steering {
     source: SteeringSource | null,
     speed: number,
     vehicle: Vehicle,
+    gripLimit = Number.POSITIVE_INFINITY,
   ) {
     if (dt <= 0) return this.angle
     const metrics = vehicleMetrics[vehicle]
     const limit = steeringLimit(speed, vehicle)
+    const highway = clamp(
+      (Math.abs(speed) - keyboardSoftening.startSpeed) / keyboardSoftening.span,
+      0,
+      1,
+    )
+    const keyboardLimit =
+      limit + (Math.min(limit, gripLimit * keyboardSoftening.gripShare) - limit) * highway
     const ratio = clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1)
     const mouseLimit = limit * (1 - 0.4 * ratio)
     if (source && source !== this.source) {
@@ -53,7 +63,11 @@ export class Steering {
     if (this.source === 'digital') {
       const factor = vehicle === 'motorcycle' ? 1 + ratio * ratio : 1 + 0.5 * ratio
       const centering = target === 0 && vehicle !== 'motorcycle' ? 0.5 : 1
-      this.track(dt, target * limit, 0.729299 * metrics.steeringInterval * factor * centering)
+      this.track(
+        dt,
+        target * keyboardLimit,
+        0.729299 * metrics.steeringInterval * factor * centering,
+      )
     } else if (this.source === 'mouse') {
       const change = target - this.mouseCommand
       const rampTime = Math.min(dt, Math.abs(change) / 4)
