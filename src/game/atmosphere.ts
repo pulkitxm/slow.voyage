@@ -55,9 +55,9 @@ export function atmosphereProfile(settings: Settings) {
           : covered
             ? 0.85
             : sunset
-              ? 2.6
-              : 2.9,
-    ambient: night ? 0.8 : covered ? 1.6 : 1.3,
+              ? 2.3
+              : 2.5,
+    ambient: night ? 0.8 : covered ? 2.2 : 2.6,
     exposure: night ? 0.86 : weather === 'rain' ? 0.94 : 1.02,
     fog: Math.max(
       night ? 0.0018 : 0.0009,
