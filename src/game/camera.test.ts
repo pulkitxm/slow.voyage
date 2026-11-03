@@ -131,6 +131,7 @@ test('the orbit boom stays clear of an intervening hillside', () => {
     slopeX: 0,
     slopeS: 0,
     onRoad: false,
+    sand: false,
   })
   view.beginDrag(1, 400, 300, 'chase')
   view.moveDrag(1, 600, 300, 800, 600)
