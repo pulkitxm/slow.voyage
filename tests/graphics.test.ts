@@ -6,6 +6,22 @@ import { PNG } from 'pngjs'
 import { browserExecutable } from '../scripts/browser'
 import { productionFixture } from './fixture'
 
+function trackGraphicsTextures() {
+  const textures = new Set<WebGLTexture>()
+  const create = WebGL2RenderingContext.prototype.createTexture
+  const release = WebGL2RenderingContext.prototype.deleteTexture
+  WebGL2RenderingContext.prototype.createTexture = function () {
+    const texture = create.call(this)
+    if (texture) textures.add(texture)
+    return texture
+  }
+  WebGL2RenderingContext.prototype.deleteTexture = function (texture) {
+    if (texture) textures.delete(texture)
+    release.call(this, texture)
+  }
+  Object.assign(window, { graphicsTextures: () => textures.size })
+}
+
 for (const software of [false, true]) {
   test(`${software ? 'software' : 'automatic'} graphics exports complete photos, drives, and releases resized buffers`, async () => {
     const directory = resolve('.review/graphics-checks')
@@ -25,20 +41,8 @@ for (const software of [false, true]) {
       })
       await page.addInitScript(() => {
         localStorage.setItem('slowroads-settings', JSON.stringify({ volume: 0 }))
-        const textures = new Set<WebGLTexture>()
-        const create = WebGL2RenderingContext.prototype.createTexture
-        const release = WebGL2RenderingContext.prototype.deleteTexture
-        WebGL2RenderingContext.prototype.createTexture = function () {
-          const texture = create.call(this)
-          if (texture) textures.add(texture)
-          return texture
-        }
-        WebGL2RenderingContext.prototype.deleteTexture = function (texture) {
-          if (texture) textures.delete(texture)
-          release.call(this, texture)
-        }
-        Object.assign(window, { graphicsTextures: () => textures.size })
       })
+      await page.addInitScript(trackGraphicsTextures)
       await page.goto(fixture.url)
       await page.locator('.intro .text-button').click({ timeout: 60000 })
       await page.getByRole('button', { name: 'Open settings' }).click()
@@ -141,3 +145,90 @@ for (const software of [false, true]) {
     }
   }, 160000)
 }
+
+test('software cockpit instruments survive lighting and vehicle changes without leaking textures', async () => {
+  const directory = resolve('.review/graphics-checks')
+  await mkdir(directory, { recursive: true })
+  const fixture = productionFixture()
+  const browser = await chromium.launch({
+    executablePath: browserExecutable(),
+    headless: true,
+    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'],
+  })
+  try {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    page.on('console', (message) => {
+      if (message.type() === 'error') errors.push(message.text())
+    })
+    await page.addInitScript(trackGraphicsTextures)
+    await page.addInitScript(() => {
+      localStorage.setItem(
+        'slowroads-settings',
+        JSON.stringify({ volume: 0, camera: 'bonnet', vehicle: 'bus' }),
+      )
+    })
+    await page.goto(fixture.url)
+    await page.locator('.intro .primary-button').click({ timeout: 60000 })
+    await page.waitForSelector('[data-camera="bonnet"][data-vehicle="bus"]')
+    const counts = new Map<string, number>()
+    const samples: object[] = []
+    for (let cycle = 0; cycle < 3; cycle++) {
+      for (const quality of ['high', 'low']) {
+        for (const [vehicle, label] of [
+          ['bus', 'Wanderer bus'],
+          ['motorcycle', 'Motorcycle'],
+          ['touring', 'Grand tourer'],
+        ] as const) {
+          await page.getByRole('button', { name: 'Open settings' }).click()
+          await page.getByRole('tab', { name: 'vehicle', exact: true }).click()
+          await page.locator('.vehicle-options').getByRole('button', { name: label }).click()
+          await page.getByRole('tab', { name: 'display', exact: true }).click()
+          await page
+            .getByRole('button', {
+              name: quality === 'high' ? 'Full beauty' : 'Easy on the engine',
+              exact: true,
+            })
+            .click()
+          await page.getByRole('tab', { name: 'journey', exact: true }).click()
+          await page
+            .getByRole('button', { name: cycle === 1 ? 'Night' : 'Daylight', exact: true })
+            .click()
+          await page.getByRole('button', { name: 'Close settings' }).click()
+          await page.waitForSelector(`[data-vehicle="${vehicle}"]`)
+          const graphics = await page.evaluate(async () => {
+            await new Promise(requestAnimationFrame)
+            await new Promise(requestAnimationFrame)
+            const gl = document.querySelector('canvas')?.getContext('webgl2')
+            if (!gl) throw new Error('Driving canvas is unavailable')
+            return {
+              textures: (
+                window as unknown as { graphicsTextures: () => number }
+              ).graphicsTextures(),
+              error: gl.getError(),
+            }
+          })
+          const key = `${vehicle}-${quality}`
+          const expected = counts.get(key) ?? graphics.textures
+          expect(graphics.textures).toBe(expected)
+          counts.set(key, expected)
+          expect(graphics.error).toBe(0)
+          if (cycle < 2)
+            await page.screenshot({
+              path: resolve(directory, `cockpit-${key}-${cycle === 1 ? 'night' : 'day'}.png`),
+            })
+          samples.push({ cycle, vehicle, quality, ...graphics })
+        }
+      }
+    }
+    expect(errors).toEqual([])
+    await Bun.write(
+      resolve(directory, 'cockpit-textures.json'),
+      JSON.stringify({ samples, errors }, null, 2),
+    )
+  } finally {
+    await browser.close()
+    await fixture.stop()
+  }
+}, 160000)

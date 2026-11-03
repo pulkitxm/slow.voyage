@@ -3,9 +3,14 @@ import { createBusCabin } from './bus-cabin'
 import { createMotorcycleCabin } from './motorcycle-cabin'
 import type { Vehicle } from './world'
 
-export function createBonnet(vehicle: Vehicle, paint: THREE.Material, trim: THREE.Material) {
-  if (vehicle === 'bus') return createBusCabin(trim)
-  if (vehicle === 'motorcycle') return createMotorcycleCabin(paint, trim)
+export function createBonnet(
+  vehicle: Vehicle,
+  paint: THREE.Material,
+  trim: THREE.Material,
+  rasterInstruments = false,
+) {
+  if (vehicle === 'bus') return createBusCabin(trim, rasterInstruments)
+  if (vehicle === 'motorcycle') return createMotorcycleCabin(paint, trim, rasterInstruments)
   const group = new THREE.Group()
   group.visible = false
   const geometry = new THREE.BufferGeometry()

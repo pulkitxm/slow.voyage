@@ -4,14 +4,13 @@ import { busLayout } from './bus-layout'
 import { createInstrumentMaterials, createSpeedometer } from './instruments'
 import { batchUntexturedMeshes } from './mesh-batch'
 
-export function createBusCabin(trim: THREE.Material) {
+export function createBusCabin(trim: THREE.Material, rasterInstruments = false) {
   const group = new THREE.Group()
   group.visible = false
   group.position.set(busLayout.driver.x, busLayout.driver.y, busLayout.driver.z)
   const pad = new THREE.MeshStandardMaterial({ color: '#424944', roughness: 0.96 })
   const theme = createInstrumentMaterials()
   const { ring: metal, face } = theme
-  const materials = [pad, ...theme.materials]
   const box = (
     size: [number, number, number],
     position: [number, number, number],
@@ -47,7 +46,7 @@ export function createBusCabin(trim: THREE.Material) {
   group.add(pod)
   box([0.36, 0.23, 0.16], [0, 0, 0], trim, pod)
   box([0.32, 0.195, 0.014], [0, 0, 0.083], face, pod)
-  const speedometer = createSpeedometer(0.083, 140, theme)
+  const speedometer = createSpeedometer(0.083, 140, theme, rasterInstruments)
   speedometer.group.position.z = 0.094
   speedometer.group.rotation.x = Math.PI / 2
   pod.add(speedometer.group)
@@ -74,13 +73,17 @@ export function createBusCabin(trim: THREE.Material) {
   column.position.z = -0.13
   steeringWheel.add(column)
   batchUntexturedMeshes(steeringWheel)
-  batchUntexturedMeshes(group, [steeringWheel, speedometer.needle])
+  batchUntexturedMeshes(group, [
+    steeringWheel,
+    speedometer.needle,
+    ...(speedometer.overlay ? [speedometer.overlay] : []),
+  ])
   group.traverse((object) => {
     if (object instanceof THREE.Mesh) object.receiveShadow = true
   })
   return {
     group,
-    materials,
+    materials: [pad, ...theme.materials],
     update(speed: number, steering: number, night: boolean) {
       speedometer.update(speed)
       steeringWheel.rotation.z = steering * 5
