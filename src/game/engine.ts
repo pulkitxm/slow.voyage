@@ -312,7 +312,7 @@ export class RoadEngine {
     await this.terrain.grassMaterial.rock.ready
     if (this.disposed) return
     const p = this.physics
-    this.terrain.update(p.s, 0, p.s)
+    this.terrain.update(p.s, 0, p.s, p.x)
     this.car.group.position.set(p.x, p.y, -p.s)
     this.camera.position.set(p.x, p.y + 5, -p.s + 12)
     this.camera.lookAt(p.x, p.y + 1, -p.s)
@@ -601,7 +601,7 @@ export class RoadEngine {
       this.camera.rotateX(Math.sin(seconds * 41 + 1.3) * p.impact * impactShake.pitch)
       this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
     }
-    this.terrain.update(p.s, time / 1000, -this.camera.position.z)
+    this.terrain.update(p.s, time / 1000, -this.camera.position.z, p.x)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
