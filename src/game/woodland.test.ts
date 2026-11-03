@@ -9,7 +9,7 @@ test.each(['highlands', 'alpine'] as const)(
     const s = 450
     const road = world.road(s)
     expect(roadsidePlantHeight(world, road.x + 10, s)).toBe(null)
-    expect(roadsidePlantHeight(world, road.x + 24, s)).toBeCloseTo(world.height(road.x + 24, s), 8)
+    expect(roadsidePlantHeight(world, road.x + 24, s)).toBe(world.surface(road.x + 24, s).height)
   },
 )
 

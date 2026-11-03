@@ -1,29 +1,16 @@
 import * as THREE from 'three'
+import { groundLayout, groundOffsets } from './ground-grid'
 import { roadCoordinates, roadLayout } from './road'
 import { loadRockSurface } from './rock'
 import { woodlandCoverage } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
-
-const sideOffsets = [
-  roadLayout.halfWidth,
-  roadLayout.halfWidth + roadLayout.verge,
-  4,
-  4.5,
-  5,
-  ...Array.from({ length: 38 }, (_, index) => 5.5 + index * 0.5),
-  ...Array.from({ length: 33 }, (_, index) => 26 + index * 2),
-  ...Array.from({ length: 35 }, (_, index) => 106 + index * 16),
-  ...Array.from({ length: 29 }, (_, index) => 682 + index * 32),
-  1600,
-]
-const groundOffsets = [...sideOffsets.map((offset) => -offset).reverse(), 0, ...sideOffsets]
 
 export function groundGeometry(
   world: World,
   start: number,
   base: THREE.Color,
   light: THREE.Color,
-  rows = 96,
+  rows: number = groundLayout.fullRows,
 ) {
   const positions: number[] = [],
     indices: number[] = [],
@@ -39,7 +26,7 @@ export function groundGeometry(
   const snow = new THREE.Color('#dae0dc')
   const normal = new THREE.Vector3()
   for (let row = 0; row <= rows; row++) {
-    const s = start + (row * 120) / rows
+    const s = start + (row * groundLayout.tileLength) / rows
     const road = world.road(s)
     for (let col = 0; col < groundOffsets.length; col++) {
       const distance = groundOffsets[col] ?? 0

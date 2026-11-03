@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { groundLayout } from './ground-grid'
 import { clamp } from './world'
 
 export class GroundSampler {
@@ -19,7 +20,7 @@ export class GroundSampler {
 
   sample(x: number, s: number) {
     const position = this.positions
-    const coordinate = clamp(((s - this.start) * this.rows) / 120, 0, this.rows)
+    const coordinate = clamp(((s - this.start) * this.rows) / groundLayout.tileLength, 0, this.rows)
     const row = Math.min(this.rows - 1, Math.floor(coordinate))
     const v = coordinate - row
     const base = row * this.columns

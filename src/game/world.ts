@@ -1,5 +1,6 @@
 import type { ControllerBindings, ControllerMode } from './controller-bindings'
 import { roadCurve, smoothStep, terrainField } from './field'
+import { groundSurface } from './ground-grid'
 import { roadCoordinates, roadLayout } from './road'
 
 export type Landscape = 'highlands' | 'alpine' | 'desert'
@@ -130,6 +131,10 @@ export class World {
     const { road, distance } = roadCoordinates(this, x, s)
     const onRoad = Math.abs(distance) <= roadLayout.halfWidth
     const grade = road.dy / (1 + road.dx * road.dx)
+    if (!onRoad) {
+      const ground = groundSurface(this, x, s)
+      if (ground) return { ...ground, onRoad }
+    }
     return {
       height: onRoad ? road.y : this.height(x, s),
       onRoad,

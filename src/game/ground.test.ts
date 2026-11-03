@@ -25,9 +25,11 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
       if (Math.abs(x - world.road(s).x) > 4.6) {
         const surface = world.surface(x, s)
         expect(position.getY(index)).toBeCloseTo(surface.height, 3)
-        const length = Math.hypot(surface.slopeX, 1, surface.slopeS)
-        expect(normal.getX(index)).toBeCloseTo(-surface.slopeX / length, 4)
-        expect(normal.getZ(index)).toBeCloseTo(surface.slopeS / length, 4)
+        const slopeX = (world.height(x + 0.2, s) - world.height(x - 0.2, s)) / 0.4
+        const slopeS = (world.height(x, s + 0.2) - world.height(x, s - 0.2)) / 0.4
+        const length = Math.hypot(slopeX, 1, slopeS)
+        expect(normal.getX(index)).toBeCloseTo(-slopeX / length, 4)
+        expect(normal.getZ(index)).toBeCloseTo(slopeS / length, 4)
       }
     }
     expect(ground.index?.count).toBeGreaterThan(5000)
