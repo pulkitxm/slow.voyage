@@ -28,6 +28,8 @@ import { Terrain } from './terrain'
 import { Water } from './water'
 import { type AssistanceMode, defaults, type Settings, World } from './world'
 
+const impactShake = { pitch: 0.025, roll: 0.035 }
+
 export interface DriveState extends Telemetry {
   assistance: AssistanceMode
   paused: boolean
@@ -279,6 +281,7 @@ export class RoadEngine {
       budget.software,
       this.renderer.getContext().getContextAttributes()?.antialias ?? false,
     )
+    this.physics.trunks = (s) => this.terrain.trunksNear(s)
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
@@ -593,6 +596,11 @@ export class RoadEngine {
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
+    if (p.impact > 0.005) {
+      const seconds = time / 1000
+      this.camera.rotateX(Math.sin(seconds * 41 + 1.3) * p.impact * impactShake.pitch)
+      this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
+    }
     this.terrain.update(p.s, time / 1000, -this.camera.position.z)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000

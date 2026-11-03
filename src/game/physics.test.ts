@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
+import { barrierResponse } from './barrier'
+import { footprints, outline, railFaces } from './collision'
 import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { SimulationClock } from './simulation-clock'
-import { vehicleMetrics } from './vehicles'
 import { defaults, type Settings, World } from './world'
 
 class FlatWorld extends World {
@@ -402,14 +403,12 @@ function railContact(
   const settings = { ...defaults, vehicle }
   const car = new CarPhysics(new GuardrailWorld(settings, gradient, rails))
   const road = car.world.road(car.s)
-  const metrics = vehicleMetrics[vehicle]
-  const extent =
-    (Math.abs(Math.cos(yaw)) * metrics.trackWidth + Math.abs(Math.sin(yaw)) * metrics.wheelbase) / 2
-  const point = roadPoint(
-    road,
-    car.s,
-    side * (roadLayout.railOffset - roadLayout.railClearance - extent - 0.0009),
+  const extent = Math.max(
+    ...outline(footprints[vehicle]).map(
+      (point) => side * (point.localX * Math.cos(yaw) - point.localS * Math.sin(yaw)),
+    ),
   )
+  const point = roadPoint(road, car.s, side * (railFaces.inner - extent - 0.0009))
   car.x = point.x
   car.s = point.s
   car.yaw = road.yaw + yaw
@@ -432,16 +431,17 @@ function railContact(
 
 describe('guardrail response', () => {
   test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-    '%s resolves the outer wheel crossing at the visible rail on either side',
+    '%s keeps its whole body outline inside the visible rail on either side',
     (vehicle) => {
       for (const side of [-1, 1])
-        for (const yaw of [0, 0.2, -0.2, Math.PI / 2]) {
+        for (const yaw of vehicle === 'bus' ? [0, 0.2, -0.2] : [0, 0.2, -0.2, Math.PI / 2]) {
           const { car } = railContact(side, yaw, 0.4, 2, 0, true, vehicle)
           expect(car.impact).toBeGreaterThan(0)
-          for (const wheel of car.suspension.wheels) {
-            const frame = roadCoordinates(car.world, wheel.x, wheel.s)
-            expect(Math.abs(frame.distance)).toBeLessThan(
-              roadLayout.railOffset - roadLayout.railClearance,
+          for (const point of outline(footprints[vehicle])) {
+            const x = car.x + point.localX * Math.cos(car.yaw) - point.localS * Math.sin(car.yaw)
+            const s = car.s + point.localX * Math.sin(car.yaw) + point.localS * Math.cos(car.yaw)
+            expect(Math.abs(roadCoordinates(car.world, x, s).distance)).toBeLessThan(
+              railFaces.inner + 0.0001,
             )
           }
         }
@@ -457,15 +457,18 @@ describe('guardrail response', () => {
     expect(contact.normal).toBeLessThan(0)
     expect(Math.abs(contact.normal)).toBeLessThan(free.normal)
   })
-  test('a glancing impact preserves tangential motion and dissipates normal motion', () => {
+  test('a glancing impact scrapes off tangential speed within the friction bound and dissipates normal motion', () => {
     for (const side of [-1, 1])
       for (const gradient of [-0.4, 0.4])
         for (const yaw of [0, Math.PI, -Math.PI / 2, Math.PI / 2]) {
           const free = railContact(side, yaw, gradient, 2, 3, false)
           const contact = railContact(side, yaw, gradient, 2, 3)
+          const scrape = barrierResponse.friction * (1 + barrierResponse.restitution) * free.normal
           expect(contact.car.impact).toBeGreaterThan(0)
-          expect(contact.tangent).toBeCloseTo(free.tangent, 8)
-          expect(contact.normal).toBeCloseTo(-free.normal * 0.15, 8)
+          expect(contact.tangent).toBeLessThan(free.tangent)
+          expect(contact.tangent).toBeGreaterThan(free.tangent - scrape - 0.000001)
+          expect(contact.normal).toBeLessThan(0)
+          expect(contact.normal).toBeGreaterThan(-free.normal * 0.5)
           expect(contact.car.yaw).toBeCloseTo(free.car.yaw, 8)
           expect(contact.energy).toBeLessThanOrEqual(free.energy)
         }

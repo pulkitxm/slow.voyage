@@ -4,7 +4,6 @@ export const roadLayout = {
   verge: 0.8,
   surfaceRecess: 0.02,
   railOffset: 3.4,
-  railClearance: 0.2,
   railSegmentLength: 5,
   edgeInset: 0.14,
   edgeWidth: 0.06,
