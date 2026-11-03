@@ -2,6 +2,7 @@ import { vehicleMetrics } from './vehicles'
 import { clamp, type SteeringSource, type Vehicle } from './world'
 
 const keyboardSoftening = { startSpeed: 20, span: 12, gripShare: 2 }
+export const digitalResponse = { settle: 0.45, speedDelay: 0.25, centering: 0.5 }
 
 export function steeringLimit(speed: number, vehicle: Vehicle) {
   const metrics = vehicleMetrics[vehicle]
@@ -61,12 +62,13 @@ export class Steering {
     }
     const target = clamp(command, -1, 1)
     if (this.source === 'digital') {
-      const factor = vehicle === 'motorcycle' ? 1 + ratio * ratio : 1 + 0.5 * ratio
-      const centering = target === 0 && vehicle !== 'motorcycle' ? 0.5 : 1
+      const factor =
+        vehicle === 'motorcycle' ? 1 + ratio * ratio : 1 + digitalResponse.speedDelay * ratio
+      const centering = target === 0 && vehicle !== 'motorcycle' ? digitalResponse.centering : 1
       this.track(
         dt,
         target * keyboardLimit,
-        0.729299 * metrics.steeringInterval * factor * centering,
+        digitalResponse.settle * metrics.steeringInterval * factor * centering,
       )
     } else if (this.source === 'mouse') {
       const change = target - this.mouseCommand
