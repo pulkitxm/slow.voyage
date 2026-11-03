@@ -61,21 +61,32 @@ function canopy(
   season: Season,
   centers: { x: number; y: number; radius: number }[],
 ) {
+  const hue = season === 'autumn' ? 24 + rng() * 18 : 80 + rng() * 12
   for (const center of centers) {
-    for (let i = 0; i < 850; i++) {
-      const angle = rng() * Math.PI * 2
-      const radius = Math.sqrt(rng())
-      const nx = Math.cos(angle) * radius
-      const ny = Math.sin(angle) * radius
-      const x = center.x + nx * center.radius
-      const y = center.y + ny * center.radius * 0.85
-      const shade = 0.25 - nx * 0.055 - ny * 0.085 + rng() * 0.1
-      const hue = season === 'autumn' ? 24 + rng() * 28 : 72 + rng() * 30
-      const saturation = season === 'autumn' ? 48 + rng() * 24 : 27 + rng() * 22
-      context.fillStyle = `hsl(${hue} ${saturation}% ${shade * 100}%)`
-      context.beginPath()
-      context.ellipse(x, y, 2.5 + rng() * 3.5, 1.8 + rng() * 2.5, angle, 0, Math.PI * 2)
-      context.fill()
+    const phase = rng() * Math.PI * 2
+    const lobes = 6 + Math.floor(rng() * 4)
+    for (let lobe = 0; lobe < lobes; lobe++) {
+      const angle = phase + (lobe / lobes) * Math.PI * 2
+      const reach = center.radius * (0.35 + rng() * 0.35)
+      const clusterX = center.x + Math.cos(angle) * reach
+      const clusterY = center.y + Math.sin(angle) * reach * 0.85
+      const radius = center.radius * (0.26 + rng() * 0.19)
+      const light = 0.27 - Math.cos(angle) * 0.025 - Math.sin(angle) * 0.045
+      for (let leaf = 0; leaf < 110; leaf++) {
+        const direction = rng() * Math.PI * 2
+        const distance = Math.sqrt(rng())
+        const boundary = 1 + Math.sin(direction * 3 + phase) * 0.16
+        const nx = Math.cos(direction) * distance
+        const ny = Math.sin(direction) * distance
+        const x = clusterX + nx * radius * boundary
+        const y = clusterY + ny * radius * boundary * 0.8
+        const shade = light - nx * 0.03 - ny * 0.055 + (rng() - 0.5) * 0.08
+        const saturation = season === 'autumn' ? 51 + rng() * 16 : 30 + rng() * 13
+        context.fillStyle = `hsl(${hue + rng() * 9} ${saturation}% ${shade * 100}%)`
+        context.beginPath()
+        context.ellipse(x, y, 2 + rng() * 3, 1.2 + rng() * 2.5, direction, 0, Math.PI * 2)
+        context.fill()
+      }
     }
   }
 }
@@ -119,9 +130,9 @@ function drawTree(context: CanvasRenderingContext2D, variant: number, season: Se
       context.moveTo(256, 320)
       context.quadraticCurveTo(256, 256, x, y)
       context.stroke()
-      centers.push({ x, y, radius: 53 + rng() * 24 })
+      centers.push({ x, y, radius: 42 + rng() * 27 })
     }
-    centers.push({ x: 256, y: 256, radius: 110 })
+    centers.push({ x: 256, y: 280, radius: 80 })
     canopy(context, rng, season, centers)
     return
   }
@@ -154,16 +165,16 @@ function drawTree(context: CanvasRenderingContext2D, variant: number, season: Se
     branch(
       endX,
       endY,
-      length * (0.65 + rng() * 0.06),
-      angle - 0.48 - rng() * 0.35,
+      length * (0.56 + rng() * 0.2),
+      angle - 0.4 - rng() * 0.5,
       width * 0.58,
       depth - 1,
     )
     branch(
       endX,
       endY,
-      length * (0.65 + rng() * 0.06),
-      angle + 0.48 + rng() * 0.35,
+      length * (0.56 + rng() * 0.2),
+      angle + 0.4 + rng() * 0.5,
       width * 0.58,
       depth - 1,
     )
@@ -173,13 +184,11 @@ function drawTree(context: CanvasRenderingContext2D, variant: number, season: Se
   branch(256, 498, 112, (rng() - 0.5) * 0.14, 20 + variant * 1.5, 3)
   if (season !== 'winter') {
     centers.push(
-      { x: 170, y: 255, radius: 80 },
-      { x: 340, y: 245, radius: 90 },
-      { x: 205, y: 165, radius: 84 },
-      { x: 300, y: 155, radius: 88 },
-      { x: 254, y: 236, radius: 95 },
-      { x: 170, y: 317, radius: 82 },
-      { x: 328, y: 309, radius: 88 },
+      { x: 146 + variant * 8, y: 246 - variant * 18, radius: 65 },
+      { x: 358 - variant * 12, y: 224 + variant * 16, radius: 68 },
+      { x: 194 - variant * 8, y: 156 + variant * 20, radius: 74 },
+      { x: 285 + variant * 14, y: 143 - variant * 6, radius: 71 },
+      { x: 254, y: 222, radius: 58 },
     )
     canopy(context, rng, season, centers)
   } else {
