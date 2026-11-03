@@ -1,14 +1,23 @@
 import * as THREE from 'three'
 import type { Settings } from './world'
 
+export const sunOffset = { x: -90, z: -80 }
+
+export function sunDirection(height: number) {
+  return new THREE.Vector3(sunOffset.x, height, sunOffset.z).normalize()
+}
+
 export function atmosphereProfile(settings: Settings) {
   const night = settings.daylight === 'night'
   const sunset = settings.daylight === 'sunset'
   const weather = settings.weather
   const covered = weather !== 'clear'
   return {
+    sunHeight: sunset ? 38 : 110,
+    sunGlow: night ? 0.35 : covered ? 0.15 : sunset ? 1.4 : 0.8,
+    stars: night && !covered ? 1 : 0,
     sky: night
-      ? '#101d30'
+      ? '#122239'
       : covered
         ? weather === 'rain'
           ? '#596e7b'
@@ -17,7 +26,7 @@ export function atmosphereProfile(settings: Settings) {
           ? '#829bb6'
           : '#69b7ef',
     horizon: night
-      ? '#27384b'
+      ? '#2d4258'
       : weather === 'fog'
         ? '#c3cecb'
         : weather === 'rain'
@@ -25,7 +34,7 @@ export function atmosphereProfile(settings: Settings) {
           : covered
             ? '#c4cfce'
             : sunset
-              ? '#e8b899'
+              ? '#f0b48e'
               : '#e1f2ec',
     cloudColor: night
       ? '#35465e'
@@ -36,9 +45,9 @@ export function atmosphereProfile(settings: Settings) {
         : sunset
           ? '#f3cfb6'
           : '#f3f8f6',
-    sun: night ? '#9ab6dc' : sunset ? '#ffd0a0' : covered ? '#d8e3e9' : '#fff3db',
+    sun: night ? '#a3bde0' : sunset ? '#ffc48e' : covered ? '#d8e3e9' : '#fff3db',
     sunlight: night
-      ? 0.3
+      ? 0.5
       : weather === 'fog'
         ? 0.35
         : weather === 'rain'
@@ -46,10 +55,10 @@ export function atmosphereProfile(settings: Settings) {
           : covered
             ? 0.85
             : sunset
-              ? 2.4
+              ? 2.6
               : 2.9,
-    ambient: night ? 0.55 : covered ? 1.6 : 1.3,
-    exposure: night ? 0.8 : weather === 'rain' ? 0.94 : 1.02,
+    ambient: night ? 0.8 : covered ? 1.6 : 1.3,
+    exposure: night ? 0.86 : weather === 'rain' ? 0.94 : 1.02,
     fog: Math.max(
       night ? 0.0018 : 0.0009,
       weather === 'fog' ? 0.008 : weather === 'rain' ? 0.0032 : covered ? 0.0018 : 0,
@@ -81,11 +90,7 @@ export class Atmosphere {
     const horizon = new THREE.Color(profile.horizon)
     const ground = new THREE.Color(groundColor)
     const sun = new THREE.Color(profile.sun)
-    const direction = new THREE.Vector3(
-      -90,
-      settings.daylight === 'sunset' ? 38 : 110,
-      -80,
-    ).normalize()
+    const direction = sunDirection(profile.sunHeight)
     const color = new THREE.Color()
     const pixels = new Float32Array(256 * 128 * 4)
     for (let row = 0; row < 128; row++) {

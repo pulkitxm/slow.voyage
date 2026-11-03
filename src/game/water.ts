@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { type atmosphereProfile, sunDirection } from './atmosphere'
 import type { Daylight } from './world'
 
 export class Water {
@@ -13,6 +14,9 @@ export class Water {
           deepColor: { value: new THREE.Color('#7595a7') },
           skyColor: { value: new THREE.Color('#dce7e8') },
           frozen: { value: 0 },
+          sunDirection: { value: new THREE.Vector3(0, 1, 0) },
+          sunColor: { value: new THREE.Color() },
+          glitter: { value: 0 },
         },
       ]),
       vertexShader: `
@@ -30,17 +34,22 @@ uniform float time;
 uniform float frozen;
 uniform vec3 deepColor;
 uniform vec3 skyColor;
+uniform vec3 sunDirection;
+uniform vec3 sunColor;
+uniform float glitter;
 varying vec3 waterPosition;
 void main() {
   vec2 p = waterPosition.xz;
   float a = sin(p.x * 0.32 + p.y * 0.26 + time * 0.9);
   float b = sin(p.x * 1.2 - p.y * 0.8 + time * 0.6);
-  vec3 normal = normalize(vec3((a * 0.06 + b * 0.025) * (1.0 - frozen), 1.0, (cos(p.y * 0.22 + time) * 0.05 + b * 0.02) * (1.0 - frozen)));
+  float c = sin(p.x * 3.1 + p.y * 2.3 - time * 1.4);
+  float liquid = 1.0 - frozen;
+  vec3 normal = normalize(vec3((a * 0.08 + b * 0.035 + c * 0.012) * liquid, 1.0, (cos(p.y * 0.22 + time) * 0.06 + b * 0.025 + c * 0.012) * liquid));
   vec3 viewDirection = normalize(cameraPosition - waterPosition);
-  float reflection = pow(1.0 - max(0.0, dot(normal, viewDirection)), 3.0);
-  vec3 color = mix(deepColor, skyColor, reflection * 0.86);
-  float sparkle = pow(max(0.0, dot(reflect(normalize(vec3(0.4, -0.7, 0.5)), normal), viewDirection)), 160.0);
-  color += vec3(sparkle * 0.2 * (1.0 - frozen));
+  float fresnel = 0.03 + 0.97 * pow(1.0 - max(0.0, dot(normal, viewDirection)), 5.0);
+  vec3 color = mix(deepColor, skyColor, fresnel * mix(0.72, 0.86, frozen));
+  float sparkle = pow(max(0.0, dot(reflect(-sunDirection, normal), viewDirection)), 220.0);
+  color += sunColor * sparkle * glitter * liquid;
   gl_FragColor = vec4(color, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -57,13 +66,21 @@ void main() {
     this.mesh.position.z = -s
     if (this.mesh.material.uniforms.time) this.mesh.material.uniforms.time.value = time
   }
-  setAppearance(daylight: Daylight, winter: boolean) {
+  setAppearance(
+    daylight: Daylight,
+    winter: boolean,
+    profile: ReturnType<typeof atmosphereProfile>,
+  ) {
     const colors =
       daylight === 'night'
-        ? ['#172d43', '#283a4a']
+        ? ['#132639', '#2b3f52']
         : daylight === 'sunset'
-          ? ['#7d8f99', '#e3c3a7']
-          : ['#7399af', '#e0ecec']
+          ? ['#53687a', '#e8bc98']
+          : ['#4f8098', '#d8e8ea']
+    this.mesh.material.uniforms.sunDirection?.value.copy(sunDirection(profile.sunHeight))
+    this.mesh.material.uniforms.sunColor?.value.set(profile.sun)
+    if (this.mesh.material.uniforms.glitter)
+      this.mesh.material.uniforms.glitter.value = profile.sunGlow * 1.5
     this.mesh.material.uniforms.deepColor?.value.set(
       winter ? (daylight === 'night' ? '#4e647c' : '#b7c8cd') : colors[0],
     )
