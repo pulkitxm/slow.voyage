@@ -21,6 +21,56 @@ function supportPoint(tire: THREE.Mesh, normal: THREE.Vector3) {
   return lowest
 }
 
+for (const vehicle of ['touring', 'roadster', 'bus'] as const)
+  test.each([450, 900])(
+    `${vehicle} rendered tires rest on steep alpine terrain from start %i`,
+    (startS) => {
+      const settings = { ...defaults, vehicle, landscape: 'alpine' as const, seed: 43 }
+      const world = new World(settings)
+      const physics = new CarPhysics(world)
+      physics.reset(startS)
+      physics.x += 143
+      physics.suspension.reset(physics)
+      const model = createVehicleModel(settings)
+      const normal = new THREE.Vector3()
+      try {
+        for (let tick = 0; tick <= 240; tick++) {
+          if (tick)
+            physics.update(
+              1 / 120,
+              {
+                throttle: 0,
+                brake: 1,
+                boost: false,
+                steer: 0,
+                steeringSource: null,
+                handbrake: false,
+                regenBrake: 0,
+              },
+              settings,
+            )
+          if (tick !== 0 && tick !== 240) continue
+          positionVehicle(model, physics, vehicle, 1 / 60)
+          model.update(physics.suspension.wheels, false, false, physics.speed)
+          model.group.updateMatrixWorld(true)
+          for (const [index, group] of model.wheels.entries()) {
+            const wheel = physics.suspension.wheels[index]
+            const tire = group.children[0]
+            if (!wheel?.contact || !(tire instanceof THREE.Mesh)) continue
+            normal.set(-wheel.slopeX, 1, wheel.slopeS).normalize()
+            const point = supportPoint(tire, normal)
+            const gap = point.y - world.surface(point.x, -point.z).height
+            expect(gap).toBeGreaterThan(-0.02)
+            expect(gap).toBeLessThan(0.04)
+          }
+        }
+        expect(Math.abs(physics.pitch)).toBeGreaterThan(0.2)
+      } finally {
+        model.dispose()
+      }
+    },
+  )
+
 for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const) {
   test.each([42, 43, 99])(
     `${vehicle} rendered tires contact the pavement through curves and grades with seed %i`,
