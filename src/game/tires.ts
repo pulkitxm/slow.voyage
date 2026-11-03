@@ -3,6 +3,7 @@ import type { ChassisPose, WheelState } from './suspension'
 import { vehicleMetrics, yawInertia } from './vehicles'
 import { clamp, type Settings } from './world'
 
+const offroadDrag = 0.004
 const longitudinalShare = { minimum: 0.6, maximum: 1, holdSpeed: 0.5 }
 
 function longitudinalLimit(lateralDemand: number) {
@@ -152,7 +153,9 @@ export function solveTires(
     const rolling =
       0.1 +
       metrics.rollingResistance * Math.abs(motion.longitudinal) +
-      (wheel.onRoad ? 0 : 1.4 + Math.abs(motion.longitudinal) * 0.04)
+      (wheel.onRoad
+        ? 0
+        : 1.4 + Math.abs(motion.longitudinal) * 0.04 + motion.longitudinal ** 2 * offroadDrag)
     const brakeDemand = (brake * metrics.mass * wheel.load * dt) / Math.max(groundedLoad, 1)
     const resistance = Math.min(quarterMass * rolling * dt + brakeDemand, brakeLimit)
     wheel.locked ||=

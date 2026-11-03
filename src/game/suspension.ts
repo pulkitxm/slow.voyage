@@ -5,6 +5,7 @@ import { clamp, type Vehicle, type World } from './world'
 const tireSupportAngles = [-0.7, -0.4, -0.18, 0, 0.18, 0.4, 0.7]
 const tireSupportWidths = [-0.95, 0, 0.95]
 const tireSupportIterations = 3
+const airborneLeveling = 4.5
 const tireSupportRefinements = 3
 const supportBase = new Float64Array(tireSupportAngles.length * tireSupportWidths.length * 3)
 const supportEstimate = new Float64Array(tireSupportAngles.length * tireSupportWidths.length)
@@ -233,6 +234,30 @@ export class Suspension {
       wheel.localX * Math.sin(pose.roll) * Math.cos(pose.pitch)
     )
   }
+  level(pose: ChassisPose, dt: number) {
+    const metrics = vehicleMetrics[this.vehicle]
+    const heights = this.wheels.map((wheel) => this.world.surface(wheel.x, wheel.s).height)
+    const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
+    const slope = (offsets: number[]) => {
+      const center = mean(offsets)
+      const height = mean(heights)
+      const spread = offsets.reduce((sum, offset) => sum + (offset - center) ** 2, 0)
+      return spread
+        ? offsets.reduce(
+            (sum, offset, index) => sum + (offset - center) * ((heights[index] ?? height) - height),
+            0,
+          ) / spread
+        : 0
+    }
+    const pitch = Math.asin(clamp(slope(this.wheels.map((wheel) => wheel.localS)), -0.5, 0.5))
+    const roll = metrics.trackWidth
+      ? Math.asin(clamp(slope(this.wheels.map((wheel) => wheel.localX)), -0.35, 0.35))
+      : 0
+    const omega = airborneLeveling
+    pose.pitchRate += (omega * omega * (pitch - pose.pitch) - 2 * omega * pose.pitchRate) * dt
+    if (metrics.trackWidth)
+      pose.rollRate += (omega * omega * (roll - pose.roll) - 2 * omega * pose.rollRate) * dt
+  }
   gap(pose: ChassisPose, wheel: WheelState) {
     return this.mountHeight(pose, wheel) - wheel.ground
   }
@@ -290,6 +315,7 @@ export class Suspension {
     pose.verticalSpeed += (verticalForce / metrics.mass) * dt
     pose.pitchRate += (pitchTorque / pitchInertia) * dt
     pose.rollRate += metrics.trackWidth ? (rollTorque / rollInertia) * dt : 0
+    if (!this.wheels.some((wheel) => wheel.load > 0)) this.level(pose, dt)
     pose.y += pose.verticalSpeed * dt
     pose.pitch = clamp(pose.pitch + pose.pitchRate * dt, -1.1, 1.1)
     pose.roll = clamp(pose.roll + pose.rollRate * dt, -0.8, 0.8)
