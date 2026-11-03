@@ -135,8 +135,9 @@ The historical renderer uses a default vertical field of view of 68 degrees.
 Its roadster body artifact at
 <https://slowxroads.com/static/media/roadster-07.0d45cf64.obj> has longitudinal
 bounds of -0.579 to 3.502 meters, lateral bounds of -0.823 to 0.823 meters, and a
-roof height of approximately 1.227 meters. The current procedural car body and
-chase framing use those proportions. The original mesh is retained only for
+roof height of approximately 1.227 meters. The local wheelbase and longitudinal/lateral envelope were informed by those
+measurements. The touring canopy is now taller, following the newer promotional
+silhouette rather than preserving the historical roof height. The original mesh is retained only for
 local inspection and is not included in the application.
 
 The historical glazing uses a gray-blue Phong material. The reconstruction uses
@@ -508,6 +509,36 @@ a 16.7 ms median and a 16.7 to 16.8 ms 95th percentile on the test M4 Pro at
 1280 by 720. Five cycles through all four vehicles held per-vehicle geometry,
 texture, and shader-program counts stable after warmup. These finite samples
 cover the added vehicle cost on that renderer, not performance on other devices.
+
+The touring cabin now uses a continuous cubic longitudinal profile and a rounded
+cross section. Its approximately 1.34-meter crown replaces the earlier flat
+1.23-meter roof. Front and rear screens, side windows, rounded seals, roof
+shoulders, and broader rear pillars all lie on that shared surface. The belt
+joins the existing 0.88-meter body deck; wheel arches and lower coachwork remain
+unchanged. The roadster retains its separate open cabin.
+
+Planar shape subdivision preserves shared edges before the surface is curved.
+This avoids the tiny roof cracks exposed by independently splitting neighboring
+triangles. Topology checks require paired edges and consistent normals across
+paint, seals, and glass, with open boundaries only at the body belt. Another
+1,215 downward ray samples require visible surface coverage, and directed rays
+verify that glass remains exposed from the front, rear, and both sides. Existing
+full-lock, suspension-travel, chase tire-visibility, and disposal checks still pass.
+
+Window-corner sampling and surface resolution were reduced after a geometry-budget
+review. The final touring exterior contains 38,130 triangles in 21 meshes, compared
+with 89,536 triangles in the first curved-cabin trial. No additional textures or
+materials are needed. Controlled six-view comparison found no material loss in
+curvature or seam quality after the reduction. The nose and tail are still too
+angular, and matching current-release body proportions remains unfinished.
+
+Final ten-second native driving samples held 16.7-millisecond median and
+95th-percentile frame times at both detail settings. Geometry, texture, and
+shader resources remained bounded across 4.8 kilometers per detail setting.
+Forced software rendering measured 166.6-millisecond high-detail and
+150-millisecond low-detail median frames, compared with the preceding meadow
+samples of 150 and 133.3 milliseconds. This remains a rendering-cost limitation;
+the native result does not establish acceptable software-renderer performance.
 
 Static untextured coachwork, interior parts, and wheel components are batched
 by material after construction. Animated wheel pivots and the exterior steering
