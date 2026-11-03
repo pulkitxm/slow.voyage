@@ -4,6 +4,12 @@ import { clamp } from './world'
 
 export const cruiseLimits = { reverse: 5, forward: 45 }
 
+export function adjustCruiseSpeed(speed: number, direction: number, units: 'km' | 'mi') {
+  const increment = 5 / (units === 'km' ? 3.6 : 2.23694)
+  const next = clamp(speed + direction * increment, -cruiseLimits.reverse, cruiseLimits.forward)
+  return speed * next < 0 || Math.abs(next) < increment * 0.5 ? 0 : next
+}
+
 export function reverseDriveFactor(speed: number, driveForce: number, jerk: number) {
   const runout = Math.max(0, -driveForce) ** 2 / jerk
   return clamp((cruiseLimits.reverse + speed - runout) / 0.5, 0, 1)

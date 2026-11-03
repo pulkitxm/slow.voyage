@@ -67,6 +67,59 @@ async function drive(run: (page: Page, directory: string) => Promise<void>) {
   }
 }
 
+test('reverse cruise stops, persists, and releases speed control to the driver', async () => {
+  await drive(async (page, directory) => {
+    await page.keyboard.press('f')
+    await page.waitForSelector('[data-assistance="full"]')
+    await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+    await page.getByRole('tab', { name: 'controls', exact: true }).click()
+    await page.getByRole('button', { name: 'Reverse', exact: true }).click()
+    await page.locator('#cruise-speed').fill('10')
+    await page.getByRole('button', { name: 'Close settings', exact: true }).click()
+    await page.waitForFunction(
+      () =>
+        document.querySelector('.gear')?.textContent === 'R' &&
+        Number(document.querySelector('.speed-value')?.textContent) >= 8,
+      undefined,
+      { timeout: 30000 },
+    )
+    const reverse = await readout(page)
+    await page.getByRole('button', { name: 'Open settings', exact: true }).click()
+    await page.getByRole('button', { name: 'Stop', exact: true }).click()
+    await page.getByRole('button', { name: 'Close settings', exact: true }).click()
+    await page.waitForFunction(
+      () => Number(document.querySelector('.speed-value')?.textContent) === 0,
+    )
+    const stopped = await readout(page)
+    await page.waitForTimeout(1000)
+    expect((await readout(page)).speed).toBe(0)
+    await page.keyboard.press('-')
+    await page.waitForSelector('.gear:text-is("R")')
+    await page.keyboard.press('w')
+    await page.waitForSelector('[data-assistance="steer"]')
+    const preference = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('slowroads-settings') ?? '{}').cruiseSpeed,
+    )
+    expect(preference).toBeLessThan(0)
+    await page.reload()
+    await page.getByRole('button', { name: 'Open settings', exact: true }).click({ timeout: 30000 })
+    await page.getByRole('tab', { name: 'controls', exact: true }).click()
+    expect(
+      await page.getByRole('button', { name: 'Reverse', exact: true }).getAttribute('aria-pressed'),
+    ).toBe('true')
+    await page.screenshot({ path: resolve(directory, 'reverse-cruise.png') })
+    await page.getByRole('button', { name: 'Close settings', exact: true }).click()
+    await page.locator('.intro .text-button').click()
+    await page.waitForSelector('.gear:text-is("R")')
+    await page.waitForSelector('[data-assistance="full"]')
+    await page.screenshot({ path: resolve(directory, 'reverse-cruise-reloaded.png') })
+    await Bun.write(
+      resolve(directory, 'reverse-cruise.json'),
+      JSON.stringify({ reverse, stopped, preference }, null, 2),
+    )
+  })
+}, 90000)
+
 test('held keyboard brake slows the bus after powered acceleration', async () => {
   await drive(async (page, directory) => {
     await page.keyboard.down('w')

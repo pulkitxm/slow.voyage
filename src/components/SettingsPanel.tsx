@@ -1,5 +1,6 @@
 import { AudioLines, Camera, Check, RotateCcw, ShieldCheck, X } from 'lucide-react'
 import { assistanceLabels } from '../game/controls'
+import { cruiseLimits } from '../game/cruise'
 import type { ControllerStatus } from '../game/gamepad'
 import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
@@ -29,6 +30,8 @@ export function SettingsPanel({
   onNewJourney,
   onCapture,
 }: Props) {
+  const cruiseFactor = settings.units === 'km' ? 3.6 : 2.23694
+  const cruiseReverse = settings.cruiseSpeed < 0
   return (
     <aside className="settings-panel" aria-label="Drive settings">
       <div className="panel-heading">
@@ -236,28 +239,65 @@ export function SettingsPanel({
               </p>
             </section>
             <section className="setting-section">
+              <h3>Cruise direction</h3>
+              <div className="segmented">
+                <button
+                  type="button"
+                  aria-pressed={settings.cruiseSpeed > 0}
+                  className={settings.cruiseSpeed > 0 ? 'selected' : ''}
+                  onClick={() => update('cruiseSpeed', Math.max(1, Math.abs(settings.cruiseSpeed)))}
+                >
+                  Forward
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={settings.cruiseSpeed === 0}
+                  className={settings.cruiseSpeed === 0 ? 'selected' : ''}
+                  onClick={() => update('cruiseSpeed', 0)}
+                >
+                  Stop
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={cruiseReverse}
+                  className={cruiseReverse ? 'selected' : ''}
+                  onClick={() =>
+                    update(
+                      'cruiseSpeed',
+                      -Math.min(cruiseLimits.reverse, Math.max(1, Math.abs(settings.cruiseSpeed))),
+                    )
+                  }
+                >
+                  Reverse
+                </button>
+              </div>
+              <p>Choose a direction, or Stop to hold the vehicle with its brakes.</p>
               <label className="slider-label" htmlFor="cruise-speed">
                 Cruise speed{' '}
                 <span>
-                  {Math.round(settings.cruiseSpeed * (settings.units === 'km' ? 3.6 : 2.23694))}{' '}
+                  {cruiseReverse ? 'R · ' : ''}
+                  {Math.round(Math.abs(settings.cruiseSpeed) * cruiseFactor)}{' '}
                   {settings.units === 'km' ? 'km/h' : 'mph'}
                 </span>
               </label>
               <input
                 id="cruise-speed"
                 type="range"
-                min={Math.ceil(5 * (settings.units === 'km' ? 3.6 : 2.23694))}
-                max={Math.floor(45 * (settings.units === 'km' ? 3.6 : 2.23694))}
+                min="1"
+                max={Math.floor(
+                  (cruiseReverse ? cruiseLimits.reverse : cruiseLimits.forward) * cruiseFactor,
+                )}
                 step="1"
-                value={Math.round(settings.cruiseSpeed * (settings.units === 'km' ? 3.6 : 2.23694))}
+                disabled={settings.cruiseSpeed === 0}
+                value={Math.max(1, Math.round(Math.abs(settings.cruiseSpeed) * cruiseFactor))}
                 onChange={(event) =>
                   update(
                     'cruiseSpeed',
-                    Number(event.target.value) / (settings.units === 'km' ? 3.6 : 2.23694),
+                    ((cruiseReverse ? -1 : 1) * Number(event.target.value)) / cruiseFactor,
                   )
                 }
               />
-              <p>Use + and - to adjust your cruising speed while driving.</p>
+              <p>Use + and - while driving. Decrease through Stop to select reverse.</p>
             </section>
             <section className="setting-section">
               <label className="check-option">

@@ -594,6 +594,13 @@ under pure longitudinal slip, bounded contact impulse, planar energy dissipation
 stopped-grade hold, reverse curves and powered direction changes. These physical
 invariants do not establish a match to current-release response measurements.
 
+The controls panel exposes Forward, Stop and Reverse cruise targets, with reverse
+speed bounded by the five-meter-per-second powered limit. The speed slider uses
+the selected display units. Keyboard and controller speed adjustments stop at
+zero before crossing into the other direction. Signed preferences survive reload,
+and manual pedal input still releases assisted speed. Browser verification covers
+reverse gear, a stopped hold, takeover, saved direction and restarting assistance.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
@@ -607,7 +614,7 @@ Completion requires current evidence for the full requested fidelity:
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A detailed cabin view is pending; the local selection
   now includes the touring car, convertible, enclosed motorcycle, and bus.
-- Implement custom controller mappings and reverse cruise. Compare
+- Implement custom controller mappings. Compare
   the reconstructed assistance modes and one-pedal response with the current game.
 - Verify extended driving performance, resource bounds, mobile layouts, and
   offline upgrades across repeated releases and browser sessions.
