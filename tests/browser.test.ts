@@ -63,10 +63,12 @@ const press = (step_id: string, key: string, selector = 'body') => ({
 async function capture(
   actions: object[] | ((origin: string) => object[]),
   screenshot = false,
-  controller = false,
+  controller: boolean | 'custom' = false,
 ) {
   const executable = browserExecutable()
-  const fixture = productionFixture(controller)
+  const fixture = productionFixture(
+    controller === 'custom' ? 'custom' : controller ? 'standard' : false,
+  )
   const directory = await mkdtemp(join(tmpdir(), 'slowroads-browser-'))
   const input = join(directory, 'scenario.json')
   try {
@@ -379,6 +381,53 @@ test(
       ],
       false,
       true,
+    )
+  },
+  testTimeout,
+)
+
+const calibrateController = (name: string, key: string, id: string) => [
+  click(`${id}-choose`, `[aria-label="Bind ${name}"]`),
+  click(`${id}-ready`, '.mapping-capture button:text-is("Ready")'),
+  press(`${id}-move`, key),
+  wait(`${id}-detected`, '.mapping-capture > small:first-of-type'),
+  press(`${id}-release`, '0'),
+  wait(`${id}-released`, `[aria-label="Save ${name} binding"]:enabled`),
+  click(`${id}-save`, `[aria-label="Save ${name} binding"]`),
+]
+
+test(
+  'calibrates unmapped wheel and pedal controls and keeps camera input separate',
+  async () => {
+    await capture(
+      [
+        start,
+        click('mapping-settings', '[aria-label="Open settings"]'),
+        click('mapping-controls', '[role="tab"]:text-is("controls")'),
+        click('custom-layout', '.controller-mapping button:text-is("custom")'),
+        ...calibrateController('Steer left', '1', 'wheel'),
+        ...calibrateController('Accelerate', '3', 'pedal'),
+        click('mapping-close', '[aria-label="Close settings"]'),
+        press('mapped-pedal', '3'),
+        wait('mapped-speed-takeover', '[data-assistance="steer"]'),
+        press('mapped-neutral', '0'),
+        press('mapped-wheel', '1'),
+        wait('mapped-steering-takeover', '[data-assistance="off"]'),
+        press('mapped-wheel-neutral', '0'),
+        click('camera-settings', '[aria-label="Open settings"]'),
+        click('camera-bindings', '.mapping-group > summary:text-is("Camera")'),
+        ...calibrateController('Look left', '6', 'look'),
+        click('camera-close', '[aria-label="Close settings"]'),
+        press('restore-assistance', 'f'),
+        wait('restored-full', '[data-assistance="full"]'),
+        press('mapped-bonnet', 'c'),
+        wait('mapped-bonnet-active', '[data-camera="bonnet"]'),
+        press('mapped-look', '6'),
+        wait('look-keeps-assistance', '[data-assistance="full"]'),
+        settle,
+      ],
+      true,
+      'custom',
     )
   },
   testTimeout,

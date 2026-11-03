@@ -41,6 +41,7 @@ export function Help({ onClose }: { onClose: () => void }) {
           Controller: left stick steers, right trigger accelerates, and left trigger brakes. A
           starts, B holds the handbrake, X toggles assistance, Y changes camera, and Start pauses.
           Use the left bumper to choose assistance and the D-pad up/down to adjust cruise speed.
+          Choose Custom in Controls to bind a wheel, separate pedals, buttons or camera controls.
         </p>
         <div className="help-note">
           <p>

@@ -1,6 +1,7 @@
 import { controllerFixture } from './controller-fixture'
+import { mappingFixture } from './mapping-fixture'
 
-export function productionFixture(controller = false) {
+export function productionFixture(controller: 'standard' | 'custom' | false = false) {
   const assets = new Map<string, Bun.BunFile>()
   for (const path of new Bun.Glob('**/*').scanSync({ cwd: 'dist/client', onlyFiles: true }))
     assets.set(`/${path}`, Bun.file(`dist/client/${path}`))
@@ -24,7 +25,10 @@ export function productionFixture(controller = false) {
       if (!file) return new Response('Not found', { status: 404 })
       const body =
         controller && (path === '/' || path === '/index.html')
-          ? (await file.text()).replace('<head>', `<head><script>${controllerFixture}</script>`)
+          ? (await file.text()).replace(
+              '<head>',
+              `<head><script>${controller === 'custom' ? mappingFixture : controllerFixture}</script>`,
+            )
           : file
       return new Response(body, {
         headers: { 'cache-control': 'no-store', 'content-type': file.type },

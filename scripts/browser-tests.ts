@@ -5,7 +5,7 @@ const offline = process.argv.includes('--offline')
 const argumentsToForward = process.argv.slice(2).filter((argument) => argument !== '--offline')
 const tests = offline
   ? ['tests/offline.test.ts']
-  : ['tests/browser.test.ts', 'tests/driving.test.ts']
+  : ['tests/browser.test.ts', 'tests/driving.test.ts', 'tests/controller-mapping.test.ts']
 const root = resolve('.review/tmp')
 await mkdir(root, { recursive: true })
 const scratch = await mkdtemp(resolve(root, 'browser-tests-'))

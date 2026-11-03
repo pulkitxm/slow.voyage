@@ -617,11 +617,16 @@ The [Gamepad input model](https://www.w3.org/TR/gamepad/) supplies normalized ax
 and buttons, without guaranteeing that every physical wheel or pedal exposes a
 usable browser device. Calibration records a released baseline, observes the
 largest requested movement and requires release again before a binding can be
-saved. Changed or ambiguous device connections invalidate capture. Shortcut axes
+saved. Lost or ambiguous baseline devices invalidate capture. Shortcut axes
 use separate press/release thresholds; mapped actions must return near calibrated
 rest after suspension. Custom profiles also require neutral input on first use.
-Calibration UI and physical-device verification remain further work at this
-checkpoint.
+The controls panel now provides a released-baseline calibration flow, measured
+rest/full endpoints, live input meters, per-binding clearing and a standard-layout
+copy option. Driving bindings are visible together; shortcuts and camera controls
+can be expanded separately. Browser fixtures exercise a wheel, inverted separate
+pedals and a standard gamepad, including reconnection, slot changes, saved-profile
+reload, optional camera look and manual assistance handoff. These synthetic
+fixtures do not establish physical-device compatibility.
 
 Completion requires current evidence for the full requested fidelity:
 
@@ -636,8 +641,8 @@ Completion requires current evidence for the full requested fidelity:
 - Match vehicle silhouettes, materials, interiors, lights, and the complete
   reference vehicle lineup. A detailed cabin view is pending; the local selection
   now includes the touring car, convertible, enclosed motorcycle, and bus.
-- Implement custom controller mappings. Compare
-  the reconstructed assistance modes and one-pedal response with the current game.
+- Compare custom controller mappings, reconstructed assistance modes and one-pedal
+  response with the current game and physical controllers.
 - Verify extended driving performance, resource bounds, mobile layouts, and
   offline upgrades across repeated releases and browser sessions.
 
