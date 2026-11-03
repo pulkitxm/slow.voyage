@@ -156,6 +156,43 @@ exposed rock on steeper faces, and dry meadow patches. Grass blades share the
 meadow coloration. A small shared noise texture supplies the blend masks, and
 the material colors update with the landscape and season.
 
+The meadow uses broad, shared world-space color masks and curved ground strokes.
+Grass clumps use an original grayscale blade atlas on three crossed cards, with
+18 triangles per clump instead of 36. Alpha testing preserves the color at the
+blade edges; alpha-to-coverage produced pale flecks in the checked rendering path.
+The grass shader preserves instance tint in dry patches and uses terrain-oriented
+normals. The atlas adds one shared texture, bringing the checked scenes to 11.
+
+Grass roots sample the rendered terrain triangles, including software-detail
+changes. Root-plane shear follows the sampled ground normal while stems remain
+upright. Placement and wind bounds keep cards outside the pavement. Grass shrinks
+between 45 and 120 meters from the camera, and tile visibility follows the camera.
+Moderate banks blend soil and grass pockets while steep faces retain exposed rock.
+
+A three-seed audit across high and low detail, signed tile boundaries, and camera
+offsets checked 58,300 native roots and 48,666 software roots. Maximum root-height
+error was 0.023 millimeters. The software audit covered 66 terrain-detail changes.
+Checks of 524,832 native and 540,816 software card vertices at both wind extremes
+found no pavement intrusion, with minimum lateral distance above 3.13 meters.
+No sampled root within 45 meters of the camera belonged to a hidden grass tile.
+Finite clump footprints can still expose lower edges on curved banks: sampled
+maximum gaps were 5.7 centimeters native and 3.1 centimeters software.
+
+Ten-second native driving samples at 1280 by 720 held 16.7-millisecond median and
+95th-percentile frame times at both detail settings. The checked high-detail frame
+used 1.35 million triangles, and low detail used 646,424. Streaming checks advanced
+4.8 kilometers per detail setting with bounded tile counts. Forced software
+rendering remained slow, with 150-millisecond high-detail and 133.3-millisecond
+low-detail median frames, approximately 7 frames per second. Distant clumps remain
+recognizable, and cut banks still have broad smooth material bands.
+
+The [developer promotional gallery](https://topograph.io/slowroads) provides
+additional high-resolution meadow, woodland, and road references. These include
+Steam imagery, so they are qualitative visual references rather than proof of the
+current web build's scope or geometry. The current official web game still stops
+at a browser challenge in the latest local inspection. Reference images stay in
+local review storage and are not included in the application.
+
 These changes close visible gaps against the historical build. They do not prove
 matching generation or rendering against the current official release.
 
