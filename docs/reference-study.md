@@ -572,6 +572,37 @@ were 183.4 milliseconds at high detail and 166.6 at low detail; roadster medians
 were 166.6 and 150 milliseconds. These finite samples do not establish acceptable
 software-renderer performance.
 
+A later renderer profiling pass isolates four-sample antialiasing as the largest
+software-driver cost in the frozen scene. Disabling it reduces a completed-frame
+probe from roughly 163 to 183 milliseconds to 69.5 milliseconds. Disabling buffer
+preservation and changing sky submission order do not provide convincing gains.
+These diagnostic timings use synchronous readback and are distinct from live
+driving frame intervals.
+
+Software drivers now use the standard Three FXAA pass after the existing scene
+render. Hardware drivers retain multisampling. Software high and low drawing
+ratios increase from 0.4 and 0.3 to 0.5 and 0.375; geometry, foliage, lighting,
+and shadow budgets remain intact. Ten-second live software samples for both cars
+measure 83.3-millisecond high-detail and 66.7-millisecond low-detail medians,
+approximately 12 and 15 FPS. Streaming still causes longer individual frames.
+Native samples retain 16.7-millisecond medians and 16.7 to 16.8-millisecond 95th
+percentiles. Across 26 frozen native views, four pixels exceed a two-channel-value
+difference threshold. These results describe one machine and finite routes.
+
+The software pass initially lost thin numeral strokes in first-person gauges.
+Software instruments now draw the same font outlines and tick positions into a
+filtered transparent dial texture, retaining the physical needle, face, and rim.
+Native instruments retain their geometric labels. Matched day and night review
+finds recognizable motorcycle numerals and a more complete bus scale; low-detail
+numerals remain soft. Vehicle changes release the printed dial with its owning
+material. Browser checks exercise repeated bus, motorcycle, and touring changes,
+both detail settings, day and night, resized photo exports, and manual driving.
+All 20 browser flows pass, alongside the 379-test local gate. Ten-second software
+bus and motorcycle bonnet samples hold roughly 66.7-millisecond medians at both
+detail settings. Repeated vehicle swaps retain stable per-vehicle resources,
+including release of the extra dial texture. A motorcycle streaming frame still
+takes 1.25 seconds, so these medians do not establish smooth extended driving.
+
 Static untextured coachwork, interior parts, and wheel components are batched
 by material after construction. Animated wheel pivots and the exterior steering
 wheel retain independent ownership. Batching preserves world-space vertices and
