@@ -2,7 +2,13 @@ import * as THREE from 'three'
 import { Atmosphere, atmosphereProfile } from './atmosphere'
 import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
-import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
+import {
+  automaticTarget,
+  mergeManualInput,
+  neutralInput,
+  releaseAssistance,
+  resolveInput,
+} from './controls'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
 import { createVehicleModel, positionVehicle, type VehicleModel } from './model'
@@ -545,7 +551,11 @@ export class RoadEngine {
       (!this.controlsBlocked || !this.started || this.assistance === 'full')
     ) {
       this.simulation.advance(elapsed, (step) => {
-        const automatic = this.physics.autoInput(this.started ? this.settings.cruiseSpeed : 10)
+        const automatic = this.physics.autoInput(
+          this.started
+            ? automaticTarget(this.assistance, this.settings.cruiseSpeed, this.settings.vehicle)
+            : 10,
+        )
         input = !this.started
           ? automatic
           : resolveInput(this.manualInput(), automatic, this.assistance, this.settings.onePedal)

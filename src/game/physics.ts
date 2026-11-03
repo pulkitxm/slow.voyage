@@ -3,6 +3,7 @@ import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
 import { forwardDriveForce } from './drive'
 import { surfaceGrip } from './grip'
 import { guardrailAt, roadCoordinates, roadLayout } from './road'
+import { stabilize } from './stability'
 import { Steering, steeringLimit } from './steering'
 import { Suspension } from './suspension'
 import { solveTires } from './tires'
@@ -62,6 +63,7 @@ export class CarPhysics {
   boosting = false
   brakeForce = 0
   offroad = false
+  stability = 0
   suspension: Suspension
   constructor(public world: World) {
     this.suspension = new Suspension(world)
@@ -110,7 +112,11 @@ export class CarPhysics {
     return direction * limit
   }
   autoInput(targetSpeed: number): Input {
-    const requested = clamp(targetSpeed, -cruiseLimits.reverse, cruiseLimits.forward)
+    const requested = clamp(
+      targetSpeed,
+      -cruiseLimits.reverse,
+      Math.max(cruiseLimits.forward, vehicleMetrics[this.world.settings.vehicle].maxSpeed),
+    )
     const direction =
       Math.abs(this.speed) > 0.05 ? Math.sign(this.speed) : Math.sign(requested) || 1
     const lookahead = direction * (13 + Math.abs(this.speed) * 0.8)
@@ -125,16 +131,17 @@ export class CarPhysics {
     const safeSpeed = this.routeSpeed(requested)
     const settings = this.world.settings
     const surface = this.world.surface(this.x, this.s)
-    const nominalLoad = (metrics.mass * 9.81) / this.suspension.wheels.length
-    const traction = this.suspension.wheels.reduce(
-      (limit, wheel) =>
-        Math.min(
-          limit,
-          wheel.contact
-            ? (tractionAcceleration(settings, wheel.onRoad) * wheel.load) / nominalLoad
-            : 0,
-        ),
+    const totalLoad = metrics.mass * 9.81
+    const traction = Math.min(
       tractionAcceleration(settings, surface.onRoad),
+      this.suspension.wheels.reduce(
+        (sum, wheel) =>
+          sum +
+          (wheel.contact
+            ? (tractionAcceleration(settings, wheel.onRoad) * wheel.load) / totalLoad
+            : 0),
+        0,
+      ),
     )
     return {
       ...cruisePedals(
@@ -143,7 +150,10 @@ export class CarPhysics {
         metrics,
         settings.power,
         traction,
-        Math.sqrt(Math.max(0, traction * traction - (this.yawRate * this.speed) ** 2)) * 0.9,
+        Math.max(
+          Math.sqrt(Math.max(0, traction * traction - (this.yawRate * this.speed) ** 2)) * 0.9,
+          Math.abs(this.speed) > Math.abs(safeSpeed) + 2 ? traction * 0.5 : 0,
+        ),
         surface.onRoad,
         -Math.sin(this.yaw) * surface.slopeX + Math.cos(this.yaw) * surface.slopeS,
         reverseDriveFactor(this.speed, this.driveForce, metrics.jerk),
@@ -202,6 +212,15 @@ export class CarPhysics {
       this.brakeForce,
       handbrake,
     )
+    if (!handbrake) {
+      const grounded = this.suspension.wheels.filter((wheel) => wheel.contact)
+      const traction = grounded.length
+        ? (grounded.reduce((sum, wheel) => sum + surfaceGrip(settings, wheel.onRoad), 0) /
+            this.suspension.wheels.length) *
+          9.81
+        : 0
+      this.stability = stabilize(this, traction, vehicle.wheelbase, dt)
+    } else this.stability = 0
     this.x += (-Math.sin(this.yaw) * this.speed + Math.cos(this.yaw) * this.lateralSpeed) * dt
     this.s += (Math.cos(this.yaw) * this.speed + Math.sin(this.yaw) * this.lateralSpeed) * dt
     this.distance += Math.hypot(this.speed, this.lateralSpeed) * dt
