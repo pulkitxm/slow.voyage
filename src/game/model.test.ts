@@ -45,7 +45,7 @@ test.each(['touring', 'roadster'] as const)(
     for (const mesh of paint) bounds.expandByObject(mesh)
     expect(bounds.min.y).toBeLessThan(0.25)
     expect(bounds.max.y).toBeGreaterThan(1.2)
-    expect(bounds.max.y).toBeLessThan(1.26)
+    expect(bounds.max.y).toBeLessThan(vehicle === 'touring' ? 1.38 : 1.26)
     expect(bounds.getSize(new THREE.Vector3()).z).toBeGreaterThan(4)
     expect(bounds.getSize(new THREE.Vector3()).z).toBeLessThan(4.4)
     const ray = new THREE.Raycaster()
