@@ -7,7 +7,7 @@ export const site = {
     'Explore an endless road in your browser. Drive four vehicles through changing landscapes, seasons and weather, with offline play after the first complete load.',
   image: '/og-image.jpg',
   imageAlt:
-    'Gameplay capture of a white car driving a country road beside a river under a clear sky, with the slow.voyage title.',
+    'Gameplay capture of a red roadster driving through an autumn alpine valley, with the slow.voyage title and the line Take the long way home.',
   imageWidth: 1200,
   imageHeight: 630,
 }
