@@ -3,6 +3,11 @@ import { decodeSettings } from './settings'
 import { defaults } from './world'
 
 describe('saved preferences', () => {
+  test('preserves stopped and reverse cruise targets and clamps powered reverse', () => {
+    for (const speed of [-5, -3, 0, 3, 45])
+      expect(decodeSettings({ cruiseSpeed: speed }).cruiseSpeed).toBe(speed)
+    expect(decodeSettings({ cruiseSpeed: -100 }).cruiseSpeed).toBe(-5)
+  })
   test('rejects unsupported choices and invalid numeric data', () => {
     const settings = decodeSettings({
       vehicle: 'unknown',

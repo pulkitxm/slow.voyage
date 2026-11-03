@@ -2,6 +2,16 @@ import { expect, test } from 'bun:test'
 import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 import type { Input } from './physics'
 
+test('speed assistance forwards service braking without dropping manual ownership rules', () => {
+  const automatic = { ...neutralInput, regenBrake: 0.7 }
+  for (const mode of ['full', 'speed'] as const)
+    expect(resolveInput(neutralInput, automatic, mode, true).regenBrake).toBe(0.7)
+  for (const mode of ['off', 'steer'] as const) {
+    expect(resolveInput(neutralInput, automatic, mode, false).regenBrake).toBe(0)
+    expect(resolveInput(neutralInput, automatic, mode, true).regenBrake).toBe(0.15)
+  }
+})
+
 const manual = { ...neutralInput, throttle: 0.8, brake: 0.2, steer: 0.7 }
 const automatic = { ...neutralInput, throttle: 0.3, steer: -0.4 }
 

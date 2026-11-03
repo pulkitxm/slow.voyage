@@ -576,6 +576,24 @@ Fixed-camera comparisons rejected an exaggerated initial bump treatment before
 reducing it. Clear, rain, sunset, night, seasons, low detail, steep bends, bonnet
 and portrait views provide visual checks; material fidelity remains provisional.
 
+Signed cruise control now supports forward, stopped and reverse physical targets.
+Rolling resistance, drag, grade and the existing reverse governor inform the
+speed controller. Reverse pursuit looks behind the moving vehicle; direction
+changes use service braking before propulsion changes direction. Zero targets
+hold with service brakes, including wet low-grip ten-percent grades where the
+former fixed steering reserve could leave enough grip unused to prevent stopping.
+Torque can build against the service brake during a direction change, preventing
+low-jerk vehicles from repeatedly rolling back at the rest threshold on a grade.
+
+Locked tire contacts now apply gravity before the constraint solve and iterate
+two-dimensional impulses within each wheel's friction circle. Unsaturated static
+contacts use their coupled effective mass; saturated contacts solve a constrained
+quadratic rather than radially clipping the unconstrained inverse. Checks include
+straight locked deceleration equal to friction times gravity, no sideways impulse
+under pure longitudinal slip, bounded contact impulse, planar energy dissipation,
+stopped-grade hold, reverse curves and powered direction changes. These physical
+invariants do not establish a match to current-release response measurements.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

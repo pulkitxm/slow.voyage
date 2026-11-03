@@ -64,6 +64,10 @@ export function resolveInput(
     steer: steer ? automatic.steer : manual.steer,
     steeringSource: steer ? automatic.steeringSource : manual.steeringSource,
     handbrake: manual.handbrake,
-    regenBrake: !speed && onePedal && !manual.throttle && !manual.brake ? 0.15 : 0,
+    regenBrake: speed
+      ? automatic.regenBrake
+      : onePedal && !manual.throttle && !manual.brake
+        ? 0.15
+        : 0,
   }
 }

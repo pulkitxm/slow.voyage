@@ -1,4 +1,5 @@
 import { type BarrierContact, resolveBarrierImpulse } from './barrier'
+import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
 import { surfaceGrip } from './grip'
 import { guardrailAt, roadCoordinates, roadLayout } from './road'
 import { Steering, steeringLimit } from './steering'
@@ -77,6 +78,7 @@ export class CarPhysics {
     this.suspension.reset(this)
   }
   routeSpeed(targetSpeed: number) {
+    const direction = targetSpeed < 0 ? -1 : 1
     const settings = this.world.settings
     const metrics = vehicleMetrics[settings.vehicle]
     const surface = this.world.surface(this.x, this.s)
@@ -85,24 +87,28 @@ export class CarPhysics {
     const speed = Math.abs(this.speed)
     const braking = Math.max(
       0.2,
-      Math.min(metrics.brake * 0.7, traction * 0.5) - Math.max(0, -surface.slopeS) * 9.81,
+      Math.min(metrics.brake * 0.7, traction * 0.5) -
+        Math.max(0, -surface.slopeS * direction) * 9.81,
     )
     const preview = clamp((speed * speed) / (2 * braking) + speed, 80, 1200)
-    let limit = targetSpeed
+    let limit = Math.abs(targetSpeed)
     for (let distance = 0; distance <= preview; distance += 10) {
-      const sample = this.world.road(this.s + distance)
-      const before = this.world.road(this.s + distance - 4)
-      const after = this.world.road(this.s + distance + 4)
+      const sample = this.world.road(this.s + direction * distance)
+      const before = this.world.road(this.s + direction * distance - 4)
+      const after = this.world.road(this.s + direction * distance + 4)
       const curvature =
         Math.abs(angleDifference(after.yaw, before.yaw)) / (8 * Math.hypot(1, sample.dx))
       const cornerSpeedSquared = lateralAcceleration / Math.max(curvature, 0.000001)
       const availableDistance = Math.max(0, distance - speed)
       limit = Math.min(limit, Math.sqrt(cornerSpeedSquared + 2 * braking * availableDistance))
     }
-    return limit
+    return direction * limit
   }
   autoInput(targetSpeed: number): Input {
-    const lookahead = 13 + Math.abs(this.speed) * 0.8
+    const requested = clamp(targetSpeed, -cruiseLimits.reverse, cruiseLimits.forward)
+    const direction =
+      Math.abs(this.speed) > 0.05 ? Math.sign(this.speed) : Math.sign(requested) || 1
+    const lookahead = direction * (13 + Math.abs(this.speed) * 0.8)
     const target = this.world.road(this.s + lookahead)
     const targetX = target.x - this.x
     const targetRight = targetX * Math.cos(this.yaw) + lookahead * Math.sin(this.yaw)
@@ -111,7 +117,7 @@ export class CarPhysics {
     const steer =
       Math.atan(metrics.wheelbase * curvature) /
       steeringLimit(this.speed, this.world.settings.vehicle)
-    const safeSpeed = this.routeSpeed(targetSpeed)
+    const safeSpeed = this.routeSpeed(requested)
     const settings = this.world.settings
     const surface = this.world.surface(this.x, this.s)
     const nominalLoad = (metrics.mass * 9.81) / this.suspension.wheels.length
@@ -125,26 +131,21 @@ export class CarPhysics {
         ),
       tractionAcceleration(settings, surface.onRoad),
     )
-    const speed = Math.abs(this.speed)
-    const rolling =
-      0.1 + metrics.rollingResistance * speed + (surface.onRoad ? 0 : 1.4 + speed * 0.04)
-    const drive =
-      metrics.acceleration * settings.power * 0.5 * (1 + Math.max(0, 0.5 * (1 - speed / 27)))
     return {
-      throttle: clamp(
-        (safeSpeed - this.speed) * 0.5,
-        0,
-        Math.min(1, (traction * 0.5 + rolling) / drive),
-      ),
-      brake: clamp(
-        (this.speed - safeSpeed) * 0.3,
-        0,
-        Math.min(1, Math.max(0, traction * 0.5 - rolling) / metrics.brake),
+      ...cruisePedals(
+        this.speed,
+        safeSpeed,
+        metrics,
+        settings.power,
+        traction,
+        Math.sqrt(Math.max(0, traction * traction - (this.yawRate * this.speed) ** 2)) * 0.9,
+        surface.onRoad,
+        -Math.sin(this.yaw) * surface.slopeX + Math.cos(this.yaw) * surface.slopeS,
+        reverseDriveFactor(this.speed, this.driveForce, metrics.jerk),
       ),
       steer: clamp(steer, -1, 1),
       steeringSource: 'automatic',
       handbrake: false,
-      regenBrake: 0,
     }
   }
   update(dt: number, input: Input, settings: Settings) {
@@ -158,12 +159,12 @@ export class CarPhysics {
     const previousS = this.s
     const previousYaw = this.yaw
     const v = Math.abs(this.speed)
-    const reversing = input.brake > 0 && input.throttle === 0 && this.speed < directionChangeSpeed
+    const reverseCommand = input.brake > 0 && input.throttle === 0
+    const reversing = reverseCommand && this.speed < directionChangeSpeed
     const forwardBraking =
       input.throttle > 0 && input.brake === 0 && this.speed < -directionChangeSpeed
-    const reverseRunout = Math.max(0, -this.driveForce) ** 2 / vehicle.jerk
-    const reverseGovernor = clamp((5 + this.speed - reverseRunout) / 0.5, 0, 1)
-    const targetForce = reversing
+    const reverseGovernor = reverseDriveFactor(this.speed, this.driveForce, vehicle.jerk)
+    const targetForce = reverseCommand
       ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
       : input.throttle *
         vehicle.acceleration *

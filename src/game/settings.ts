@@ -5,7 +5,7 @@ const numericRanges = {
   grip: [0.2, 2],
   power: [0.5, 2],
   seed: [0, 99999],
-  cruiseSpeed: [5, 45],
+  cruiseSpeed: [-cruiseLimits.reverse, cruiseLimits.forward],
   controllerDeadzone: [0.05, 0.4],
   mouseSensitivity: [0.5, 2],
 } as const
@@ -63,3 +63,5 @@ export function loadSettings(): Settings {
     return { ...defaults }
   }
 }
+
+import { cruiseLimits } from './cruise'
