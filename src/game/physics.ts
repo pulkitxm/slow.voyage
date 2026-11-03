@@ -42,6 +42,8 @@ function tractionAcceleration(settings: Settings, onRoad: boolean) {
 }
 const directionChangeSpeed = 0.05
 const brakeResponseSeconds = 0.1
+const gripSteeringShare = 1.5
+
 export class CarPhysics {
   x = 0
   s = 180
@@ -64,13 +66,14 @@ export class CarPhysics {
   brakeForce = 0
   offroad = false
   stability = 0
+  tireSteeringLimit = Number.POSITIVE_INFINITY
   suspension: Suspension
   constructor(public world: World) {
     this.suspension = new Suspension(world)
     this.reset()
   }
   get steering() {
-    return this.steeringControl.angle
+    return clamp(this.steeringControl.angle, -this.tireSteeringLimit, this.tireSteeringLimit)
   }
   reset(s = this.s) {
     this.s = s
@@ -82,6 +85,7 @@ export class CarPhysics {
     this.yaw = road.yaw
     this.speed = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
     this.steeringControl.reset()
+    this.tireSteeringLimit = Number.POSITIVE_INFINITY
     this.suspension.reset(this)
   }
   routeSpeed(targetSpeed: number) {
@@ -202,6 +206,10 @@ export class CarPhysics {
         )
       : 0
     this.steeringControl.update(dt, input.steer, input.steeringSource, this.speed, settings.vehicle)
+    this.tireSteeringLimit = Math.atan(
+      (vehicle.wheelbase * gripSteeringShare * surfaceGrip(settings, !this.offroad) * 9.81) /
+        Math.max(v * v, 1),
+    )
     this.suspension.updateSteering(this.steering)
     const acceleration = solveTires(
       dt,

@@ -166,6 +166,27 @@ describe('high-speed manual handling', () => {
     },
   )
 
+  test.each(vehicles)(
+    '%s tires never ask for far more grip than exists while parking keeps full lock',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const metrics = vehicleMetrics[vehicle]
+      for (const speed of [3, 33]) {
+        const car = new CarPhysics(new FlatWorld(settings))
+        car.speed = speed
+        for (let step = 0; step < 90; step++)
+          car.update(1 / 120, { ...neutralInput, steer: 1, steeringSource: 'digital' }, settings)
+        const lateral =
+          (car.speed * car.speed * Math.tan(Math.abs(car.steering))) / metrics.wheelbase
+        if (speed === 3) expect(car.steering).toBeCloseTo(car.steeringControl.angle, 8)
+        else {
+          expect(car.steeringControl.angle).toBeGreaterThanOrEqual(car.steering)
+          expect(lateral).toBeLessThan(9.81 * 1.6)
+        }
+      }
+    },
+  )
+
   test.each(vehicles)('%s keeps steering authority at full throttle and boost', (vehicle) => {
     const settings = { ...defaults, vehicle }
     const response = () => {
