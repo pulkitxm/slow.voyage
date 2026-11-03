@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SettingsTab } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
+import { adjustCruiseSpeed } from './game/cruise'
 import { type DriveState, RoadEngine } from './game/engine'
 import { nextJourney } from './game/journeys'
 import { cameras, loadSettings } from './game/settings'
 import { vehicleNames } from './game/vehicles'
-import { clamp, defaults, type Settings } from './game/world'
+import { defaults, type Settings } from './game/world'
 
 const initial: DriveState = {
   speed: 0,
@@ -104,10 +105,16 @@ export function useDrive() {
   }
   const adjustCruise = (direction: number) => {
     const factor = settingsRef.current.units === 'km' ? 3.6 : 2.23694
-    const speed = clamp(settingsRef.current.cruiseSpeed + (direction * 5) / factor, 5, 45)
+    const speed = adjustCruiseSpeed(
+      settingsRef.current.cruiseSpeed,
+      direction,
+      settingsRef.current.units,
+    )
     update('cruiseSpeed', speed)
     announce(
-      `Cruise speed ${Math.round(speed * factor)} ${settingsRef.current.units === 'km' ? 'km/h' : 'mph'}`,
+      speed === 0
+        ? 'Cruise stop selected'
+        : `${speed < 0 ? 'Reverse cruise' : 'Cruise speed'} ${Math.round(Math.abs(speed) * factor)} ${settingsRef.current.units === 'km' ? 'km/h' : 'mph'}`,
     )
   }
   const cycleCamera = () => {
