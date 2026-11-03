@@ -600,8 +600,34 @@ both detail settings, day and night, resized photo exports, and manual driving.
 All 20 browser flows pass, alongside the 379-test local gate. Ten-second software
 bus and motorcycle bonnet samples hold roughly 66.7-millisecond medians at both
 detail settings. Repeated vehicle swaps retain stable per-vehicle resources,
-including release of the extra dial texture. A motorcycle streaming frame still
-takes 1.25 seconds, so these medians do not establish smooth extended driving.
+including release of the extra dial texture. One motorcycle sample also contains
+a 1.25-second frame. Subsequent tracing below distinguishes this
+first-use pause from tile generation; medians alone do not establish smooth
+extended driving.
+
+Live tracing shows the longest motorcycle pause just after vehicle selection,
+while terrain work takes less than a millisecond. The motorcycle formerly
+replaced two spotlights with one, changing light-count shader variants across
+the world. Two reusable spotlight slots now retain the same shader layout for
+all four vehicles. Only real headlight positions receive intensity; the spare
+motorcycle slot remains at zero. Light targets follow the selected vehicle,
+and both lights are released when the engine closes.
+
+In a parked production-build comparison at 1280 by 720 with forced SwiftShader,
+the first motorcycle change drops from seven program links to one. Its largest
+observed frame interval drops from 1283.3 to 249.9 milliseconds. Eight vehicle
+changes each link one program; the largest interval across the new sequence is
+300.1 milliseconds. This does not eliminate model startup or guarantee timing
+on other devices. A separate moving sample keeps a 66.7-millisecond median.
+Measured tile-generation frames still take approximately 25 to 38 milliseconds
+of main-thread work and remain a separate optimization target.
+
+The browser regression check bounds program linking across repeated vehicle,
+lighting, and detail changes while retaining the texture-lifecycle checks.
+All 20 browser flows pass. Twenty-six frozen native views differ by no more
+than one channel value from the preceding checkpoint, and seven matched software
+chase and cabin views are pixel-identical. A new Rea attempt still
+reaches Cloudflare verification rather than the current official game.
 
 Static untextured coachwork, interior parts, and wheel components are batched
 by material after construction. Animated wheel pivots and the exterior steering
