@@ -37,8 +37,8 @@ export interface Telemetry {
   gear: string
   impact: number
 }
-function tractionAcceleration(settings: Settings, onRoad: boolean) {
-  return surfaceGrip(settings, onRoad) * 9.81
+function tractionAcceleration(settings: Settings, onRoad: boolean, sand = false) {
+  return surfaceGrip(settings, onRoad, sand) * 9.81
 }
 const directionChangeSpeed = 0.05
 const brakeResponseSeconds = 0.1
@@ -65,6 +65,7 @@ export class CarPhysics {
   boosting = false
   brakeForce = 0
   offroad = false
+  sand = false
   stability = 0
   tireSteeringLimit = Number.POSITIVE_INFINITY
   suspension: Suspension
@@ -93,7 +94,7 @@ export class CarPhysics {
     const settings = this.world.settings
     const metrics = vehicleMetrics[settings.vehicle]
     const surface = this.world.surface(this.x, this.s)
-    const traction = tractionAcceleration(settings, surface.onRoad)
+    const traction = tractionAcceleration(settings, surface.onRoad, surface.sand)
     const lateralAcceleration = Math.min(4, traction * 0.6)
     const speed = Math.abs(this.speed)
     const braking = Math.max(
@@ -137,12 +138,12 @@ export class CarPhysics {
     const surface = this.world.surface(this.x, this.s)
     const totalLoad = metrics.mass * 9.81
     const traction = Math.min(
-      tractionAcceleration(settings, surface.onRoad),
+      tractionAcceleration(settings, surface.onRoad, surface.sand),
       this.suspension.wheels.reduce(
         (sum, wheel) =>
           sum +
           (wheel.contact
-            ? (tractionAcceleration(settings, wheel.onRoad) * wheel.load) / totalLoad
+            ? (tractionAcceleration(settings, wheel.onRoad, wheel.sand) * wheel.load) / totalLoad
             : 0),
         0,
       ),
@@ -206,7 +207,8 @@ export class CarPhysics {
         )
       : 0
     const gripSteering = Math.atan(
-      (vehicle.wheelbase * surfaceGrip(settings, !this.offroad) * 9.81) / Math.max(v * v, 1),
+      (vehicle.wheelbase * surfaceGrip(settings, !this.offroad, this.sand) * 9.81) /
+        Math.max(v * v, 1),
     )
     this.tireSteeringLimit = Math.atan(Math.tan(gripSteering) * gripSteeringShare)
     this.steeringControl.update(
@@ -230,7 +232,10 @@ export class CarPhysics {
     if (!handbrake) {
       const grounded = this.suspension.wheels.filter((wheel) => wheel.contact)
       const traction = grounded.length
-        ? (grounded.reduce((sum, wheel) => sum + surfaceGrip(settings, wheel.onRoad), 0) /
+        ? (grounded.reduce(
+            (sum, wheel) => sum + surfaceGrip(settings, wheel.onRoad, wheel.sand),
+            0,
+          ) /
             this.suspension.wheels.length) *
           9.81
         : 0
@@ -291,6 +296,7 @@ export class CarPhysics {
     }
     this.suspension.update(dt, this, acceleration.forward, acceleration.lateral, handbrake)
     this.offroad = this.suspension.wheels.some((wheel) => wheel.contact && !wheel.onRoad)
+    this.sand = this.suspension.wheels.some((wheel) => wheel.contact && wheel.sand)
     this.slip =
       this.suspension.wheels.reduce((sum, wheel) => sum + wheel.slip, 0) /
       this.suspension.wheels.length

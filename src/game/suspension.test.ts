@@ -9,6 +9,7 @@ class TestWorld extends World {
     return {
       height: this.elevation(x, s),
       onRoad: true,
+      sand: false,
       slopeX: (this.elevation(x + 0.2, s) - this.elevation(x - 0.2, s)) / 0.4,
       slopeS: (this.elevation(x, s + 0.2) - this.elevation(x, s - 0.2)) / 0.4,
     }

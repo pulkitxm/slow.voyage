@@ -64,6 +64,7 @@ export const defaults: Settings = {
   mouseEnabled: false,
   mouseSensitivity: 1,
 }
+export const shoreHeight = 1.2
 export const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 export const damp = (a: number, b: number, rate: number, dt: number) =>
   a + (b - a) * (1 - Math.exp(-rate * dt))
@@ -127,17 +128,26 @@ export class World {
     return drop > 1.5 || (drop > 0.4 && turn * side > 0.02)
   }
 
+  sandy(height: number, distance: number) {
+    return (
+      Math.abs(distance) > roadLayout.halfWidth + roadLayout.shoulder &&
+      (this.settings.landscape === 'desert' || height < shoreHeight)
+    )
+  }
+
   surface(x: number, s: number) {
     const { road, distance } = roadCoordinates(this, x, s)
     const onRoad = Math.abs(distance) <= roadLayout.halfWidth
     const grade = road.dy / (1 + road.dx * road.dx)
     if (!onRoad) {
       const ground = groundSurface(this, x, s)
-      if (ground) return { ...ground, onRoad }
+      if (ground) return { ...ground, onRoad, sand: this.sandy(ground.height, distance) }
     }
+    const height = onRoad ? road.y : this.height(x, s)
     return {
-      height: onRoad ? road.y : this.height(x, s),
+      height,
       onRoad,
+      sand: !onRoad && this.sandy(height, distance),
       slopeX: onRoad ? grade * road.dx : (this.height(x + 0.2, s) - this.height(x - 0.2, s)) / 0.4,
       slopeS: onRoad ? grade : (this.height(x, s + 0.2) - this.height(x, s - 0.2)) / 0.4,
     }

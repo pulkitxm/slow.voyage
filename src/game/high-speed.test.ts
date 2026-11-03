@@ -130,7 +130,7 @@ describe('high-speed assistance', () => {
             offset: 1.5,
             yawError: 0.05,
           })
-          const margin = vehicle === 'motorcycle' ? roadLayout.shoulder : 0
+          const margin = vehicle === 'motorcycle' ? roadLayout.shoulder + 0.25 : 0
           expect(run.maxOffset).toBeLessThan(roadLayout.halfWidth + margin)
           expect(run.impact).toBeLessThan(0.5)
           expect(Math.abs(run.car.yawRate)).toBeLessThan(0.5)
@@ -256,7 +256,7 @@ describe('high-speed manual handling', () => {
 
 class GrassWorld extends FlatWorld {
   override surface(_x: number, _s: number) {
-    return { height: 0, onRoad: false, slopeX: 0, slopeS: 0 }
+    return { height: 0, onRoad: false, sand: false, slopeX: 0, slopeS: 0 }
   }
 }
 

@@ -31,7 +31,7 @@ class GradeWorld extends World {
     return { x: 0, y: s * this.grade, dx: 0, dy: this.grade, yaw: 0 }
   }
   override surface(_x: number, s: number) {
-    return { height: s * this.grade, onRoad: true, slopeX: 0, slopeS: this.grade }
+    return { height: s * this.grade, onRoad: true, sand: false, slopeX: 0, slopeS: this.grade }
   }
   override guardrail(_s: number, _side: number) {
     return false
@@ -56,7 +56,7 @@ class GuardrailWorld extends World {
     }
   }
   override surface(_x: number, _s: number) {
-    return { height: 0, onRoad: true, slopeX: 0, slopeS: 0 }
+    return { height: 0, onRoad: true, sand: false, slopeX: 0, slopeS: 0 }
   }
   override guardrail(_s: number, _side: number) {
     return this.rails

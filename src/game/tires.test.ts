@@ -9,7 +9,7 @@ class FlatWorld extends World {
     return { x: 0, y: 0, dx: 0, dy: 0, yaw: 0 }
   }
   override surface(_x: number, _s: number) {
-    return { height: 0, onRoad: true, slopeX: 0, slopeS: 0 }
+    return { height: 0, onRoad: true, sand: false, slopeX: 0, slopeS: 0 }
   }
   override guardrail(_s: number, _side: number) {
     return false
@@ -133,7 +133,7 @@ test('unequal grip changes wheel traction independently', () => {
 test('gravity makes an unpowered vehicle roll downhill', () => {
   class SlopeWorld extends FlatWorld {
     override surface(_x: number, s: number) {
-      return { height: s * 0.1, onRoad: true, slopeX: 0, slopeS: 0.1 }
+      return { height: s * 0.1, onRoad: true, sand: false, slopeX: 0, slopeS: 0.1 }
     }
   }
   const body = new CarPhysics(new SlopeWorld({ ...defaults }))
@@ -250,4 +250,62 @@ test('the bus takes longer than the touring car to reach full steering lock', ()
   }
   expect(angles[0]).toBeGreaterThan(0.6)
   expect(angles[1]).toBeLessThan((angles[0] ?? 0) * 0.85)
+})
+
+class OffroadWorld extends FlatWorld {
+  constructor(
+    settings: Settings,
+    public sand: boolean,
+  ) {
+    super(settings)
+  }
+  override surface(_x: number, _s: number) {
+    return { height: 0, onRoad: false, sand: this.sand, slopeX: 0, slopeS: 0 }
+  }
+}
+
+function offroad(vehicle: Settings['vehicle'], sand: boolean) {
+  const settings = { ...defaults, vehicle }
+  const body = new CarPhysics(new OffroadWorld(settings, sand))
+  body.suspension.reset(body)
+  return { settings, body }
+}
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s bogs down in sand far more than on grass whatever the tire grip',
+  (vehicle) => {
+    const top = (sand: boolean) => {
+      const { settings, body } = offroad(vehicle, sand)
+      for (let frame = 0; frame < 20 * 120; frame++)
+        body.update(step, { ...coast, throttle: 1, boost: true }, settings)
+      return body.speed
+    }
+    const halving = (sand: boolean) => {
+      const { settings, body } = offroad(vehicle, sand)
+      body.speed = 30
+      let frames = 0
+      while (body.speed > 15 && frames < 20 * 120) {
+        body.update(step, coast, settings)
+        frames++
+      }
+      return frames * step
+    }
+    expect(top(true)).toBeLessThan(16)
+    expect(top(true)).toBeGreaterThan(10)
+    expect(top(true)).toBeLessThan(top(false) * 0.85)
+    expect(halving(true)).toBeLessThan(2)
+    expect(halving(true)).toBeLessThan(halving(false) * 0.75)
+  },
+)
+
+test('sand lies past the shoulder in the desert and along low shores, never on the road', () => {
+  const desert = new World({ ...defaults, landscape: 'desert' })
+  const highlands = new World({ ...defaults, landscape: 'highlands' })
+  const road = desert.road(500)
+  expect(desert.surface(road.x, 500).sand).toBe(false)
+  expect(desert.surface(road.x + 3.3, 500).sand).toBe(false)
+  expect(desert.surface(road.x + 12, 500).sand).toBe(true)
+  expect(highlands.sandy(0.5, 20)).toBe(true)
+  expect(highlands.sandy(5, 20)).toBe(false)
+  expect(highlands.sandy(0.5, 3)).toBe(false)
 })

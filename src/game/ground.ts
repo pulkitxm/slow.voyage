@@ -3,7 +3,7 @@ import { groundLayout, groundOffsets } from './ground-grid'
 import { roadCoordinates, roadLayout } from './road'
 import { loadRockSurface } from './rock'
 import { woodlandCoverage } from './woodland'
-import { clamp, random, type Settings, type World } from './world'
+import { clamp, random, type Settings, shoreHeight, type World } from './world'
 
 export function groundGeometry(
   world: World,
@@ -64,8 +64,8 @@ export function* groundRows(
       const variation =
         0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055
       color.copy(base).lerp(light, variation)
-      if (elevation < 1.2 && settings.landscape !== 'desert')
-        color.lerp(shore, clamp((1.2 - elevation) / 1.5, 0, 1))
+      if (elevation < shoreHeight && settings.landscape !== 'desert')
+        color.lerp(shore, clamp((shoreHeight - elevation) / 1.5, 0, 1))
       if (settings.landscape === 'alpine' && elevation > 120)
         color.lerp(snow, clamp((elevation - 120) / 80, 0, 1))
       colors.push(color.r, color.g, color.b)

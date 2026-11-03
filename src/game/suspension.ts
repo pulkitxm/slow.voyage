@@ -37,6 +37,7 @@ export interface WheelState {
   slopeX: number
   slopeS: number
   onRoad: boolean
+  sand: boolean
   contact: boolean
   compression: number
   offset: number
@@ -78,6 +79,7 @@ export class Suspension {
           slopeX: 0,
           slopeS: 0,
           onRoad: true,
+          sand: false,
           contact: true,
           compression: 0.5,
           offset: 0,
@@ -189,6 +191,7 @@ export class Suspension {
       wheel.x = contactX
       wheel.s = contactS
       wheel.onRoad = governing.onRoad
+      wheel.sand = governing.sand
       wheel.slopeX = governing.slopeX
       wheel.slopeS = governing.slopeS
     }
