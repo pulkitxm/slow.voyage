@@ -47,7 +47,9 @@ test('missing, invalid and ambiguous physical sources are neutral', () => {
 
 test('custom steering and pedals can come from separate unmapped devices', () => {
   const bindings = { steerLeft: steering, throttle: accelerator }
-  const frame = new GamepadControls().read(
+  const reader = new GamepadControls()
+  reader.read([pad('Portable wheel', 5, [0.04]), pad('Portable pedals', 2, [0, 1])], 0.12, bindings)
+  const frame = reader.read(
     [pad('Portable wheel', 5, [-0.41]), pad('Portable pedals', 2, [0, 0])],
     0.12,
     bindings,
@@ -62,6 +64,8 @@ test('custom steering and pedals can come from separate unmapped devices', () =>
 test('reindexing a saved device requires release but keeps its binding', () => {
   const reader = new GamepadControls()
   const bindings = { throttle: accelerator }
+  expect(reader.read([pad('Portable pedals', 2, [0, -1])], 0.12, bindings).input.throttle).toBe(0)
+  reader.read([pad('Portable pedals', 2, [0, 1])], 0.12, bindings)
   expect(reader.read([pad('Portable pedals', 2, [0, -1])], 0.12, bindings).input.throttle).toBe(1)
   expect(reader.read([pad('Portable pedals', 7, [0, -1])], 0.12, bindings).input.throttle).toBe(0)
   reader.read([pad('Portable pedals', 7, [0, 1])], 0.12, bindings)
@@ -95,6 +99,7 @@ test('mapped axes produce one shortcut edge and camera motion stays separate fro
     to: 1,
   }
   const bindings = { camera: binding, lookLeft: binding }
+  reader.read([pad('Portable wheel', 0, [0])], 0.12, bindings)
   const first = reader.read([pad('Portable wheel', 0, [0.8])], 0.12, bindings)
   expect(first.actions).toEqual(['camera'])
   expect(first.look.x).toBeGreaterThan(0)
@@ -120,4 +125,22 @@ test('saved bindings reject malformed endpoints, device identifiers and indices'
   ])
     expect(decodeBindings({ steerLeft: invalid })).toEqual({})
   expect(decodeBindings({ extra: steering })).toEqual({})
+})
+
+test('noisy shortcut axes use hysteresis and need calibrated rest after suspension', () => {
+  const reader = new GamepadControls()
+  const bindings = {
+    pause: { deviceId: 'Portable wheel', kind: 'axis' as const, index: 0, from: 0, to: 1 },
+  }
+  reader.read([pad('Portable wheel', 0, [0])], 0.12, bindings)
+  expect(reader.read([pad('Portable wheel', 0, [0.7])], 0.12, bindings).actions).toEqual(['pause'])
+  for (const value of [0.49, 0.51, 0.49, 0.51])
+    expect(reader.read([pad('Portable wheel', 0, [value])], 0.12, bindings).actions).toEqual([])
+  reader.suspend()
+  for (const value of [0.49, 0.51, 0.2]) {
+    expect(reader.read([pad('Portable wheel', 0, [value])], 0.12, bindings).actions).toEqual([])
+    expect(reader.waitingForRelease).toBe(true)
+  }
+  reader.read([pad('Portable wheel', 0, [0])], 0.12, bindings)
+  expect(reader.read([pad('Portable wheel', 0, [0.7])], 0.12, bindings).actions).toEqual(['pause'])
 })
