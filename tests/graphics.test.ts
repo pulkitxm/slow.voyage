@@ -28,6 +28,68 @@ function trackGraphicsTextures() {
   Object.assign(window, { graphicsTextures: () => textures.size, graphicsLinks: () => links })
 }
 
+test('bundled terrain images finish loading before driving becomes available', async () => {
+  const fixture = productionFixture()
+  const browser = await chromium.launch({ executablePath: browserExecutable(), headless: true })
+  let release = () => {}
+  const pending = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  try {
+    const page = await browser.newPage()
+    await page.route(/\/assets\/rock-.*\.(?:png|jpg)$/, async (route) => {
+      await pending
+      await route.continue()
+    })
+    const requested = page.waitForRequest(/\/assets\/rock-normal[^/]*\.png$/, {
+      timeout: 60000,
+    })
+    await page.goto(fixture.url, { waitUntil: 'domcontentloaded' })
+    await requested
+    await page.locator('.intro .primary-button').waitFor()
+    expect(await page.locator('.intro .primary-button').isDisabled()).toBe(true)
+    expect(await page.locator('canvas').evaluate((canvas) => canvas.style.visibility)).toBe(
+      'hidden',
+    )
+    release()
+    await page.waitForFunction(() => {
+      const button = document.querySelector<HTMLButtonElement>('.intro .primary-button')
+      return button && !button.disabled
+    })
+    await page.locator('.intro .text-button').click()
+    await page.waitForSelector('[data-assistance="full"]')
+    expect(await page.locator('canvas').evaluate((canvas) => canvas.style.visibility)).toBe('')
+  } finally {
+    release()
+    await browser.close()
+    fixture.stop()
+  }
+}, 90000)
+
+test('bundled terrain image failures surface a recoverable startup error', async () => {
+  const fixture = productionFixture()
+  const browser = await chromium.launch({ executablePath: browserExecutable(), headless: true })
+  try {
+    const page = await browser.newPage()
+    await page.route(/\/assets\/rock-normal[^/]*\.png$/, (route) => route.abort())
+    await page.goto(fixture.url)
+    await page.getByText('The renderer could not prepare the road. Reload to try again.').waitFor({
+      timeout: 60000,
+    })
+    expect(await page.locator('.intro .primary-button').isDisabled()).toBe(true)
+    expect(await page.locator('canvas').evaluate((canvas) => canvas.style.visibility)).toBe(
+      'hidden',
+    )
+    await page.unroute(/\/assets\/rock-normal[^/]*\.png$/)
+    await page.reload()
+    await page.locator('.intro .text-button').click({ timeout: 60000 })
+    await page.waitForSelector('[data-assistance="full"]')
+  } finally {
+    await browser.close()
+    fixture.stop()
+  }
+}, 90000)
+
 for (const software of [false, true]) {
   test(`${software ? 'software' : 'automatic'} graphics exports complete photos, drives, and releases resized buffers`, async () => {
     const directory = resolve('.review/graphics-checks')
