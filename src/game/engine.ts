@@ -414,18 +414,18 @@ export class RoadEngine {
     }
   }
   configureHeadlights() {
-    for (const light of this.headlights) {
-      light.removeFromParent()
-      light.target.removeFromParent()
-      light.dispose()
-    }
-    this.headlights = this.car.headlightPositions.map((position) => {
-      const light = new THREE.SpotLight('#fff0cf', 40, 100, 0.42, 0.6, 1)
+    if (!this.headlights.length)
+      this.headlights = Array.from(
+        { length: 2 },
+        () => new THREE.SpotLight('#fff0cf', 40, 100, 0.42, 0.6, 1),
+      )
+    for (const [index, light] of this.headlights.entries()) {
+      const position = this.car.headlightPositions[index] ??
+        this.car.headlightPositions[0] ?? [0, 0, 0]
       light.position.set(...position)
       light.target.position.set(position[0] * 2, -0.5, position[2] - 45)
       this.car.group.add(light, light.target)
-      return light
-    })
+    }
   }
   applyLighting() {
     this.water.setAppearance(this.settings.daylight, this.settings.season === 'winter')
@@ -455,9 +455,12 @@ export class RoadEngine {
     this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
     this.terrain.roadMaterial.envMap = environment
     this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
-    for (const light of this.headlights)
+    for (const [index, light] of this.headlights.entries())
       light.intensity =
-        night || this.settings.weather === 'fog' || this.settings.weather === 'rain' ? 65 : 0
+        index < this.car.headlightPositions.length &&
+        (night || this.settings.weather === 'fog' || this.settings.weather === 'rain')
+          ? 65
+          : 0
   }
   manualInput(): Input {
     if (this.controlsBlocked) return { ...neutralInput }

@@ -10,6 +10,12 @@ function trackGraphicsTextures() {
   const textures = new Set<WebGLTexture>()
   const create = WebGL2RenderingContext.prototype.createTexture
   const release = WebGL2RenderingContext.prototype.deleteTexture
+  const link = WebGL2RenderingContext.prototype.linkProgram
+  let links = 0
+  WebGL2RenderingContext.prototype.linkProgram = function (program) {
+    links++
+    link.call(this, program)
+  }
   WebGL2RenderingContext.prototype.createTexture = function () {
     const texture = create.call(this)
     if (texture) textures.add(texture)
@@ -19,7 +25,7 @@ function trackGraphicsTextures() {
     if (texture) textures.delete(texture)
     release.call(this, texture)
   }
-  Object.assign(window, { graphicsTextures: () => textures.size })
+  Object.assign(window, { graphicsTextures: () => textures.size, graphicsLinks: () => links })
 }
 
 for (const software of [false, true]) {
@@ -146,7 +152,7 @@ for (const software of [false, true]) {
   }, 160000)
 }
 
-test('software cockpit instruments survive lighting and vehicle changes without leaking textures', async () => {
+test('software cockpit changes retain textures and avoid rebuilding world shaders', async () => {
   const directory = resolve('.review/graphics-checks')
   await mkdir(directory, { recursive: true })
   const fixture = productionFixture()
@@ -183,6 +189,9 @@ test('software cockpit instruments survive lighting and vehicle changes without 
         ] as const) {
           await page.getByRole('button', { name: 'Open settings' }).click()
           await page.getByRole('tab', { name: 'vehicle', exact: true }).click()
+          const linksBefore = await page.evaluate(() =>
+            (window as unknown as { graphicsLinks: () => number }).graphicsLinks(),
+          )
           await page.locator('.vehicle-options').getByRole('button', { name: label }).click()
           await page.getByRole('tab', { name: 'display', exact: true }).click()
           await page
@@ -206,6 +215,7 @@ test('software cockpit instruments survive lighting and vehicle changes without 
               textures: (
                 window as unknown as { graphicsTextures: () => number }
               ).graphicsTextures(),
+              links: (window as unknown as { graphicsLinks: () => number }).graphicsLinks(),
               error: gl.getError(),
             }
           })
@@ -214,11 +224,12 @@ test('software cockpit instruments survive lighting and vehicle changes without 
           expect(graphics.textures).toBe(expected)
           counts.set(key, expected)
           expect(graphics.error).toBe(0)
+          expect(graphics.links - linksBefore).toBeLessThanOrEqual(2)
           if (cycle < 2)
             await page.screenshot({
               path: resolve(directory, `cockpit-${key}-${cycle === 1 ? 'night' : 'day'}.png`),
             })
-          samples.push({ cycle, vehicle, quality, ...graphics })
+          samples.push({ cycle, vehicle, quality, linksBefore, ...graphics })
         }
       }
     }
