@@ -86,6 +86,49 @@ an inward lean, and has no handbrake. Its pod silhouette is reconstructed from
 local inspection of the historical body artifact. The original mesh is not
 included in the application.
 
+## Longitudinal reference measurements
+
+The historical browser runtime was measured on a synthetic horizontal paved
+surface with friction 1.4. Ground queries, route bookkeeping, and audio were
+isolated; its wheel, chassis, suspension, input, and vehicle-state updates remained
+unchanged. Each run settled for three seconds, then advanced a fixed logical input
+clock alongside physics. This prevents double-tap boost detection from changing
+the intended input. The historical Roadster has the touring car's metrics; it is
+compared with the local touring car, rather than the additional local roadster.
+
+The reference range below spans separate fixed 60 Hz and 120 Hz runs. It is not a
+confidence interval or a reproduction of the historical render clock. All speeds
+are in meters per second and distances are in meters.
+
+| Straight-flat case             | Historical 60 to 120 Hz | Local 120 Hz |
+| ------------------------------ | ----------------------- | ------------ |
+| Touring, 12 s acceleration     | 35.487 to 36.611        | 34.890       |
+| Touring, 12 s boosted          | 41.347 to 42.421        | 40.871       |
+| Touring, speed after 5 s coast | 14.033 to 14.344        | 13.577       |
+| Touring, brake threshold path  | 22.847 to 23.053        | 22.754       |
+| Bus, 12 s acceleration         | 27.252 to 28.577        | 26.130       |
+| Bus, 12 s boosted              | 30.025 to 31.449        | 28.938       |
+| Bus, speed after 5 s coast     | 16.396 to 17.149        | 15.325       |
+| Bus, brake threshold path      | 43.735 to 44.629        | 41.655       |
+
+Coast and brake runs begin at the first step above 20 m/s, with actual starting
+speeds between 20.003 and 20.031 m/s. Brake runs end at the first signed speed at
+or below 0.5 m/s, before the reverse handoff. Their path is not a full stopping
+distance. Coast results cover only the five-second release interval. Traces record
+the settled drift, pitch, wheel compression, drive mode, boost state, brake ramp,
+and actual initial speed. The local fixed-step response is more consistent across
+60 Hz and 120 Hz, but the ordinary acceleration and coast responses still differ.
+These measurements do not justify retuning current-release drag or brakes.
+
+Forward boost now uses the historical speed-dependent reserve, tapering to the
+ordinary base drive at each vehicle's nominal speed. Pedal pressure and the power
+setting remain linear. Braking retains priority, reverse ignores boost, and boost
+alone supplies no throttle. Keyboard Shift, the standard controller's right
+bumper, a custom binding, and a touch button share this input. Speed assistance
+does not consume a held manual boost modifier. The [official changelog's](https://slowroads.io/)
+2.4.1 gamepad boost fix confirms that boost remains present; the historical force
+curve still requires comparison against that release.
+
 ## Graphics measurements and reconstruction
 
 The historical renderer uses a default vertical field of view of 68 degrees.
