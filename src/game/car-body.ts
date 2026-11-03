@@ -1,42 +1,26 @@
 import * as THREE from 'three'
 import { subdividePlanarSurface } from './surface-subdivide'
 
+const frontHeights = [0.22, 0.44, 0.76, 0.88]
+const rearHeights = [0.38, 0.5, 0.78, 0.88]
+const frontProfile = new THREE.CubicInterpolant(
+  new Float32Array(frontHeights),
+  new Float32Array([-1.98, -2.1, -2.07, -1.91]),
+  1,
+)
+const rearProfiles = new Map<number, THREE.CubicInterpolant>()
+
 function rearProfile(wheelbase: number) {
-  return [
-    [0.38, wheelbase / 2 + 0.53],
-    [0.5, 1.92],
-    [0.78, 2],
-    [0.88, 1.86],
-  ] as const
-}
-const frontProfile = [
-  [0.22, -1.98],
-  [0.44, -2.1],
-  [0.76, -2.07],
-  [0.88, -1.91],
-] as const
-
-function profileDepth(profile: readonly (readonly [number, number])[], y: number) {
-  for (let i = 1; i < profile.length; i++) {
-    const lower = profile[i - 1],
-      upper = profile[i]
-    if (lower && upper && y <= upper[0])
-      return THREE.MathUtils.lerp(
-        lower[1],
-        upper[1],
-        THREE.MathUtils.clamp((y - lower[0]) / (upper[0] - lower[0]), 0, 1),
-      )
+  let profile = rearProfiles.get(wheelbase)
+  if (!profile) {
+    profile = new THREE.CubicInterpolant(
+      new Float32Array(rearHeights),
+      new Float32Array([wheelbase / 2 + 0.53, 1.92, 2, 1.86]),
+      1,
+    )
+    rearProfiles.set(wheelbase, profile)
   }
-  return profile.at(-1)?.[1] ?? 0
-}
-
-export function carRearDepth(y: number, x: number, wheelbase: number) {
-  const sweep = 0.07 * (1 - THREE.MathUtils.smoothstep(y, 0.6, 0.88))
-  return profileDepth(rearProfile(wheelbase), y) - sweep * Math.min(1, (x / 0.74) ** 2)
-}
-
-export function carFrontDepth(y: number) {
-  return profileDepth(frontProfile, y)
+  return profile
 }
 
 function blend(value: number, start: number, end: number) {
@@ -44,25 +28,83 @@ function blend(value: number, start: number, end: number) {
   return { value: t * t * (3 - 2 * t), slope: (6 * t * (1 - t)) / (end - start) }
 }
 
-function section(y: number, z: number) {
-  const sill = blend(y, 0.22, 0.5),
-    shoulder = blend(y, 0.74, 0.9),
-    end = blend(Math.abs(z), 1.82, 2.14)
+function section(y: number) {
+  const sill = blend(y, 0.22, 0.5)
+  const shoulder = blend(y, 0.74, 0.9)
   return {
-    width: 0.8025 - 0.06 * (1 - sill.value) - 0.06 * shoulder.value - 0.04 * end.value,
+    width: 0.8025 - 0.06 * (1 - sill.value) - 0.06 * shoulder.value,
     slopeY: 0.06 * (sill.slope - shoulder.slope),
-    slopeZ: -0.04 * end.slope * Math.sign(z),
   }
 }
 
-function halfWidth(y: number, z: number) {
-  return section(y, z).width
+function halfWidth(y: number) {
+  return section(y).width
 }
 
-function rearEdgeDepth(y: number, wheelbase: number) {
-  let z = carRearDepth(y, 0, wheelbase)
-  for (let i = 0; i < 4; i++) z = carRearDepth(y, halfWidth(y, z), wheelbase)
-  return z
+function cornerRadius(y: number, direction: number) {
+  return direction > 0
+    ? 0.006 + blend(y, 0.43, 0.7).value * 0.14
+    : 0.08 + blend(y, 0.22, 0.65).value * 0.07
+}
+
+function tailSweep(y: number) {
+  return 0.07 * (1 - THREE.MathUtils.smoothstep(y, 0.6, 0.88))
+}
+
+function endDepth(y: number, fraction: number, wheelbase: number, direction: number) {
+  const radius = cornerRadius(y, direction)
+  const round = 1 - Math.sqrt(Math.max(0, 1 - fraction ** 8))
+  if (direction < 0) return (frontProfile.evaluate(y)[0] ?? 0) + radius * round
+  const x = fraction * halfWidth(y)
+  return (
+    (rearProfile(wheelbase).evaluate(y)[0] ?? 0) - tailSweep(y) * (x / 0.74) ** 2 - radius * round
+  )
+}
+
+export function carRearDepth(y: number, x: number, wheelbase: number) {
+  return endDepth(y, THREE.MathUtils.clamp(x / halfWidth(y), -1, 1), wheelbase, 1)
+}
+
+export function carFrontDepth(y: number, x: number) {
+  return endDepth(y, THREE.MathUtils.clamp(x / halfWidth(y), -1, 1), 0, -1)
+}
+
+export function carEndNormal(
+  y: number,
+  x: number,
+  wheelbase: number,
+  direction: number,
+  target: THREE.Vector3,
+) {
+  const { width, slopeY } = section(y)
+  const fraction = THREE.MathUtils.clamp(x / width, -1, 1)
+  const root = Math.sqrt(Math.max(0, 1 - fraction ** 8))
+  const radius = cornerRadius(y, direction)
+  const lower = Math.max(direction > 0 ? 0.38 : 0.22, y - 0.0001)
+  const upper = Math.min(0.88, y + 0.0001)
+  const slope =
+    (endDepth(upper, fraction, wheelbase, direction) -
+      endDepth(lower, fraction, wheelbase, direction)) /
+    (upper - lower)
+  const sweepSlope = direction > 0 ? (2 * tailSweep(y) * width ** 2 * fraction) / 0.74 ** 2 : 0
+  const nx = 4 * radius * fraction ** 7 + direction * sweepSlope * root
+  return target
+    .set(nx, -nx * fraction * slopeY - direction * width * slope * root, direction * width * root)
+    .normalize()
+}
+
+function profileRows(heights: number[]) {
+  const rows = [heights[0] ?? 0]
+  for (let index = 1; index < heights.length; index++) {
+    const lower = heights[index - 1]
+    const upper = heights[index]
+    if (lower === undefined || upper === undefined)
+      throw new Error('Body profile interval is missing')
+    const steps = Math.ceil((upper - lower) / 0.025)
+    for (let step = 1; step <= steps; step++)
+      rows.push(THREE.MathUtils.lerp(lower, upper, step / steps))
+  }
+  return rows
 }
 
 export function carSurface(
@@ -94,7 +136,22 @@ function wheelOpening(axle: number, radius: number, opening: number) {
     points.push([axle + Math.cos(angle) * opening, radius + Math.sin(angle) * opening])
   }
   points.push([axle - opening, 0.22])
-  return points
+  const refined: [number, number][] = []
+  for (let index = 1; index < points.length; index++) {
+    const start = points[index - 1]
+    const end = points[index]
+    if (!start || !end) throw new Error('Wheel opening segment is missing')
+    if (index === 1) refined.push(start)
+    const steps = Math.ceil(Math.hypot(end[0] - start[0], (end[1] - start[1]) * 4) / 0.16)
+    for (let step = 1; step <= steps; step++) {
+      const t = step / steps
+      refined.push([
+        THREE.MathUtils.lerp(start[0], end[0], t),
+        THREE.MathUtils.lerp(start[1], end[1], t),
+      ])
+    }
+  }
+  return refined
 }
 
 export function createCarBody(
@@ -106,11 +163,16 @@ export function createCarBody(
 ) {
   const group = new THREE.Group()
   group.name = 'coachwork'
-  const rear = rearProfile(wheelbase).map(([y]) => [y, rearEdgeDepth(y, wheelbase)] as const)
+  const frontRows = profileRows(frontHeights)
+  const rearRows = profileRows(rearHeights)
+  const front = frontRows.map((y) => [y, carFrontDepth(y, halfWidth(y))] as const)
+  const rear = rearRows.map((y) => [y, carRearDepth(y, halfWidth(y), wheelbase)] as const)
   const opening = 0.44
   const shape = new THREE.Shape()
-  shape.moveTo(-1.98, 0.22)
-  for (const [y, z] of frontProfile.slice(1)) shape.lineTo(z, y)
+  const first = front[0]
+  if (!first) throw new Error('Body front profile is unavailable')
+  shape.moveTo(first[1], first[0])
+  for (const [y, z] of front.slice(1)) shape.lineTo(z, y)
   for (const [y, z] of [...rear].reverse()) shape.lineTo(z, y)
   const openings = [wheelbase / 2, -wheelbase / 2].map((axle) =>
     wheelOpening(axle, wheelRadius, opening),
@@ -119,6 +181,7 @@ export function createCarBody(
   shape.closePath()
   for (const side of [-1, 1]) {
     const planar = new THREE.ShapeGeometry(shape, 12)
+    planar.scale(1, 4, 1)
     const geometry = subdividePlanarSurface(planar, 0.18)
     planar.dispose()
     const positions = geometry.getAttribute('position')
@@ -126,10 +189,10 @@ export function createCarBody(
     const normal = new THREE.Vector3()
     for (let vertex = 0; vertex < positions.count; vertex++) {
       const z = positions.getX(vertex)
-      const y = positions.getY(vertex)
-      const contour = section(y, z)
+      const y = positions.getY(vertex) / 4
+      const contour = section(y)
       positions.setXYZ(vertex, side * contour.width, y, z)
-      normal.set(side, -contour.slopeY, -contour.slopeZ).normalize()
+      normal.set(side, -contour.slopeY, 0).normalize()
       normals.setXYZ(vertex, normal.x, normal.y, normal.z)
     }
     const indices = geometry.index
@@ -140,14 +203,16 @@ export function createCarBody(
         indices.setX(triangle + 1, indices.getX(triangle + 2))
         indices.setX(triangle + 2, second)
       }
-    group.add(new THREE.Mesh(geometry, paint))
+    const skin = new THREE.Mesh(geometry, paint)
+    skin.name = 'side-skin'
+    group.add(skin)
     for (const lip of openings) {
       for (let segment = 1; segment < lip.length; segment++) {
         const start = lip[segment - 1]
         const end = lip[segment]
         if (!start || !end) continue
         const point = ([z, y]: [number, number], inset: number): [number, number, number] => [
-          side * (halfWidth(y, z) - inset),
+          side * (halfWidth(y) - inset),
           y,
           z,
         ]
@@ -179,66 +244,67 @@ export function createCarBody(
       group.add(wall)
     }
   }
-  const deck = (from: number, to: number) => {
-    const sections = [from, from + (to - from) * 0.25, to]
-    for (let i = 1; i < sections.length; i++) {
-      const start = sections[i - 1],
-        end = sections[i]
-      if (start === undefined || end === undefined) continue
-      const fractions = [-1, -0.7, 0, 0.7, 1]
-      for (let j = 1; j < fractions.length; j++) {
-        const left = fractions[j - 1],
-          right = fractions[j]
-        if (left === undefined || right === undefined) continue
-        const point = (z: number, fraction: number): [number, number, number] => [
-          fraction * halfWidth(0.88, z),
-          0.88 + 0.022 * Math.sin(((z - from) / (to - from)) * Math.PI) * (1 - fraction ** 2),
-          z,
-        ]
-        group.add(
-          carSurface(
-            [point(start, left), point(start, right), point(end, right), point(end, left)],
-            [0, 1, 0],
-            paint,
-          ),
+  const frontBulkhead = -wheelbase / 2 + opening + 0.035
+  const rearBulkhead = wheelbase / 2 - opening - 0.035
+  for (const direction of [-1, 1]) {
+    const rows = direction < 0 ? frontRows : rearRows
+    const positions: number[] = []
+    const normals: number[] = []
+    const indices: number[] = []
+    const normal = new THREE.Vector3()
+    const columns = 32
+    for (const y of rows)
+      for (let column = 0; column <= columns; column++) {
+        const fraction = Math.sin((column / columns - 0.5) * Math.PI)
+        const x = halfWidth(y) * fraction
+        positions.push(x, y, endDepth(y, fraction, wheelbase, direction))
+        carEndNormal(y, x, wheelbase, direction, normal)
+        normals.push(normal.x, normal.y, normal.z)
+      }
+    for (let row = 1; row < rows.length; row++)
+      for (let column = 0; column < columns; column++) {
+        const a = (row - 1) * (columns + 1) + column
+        const b = a + 1
+        const c = a + columns + 1
+        const d = c + 1
+        indices.push(...(direction > 0 ? [a, b, c, b, d, c] : [a, c, b, b, c, d]))
+      }
+    const geometry = new THREE.BufferGeometry()
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+    geometry.setIndex(indices)
+    const panel = new THREE.Mesh(geometry, paint)
+    panel.name = direction < 0 ? 'front-panel' : 'rear-panel'
+    group.add(panel)
+
+    const bulkhead = direction < 0 ? frontBulkhead : rearBulkhead
+    const deckPositions: number[] = []
+    const deckIndices: number[] = []
+    const length = 12
+    for (let row = 0; row <= length; row++)
+      for (let column = 0; column <= columns; column++) {
+        const fraction = Math.sin((column / columns - 0.5) * Math.PI)
+        const t = row / length
+        const x = halfWidth(0.88) * fraction
+        deckPositions.push(
+          x,
+          0.88 + 0.014 * Math.sin(t * Math.PI) * (1 - fraction ** 2),
+          THREE.MathUtils.lerp(bulkhead, endDepth(0.88, fraction, wheelbase, direction), t),
         )
       }
-    }
-  }
-  const frontBulkhead = -wheelbase / 2 + opening + 0.035,
-    rearBulkhead = wheelbase / 2 - opening - 0.035
-  deck(-1.91, frontBulkhead)
-  deck(rearBulkhead, 1.86)
-  for (const [profile, normal] of [
-    [rear, 1],
-    [frontProfile, -1],
-  ] as const) {
-    for (let i = 1; i < profile.length; i++) {
-      const lower = profile[i - 1],
-        upper = profile[i]
-      if (!lower || !upper) continue
-      const fractions = normal > 0 ? [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1] : [-1, 1]
-      const point = (
-        row: readonly [number, number],
-        fraction: number,
-      ): [number, number, number] => {
-        const [y, depth] = row
-        const x = halfWidth(y, depth) * fraction
-        return [x, y, normal > 0 ? carRearDepth(y, x, wheelbase) : depth]
+    for (let row = 1; row <= length; row++)
+      for (let column = 0; column < columns; column++) {
+        const a = (row - 1) * (columns + 1) + column
+        const b = a + 1
+        const c = a + columns + 1
+        const d = c + 1
+        deckIndices.push(...(direction > 0 ? [a, c, b, b, c, d] : [a, b, c, b, d, c]))
       }
-      for (let j = 1; j < fractions.length; j++) {
-        const left = fractions[j - 1],
-          right = fractions[j]
-        if (left === undefined || right === undefined) continue
-        group.add(
-          carSurface(
-            [point(lower, left), point(lower, right), point(upper, right), point(upper, left)],
-            [0, 0, normal],
-            paint,
-          ),
-        )
-      }
-    }
+    const deckGeometry = new THREE.BufferGeometry()
+    deckGeometry.setAttribute('position', new THREE.Float32BufferAttribute(deckPositions, 3))
+    deckGeometry.setIndex(deckIndices)
+    deckGeometry.computeVertexNormals()
+    group.add(new THREE.Mesh(deckGeometry, paint))
   }
   const floor = new THREE.Mesh(
     new THREE.BoxGeometry(1.38, 0.06, rearBulkhead - frontBulkhead),
@@ -264,8 +330,8 @@ export function createCarBody(
       carSurface(
         [
           [side * 0.705, 0.88, frontBulkhead],
-          [side * halfWidth(0.88, frontBulkhead), 0.88, frontBulkhead],
-          [side * halfWidth(0.88, rearBulkhead), 0.88, rearBulkhead],
+          [side * halfWidth(0.88), 0.88, frontBulkhead],
+          [side * halfWidth(0.88), 0.88, rearBulkhead],
           [side * 0.705, 0.88, rearBulkhead],
         ],
         [0, 1, 0],
