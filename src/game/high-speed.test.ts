@@ -187,6 +187,53 @@ describe('high-speed manual handling', () => {
     },
   )
 
+  test.each(vehicles)(
+    '%s keyboard taps at highway speed nudge the car without leaving the lane',
+    (vehicle) => {
+      for (const route of routes)
+        for (const direction of [-1, 1]) {
+          const settings: Settings = { ...defaults, vehicle, ...route, cruiseSpeed: 33 }
+          const world = new World(settings)
+          const car = new CarPhysics(world)
+          car.reset(900)
+          car.speed = 33
+          car.suspension.reset(car)
+          for (let step = 0; step < 240; step++) car.update(1 / 120, car.autoInput(33), settings)
+          let maxOffset = 0
+          for (let step = 0; step < 6 * 120; step++) {
+            const time = step / 120
+            const manual: Input =
+              time < 0.12
+                ? { ...neutralInput, steer: direction, steeringSource: 'digital' }
+                : neutralInput
+            car.update(
+              1 / 120,
+              resolveInput(manual, car.autoInput(33), time < 0.4 ? 'speed' : 'full', false),
+              settings,
+            )
+            maxOffset = Math.max(maxOffset, Math.abs(roadCoordinates(world, car.x, car.s).distance))
+          }
+          expect(maxOffset).toBeLessThan(2.2)
+          expect(car.offroad).toBe(false)
+        }
+    },
+  )
+
+  test.each(vehicles)(
+    '%s held keyboard steering reaches cornering grip promptly at speed',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      let reached = Number.POSITIVE_INFINITY
+      for (let step = 0; step < 240 && reached === Number.POSITIVE_INFINITY; step++) {
+        car.speed = 33
+        car.update(1 / 120, { ...neutralInput, steer: 1, steeringSource: 'digital' }, settings)
+        if (Math.abs(car.yawRate * car.speed) > 9.81 * 0.9) reached = step / 120
+      }
+      expect(reached).toBeLessThan(vehicle === 'touring' || vehicle === 'roadster' ? 0.5 : 0.95)
+    },
+  )
+
   test.each(vehicles)('%s keeps steering authority at full throttle and boost', (vehicle) => {
     const settings = { ...defaults, vehicle }
     const response = () => {

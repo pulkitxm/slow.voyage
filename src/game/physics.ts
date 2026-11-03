@@ -205,10 +205,17 @@ export class CarPhysics {
           this.brakeForce + (vehicle.brake * dt) / brakeResponseSeconds,
         )
       : 0
-    this.steeringControl.update(dt, input.steer, input.steeringSource, this.speed, settings.vehicle)
-    this.tireSteeringLimit = Math.atan(
-      (vehicle.wheelbase * gripSteeringShare * surfaceGrip(settings, !this.offroad) * 9.81) /
-        Math.max(v * v, 1),
+    const gripSteering = Math.atan(
+      (vehicle.wheelbase * surfaceGrip(settings, !this.offroad) * 9.81) / Math.max(v * v, 1),
+    )
+    this.tireSteeringLimit = Math.atan(Math.tan(gripSteering) * gripSteeringShare)
+    this.steeringControl.update(
+      dt,
+      input.steer,
+      input.steeringSource,
+      this.speed,
+      settings.vehicle,
+      gripSteering,
     )
     this.suspension.updateSteering(this.steering)
     const acceleration = solveTires(
