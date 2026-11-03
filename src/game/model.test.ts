@@ -82,6 +82,27 @@ test.each(['touring', 'roadster'] as const)(
 )
 
 test.each(['touring', 'roadster'] as const)(
+  '%s rear wheel arch returns stop at the lower body edge',
+  (vehicle) => {
+    const model = new CarModel({ ...defaults, vehicle })
+    model.group.updateMatrixWorld(true)
+    const panels = coachwork(model)
+    const ray = new THREE.Raycaster()
+    ray.far = 0.7
+    for (const side of [-1, 1])
+      for (const x of [0.7, 0.73])
+        for (const y of [0.23, 0.27, 0.31]) {
+          ray.set(
+            new THREE.Vector3(side * x, y, model.wheelbase / 2 + 1),
+            new THREE.Vector3(0, 0, -1),
+          )
+          expect(ray.intersectObjects(panels, false)).toHaveLength(0)
+        }
+    model.dispose()
+  },
+)
+
+test.each(['touring', 'roadster'] as const)(
   '%s rear tires remain visible from the driving camera at rest and speed',
   (vehicle) => {
     const world = new World({ ...defaults, vehicle })
