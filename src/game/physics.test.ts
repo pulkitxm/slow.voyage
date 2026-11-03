@@ -481,6 +481,51 @@ describe('guardrail response', () => {
     expect(glancing.car.impact).toBeCloseTo(faster.car.impact, 3)
     expect(glancing.tangent).toBeGreaterThan(29)
   })
+  test('a firm rail strike raises one rail collision event scaled by approach speed', () => {
+    const firm = railContact(1, 0, 0, 3, 0)
+    const hard = railContact(1, 0, 0, 9, 0)
+    expect(firm.car.hits).toBe(1)
+    expect(firm.car.hitMaterial).toBe('rail')
+    expect(hard.car.hitStrength).toBeGreaterThan(firm.car.hitStrength * 2)
+    expect(hard.car.hitStrength).toBeLessThanOrEqual(1)
+  })
+  test('a gentle brush scrapes the rail without a collision event', () => {
+    const brush = railContact(1, 0, 0, 0.2, 12)
+    expect(brush.car.hits).toBe(0)
+    expect(brush.car.scrape).toBeGreaterThan(10)
+    expect(brush.car.scrapeMaterial).toBe('rail')
+  })
+  test('scraping stops once the car is clear of every obstacle', () => {
+    const car = new CarPhysics(new World(defaults))
+    car.scrape = 5
+    car.update(1 / 120, coast, defaults)
+    expect(car.scrape).toBe(0)
+  })
+})
+
+describe('powertrain telemetry', () => {
+  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+    '%s reports gears from its own gearbox while accelerating',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new World(settings))
+      const seen = new Set<string>()
+      for (let i = 0; i < 60 * 25; i++) {
+        car.update(1 / 60, { ...coast, throttle: 1 }, settings)
+        seen.add(car.telemetry().gear)
+      }
+      expect(seen.size).toBeGreaterThan(2)
+      expect(car.gearbox.profile.redline).toBeGreaterThan(car.gearbox.rpm)
+      expect(car.gearbox.rpm).toBeGreaterThan(car.gearbox.profile.idle)
+    },
+  )
+  test('switching vehicles swaps the engine profile', () => {
+    const car = new CarPhysics(new World(defaults))
+    car.update(1 / 60, coast, defaults)
+    const bus = { ...defaults, vehicle: 'bus' as const }
+    car.update(1 / 60, coast, bus)
+    expect(car.gearbox.profile.redline).toBeLessThan(3000)
+  })
 })
 
 describe('vehicle dynamics', () => {

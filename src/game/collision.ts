@@ -14,7 +14,10 @@ export interface Trunk {
   radius: number
 }
 
+export type ObstacleMaterial = 'rail' | 'trunk' | 'edge' | 'water'
+
 export interface Obstacle {
+  material: ObstacleMaterial
   contacts: BarrierContact[]
   penetration: number
   normalX: number
@@ -82,7 +85,7 @@ export function railObstacles(world: World, pose: Pose, footprint: Footprint) {
         normalS = direction * Math.sin(frame.road.yaw)
       contacts.push({ localX: point.localX, localS: point.localS, normalX, normalS })
       if (!deepest || penetration > deepest.penetration)
-        deepest = { contacts, penetration, normalX, normalS }
+        deepest = { material: 'rail', contacts, penetration, normalX, normalS }
     }
     if (deepest) obstacles.push(deepest)
   }
@@ -128,6 +131,7 @@ export function trunkObstacle(pose: Pose, footprint: Footprint, trunk: Trunk): O
   const normalX = normalRight * cos - normalForward * sin
   const normalS = normalRight * sin + normalForward * cos
   return {
+    material: 'trunk',
     contacts: [{ localX: contactX, localS: contactS, normalX, normalS }],
     penetration: trunk.radius - gap,
     normalX,
@@ -147,7 +151,9 @@ export function boundaryObstacle(world: World, pose: Pose, footprint: Footprint)
     let penetration = Math.abs(offset) - terrainBounds.edge
     let normalX = outward
     let normalS = 0
+    let material: ObstacleMaterial = 'edge'
     if (penetration <= 0) {
+      material = 'water'
       const ground = world.surface(position.x, position.s)
       const depth = terrainBounds.waterLevel - terrainBounds.wadeDepth - ground.height
       if (ground.onRoad || depth <= 0) continue
@@ -160,7 +166,7 @@ export function boundaryObstacle(world: World, pose: Pose, footprint: Footprint)
     }
     contacts.push({ localX: point.localX, localS: point.localS, normalX, normalS })
     if (!deepest || penetration > deepest.penetration)
-      deepest = { contacts, penetration, normalX, normalS }
+      deepest = { material, contacts, penetration, normalX, normalS }
   }
   return deepest
 }
