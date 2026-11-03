@@ -9,6 +9,7 @@ import {
   releaseAssistance,
   resolveInput,
 } from './controls'
+import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
 import {
@@ -76,6 +77,7 @@ export class RoadEngine {
   lastTelemetry = 0
   view = new DrivingCamera(this.camera)
   disposed = false
+  crossfade: SceneCrossfade
   rendered = false
   frameRate = 60
   onState?: (state: DriveState) => void
@@ -255,6 +257,7 @@ export class RoadEngine {
     this.settings = { ...settings }
     this.world = new World(this.settings)
     this.physics = new CarPhysics(this.world)
+    this.crossfade = new SceneCrossfade(canvas)
     this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
     this.antialiasing = budget.software ? new SoftwareAntialias() : null
@@ -397,6 +400,11 @@ export class RoadEngine {
     const assistanceChange = settings.autodriveMode !== this.settings.autodriveMode
     const mouseChange = settings.mouseEnabled !== this.settings.mouseEnabled
     const cameraChange = settings.camera !== this.settings.camera
+    const environmentChange =
+      refresh ||
+      settings.daylight !== this.settings.daylight ||
+      settings.weather !== this.settings.weather
+    if (environmentChange && this.rendered) this.crossfade.capture()
     this.settings = { ...settings }
     this.world.settings = this.settings
     if (roadChange) {
@@ -608,6 +616,7 @@ export class RoadEngine {
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p.speed, input.throttle, this.settings, this.paused || !this.started)
     this.drawScene()
+    this.crossfade.rendered()
     if (!this.rendered) this.canvas.style.visibility = ''
     this.rendered = true
     if (!this.lastTelemetry || time - this.lastTelemetry > 100) {
@@ -653,6 +662,7 @@ export class RoadEngine {
     this.sun.shadow.dispose()
     this.audio.dispose()
     this.antialiasing?.dispose()
+    this.crossfade.dispose()
     this.renderer.dispose()
   }
 }

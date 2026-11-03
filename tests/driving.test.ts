@@ -320,3 +320,44 @@ test('escape pauses, resumes from the pause dialog, and closes the settings pane
     expect(await page.locator('[aria-label="Pause driving"]').count()).toBe(1)
   })
 }, 60000)
+
+test('journey switches dissolve smoothly without a long frame stall', async () => {
+  await drive(async (page) => {
+    await page.waitForTimeout(1500)
+    const before = await page.locator('.drive').getAttribute('data-season')
+    const result = await page.evaluate(async () => {
+      const gaps: number[] = []
+      let last = performance.now()
+      let running = true
+      const loop = () => {
+        const now = performance.now()
+        gaps.push(now - last)
+        last = now
+        if (running) requestAnimationFrame(loop)
+      }
+      requestAnimationFrame(loop)
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyE', key: 'e' }))
+      window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyE', key: 'e' }))
+      const veiled = document.querySelectorAll('.scene-veil').length
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      const fading = Number(
+        getComputedStyle(document.querySelector('.scene-veil') ?? document.body).opacity,
+      )
+      await new Promise((resolve) => setTimeout(resolve, 2200))
+      running = false
+      return {
+        veiled,
+        fading,
+        remaining: document.querySelectorAll('.scene-veil').length,
+        stall: Math.max(...gaps),
+      }
+    })
+    expect(result.veiled).toBe(1)
+    expect(result.fading).toBeGreaterThan(0)
+    expect(result.fading).toBeLessThan(1)
+    expect(result.remaining).toBe(0)
+    expect(result.stall).toBeLessThan(500)
+    expect(await page.locator('.drive').getAttribute('data-season')).not.toBe(before)
+  })
+}, 60000)
