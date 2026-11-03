@@ -7,7 +7,7 @@ import { browserExecutable } from '../scripts/browser'
 import { productionFixture } from './fixture'
 
 for (const software of [false, true]) {
-  test(`${software ? 'software' : 'automatic'} graphics exports complete photos and releases resized buffers`, async () => {
+  test(`${software ? 'software' : 'automatic'} graphics exports complete photos, drives, and releases resized buffers`, async () => {
     const directory = resolve('.review/graphics-checks')
     await mkdir(directory, { recursive: true })
     const fixture = productionFixture()
@@ -101,10 +101,39 @@ for (const software of [false, true]) {
         expect(opaque / (image.width * image.height)).toBeGreaterThan(0.99)
         samples.push({ viewport, graphics, photo: name, colors: colors.size })
       }
+      await page.getByRole('button', { name: 'Close settings' }).click()
+      await page.keyboard.press('f')
+      await page.waitForSelector('[data-assistance="off"]')
+      await page.keyboard.press('r')
+      await page.waitForFunction(
+        () => Number(document.querySelector('.speed-value')?.textContent) === 0,
+      )
+      await page.keyboard.down('w')
+      await page.waitForTimeout(3000)
+      await page.keyboard.down('d')
+      await page.waitForFunction(
+        () =>
+          Math.abs(Number(document.querySelector('.drive')?.getAttribute('data-steering'))) > 0.05,
+      )
+      const steering = await page.locator('.drive').getAttribute('data-steering')
+      await page.keyboard.up('d')
+      await page.waitForFunction(
+        () =>
+          Math.abs(Number(document.querySelector('.drive')?.getAttribute('data-steering'))) < 0.02,
+      )
+      await page.keyboard.up('w')
+      const powered = Number(await page.locator('.speed-value').textContent())
+      expect(powered).toBeGreaterThan(10)
+      await page.keyboard.down('s')
+      await page.waitForTimeout(2000)
+      await page.keyboard.up('s')
+      const braked = Number(await page.locator('.speed-value').textContent())
+      expect(braked).toBeLessThan(powered - 5)
+      const driving = { powered, braked, steering }
       expect(errors).toEqual([])
       await Bun.write(
         resolve(directory, `${software ? 'software' : 'automatic'}.json`),
-        JSON.stringify({ samples, errors }, null, 2),
+        JSON.stringify({ samples, driving, errors }, null, 2),
       )
     } finally {
       await browser.close()
