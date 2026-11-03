@@ -65,7 +65,6 @@ test('tree placement leaves the corridor open and rejects water and steep faces'
     for (const tree of createWoodland(world, tile, 'high')) {
       const surface = world.surface(tree.x, tree.s)
       expect(Math.abs(tree.x - world.road(tree.s).x) - tree.width / 2).toBeGreaterThan(45)
-      expect(tree.y).toBeCloseTo(surface.height - 0.1, 8)
       expect(surface.height).toBeGreaterThanOrEqual(0.7)
       expect(Math.hypot(surface.slopeX, surface.slopeS)).toBeLessThanOrEqual(1.1)
       expect(tree.s).toBeGreaterThan(tile * 120)
@@ -91,7 +90,7 @@ test('adjacent and distant terrain sections retain bounded distinct tree sets', 
     for (const tree of trees) {
       const key = `${tree.x}:${tree.s}`
       expect(seen.has(key)).toBe(false)
-      expect(Number.isFinite(tree.x + tree.y + tree.s + tree.height + tree.width)).toBe(true)
+      expect(Number.isFinite(tree.x + tree.s + tree.height + tree.width)).toBe(true)
       seen.add(key)
     }
   }

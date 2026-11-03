@@ -17,7 +17,7 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
         const sampler = new GroundSampler(ground, start, rows)
         for (const fraction of [0, 0.004, 0.37, 0.503, 0.997, 1]) {
           const s = start + fraction * 120
-          for (const offset of [-18.7, -4.2, 3.8, 9.3, 23.7]) {
+          for (const offset of [-649, -465, -143, -18.7, -4.2, 3.8, 9.3, 23.7, 143, 465, 649]) {
             const x = world.road(s).x + offset
             ray.set(new THREE.Vector3(x, 10000, -s), new THREE.Vector3(0, -1, 0))
             const hit = ray.intersectObject(mesh)[0]

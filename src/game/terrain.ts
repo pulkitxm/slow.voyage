@@ -12,6 +12,7 @@ import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 const grassViewDistance = { full: 45, end: 120 }
+const plantRootRecess = 0.1
 
 function placeGrassOnGround(matrix: THREE.Matrix4, ground: GroundSampler) {
   const values = matrix.elements
@@ -223,6 +224,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     )
     ground.name = 'ground'
     group.userData.groundRows = rows
+    const groundSurface = new GroundSampler(ground.geometry, start, rows)
     const road = roadStrip(this.world, start, 120, -roadLayout.halfWidth, roadLayout.halfWidth)
     this.addMesh(group, road, this.roadMaterial)
     const markings: THREE.BufferGeometry[] = []
@@ -356,7 +358,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         const elevation = roadsidePlantHeight(this.world, x, s)
         if (elevation === null) continue
         const h = shrub ? 2 + rng() * 4 : variant >= 4 ? 6 + rng() * 6 : 5 + rng() * 4
-        matrix.position.set(x, elevation - 0.1, -s)
+        matrix.position.set(x, groundSurface.sample(x, s) - plantRootRecess, -s)
         matrix.rotation.set(0, rng() * Math.PI, 0)
         const width =
           h *
@@ -373,7 +375,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         trees.setColorAt(placed++, new THREE.Color().setScalar(0.88 + rng() * 0.24))
       }
       for (const tree of forest) {
-        matrix.position.set(tree.x, tree.y, -tree.s)
+        matrix.position.set(tree.x, groundSurface.sample(tree.x, tree.s) - plantRootRecess, -tree.s)
         matrix.rotation.set(0, tree.yaw, 0)
         matrix.scale.set(tree.width, tree.height, tree.width)
         matrix.updateMatrix()
@@ -395,7 +397,6 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     grass.name = 'meadow'
     grass.receiveShadow = true
     grass.frustumCulled = false
-    const grassGround = new GroundSampler(ground.geometry, start, rows)
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
       const s = start + rng() * 120,
@@ -406,10 +407,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       const x = road.x + d
       const roadsideDistance = Math.abs(roadCoordinates(this.world, x, s).distance)
       if (roadsideDistance < roadLayout.halfWidth + roadLayout.shoulder) continue
-      const elevation = grassGround.sample(x, s)
-      if (elevation < 0.3 || grassGround.normal.y < 0.65) continue
+      const elevation = groundSurface.sample(x, s)
+      if (elevation < 0.3 || groundSurface.normal.y < 0.65) continue
       if (elevation - road.y > 0.15 && Math.abs(d) < 18.5) {
-        const slope = Math.abs(grassGround.normal.x / grassGround.normal.y)
+        const slope = Math.abs(groundSurface.normal.x / groundSurface.normal.y)
         if (rng() < clamp((slope - 0.55) / 0.4, 0, 1)) continue
       }
       matrix.position.set(x, elevation, -s)
@@ -421,7 +422,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         Math.min(0.8 + rng() * 0.8, roadsideScale),
       )
       matrix.updateMatrix()
-      placeGrassOnGround(matrix.matrix, grassGround)
+      placeGrassOnGround(matrix.matrix, groundSurface)
       grass.setMatrixAt(placedGrass, matrix.matrix)
       color
         .copy(base)
@@ -455,16 +456,31 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
           ground.geometry.dispose()
           ground.geometry = groundGeometry(this.world, id * 120, base, light, rows)
           group.userData.groundRows = rows
+          const sampler = new GroundSampler(ground.geometry, id * 120, rows)
+          const matrix = new THREE.Matrix4()
           const grass = group.getObjectByName('meadow')
           if (grass instanceof THREE.InstancedMesh) {
-            const sampler = new GroundSampler(ground.geometry, id * 120, rows)
-            const matrix = new THREE.Matrix4()
             for (let index = 0; index < grass.count; index++) {
               grass.getMatrixAt(index, matrix)
               placeGrassOnGround(matrix, sampler)
               grass.setMatrixAt(index, matrix)
             }
             grass.instanceMatrix.needsUpdate = true
+          }
+          for (const plant of group.children) {
+            if (
+              !(plant instanceof THREE.InstancedMesh) ||
+              plant.material !== this.foliage.treeMaterial
+            )
+              continue
+            for (let index = 0; index < plant.count; index++) {
+              plant.getMatrixAt(index, matrix)
+              matrix.elements[13] =
+                sampler.sample(matrix.elements[12], -matrix.elements[14]) - plantRootRecess
+              plant.setMatrixAt(index, matrix)
+            }
+            plant.instanceMatrix.needsUpdate = true
+            plant.computeBoundingSphere()
           }
         }
       }
