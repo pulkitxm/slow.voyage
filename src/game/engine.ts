@@ -4,13 +4,14 @@ import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
 import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
-import { graphicsBudget } from './graphics'
+import { createGraphicsRenderer, graphicsBudget } from './graphics'
 import { createVehicleModel, type VehicleModel } from './model'
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
+import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { Water } from './water'
 import { type AssistanceMode, clamp, damp, defaults, type Settings, World } from './world'
@@ -24,6 +25,7 @@ export interface DriveState extends Telemetry {
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
+  antialiasing: SoftwareAntialias | null
   scene = new THREE.Scene()
   camera = new THREE.PerspectiveCamera(68, 1, 0.1, 3600)
   settings: Settings
@@ -237,13 +239,9 @@ export class RoadEngine {
     this.settings = { ...settings }
     this.world = new World(this.settings)
     this.physics = new CarPhysics(this.world)
-    this.renderer = new THREE.WebGLRenderer({
-      canvas,
-      antialias: true,
-      powerPreference: 'high-performance',
-      preserveDrawingBuffer: true,
-    })
+    this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
+    this.antialiasing = budget.software ? new SoftwareAntialias() : null
     this.renderer.setPixelRatio(budget.pixelRatio)
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
@@ -301,7 +299,7 @@ export class RoadEngine {
     this.precipitation.rain.visible = this.precipitation.snow.visible = true
     await this.renderer.compileAsync(this.scene, this.camera)
     if (this.disposed) return
-    this.renderer.render(this.scene, this.camera)
+    this.drawScene()
     this.renderer.getContext().finish()
     this.precipitation.setAppearance(this.settings)
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
@@ -579,13 +577,17 @@ export class RoadEngine {
     )
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p.speed, input.throttle, this.settings, this.paused || !this.started)
-    this.renderer.render(this.scene, this.camera)
+    this.drawScene()
     if (!this.rendered) this.canvas.style.visibility = ''
     this.rendered = true
     if (!this.lastTelemetry || time - this.lastTelemetry > 100) {
       this.emitState()
       this.lastTelemetry = time
     }
+  }
+  drawScene() {
+    this.renderer.render(this.scene, this.camera)
+    this.antialiasing?.render(this.renderer)
   }
   screenshot() {
     const link = document.createElement('a')
@@ -620,6 +622,7 @@ export class RoadEngine {
     this.sky.material.dispose()
     this.sun.shadow.dispose()
     this.audio.dispose()
+    this.antialiasing?.dispose()
     this.renderer.dispose()
   }
 }

@@ -1,11 +1,28 @@
-import type { WebGLRenderer } from 'three'
+import { WebGLRenderer } from 'three'
 import type { Settings } from './world'
 
+function softwareRendering(context: WebGLRenderingContext | WebGL2RenderingContext | null) {
+  const debug = context?.getExtension('WEBGL_debug_renderer_info')
+  const name = context && debug ? String(context.getParameter(debug.UNMASKED_RENDERER_WEBGL)) : ''
+  return /swiftshader|llvmpipe|softpipe|software rasterizer/i.test(name)
+}
+
+export function createGraphicsRenderer(canvas: HTMLCanvasElement) {
+  const probe = document
+    .createElement('canvas')
+    .getContext('webgl2', { powerPreference: 'high-performance' })
+  const software = softwareRendering(probe)
+  probe?.getExtension('WEBGL_lose_context')?.loseContext()
+  return new WebGLRenderer({
+    canvas,
+    antialias: !software,
+    powerPreference: 'high-performance',
+    preserveDrawingBuffer: true,
+  })
+}
+
 export function graphicsBudget(renderer: WebGLRenderer, quality: Settings['quality']) {
-  const context = renderer.getContext()
-  const debug = context.getExtension('WEBGL_debug_renderer_info')
-  const name = debug ? String(context.getParameter(debug.UNMASKED_RENDERER_WEBGL)) : ''
-  const software = /swiftshader|llvmpipe|softpipe|software rasterizer/i.test(name)
+  const software = softwareRendering(renderer.getContext())
   return {
     software,
     detail: software ? ('low' as const) : quality,
