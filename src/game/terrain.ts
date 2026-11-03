@@ -2,11 +2,24 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
 import { Foliage } from './foliage'
+import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './ground'
+import { GroundSampler } from './ground-sample'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
 import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
+
+const grassViewDistance = { full: 45, end: 120 }
+
+function placeGrassOnGround(matrix: THREE.Matrix4, ground: GroundSampler) {
+  const values = matrix.elements
+  values[13] = ground.sample(values[12], -values[14]) - 0.025
+  const xSlope = -ground.normal.x / ground.normal.y
+  const zSlope = -ground.normal.z / ground.normal.y
+  values[1] = xSlope * values[0] + zSlope * values[2]
+  values[9] = xSlope * values[8] + zSlope * values[10]
+}
 
 export const palettes = {
   summer: { grass: '#7b9145', light: '#afbd70', tree: '#698344', shrub: '#72804d' },
@@ -44,6 +57,8 @@ export class Terrain {
   foliage: Foliage
   bladeMaterial: THREE.MeshStandardMaterial
   blade: THREE.BufferGeometry
+  bladeTexture: THREE.DataTexture
+  bladeFootprint: number
   asphalt: THREE.CanvasTexture
   groundTexture: THREE.CanvasTexture
   windTime = { value: 0 }
@@ -57,8 +72,11 @@ export class Terrain {
     this.groundTexture = groundTexture()
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings)
     this.foliage = new Foliage(world.settings.season)
+    this.bladeTexture = grassTexture()
     this.bladeMaterial = new THREE.MeshStandardMaterial({
-      color: '#ffffff',
+      map: this.bladeTexture,
+      alphaTest: 0.25,
+      color: '#cbcbcb',
       vertexColors: true,
       side: THREE.DoubleSide,
       roughness: 1,
@@ -71,30 +89,49 @@ export class Terrain {
       shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float windTime;\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;',
+        '#include <common>\nuniform float windTime;\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;',
+      )
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <defaultnormal_vertex>',
+        `#include <defaultnormal_vertex>
+mat3 grassInstance = mat3(instanceMatrix);
+mat3 grassNormal = mat3(cross(grassInstance[1], grassInstance[2]), cross(grassInstance[2], grassInstance[0]), cross(grassInstance[0], grassInstance[1]));
+transformedNormal = normalMatrix * grassNormal * objectNormal;
+fieldGrassNormal = normalMatrix * grassNormal * vec3(0.0, 1.0, 0.0);`,
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\nvec3 root = (instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;\nfieldGrassPosition = root.xz;\nfieldGrassVariation = fract(sin(dot(root.xz, vec2(12.9898, 78.233))) * 43758.5453);\nfloat wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);\ntransformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;',
+        `#include <begin_vertex>
+vec3 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+fieldGrassPosition = root.xz;
+fieldGrassVariation = fract(sin(dot(root.xz, vec2(12.9898, 78.233))) * 43758.5453);
+float wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);
+transformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;
+float grassDistance = length((viewMatrix * vec4(root, 1.0)).xyz);
+transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassViewDistance.end.toFixed(1)}, grassDistance);`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        `#include <common>\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\nuniform vec3 fieldMeadowShade;\n${meadowNoise}`,
+        `#include <common>\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\nuniform vec3 fieldMeadowShade;\n${meadowNoise}`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <color_fragment>',
-        '#include <color_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));',
+        '#include <normal_fragment_begin>',
+        '#include <normal_fragment_begin>\nnormal = normalize(mix(normal, normalize(fieldGrassNormal), 0.7));\nnonPerturbedNormal = normal;',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <alphatest_fragment>',
+        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
         `#if NUM_DIR_LIGHTS > 0
 float grassBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
-outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBacklight * 0.12);
+outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassBacklight * 0.06);
 #endif
 #include <opaque_fragment>`,
       )
     }
-    this.bladeMaterial.customProgramCacheKey = () => 'layered-meadow-blades'
+    this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-meadow'
     this.asphalt = asphaltTexture()
     this.roadMaterial = new THREE.MeshStandardMaterial({
       map: this.asphalt,
@@ -128,36 +165,15 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
       )
     }
     this.roadMaterial.customProgramCacheKey = () => 'aggregate-asphalt'
-    const bladePositions: number[] = [],
-      bladeIndices: number[] = [],
-      bladeColors: number[] = []
-    for (let i = 0; i < 12; i++) {
-      const angle = i * 2.4,
-        radius = 0.12 + (i % 4) * 0.055,
-        x = Math.cos(angle) * radius,
-        z = Math.sin(angle) * radius,
-        width = 0.005 + (i % 3) * 0.002,
-        height = 0.23 + ((i * 7) % 12) * 0.025,
-        bend = 0.08 + (i % 3) * 0.025,
-        n = i * 5
-      for (const [elevation, offset, spread] of [
-        [0, 0, -width],
-        [0, 0, width],
-        [height * 0.6, bend * 0.25, -width * 0.55],
-        [height * 0.6, bend * 0.25, width * 0.55],
-        [height, bend, 0],
-      ] as const) {
-        bladePositions.push(
-          x + Math.cos(angle) * offset - Math.sin(angle) * spread,
-          elevation,
-          z + Math.sin(angle) * offset + Math.cos(angle) * spread,
-        )
-        const shade = elevation === 0 ? 0.75 : elevation === height ? 1 : 0.9
-        bladeColors.push(shade, shade, shade)
-      }
-      bladeIndices.push(n, n + 1, n + 2, n + 1, n + 3, n + 2, n + 2, n + 3, n + 4)
-    }
-    this.blade = geometry(bladePositions, bladeIndices, bladeColors)
+    this.blade = grassGeometry()
+    const bounds = this.blade.boundingBox
+    if (!bounds) throw new Error('Grass bounds are unavailable')
+    this.bladeFootprint =
+      Math.hypot(
+        Math.max(Math.abs(bounds.min.x), Math.abs(bounds.max.x)),
+        Math.max(Math.abs(bounds.min.z), Math.abs(bounds.max.z)),
+      ) +
+      bounds.max.y ** 2 * 0.18 * Math.hypot(1, 0.6)
     this.materials = [
       this.grassMaterial,
       this.roadMaterial,
@@ -368,6 +384,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
           : 10000
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
     grass.name = 'meadow'
+    grass.frustumCulled = false
+    const grassGround = new GroundSampler(ground.geometry, start, rows)
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
       const s = start + rng() * 120,
@@ -376,27 +394,28 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
           (roadLayout.halfWidth + roadLayout.shoulder + 0.15 + rng() ** 2.2 * 23)
       const road = this.world.road(s)
       const x = road.x + d
-      if (
-        Math.abs(roadCoordinates(this.world, x, s).distance) <
-        roadLayout.halfWidth + roadLayout.shoulder
-      )
-        continue
-      const elevation = this.world.height(x, s)
-      if (elevation < 0.3) continue
+      const roadsideDistance = Math.abs(roadCoordinates(this.world, x, s).distance)
+      if (roadsideDistance < roadLayout.halfWidth + roadLayout.shoulder) continue
+      const elevation = grassGround.sample(x, s)
+      if (elevation < 0.3 || grassGround.normal.y < 0.65) continue
       if (elevation - road.y > 0.15 && Math.abs(d) < 18.5) {
-        const slope = Math.abs(
-          (this.world.height(x + 0.25, s) - this.world.height(x - 0.25, s)) / 0.5,
-        )
+        const slope = Math.abs(grassGround.normal.x / grassGround.normal.y)
         if (rng() < clamp((slope - 0.55) / 0.4, 0, 1)) continue
       }
       matrix.position.set(x, elevation, -s)
       matrix.rotation.set(0, rng() * 6.28, 0)
-      matrix.scale.set(0.8 + rng() * 0.8, 0.55 + rng() * 0.65, 0.8 + rng() * 0.8)
+      const roadsideScale = (roadsideDistance - roadLayout.halfWidth - 0.05) / this.bladeFootprint
+      matrix.scale.set(
+        Math.min(0.8 + rng() * 0.8, roadsideScale),
+        0.55 + rng() * 0.65,
+        Math.min(0.8 + rng() * 0.8, roadsideScale),
+      )
       matrix.updateMatrix()
+      placeGrassOnGround(matrix.matrix, grassGround)
       grass.setMatrixAt(placedGrass, matrix.matrix)
       color
         .copy(base)
-        .lerp(light, 0.3 + rng() * 0.7)
+        .lerp(light, 0.12 + rng() * 0.7)
         .multiplyScalar(0.88 + rng() * 0.2)
       grass.setColorAt(placedGrass++, color)
     }
@@ -426,10 +445,24 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
           ground.geometry.dispose()
           ground.geometry = groundGeometry(this.world, id * 120, base, light, rows)
           group.userData.groundRows = rows
+          const grass = group.getObjectByName('meadow')
+          if (grass instanceof THREE.InstancedMesh) {
+            const sampler = new GroundSampler(ground.geometry, id * 120, rows)
+            const matrix = new THREE.Matrix4()
+            for (let index = 0; index < grass.count; index++) {
+              grass.getMatrixAt(index, matrix)
+              placeGrassOnGround(matrix, sampler)
+              grass.setMatrixAt(index, matrix)
+            }
+            grass.instanceMatrix.needsUpdate = true
+          }
         }
       }
       const grass = group.getObjectByName('meadow')
-      if (grass) grass.visible = id >= current - 1 && id <= current + 2
+      if (grass)
+        grass.visible =
+          id * 120 < cameraS + grassViewDistance.end &&
+          (id + 1) * 120 > cameraS - grassViewDistance.end
     }
   }
   removeTile(id: number, group: THREE.Group) {
@@ -451,6 +484,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
     for (const [id, group] of this.tiles) this.removeTile(id, group)
     for (const material of this.materials) material.dispose()
     this.blade.dispose()
+    this.bladeTexture.dispose()
     this.foliage.dispose()
     this.asphalt.dispose()
     this.groundTexture.dispose()
