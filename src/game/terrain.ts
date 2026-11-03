@@ -7,6 +7,7 @@ import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './gr
 import { GroundSampler } from './ground-sample'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
+import { receiveUnbiasedShadows } from './shadow-receiver'
 import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
@@ -188,6 +189,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       this.railMaterial,
       this.bladeMaterial,
     ]
+    for (const material of this.materials) receiveUnbiasedShadows(material)
     this.sharedGeometries = [
       ...this.foliage.treeGeometries,
       ...this.foliage.winterShrubGeometries,
