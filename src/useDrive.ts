@@ -220,6 +220,11 @@ export function useDrive() {
   useEffect(() => {
     engine.current?.setControlsBlocked(panel || help)
   }, [panel, help])
+  useEffect(() => {
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', settings.daylight === 'night' ? '#121a16' : '#73856d')
+  }, [settings.daylight])
   const fullscreen = () => {
     if (document.fullscreenElement)
       void document.exitFullscreen().catch(() => announce('Fullscreen is unavailable'))

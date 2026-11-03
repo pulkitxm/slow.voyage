@@ -1459,3 +1459,164 @@ input[type="range"] {
   pointer-events: none;
   opacity: 1;
 }
+.settings-panel,
+.dialog,
+.toast,
+.landscape-option,
+.option-row > button,
+.vehicle-options > button,
+.segmented,
+.segmented > button,
+.secondary-button,
+.mapping-preset select,
+.mapping-clear,
+.mapping-capture {
+  transition:
+    background-color 0.6s ease,
+    border-color 0.6s ease,
+    color 0.6s ease,
+    box-shadow 0.6s ease;
+}
+html:has(.drive[data-daylight="night"]) {
+  background: #121a16;
+  color-scheme: dark;
+}
+.drive[data-daylight="night"] {
+  --ink: #e2e7d9;
+  --muted: #8e998a;
+  --accent: #a6ba8c;
+  --paper: #1b231e;
+  --line: #303b33;
+  color-scheme: dark;
+}
+.drive[data-daylight="night"] .settings-panel {
+  background: #18201bf2;
+  box-shadow: 0 15px 90px #00000080;
+}
+.drive[data-daylight="night"] .panel-heading .eyebrow,
+.drive[data-daylight="night"] .setting-section > p,
+.drive[data-daylight="night"] .landscape-option small,
+.drive[data-daylight="night"] .panel-footnote,
+.drive[data-daylight="night"] .slider-label > span,
+.drive[data-daylight="night"] .controller-mapping p,
+.drive[data-daylight="night"] .binding-description small,
+.drive[data-daylight="night"] .mapping-capture > small,
+.drive[data-daylight="night"] .dialog .eyebrow,
+.drive[data-daylight="night"] .dialog > p,
+.drive[data-daylight="night"] .help-note {
+  color: #8e998a;
+}
+.drive[data-daylight="night"] .panel-heading .icon-button,
+.drive[data-daylight="night"] .help-dialog > .icon-button {
+  color: #aeb9a2;
+  border-color: #38443b;
+}
+.drive[data-daylight="night"] .panel-heading .icon-button:hover {
+  background: #26302a;
+}
+.drive[data-daylight="night"] .panel-tabs > button {
+  color: #828d7e;
+}
+.drive[data-daylight="night"] .panel-tabs > button.selected {
+  color: #d3e2bd;
+}
+.drive[data-daylight="night"] .panel-tabs > button.selected::after {
+  background: #a6ba8c;
+}
+.drive[data-daylight="night"] .panel-content {
+  scrollbar-color: #3c483f transparent;
+}
+.drive[data-daylight="night"] .landscape-option,
+.drive[data-daylight="night"] .option-row > button,
+.drive[data-daylight="night"] .vehicle-options > button {
+  border-color: #333f36;
+  color: #9ba696;
+}
+.drive[data-daylight="night"] .landscape-option {
+  color: var(--ink);
+}
+.drive[data-daylight="night"] .landscape-option > svg {
+  color: #a6ba8c;
+}
+.drive[data-daylight="night"] .landscape-option.selected,
+.drive[data-daylight="night"] .option-row > button.selected,
+.drive[data-daylight="night"] .vehicle-options > button.selected {
+  background: #27332b;
+  border-color: #5e7152;
+  color: #d3e2bd;
+}
+.drive[data-daylight="night"] .secondary-button,
+.drive[data-daylight="night"] .mapping-clear {
+  background: #25302a;
+  border-color: #3d4b40;
+  color: #c4d5ac;
+}
+.drive[data-daylight="night"] .secondary-button:hover {
+  background: #2d3a31;
+}
+.drive[data-daylight="night"] .segmented {
+  background: #202a23;
+  border-color: #313c34;
+}
+.drive[data-daylight="night"] .segmented > button {
+  color: #8e998a;
+}
+.drive[data-daylight="night"] .segmented > button.selected {
+  background: #34423a;
+  box-shadow: 0 1px 4px #00000050;
+  color: #d3e2bd;
+}
+.drive[data-daylight="night"] .mapping-preset select {
+  background: #202a23;
+  border-color: #3a473d;
+  color: #c4d5ac;
+}
+.drive[data-daylight="night"] .mapping-group summary,
+.drive[data-daylight="night"] .binding-description {
+  color: #c4d5ac;
+}
+.drive[data-daylight="night"] .binding-row,
+.drive[data-daylight="night"] .key-list > div {
+  border-color: #2f3a32;
+}
+.drive[data-daylight="night"] .binding-meter::-webkit-meter-bar {
+  background: #2c372f;
+}
+.drive[data-daylight="night"] .mapping-capture {
+  background: #212b24;
+  border-color: #46563f;
+}
+.drive[data-daylight="night"] input[type="range"],
+.drive[data-daylight="night"] .check-option input {
+  accent-color: #a6ba8c;
+}
+.drive[data-daylight="night"] .swatches > button {
+  border-color: #18201b;
+}
+.drive[data-daylight="night"] .dialog {
+  background: #1b231e;
+  box-shadow: 0 20px 100px #00000090;
+}
+.drive[data-daylight="night"] .dialog .primary-button {
+  background: #a6ba8c;
+  color: #141c17;
+}
+.drive[data-daylight="night"] .pause-dialog > .text-button {
+  color: #9aa690;
+}
+.drive[data-daylight="night"] .key-list > div {
+  color: #a3b195;
+}
+.drive[data-daylight="night"] .key-list kbd {
+  border-color: #3c483f;
+  color: #c4d5ac;
+}
+.drive[data-daylight="night"] .modal-shell::backdrop,
+.drive[data-daylight="night"] .modal-backdrop {
+  background: #050b08a8;
+}
+.drive[data-daylight="night"] .toast {
+  background: #1b231eed;
+  border-color: #ffffff1a;
+  color: #c4d5ac;
+}
