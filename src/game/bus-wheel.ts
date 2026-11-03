@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { busLayout } from './bus-layout'
+import { tireDimensions } from './tire-dimensions'
 import { createTire } from './tire-shape'
 
 export function createBusWheel(
@@ -9,7 +9,7 @@ export function createBusWheel(
   trim: THREE.Material,
 ) {
   const group = new THREE.Group()
-  group.position.x = -sign * busLayout.wheelInset
+  group.position.x = -sign * tireDimensions.bus.inset
   const tire = createTire('bus', rubber)
   group.add(tire)
   const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.305, 0.305, 0.19, 48, 1, true), metal)
