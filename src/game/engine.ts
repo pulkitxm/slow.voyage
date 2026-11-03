@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { Atmosphere, atmosphereProfile } from './atmosphere'
+import { Atmosphere, atmosphereProfile, sunOffset } from './atmosphere'
 import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
 import {
@@ -55,6 +55,7 @@ export class RoadEngine {
   sky: ScenicSky
   frame = 0
   arrival = vehicleArrival.duration
+  sunHeight = 110
   started = false
   paused = false
   assistance: AssistanceMode = 'off'
@@ -315,7 +316,7 @@ export class RoadEngine {
     this.sky.position.copy(this.camera.position)
     this.water.update(p.x, p.s, 0)
     this.precipitation.update(p.x, p.y, p.s, 0)
-    this.sun.position.set(p.x - 90, p.y + 110, -p.s - 80)
+    this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.precipitation.rain.visible = this.precipitation.snow.visible = true
     await this.renderer.compileAsync(this.scene, this.camera)
@@ -450,8 +451,9 @@ export class RoadEngine {
     }
   }
   applyLighting() {
-    this.water.setAppearance(this.settings.daylight, this.settings.season === 'winter')
     const profile = atmosphereProfile(this.settings)
+    this.water.setAppearance(this.settings.daylight, this.settings.season === 'winter', profile)
+    this.sunHeight = profile.sunHeight
     const environment = this.atmosphere.setAppearance(this.settings)
     this.scene.environment = environment
     this.scene.environmentIntensity = 0.35
@@ -594,11 +596,7 @@ export class RoadEngine {
     this.terrain.update(p.s, time / 1000, -this.camera.position.z)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
-    this.sun.position.set(
-      p.x - 90,
-      p.y + (this.settings.daylight === 'sunset' ? 38 : 110),
-      -p.s - 80,
-    )
+    this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p.speed, input.throttle, this.settings, this.paused || !this.started)
     this.drawScene()
