@@ -10,6 +10,7 @@ import { defaults, type Settings } from './game/world'
 
 const initial: DriveState = {
   speed: 0,
+  boost: false,
   distance: 0,
   altitude: 0,
   steering: 0,
@@ -227,7 +228,7 @@ export function useDrive() {
         .requestFullscreen()
         .catch(() => announce('Fullscreen is unavailable'))
   }
-  const touch = (key: 'throttle' | 'brake' | 'steer', value: number) => {
+  const touch = (key: 'throttle' | 'brake' | 'steer' | 'boost', value: number) => {
     if (!engine.current) return
     engine.current.setTouch(key, value)
   }

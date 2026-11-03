@@ -17,6 +17,7 @@ class FlatWorld extends World {
 }
 const coast: Input = {
   throttle: 0,
+  boost: false,
   brake: 0,
   steer: 0,
   steeringSource: null,
@@ -27,6 +28,29 @@ const step = 1 / 120
 function car(settings: Settings = defaults) {
   return new CarPhysics(new FlatWorld(settings))
 }
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s boosted high-power acceleration stays inside each contact friction budget',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle, power: 20, grip: 0.2 }
+    const body = car(settings)
+    let saturated = false
+    for (let frame = 0; frame < 240; frame++) {
+      const budgets = body.suspension.wheels.map((wheel) => settings.grip * wheel.load * step)
+      body.update(step, { ...coast, throttle: 1, boost: true, steer: 0.2 }, settings)
+      for (const [index, wheel] of body.suspension.wheels.entries()) {
+        const budget = budgets[index] ?? 0
+        const impulse = Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)
+        expect(impulse).toBeLessThanOrEqual(budget + 1e-8)
+        if (budget > 0 && impulse > budget * 0.99) saturated = true
+      }
+      expect(Number.isFinite(body.speed + body.yawRate)).toBe(true)
+    }
+    expect(saturated).toBe(true)
+    expect(body.speed).toBeGreaterThan(0)
+    expect(body.speed).toBeLessThan(settings.grip * 9.81 * 2)
+  },
+)
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   '%s straight locked braking uses available friction without sideways impulses',
@@ -121,7 +145,7 @@ test('gravity makes an unpowered vehicle roll downhill', () => {
   expect(body.y).toBeLessThan(altitude)
 })
 
-test('airborne throttle and steering do not accelerate or turn the chassis', () => {
+test.each([false, true])('airborne throttle and steering ignore boost=%s', (boost) => {
   const driven = car(),
     free = car()
   for (const body of [driven, free]) {
@@ -130,7 +154,7 @@ test('airborne throttle and steering do not accelerate or turn the chassis', () 
     body.suspension.updateOffsets(body)
   }
   for (let i = 0; i < 24; i++) {
-    driven.update(step, { ...coast, throttle: 1, steer: 1 }, defaults)
+    driven.update(step, { ...coast, throttle: 1, boost, steer: 1 }, defaults)
     free.update(step, coast, defaults)
   }
   expect(driven.speed).toBeCloseTo(free.speed, 8)

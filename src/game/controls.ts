@@ -9,6 +9,7 @@ export const assistanceLabels: Record<AssistanceMode, string> = {
 }
 export const neutralInput: Readonly<Input> = {
   throttle: 0,
+  boost: false,
   brake: 0,
   steer: 0,
   steeringSource: null,
@@ -33,6 +34,7 @@ export function mergeManualInput(
           : mouse
   return {
     throttle: Math.max(keyboard.throttle, touch.throttle, device.throttle),
+    boost: keyboard.boost || touch.boost || device.boost,
     brake: Math.max(keyboard.brake, touch.brake, device.brake),
     steer: steering?.steer ?? 0,
     steeringSource: steering?.steeringSource ?? null,
@@ -60,6 +62,7 @@ export function resolveInput(
   const speed = mode === 'full' || mode === 'speed'
   return {
     throttle: speed ? automatic.throttle : manual.throttle,
+    boost: !speed && manual.boost,
     brake: speed ? automatic.brake : manual.brake,
     steer: steer ? automatic.steer : manual.steer,
     steeringSource: steer ? automatic.steeringSource : manual.steeringSource,

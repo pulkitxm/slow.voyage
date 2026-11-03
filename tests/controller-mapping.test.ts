@@ -54,6 +54,7 @@ test('calibrates split devices and camera input, drives, and restores bindings a
     await bind(page, 'Steer left', 'Digit1')
     await bind(page, 'Steer right', 'Digit2')
     await bind(page, 'Accelerate', 'Digit3')
+    await bind(page, 'Boost', 'KeyJ')
     await bind(page, 'Brake / reverse', 'Digit4')
     await bind(page, 'Handbrake', 'KeyB')
     await page.locator('.mapping-group > summary:text-is("Shortcuts")').click()
@@ -81,10 +82,13 @@ test('calibrates split devices and camera input, drives, and restores bindings a
     expect(saved.controllerBindings.steerRight.to).toBe(0.8)
     await page.screenshot({ path: resolve(directory, 'camera-binding.png') })
     await page.getByRole('button', { name: 'Close settings', exact: true }).click()
-    await page.keyboard.press('Digit3')
+    await page.keyboard.press('KeyK')
+    await page.waitForSelector('[data-boost="true"]')
     await page.waitForFunction(
       () => Number(document.querySelector('.speed-value')?.textContent) > 15,
     )
+    await page.keyboard.press('Digit3')
+    await page.waitForSelector('[data-boost="false"]')
     await page.keyboard.press('Digit0')
     await page.keyboard.press('Digit5')
     await page.waitForSelector('[data-assistance="full"]')

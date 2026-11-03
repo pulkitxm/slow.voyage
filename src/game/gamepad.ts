@@ -37,6 +37,7 @@ function decodeController(
   bindings: ControllerBindings,
   heldActions: ReadonlySet<GamepadAction>,
   handbrakeHeld: boolean,
+  boostHeld: boolean,
 ) {
   const values = {} as Record<ControllerChannel, number>
   for (const key of Object.keys(controllerLabels) as ControllerChannel[])
@@ -44,6 +45,7 @@ function decodeController(
   const input: Input = {
     ...neutralInput,
     throttle: clamp((values.throttle - 0.04) / 0.96, 0, 1),
+    boost: values.boost >= (boostHeld ? 0.35 : 0.55),
     brake: clamp((values.brake - 0.04) / 0.96, 0, 1),
     steer: deadzoneValue(values.steerLeft - values.steerRight, deadzone),
     steeringSource: 'analog',
@@ -61,6 +63,7 @@ function decodeController(
     !input.throttle &&
     !input.brake &&
     values.handbrake <= 0.1 &&
+    values.boost <= 0.1 &&
     actionChannels.every((channel) => values[channel] <= 0.1) &&
     Math.max(
       values.steerLeft,
@@ -76,7 +79,7 @@ function decodeController(
 }
 
 export function decodeGamepad(pad: PadSnapshot, deadzone: number): Input {
-  return decodeController([pad], deadzone, standardBindings(pad.id), new Set(), false).input
+  return decodeController([pad], deadzone, standardBindings(pad.id), new Set(), false, false).input
 }
 
 export class GamepadControls {
@@ -162,6 +165,7 @@ export class GamepadControls {
       bindings ?? this.standardMap,
       this.actions,
       this.previous.handbrake,
+      this.previous.boost,
     )
     if (this.waitingForRelease) {
       if (frame.neutral) this.waitingForRelease = false
@@ -179,7 +183,8 @@ export class GamepadControls {
         (this.previous.throttle === 0 ||
           Math.abs(input.throttle - this.activity.throttle) > 0.08)) ||
       (input.brake > 0 &&
-        (this.previous.brake === 0 || Math.abs(input.brake - this.activity.brake) > 0.08))
+        (this.previous.brake === 0 || Math.abs(input.brake - this.activity.brake) > 0.08)) ||
+      (input.boost && !this.previous.boost && input.throttle > 0)
     const handbrakeActive = input.handbrake && !this.previous.handbrake
     if (steerActive || Math.abs(input.steer) <= 0.02) this.activity.steer = input.steer
     if (pedalsActive || !input.throttle) this.activity.throttle = input.throttle

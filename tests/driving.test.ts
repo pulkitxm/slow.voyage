@@ -38,14 +38,20 @@ async function sample(page: Page, duration: number) {
   }, duration)
 }
 
-async function drive(run: (page: Page, directory: string) => Promise<void>) {
+async function drive(
+  run: (page: Page, directory: string) => Promise<void>,
+  options: { touch?: boolean; controller?: 'standard' } = {},
+) {
   const directory = resolve('.review/held-driving')
   await mkdir(directory, { recursive: true })
-  const fixture = productionFixture()
+  const fixture = productionFixture(options.controller ?? false)
   let browser: Browser | undefined
   try {
     browser = await chromium.launch({ executablePath: browserExecutable(), headless: true })
-    const page = await browser.newPage({ viewport: { width: 1280, height: 720 } })
+    const page = await browser.newPage({
+      viewport: options.touch ? { width: 320, height: 780 } : { width: 1280, height: 720 },
+      hasTouch: options.touch ?? false,
+    })
     const errors: string[] = []
     page.on('pageerror', (error) => errors.push(error.message))
     page.on('console', (message) => {
@@ -66,6 +72,108 @@ async function drive(run: (page: Page, directory: string) => Promise<void>) {
     }
   }
 }
+
+test('held boost increases acceleration and preserves braking and assisted speed control', async () => {
+  await drive(async (page, directory) => {
+    await page.keyboard.down('Shift')
+    await page.waitForTimeout(250)
+    expect((await readout(page)).speed).toBe(0)
+    expect(await page.locator('.drive').getAttribute('data-boost')).toBe('false')
+    await page.keyboard.up('Shift')
+    await page.keyboard.down('w')
+    await page.waitForTimeout(4000)
+    const normal = await readout(page)
+    await page.keyboard.up('w')
+    await page.keyboard.press('r')
+    await page.waitForTimeout(250)
+    await page.keyboard.down('Shift')
+    await page.keyboard.down('w')
+    await page.waitForSelector('[data-boost="true"]')
+    await page.waitForTimeout(4000)
+    const boosted = await readout(page)
+    expect(boosted.speed).toBeGreaterThan(normal.speed + 3)
+    await page.screenshot({ path: resolve(directory, 'boost-driving.png') })
+    await page.keyboard.down('s')
+    await page.waitForSelector('[data-boost="false"]')
+    const braking = await readout(page)
+    await page.waitForTimeout(600)
+    expect((await readout(page)).speed).toBeLessThan(braking.speed)
+    await page.keyboard.up('s')
+    await page.keyboard.up('w')
+    await page.keyboard.up('Shift')
+    await page.keyboard.press('f')
+    await page.waitForSelector('[data-assistance="full"]')
+    await page.keyboard.down('Shift')
+    await page.waitForTimeout(250)
+    expect(await page.locator('.drive').getAttribute('data-boost')).toBe('false')
+    expect(await page.locator('[data-assistance]').getAttribute('data-assistance')).toBe('full')
+    await page.keyboard.up('Shift')
+    await Bun.write(resolve(directory, 'boost.json'), JSON.stringify({ normal, boosted }, null, 2))
+  })
+}, 90000)
+
+test('standard controller boost clears on focus loss and waits for released controls', async () => {
+  await drive(
+    async (page) => {
+      await page.waitForSelector('[data-controller="connected"]')
+      await page.keyboard.press('j')
+      await page.waitForTimeout(180)
+      expect(await page.locator('.drive').getAttribute('data-boost')).toBe('false')
+      await page.keyboard.press('k')
+      await page.waitForSelector('[data-boost="true"]')
+      await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+      await page.waitForSelector('[data-boost="false"]')
+      await page.waitForTimeout(180)
+      expect(await page.locator('.drive').getAttribute('data-boost')).toBe('false')
+      await page.keyboard.press('0')
+      await page.waitForTimeout(180)
+      await page.keyboard.press('k')
+      await page.waitForSelector('[data-boost="true"]')
+      await page.keyboard.press('5')
+      await page.waitForSelector('[data-controller="none"][data-boost="false"]')
+    },
+    { controller: 'standard' },
+  )
+}, 90000)
+
+test('touch boost supports simultaneous accelerator input and releases captured pointers', async () => {
+  await drive(
+    async (page, directory) => {
+      const session = await page.context().newCDPSession(page)
+      const accelerator = await page
+        .getByRole('button', { name: 'Accelerate', exact: true })
+        .boundingBox()
+      const boost = await page.getByRole('button', { name: 'Boost', exact: true }).boundingBox()
+      if (!accelerator || !boost) throw new Error('Touch driving controls missing')
+      const pedal = {
+        id: 1,
+        x: accelerator.x + accelerator.width / 2,
+        y: accelerator.y + accelerator.height / 2,
+      }
+      const reserve = { id: 2, x: boost.x + boost.width / 2, y: boost.y + boost.height / 2 }
+      await session.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [reserve] })
+      await page.waitForTimeout(150)
+      expect(await page.locator('.drive').getAttribute('data-boost')).toBe('false')
+      await session.send('Input.dispatchTouchEvent', {
+        type: 'touchStart',
+        touchPoints: [reserve, pedal],
+      })
+      await page.waitForSelector('[data-boost="true"]')
+      await page.waitForTimeout(1000)
+      await page.screenshot({ path: resolve(directory, 'touch-boost.png') })
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(
+        false,
+      )
+      await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [pedal] })
+      await page.waitForSelector('[data-boost="false"]')
+      await session.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] })
+      await page.waitForTimeout(150)
+      expect(await page.locator('.drive').getAttribute('data-boost')).toBe('false')
+      await session.detach()
+    },
+    { touch: true },
+  )
+}, 90000)
 
 test('reverse cruise stops, persists, and releases speed control to the driver', async () => {
   await drive(async (page, directory) => {

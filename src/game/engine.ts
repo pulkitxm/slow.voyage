@@ -98,6 +98,8 @@ export class RoadEngine {
     this.keys.add(event.code)
     if (!this.started && ['KeyW', 'ArrowUp'].includes(event.code)) this.start()
     if (['KeyW', 'KeyS', 'ArrowUp', 'ArrowDown'].includes(event.code)) this.manualOverride('speed')
+    if (['ShiftLeft', 'ShiftRight'].includes(event.code) && this.manualInput().throttle > 0)
+      this.manualOverride('speed')
     if (['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight'].includes(event.code))
       this.manualOverride('steer')
     if (event.code === 'Space') this.manualOverride('all')
@@ -122,6 +124,7 @@ export class RoadEngine {
     this.touch = { ...neutralInput }
     this.controllerInput = { ...neutralInput }
     this.controllerLook = { x: 0, y: 0, zoom: 0 }
+    this.physics.boosting = false
     this.controller.suspend()
     this.mouse.reset()
     this.physics.steeringControl.releaseInput()
@@ -333,11 +336,13 @@ export class RoadEngine {
     this.controlsBlocked = blocked
     if (blocked) this.blur()
   }
-  setTouch(key: 'throttle' | 'brake' | 'steer', value: number) {
+  setTouch(key: 'throttle' | 'brake' | 'steer' | 'boost', value: number) {
     if (this.controlsBlocked) return
-    this.touch[key] = value
+    if (key === 'boost') this.touch.boost = value > 0
+    else this.touch[key] = value
     if (key === 'steer') this.touch.steeringSource = value ? 'digital' : null
-    if (value) this.manualOverride(key === 'steer' ? 'steer' : 'speed')
+    if (value && (key !== 'boost' || this.touch.throttle > 0))
+      this.manualOverride(key === 'steer' ? 'steer' : 'speed')
   }
   emitState() {
     if (!this.rendered) return
@@ -463,6 +468,7 @@ export class RoadEngine {
       {
         ...neutralInput,
         throttle: has('KeyW', 'ArrowUp') ? 1 : 0,
+        boost: has('ShiftLeft', 'ShiftRight'),
         brake: has('KeyS', 'ArrowDown') ? 1 : 0,
         steer: (has('KeyA', 'ArrowLeft') ? 1 : 0) - (has('KeyD', 'ArrowRight') ? 1 : 0),
         steeringSource: has('KeyA', 'ArrowLeft', 'KeyD', 'ArrowRight') ? 'digital' : null,

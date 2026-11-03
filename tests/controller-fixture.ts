@@ -12,11 +12,13 @@ Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () 
   return virtualPad.connected ? [virtualPad] : [];
 } });
 window.addEventListener('keydown', (event) => {
-  if (!event.code.startsWith('Digit')) return;
+  if (!event.code.startsWith('Digit') && !['KeyJ', 'KeyK'].includes(event.code)) return;
   for (const button of virtualPad.buttons) { button.value = 0; button.pressed = false; }
   virtualPad.axes.fill(0);
   const press = (index) => { virtualPad.buttons[index].value = 1; virtualPad.buttons[index].pressed = true; };
   if (event.code === 'Digit1') press(7);
+  if (event.code === 'KeyJ') press(5);
+  if (event.code === 'KeyK') { press(7); press(5); }
   if (event.code === 'Digit2') virtualPad.axes[0] = -0.7;
   if (event.code === 'Digit3') press(2);
   if (event.code === 'Digit4') press(3);

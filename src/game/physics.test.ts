@@ -65,6 +65,7 @@ class GuardrailWorld extends World {
 
 const coast: Input = {
   throttle: 0,
+  boost: false,
   brake: 0,
   steer: 0,
   steeringSource: null,
@@ -80,6 +81,64 @@ function simulate(
 ) {
   for (let t = 0; t < duration; t += dt) car.update(dt, input, settings)
 }
+
+describe('boosted driving', () => {
+  for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const) {
+    test(`${vehicle} gains forward acceleration and releases boost without cutting throttle`, () => {
+      const settings = { ...defaults, vehicle }
+      const normal = new CarPhysics(new GradeWorld(settings, 0))
+      const boosted = new CarPhysics(new GradeWorld(settings, 0))
+      simulate(normal, 6, { ...coast, throttle: 1 }, 1 / 120, settings)
+      simulate(boosted, 6, { ...coast, throttle: 1, boost: true }, 1 / 120, settings)
+      expect(boosted.speed).toBeGreaterThan(normal.speed + 0.5)
+      expect(boosted.telemetry().boost).toBe(true)
+      const speed = boosted.speed
+      boosted.update(1 / 120, { ...coast, throttle: 1 }, settings)
+      expect(boosted.telemetry().boost).toBe(false)
+      expect(boosted.speed).toBeGreaterThan(speed)
+      boosted.reset()
+      expect(boosted.telemetry().boost).toBe(false)
+      expect(boosted.speed).toBe(0)
+    })
+
+    test(`${vehicle} boost alone stays still and leaves powered reverse unchanged`, () => {
+      const settings = { ...defaults, vehicle }
+      const normal = new CarPhysics(new GradeWorld(settings, 0))
+      const boosted = new CarPhysics(new GradeWorld(settings, 0))
+      simulate(boosted, 2, { ...coast, boost: true }, 1 / 120, settings)
+      expect(boosted.speed).toBe(0)
+      expect(boosted.distance).toBe(0)
+      expect(boosted.telemetry().boost).toBe(false)
+      for (let step = 0; step < 3 * 120; step++) {
+        normal.update(1 / 120, { ...coast, brake: 1 }, settings)
+        boosted.update(1 / 120, { ...coast, brake: 1, boost: true }, settings)
+        expect(boosted.speed).toBeCloseTo(normal.speed, 8)
+        expect(boosted.telemetry().boost).toBe(false)
+      }
+      expect(boosted.speed).toBeLessThan(-1)
+    })
+
+    test.each([
+      { name: 'service braking', throttle: 0, brake: 1, regenBrake: 0 },
+      { name: 'simultaneous pedals', throttle: 1, brake: 1, regenBrake: 0 },
+      { name: 'regenerative braking', throttle: 0, brake: 0, regenBrake: 0.15 },
+    ])(`${vehicle} boost cannot override $name`, ({ throttle, brake, regenBrake }) => {
+      const settings = { ...defaults, vehicle }
+      const released = new CarPhysics(new GradeWorld(settings, 0))
+      const held = new CarPhysics(new GradeWorld(settings, 0))
+      for (const body of [released, held])
+        simulate(body, 4, { ...coast, throttle: 1, boost: true }, 1 / 120, settings)
+      for (let step = 0; step < 30; step++) {
+        const previous = held.speed
+        released.update(1 / 120, { ...coast, throttle, brake, regenBrake }, settings)
+        held.update(1 / 120, { ...coast, throttle, brake, regenBrake, boost: true }, settings)
+        expect(held.speed).toBeLessThan(previous)
+        expect(held.speed).toBeCloseTo(released.speed, 8)
+        expect(held.telemetry().boost).toBe(false)
+      }
+    })
+  }
+})
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   '%s cruise holds forward, reverse and stopped targets on grades',
