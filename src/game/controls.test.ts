@@ -1,6 +1,13 @@
 import { expect, test } from 'bun:test'
-import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
+import {
+  automaticTarget,
+  mergeManualInput,
+  neutralInput,
+  releaseAssistance,
+  resolveInput,
+} from './controls'
 import type { Input } from './physics'
+import { vehicleMetrics } from './vehicles'
 
 test('speed assistance forwards service braking without dropping manual ownership rules', () => {
   const automatic = { ...neutralInput, regenBrake: 0.7 }
@@ -142,4 +149,25 @@ test('assistance retains automatic steering ownership only while it steers', () 
     expect(resolveInput(driver, assisted, mode, false).steeringSource).toBe('automatic')
   for (const mode of ['off', 'speed'] as const)
     expect(resolveInput(driver, assisted, mode, false).steeringSource).toBe('digital')
+})
+
+test('autosteer caps a held throttle when the bend ahead needs less speed', () => {
+  const slowing = { ...neutralInput, throttle: 0, regenBrake: 0.6 }
+  const floored = { ...neutralInput, throttle: 1, boost: true }
+  const guarded = resolveInput(floored, slowing, 'steer', false)
+  expect(guarded).toMatchObject({ throttle: 0, boost: false, regenBrake: 0.6 })
+  const clear = resolveInput(floored, { ...slowing, throttle: 1, regenBrake: 0 }, 'steer', false)
+  expect(clear).toMatchObject({ throttle: 1, boost: true, regenBrake: 0 })
+  expect(resolveInput({ ...floored, brake: 1 }, slowing, 'steer', false)).toMatchObject({
+    throttle: 1,
+    brake: 1,
+    regenBrake: 0,
+  })
+  expect(resolveInput(floored, slowing, 'off', false).throttle).toBe(1)
+})
+
+test('autosteer targets the vehicle top speed while cruise modes target the setting', () => {
+  expect(automaticTarget('steer', 20, 'roadster')).toBe(vehicleMetrics.roadster.maxSpeed)
+  expect(automaticTarget('full', 20, 'roadster')).toBe(20)
+  expect(automaticTarget('speed', 20, 'bus')).toBe(20)
 })

@@ -1,5 +1,6 @@
 import type { Input } from './physics'
-import type { AssistanceMode } from './world'
+import { vehicleMetrics } from './vehicles'
+import type { AssistanceMode, Vehicle } from './world'
 
 export const assistanceLabels: Record<AssistanceMode, string> = {
   off: 'Manual',
@@ -60,17 +61,24 @@ export function resolveInput(
 ): Input {
   const steer = mode === 'full' || mode === 'steer'
   const speed = mode === 'full' || mode === 'speed'
+  const cornerGuard =
+    mode === 'steer' && manual.throttle > 0 && automatic.throttle === 0 && !manual.brake
   return {
-    throttle: speed ? automatic.throttle : manual.throttle,
-    boost: !speed && manual.boost,
+    throttle: speed || cornerGuard ? automatic.throttle : manual.throttle,
+    boost: !speed && !cornerGuard && manual.boost,
     brake: speed ? automatic.brake : manual.brake,
     steer: steer ? automatic.steer : manual.steer,
     steeringSource: steer ? automatic.steeringSource : manual.steeringSource,
     handbrake: manual.handbrake,
-    regenBrake: speed
-      ? automatic.regenBrake
-      : onePedal && !manual.throttle && !manual.brake
-        ? 0.15
-        : 0,
+    regenBrake:
+      speed || cornerGuard
+        ? automatic.regenBrake
+        : onePedal && !manual.throttle && !manual.brake
+          ? 0.15
+          : 0,
   }
+}
+
+export function automaticTarget(mode: AssistanceMode, cruiseSpeed: number, vehicle: Vehicle) {
+  return mode === 'steer' ? vehicleMetrics[vehicle].maxSpeed : cruiseSpeed
 }
