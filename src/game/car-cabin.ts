@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { carSurface } from './car-body'
+import { createCarCanopy } from './car-canopy'
 
 type Point = [number, number, number]
 
@@ -72,52 +73,8 @@ export function createCarCabin(
       }
     }
   }
-  glazing([0.71, 0.894, -0.95], [0.555, open ? 1.22 : 1.23, open ? -0.19 : -0.015], [0, 1, -1])
-  if (!open) {
-    glazing([0.71, 0.894, 1.32], [0.555, 1.23, 0.8], [0, 1, 1])
-    for (const side of [-1, 1]) {
-      const point = (y: number, z: number, inset = 0): Point => [
-        side * (0.71 - ((y - 0.894) / 0.336) * 0.155 + inset),
-        y,
-        z,
-      ]
-      const frame = [point(0.894, -0.95), point(0.894, 1.32), point(1.23, 0.8), point(1.23, -0.015)]
-      const pane = [point(0.917, -0.84), point(0.917, 1.14), point(1.205, 0.69), point(1.205, 0.03)]
-      group.add(carSurface(pane, [side, 0, 0], glass))
-      for (let i = 0; i < 4; i++) {
-        const next = (i + 1) % 4
-        const a = frame[i],
-          b = frame[next],
-          c = pane[next],
-          d = pane[i]
-        if (a && b && c && d) group.add(carSurface([a, b, c, d], [side, 0, 0], paint))
-      }
-      group.add(
-        carSurface(
-          [
-            point(0.917, 0.345, 0.002),
-            point(0.917, 0.375, 0.002),
-            point(1.205, 0.375, 0.002),
-            point(1.205, 0.345, 0.002),
-          ],
-          [side, 0, 0],
-          trim,
-        ),
-      )
-    }
-    const roof = carSurface(
-      [
-        [-0.555, 1.23, -0.015],
-        [0.555, 1.23, -0.015],
-        [0.555, 1.23, 0.8],
-        [-0.555, 1.23, 0.8],
-      ],
-      [0, 1, 0],
-      paint,
-    )
-    roof.name = 'roof'
-    group.add(roof)
-  }
+  if (open) glazing([0.71, 0.894, -0.95], [0.555, 1.22, -0.19], [0, 1, -1])
+  else group.add(createCarCanopy(paint, glass, trim))
   for (const side of [-1, 1]) {
     box([0.12, 0.075, 0.22], [side * 0.78, 0.91, -0.64], paint)
     box([0.012, 0.052, 0.14], [side * 0.844, 0.91, -0.62], glass)
