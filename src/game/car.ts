@@ -35,7 +35,7 @@ export class CarModel {
   wheelRadius: number
   headlightPositions: [number, number, number][]
   cabinSteering: THREE.Object3D | undefined
-  constructor(settings: Settings) {
+  constructor(settings: Settings, software = false) {
     const dimensions = vehicleMetrics[settings.vehicle]
     this.wheelbase = dimensions.wheelbase
     this.wheelRadius = dimensions.wheelRadius
@@ -306,13 +306,14 @@ export class CarModel {
       ...this.wheelPivots,
       ...(this.cabinSteering ? [this.cabinSteering] : []),
     ])
-    this.bonnet = createBonnet(settings.vehicle, this.body, black)
+    this.bonnet = createBonnet(settings.vehicle, this.body, black, software)
     this.materials.push(...this.bonnet.materials)
     this.firstPerson = this.bonnet.group
     this.group.add(this.exterior, this.firstPerson)
     this.group.traverse((o) => {
       if (o instanceof THREE.Mesh) {
-        o.castShadow = o.material !== glass
+        o.castShadow =
+          o.material !== glass && (Array.isArray(o.material) || !o.material.transparent)
         o.receiveShadow = true
       }
     })

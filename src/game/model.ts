@@ -14,6 +14,8 @@ export interface VehicleModel {
   dispose(): void
 }
 
-export function createVehicleModel(settings: Settings): VehicleModel {
-  return settings.vehicle === 'motorcycle' ? new MotorcycleModel(settings) : new CarModel(settings)
+export function createVehicleModel(settings: Settings, software = false): VehicleModel {
+  return settings.vehicle === 'motorcycle'
+    ? new MotorcycleModel(settings, software)
+    : new CarModel(settings, software)
 }

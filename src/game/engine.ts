@@ -261,7 +261,7 @@ export class RoadEngine {
     this.terrain = new Terrain(this.scene, this.world, budget.detail, budget.software)
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
-    this.car = createVehicleModel(this.settings)
+    this.car = createVehicleModel(this.settings, budget.software)
     this.scene.add(this.car.group)
     this.configureHeadlights()
     this.applyLighting()
@@ -389,7 +389,7 @@ export class RoadEngine {
     if (vehicleChange) {
       this.scene.remove(this.car.group)
       this.car.dispose()
-      this.car = createVehicleModel(this.settings)
+      this.car = createVehicleModel(this.settings, budget.software)
       this.scene.add(this.car.group)
       this.configureHeadlights()
       this.view.snap()

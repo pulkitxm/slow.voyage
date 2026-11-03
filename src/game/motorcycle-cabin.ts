@@ -3,7 +3,11 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { createInstrumentMaterials, createSpeedometer } from './instruments'
 import { batchUntexturedMeshes } from './mesh-batch'
 
-export function createMotorcycleCabin(paint: THREE.Material, trim: THREE.Material) {
+export function createMotorcycleCabin(
+  paint: THREE.Material,
+  trim: THREE.Material,
+  rasterInstruments = false,
+) {
   const group = new THREE.Group()
   group.visible = false
   const theme = createInstrumentMaterials()
@@ -20,11 +24,14 @@ export function createMotorcycleCabin(paint: THREE.Material, trim: THREE.Materia
   group.add(pod)
   const housing = new THREE.Mesh(new RoundedBoxGeometry(0.23, 0.16, 0.1, 2, 0.018), trim)
   pod.add(housing)
-  const speedometer = createSpeedometer(0.064, 220, theme)
+  const speedometer = createSpeedometer(0.064, 220, theme, rasterInstruments)
   speedometer.group.position.z = 0.058
   speedometer.group.rotation.x = Math.PI / 2
   pod.add(speedometer.group)
-  batchUntexturedMeshes(group, [speedometer.needle])
+  batchUntexturedMeshes(group, [
+    speedometer.needle,
+    ...(speedometer.overlay ? [speedometer.overlay] : []),
+  ])
   group.traverse((object) => {
     if (object instanceof THREE.Mesh) object.receiveShadow = true
   })

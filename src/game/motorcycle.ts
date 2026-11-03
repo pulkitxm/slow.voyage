@@ -28,7 +28,7 @@ export class MotorcycleModel {
   wheels: THREE.Group[] = []
   wheelPivots: THREE.Group[] = []
   exteriorVisible = true
-  constructor(settings: Settings) {
+  constructor(settings: Settings, software = false) {
     this.body = new THREE.MeshStandardMaterial({
       color: settings.color,
       metalness: 0,
@@ -140,12 +140,12 @@ export class MotorcycleModel {
       this.wheelPivots.push(pivot)
       this.exterior.add(pivot)
     }
-    this.bonnet = createBonnet(settings.vehicle, this.body, this.trim)
+    this.bonnet = createBonnet(settings.vehicle, this.body, this.trim, software)
     this.firstPerson = this.bonnet.group
     this.group.add(this.exterior, this.firstPerson)
     this.group.traverse((object) => {
       if (object instanceof THREE.Mesh) {
-        object.castShadow = true
+        object.castShadow = Array.isArray(object.material) || !object.material.transparent
         object.receiveShadow = true
       }
     })
