@@ -109,6 +109,7 @@ describe('tree trunks', () => {
     const ahead = trunkObstacle(pose, footprint, { x: 0, s: footprint.front + 0.3, radius: 0.4 })
     expect(ahead?.penetration).toBeCloseTo(0.1, 6)
     expect(ahead?.normalS).toBeCloseTo(1, 6)
+    expect(ahead?.material).toBe('trunk')
     const corner = trunkObstacle(pose, footprint, {
       x: footprint.halfWidth + 0.2,
       s: footprint.front + 0.2,
@@ -254,6 +255,8 @@ describe('terrain bounds', () => {
     }
     expect(deepest).toBeLessThan(0)
     expect(deepest).toBeGreaterThan(-terrainBounds.wadeDepth - 0.05)
+    expect(car.wading).toBeGreaterThan(0)
+    expect(car.scrapeMaterial).toBe('water')
     expect(Math.abs(car.speed)).toBeLessThan(1)
     const stuck = car.x
     for (let step = 0; step < 9 * 120; step++) car.update(1 / 120, reverse, settings)
@@ -273,6 +276,7 @@ describe('terrain bounds', () => {
         expect(Math.abs(car.x)).toBeLessThan(terrainBounds.edge + 0.05)
       }
       expect(Math.abs(car.x)).toBeGreaterThan(terrainBounds.edge - 5)
+      expect(car.hitMaterial).toBe('edge')
     }
   })
 

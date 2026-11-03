@@ -2,6 +2,7 @@ import { resolveBarrierImpulse } from './barrier'
 import {
   boundaryObstacle,
   footprints,
+  type ObstacleMaterial,
   railObstacles,
   type Trunk,
   terrainBounds,
@@ -11,6 +12,7 @@ import {
 import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
 import { forwardDriveForce } from './drive'
 import { surfaceGrip } from './grip'
+import { engineProfiles, Gearbox } from './powertrain'
 import { stabilize } from './stability'
 import { Steering, steeringLimit } from './steering'
 import { Suspension } from './suspension'
@@ -50,6 +52,7 @@ function tractionAcceleration(settings: Settings, onRoad: boolean, sand = false)
 }
 const directionChangeSpeed = 0.05
 const brakeResponseSeconds = 0.1
+export const collisionSound = { minimumApproach: 0.8, fullApproach: 10 }
 const gripSteeringShare = 1.5
 
 export class CarPhysics {
@@ -69,6 +72,13 @@ export class CarPhysics {
   distance = 0
   slip = 0
   impact = 0
+  hits = 0
+  hitStrength = 0
+  hitMaterial: ObstacleMaterial = 'rail'
+  scrape = 0
+  scrapeMaterial: ObstacleMaterial = 'rail'
+  wading = 0
+  gearbox = new Gearbox(engineProfiles.touring)
   driveForce = 0
   boosting = false
   brakeForce = 0
@@ -96,6 +106,8 @@ export class CarPhysics {
     this.speed = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
     this.steeringControl.reset()
     this.tireSteeringLimit = Number.POSITIVE_INFINITY
+    this.scrape = this.wading = 0
+    this.gearbox.reset()
     this.suspension.reset(this)
   }
   routeSpeed(targetSpeed: number) {
@@ -184,6 +196,8 @@ export class CarPhysics {
       this.suspension.configure(settings.vehicle)
       this.suspension.reset(this)
     }
+    if (this.gearbox.profile !== engineProfiles[settings.vehicle])
+      this.gearbox.reset(engineProfiles[settings.vehicle])
     const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
     const v = Math.abs(this.speed)
     const reverseCommand = input.brake > 0 && input.throttle === 0
@@ -275,10 +289,21 @@ export class CarPhysics {
         vehicle,
       )
       this.impact = Math.max(this.impact, clamp(approach / 8, 0, 1))
+      const deepest = obstacles.reduce((a, b) => (b.penetration > a.penetration ? b : a))
+      this.scrape = Math.abs(this.speed)
+      this.scrapeMaterial = deepest.material
+      if (approach > collisionSound.minimumApproach) {
+        this.hits++
+        this.hitStrength = clamp(approach / collisionSound.fullApproach, 0, 1)
+        this.hitMaterial = deepest.material
+      }
+    } else {
+      this.scrape = 0
     }
     const underfoot = this.world.surface(this.x, this.s)
     const depth = terrainBounds.waterLevel - underfoot.height
-    if (depth > 0 && !underfoot.onRoad) {
+    this.wading = depth > 0 && !underfoot.onRoad ? depth : 0
+    if (this.wading > 0) {
       const slowdown = wadingDrag(depth, this.speed) * dt
       this.speed -= Math.sign(this.speed) * Math.min(Math.abs(this.speed), slowdown)
       this.lateralSpeed -=
@@ -290,6 +315,7 @@ export class CarPhysics {
     this.slip =
       this.suspension.wheels.reduce((sum, wheel) => sum + wheel.slip, 0) /
       this.suspension.wheels.length
+    this.gearbox.update(this.speed, this.speed < -0.1 ? input.brake : input.throttle, dt)
   }
   telemetry(): Telemetry {
     return {
@@ -301,12 +327,7 @@ export class CarPhysics {
       slip: this.slip,
       offroad: this.offroad,
       impact: this.impact,
-      gear:
-        this.speed < -0.1
-          ? 'R'
-          : this.speed < 0.1
-            ? 'N'
-            : String(Math.min(6, Math.floor(this.speed / 10) + 1)),
+      gear: this.gearbox.label(this.speed),
     }
   }
 }
