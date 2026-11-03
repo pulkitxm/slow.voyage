@@ -13,8 +13,9 @@ assets are local and included in the production offline cache.
 Development always uses `noindex, nofollow`. Production builds without a public
 origin do the same and omit canonical links, public page URLs, and the sitemap.
 
-`VITE_SITE_URL` optionally supplies a future public HTTPS origin, such as
-`https://driving.example`. Keep it empty for local work. The value must contain
+`VITE_SITE_URL` optionally supplies the public HTTPS origin, such as
+`https://driving.example`. Keep it empty for local work. The `Pages` workflow
+sets it to `https://slow.voyage`. The value must contain
 only a hostname and an optional trailing slash, without a port, path, credentials,
 query, or fragment. Use a domain the project is authorized to publish under.
 
