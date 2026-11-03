@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { createBonnet } from './bonnet'
 import type { WheelState } from './suspension'
+import { createTire } from './tire-shape'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
 
@@ -121,8 +122,7 @@ export class MotorcycleModel {
       const pivot = new THREE.Group()
       pivot.position.set(0, metrics.wheelRadius, z)
       const spin = new THREE.Group()
-      const tire = new THREE.Mesh(new THREE.TorusGeometry(0.2215, 0.0385, 10, 32), this.rubber)
-      tire.rotation.y = Math.PI * 0.5
+      const tire = createTire('motorcycle', this.rubber)
       spin.add(tire)
       const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.195, 0.195, 0.07, 24), this.trim)
       rim.rotation.z = Math.PI * 0.5
