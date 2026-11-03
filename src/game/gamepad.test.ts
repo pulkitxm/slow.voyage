@@ -3,6 +3,7 @@ import { decodeGamepad, GamepadControls } from './gamepad'
 
 function pad(index = 0) {
   return {
+    id: 'Portable test controller',
     index,
     connected: true,
     mapping: 'standard' as GamepadMappingType,

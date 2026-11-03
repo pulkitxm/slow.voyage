@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { busLayout } from './bus-layout'
+import type { ControllerLook } from './gamepad'
 import { vehicleMetrics } from './vehicles'
 import { angleDifference, type CameraMode, clamp, damp, type World } from './world'
 
@@ -24,6 +25,7 @@ export class DrivingCamera {
   private forward = new THREE.Vector3()
   private side = new THREE.Vector3()
   private drag: { id: number; x: number; y: number; mode: CameraMode } | null = null
+  private controllerLooking = false
 
   constructor(public camera: THREE.PerspectiveCamera) {}
 
@@ -36,6 +38,7 @@ export class DrivingCamera {
     this.pitch = 0
     this.zoom = 1
     this.cancelDrag()
+    this.controllerLooking = false
   }
 
   beginDrag(id: number, x: number, y: number, mode: CameraMode) {
@@ -76,6 +79,27 @@ export class DrivingCamera {
     return true
   }
 
+  controllerLook(look: ControllerLook, mode: CameraMode, elapsed: number) {
+    this.controllerLooking = false
+    if (
+      mode === 'cinematic' ||
+      this.drag ||
+      !Number.isFinite(look.x + look.y + look.zoom + elapsed)
+    )
+      return
+    const dt = clamp(elapsed, 0, 0.05)
+    this.controllerLooking = !!(look.x || look.y)
+    this.yaw += clamp(look.x, -1, 1) * dt * 1.7
+    this.yaw = mode === 'bonnet' ? clamp(this.yaw, -1.55, 1.55) : angleDifference(this.yaw, 0)
+    this.pitch = clamp(
+      this.pitch + clamp(look.y, -1, 1) * dt * 1.2,
+      mode === 'bonnet' ? -0.65 : -0.12,
+      mode === 'bonnet' ? 0.65 : 1.05,
+    )
+    if (mode === 'chase')
+      this.zoom = clamp(this.zoom * Math.exp(-clamp(look.zoom, -1, 1) * dt), 0.72, 2.6)
+  }
+
   update(subject: CameraSubject, world: World, mode: CameraMode, elapsed: number) {
     const dt = clamp(Number.isFinite(elapsed) ? elapsed : 0, 0, 0.1)
     const { camera, position, target, forward, side } = this
@@ -90,7 +114,7 @@ export class DrivingCamera {
       this.snap()
       this.mode = mode
     }
-    if (mode === 'bonnet' && !this.drag) {
+    if (mode === 'bonnet' && !this.drag && !this.controllerLooking) {
       this.yaw = damp(this.yaw, 0, 6, dt)
       this.pitch = damp(this.pitch, 0, 6, dt)
     }

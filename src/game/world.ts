@@ -1,3 +1,4 @@
+import type { ControllerBindings, ControllerMode } from './controller-bindings'
 import { roadCurve, smoothStep, terrainField } from './field'
 import { roadCoordinates, roadLayout } from './road'
 
@@ -33,6 +34,8 @@ export interface Settings {
   onePedal: boolean
   controllerEnabled: boolean
   controllerDeadzone: number
+  controllerMode: ControllerMode
+  controllerBindings: ControllerBindings
   mouseEnabled: boolean
   mouseSensitivity: number
 }
@@ -55,6 +58,8 @@ export const defaults: Settings = {
   onePedal: false,
   controllerEnabled: true,
   controllerDeadzone: 0.12,
+  controllerMode: 'standard',
+  controllerBindings: {},
   mouseEnabled: false,
   mouseSensitivity: 1,
 }

@@ -1,3 +1,5 @@
+import { decodeBindings } from './controller-bindings'
+import { cruiseLimits } from './cruise'
 import { defaults, type Settings } from './world'
 
 const numericRanges = {
@@ -25,6 +27,7 @@ export function decodeSettings(stored: unknown): Settings {
       'quality',
       'units',
       'autodriveMode',
+      'controllerMode',
     ] as const) {
       const options: Record<typeof key, readonly string[]> = {
         landscape: ['highlands', 'alpine', 'desert'],
@@ -36,6 +39,7 @@ export function decodeSettings(stored: unknown): Settings {
         quality: ['high', 'low'],
         units: ['km', 'mi'],
         autodriveMode: ['full', 'steer', 'speed'],
+        controllerMode: ['standard', 'custom'],
       }
       if (typeof values[key] === 'string' && options[key].includes(values[key]))
         Object.assign(result, { [key]: values[key] })
@@ -50,6 +54,7 @@ export function decodeSettings(stored: unknown): Settings {
       if (typeof values[key] === 'boolean') result[key] = values[key]
     if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))
       result.color = values.color
+    result.controllerBindings = decodeBindings(values.controllerBindings)
     return result
   } catch {
     return { ...defaults }
@@ -63,5 +68,3 @@ export function loadSettings(): Settings {
     return { ...defaults }
   }
 }
-
-import { cruiseLimits } from './cruise'
