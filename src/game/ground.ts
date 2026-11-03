@@ -12,14 +12,8 @@ const sideOffsets = [
   5,
   ...Array.from({ length: 38 }, (_, index) => 5.5 + index * 0.5),
   ...Array.from({ length: 33 }, (_, index) => 26 + index * 2),
-  130,
-  190,
-  270,
-  380,
-  520,
-  700,
-  900,
-  1200,
+  ...Array.from({ length: 35 }, (_, index) => 106 + index * 16),
+  ...Array.from({ length: 29 }, (_, index) => 682 + index * 32),
   1600,
 ]
 const groundOffsets = [...sideOffsets.map((offset) => -offset).reverse(), 0, ...sideOffsets]

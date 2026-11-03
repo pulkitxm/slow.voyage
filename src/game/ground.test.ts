@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { groundGeometry } from './ground'
+import { GroundSampler } from './ground-sample'
 import { roadLayout, roadPoint } from './road'
 import { defaults, World } from './world'
 
@@ -135,3 +136,31 @@ test.each(['highlands', 'alpine', 'desert'] as const)(
     expect(maximumError).toBeLessThan(0.1)
   },
 )
+
+for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
+  test.each([12, 96])(
+    `${landscape} distant mesh stays within two meters of the height field in the sampled woodland range with %i rows`,
+    (rows) => {
+      let maximumError = 0
+      for (const seed of [42, 43, 99]) {
+        const world = new World({ ...defaults, landscape, seed })
+        for (const start of [-1200, -120, 360, 1200]) {
+          const geometry = groundGeometry(world, start, grass, light, rows)
+          const ground = new GroundSampler(geometry, start, rows)
+          for (const fraction of [0.07, 0.31, 0.67, 0.93]) {
+            const s = start + fraction * 120
+            for (let distance = -649; distance <= 649; distance += 23) {
+              const x = world.road(s).x + distance
+              maximumError = Math.max(
+                maximumError,
+                Math.abs(ground.sample(x, s) - world.height(x, s)),
+              )
+            }
+          }
+          geometry.dispose()
+        }
+      }
+      expect(maximumError).toBeLessThan(2)
+    },
+  )
+}
