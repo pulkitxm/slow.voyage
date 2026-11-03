@@ -8,6 +8,7 @@ import { createCarCabin } from './car-cabin'
 import { batchUntexturedMeshes } from './mesh-batch'
 import { subdividePlanarSurface } from './surface-subdivide'
 import type { WheelState } from './suspension'
+import { createTire } from './tire-shape'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
 
@@ -243,18 +244,11 @@ export class CarModel {
     for (const z of axles)
       for (const side of [-1, 1]) {
         const pivot = new THREE.Group(),
-          spin = isBus
-            ? createBusWheel(this.wheelRadius, side, tire, chrome, black)
-            : new THREE.Group()
+          spin = isBus ? createBusWheel(side, tire, chrome, black) : new THREE.Group()
         pivot.position.set(side * dimensions.trackWidth * 0.5, this.wheelRadius, z)
         pivot.add(spin)
         if (!isBus) {
-          const wheel = new THREE.Mesh(
-            new THREE.TorusGeometry(this.wheelRadius - 0.054, 0.054, 12, 32),
-            tire,
-          )
-          wheel.rotation.y = Math.PI / 2
-          wheel.scale.z = 1.7
+          const wheel = createTire(settings.vehicle, tire)
           spin.add(wheel)
           const rim = new THREE.Mesh(
             new THREE.CylinderGeometry(0.235, 0.235, 0.16, 24, 1, true),
