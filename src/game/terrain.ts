@@ -68,6 +68,7 @@ export class Terrain {
     public world: World,
     public quality: Settings['quality'],
     public software: boolean,
+    multisampling: boolean,
   ) {
     this.groundTexture = groundTexture()
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings)
@@ -76,6 +77,12 @@ export class Terrain {
     this.bladeMaterial = new THREE.MeshStandardMaterial({
       map: this.bladeTexture,
       alphaTest: 0.25,
+      alphaToCoverage: multisampling,
+      blending: multisampling ? THREE.CustomBlending : THREE.NormalBlending,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.ZeroFactor,
+      blendSrcAlpha: THREE.ZeroFactor,
+      blendDstAlpha: THREE.OneFactor,
       color: '#cbcbcb',
       vertexColors: true,
       side: THREE.DoubleSide,

@@ -258,7 +258,13 @@ export class RoadEngine {
     this.sky = new ScenicSky()
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
-    this.terrain = new Terrain(this.scene, this.world, budget.detail, budget.software)
+    this.terrain = new Terrain(
+      this.scene,
+      this.world,
+      budget.detail,
+      budget.software,
+      this.renderer.getContext().getContextAttributes()?.antialias ?? false,
+    )
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
