@@ -126,7 +126,12 @@ test('speed field of view is smooth, bounded, and symmetric in reverse', () => {
 test('the orbit boom stays clear of an intervening hillside', () => {
   const { view, world, subject, camera } = fixture()
   const ground = subject.y
-  world.height = (x, s) => ground + (x < subject.x - 1 && s < subject.s + 1 ? 2.5 : 0)
+  world.surface = (x, s) => ({
+    height: ground + (x < subject.x - 1 && s < subject.s + 1 ? 2.5 : 0),
+    slopeX: 0,
+    slopeS: 0,
+    onRoad: false,
+  })
   view.beginDrag(1, 400, 300, 'chase')
   view.moveDrag(1, 600, 300, 800, 600)
   view.endDrag(1)
@@ -138,7 +143,47 @@ test('the orbit boom stays clear of an intervening hillside', () => {
   const pivot = camera.position.clone().addScaledVector(direction, t)
   for (let i = 1; i <= 12; i++) {
     const point = pivot.clone().lerp(camera.position, i / 12)
-    expect(point.y).toBeGreaterThanOrEqual(world.height(point.x, -point.z) + 0.349)
+    expect(point.y).toBeGreaterThanOrEqual(world.surface(point.x, -point.z).height + 0.349)
+  }
+})
+
+test.each([
+  { mode: 'chase', s: 900, offset: 650 },
+  { mode: 'cinematic', s: 240, offset: -650 },
+] as const)('$mode stays above rendered far off-road terrain', ({ mode, s, offset }) => {
+  const world = new World({ ...defaults, landscape: 'alpine', vehicle: 'bus', seed: 43 })
+  const road = world.road(s)
+  const x = road.x + offset
+  const subject = { x, y: world.surface(x, s).height, s, yaw: road.yaw, speed: 20 }
+  const camera = new THREE.PerspectiveCamera(68, 0.55, 0.1, 3600)
+  const view = new DrivingCamera(camera)
+  view.update(subject, world, mode, 1 / 60)
+  if (mode === 'chase') {
+    view.yaw = Math.PI / 2
+    view.pitch = 0.1
+    view.zoom = 2.6
+  }
+  view.snap()
+  view.update(subject, world, mode, 1 / 60)
+  const geometry = groundGeometry(
+    world,
+    Math.floor(-camera.position.z / 120) * 120,
+    new THREE.Color(),
+    new THREE.Color(),
+  )
+  const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
+  try {
+    const mesh = new THREE.Mesh(geometry, material)
+    const ray = new THREE.Raycaster(
+      camera.position.clone().add(new THREE.Vector3(0, 100, 0)),
+      new THREE.Vector3(0, -1, 0),
+    )
+    const hit = ray.intersectObject(mesh)[0]
+    if (!hit) throw new Error('Rendered ground missing under off-road camera')
+    expect(camera.position.y - hit.point.y).toBeGreaterThanOrEqual(0.34999)
+  } finally {
+    geometry.dispose()
+    material.dispose()
   }
 })
 
