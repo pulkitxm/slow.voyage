@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
 import { Foliage } from './foliage'
 import { grassGeometry, grassTexture } from './grass'
-import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './ground'
+import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
@@ -44,8 +44,23 @@ function geometry(positions: number[], indices: number[], colors?: number[]) {
   g.computeVertexNormals()
   return g
 }
+export const tileStreaming = {
+  lead: 2,
+  budget: 3,
+  jump: 2,
+  groundBatch: 8,
+  grassBatch: 2500,
+}
+
+interface TileBuild {
+  group: THREE.Group
+  steps: Generator<undefined, void, undefined>
+}
+
 export class Terrain {
   tiles = new Map<number, THREE.Group>()
+  builds = new Map<number, TileBuild>()
+  retired: THREE.Group[] = []
   materials: THREE.Material[] = []
   sharedGeometries: THREE.BufferGeometry[] = []
   grassMaterial: MeadowMaterial
@@ -211,21 +226,21 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     for (const part of parts) part.dispose()
     this.addMesh(group, merged, material)
   }
-  createTile(id: number, rows: number) {
+  *buildTile(id: number, rows: number, group: THREE.Group): Generator<undefined, void, undefined> {
     const start = id * groundLayout.tileLength,
-      group = new THREE.Group(),
       settings = this.world.settings
     const rng = random(id * 967 + settings.seed * 137)
     const { base, light } = terrainColors(settings)
     const color = new THREE.Color()
     const ground = this.addMesh(
       group,
-      groundGeometry(this.world, start, base, light, rows),
+      yield* groundRows(this.world, start, base, light, rows, tileStreaming.groundBatch),
       this.grassMaterial,
     )
     ground.name = 'ground'
     group.userData.groundRows = rows
     const groundSurface = new GroundSampler(ground.geometry, start, rows)
+    yield
     const road = roadStrip(
       this.world,
       start,
@@ -260,6 +275,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         ),
       )
     this.addBatch(group, markings, this.edgeMaterial)
+    yield
     const rails: THREE.BufferGeometry[] = []
     for (const side of [-1, 1]) {
       for (let s = start; s < start + groundLayout.tileLength; s += roadLayout.railSegmentLength) {
@@ -312,6 +328,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       }
     }
     this.addBatch(group, rails, this.railMaterial)
+    yield
     const treeCount = settings.landscape === 'desert' ? 4 : this.quality === 'low' ? 16 : 28
     const shrubCount = settings.landscape === 'desert' ? 12 : this.quality === 'low' ? 70 : 180
     const clusters = Array.from({ length: 6 }, () => ({
@@ -320,6 +337,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }))
     const matrix = new THREE.Object3D()
     const woodland = createWoodland(this.world, id, this.quality)
+    yield
     const conifers =
       settings.landscape === 'desert'
         ? 0
@@ -392,6 +410,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       trees.count = placed
       trees.castShadow = true
       group.add(trees)
+      yield
     }
     const count = this.software
       ? 600
@@ -406,6 +425,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     grass.frustumCulled = false
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
+      if (i && i % tileStreaming.grassBatch === 0) yield
       const s = start + rng() * groundLayout.tileLength,
         d =
           (rng() > 0.5 ? 1 : -1) *
@@ -451,10 +471,31 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     const far = Math.max(current, cameraTile) + 1
     const rowsFor = (id: number) =>
       this.software && (id < near || id > far) ? groundLayout.distantRows : groundLayout.fullRows
-    for (const [id, group] of this.tiles)
-      if (id < current - 4 || id > current + ahead) this.removeTile(id, group)
+    const outside = (id: number) => id < current - 4 || id > current + ahead
+    for (const [id, group] of this.tiles) if (outside(id)) this.removeTile(id, group)
+    for (const [id, build] of this.builds)
+      if (outside(id)) {
+        this.disposeGroup(build.group)
+        this.builds.delete(id)
+      }
+    let missing = 0
     for (let id = current - 4; id <= current + ahead; id++)
-      if (!this.tiles.has(id)) this.createTile(id, rowsFor(id))
+      if (!this.tiles.has(id) && !this.builds.has(id)) missing++
+    const jump = missing > tileStreaming.jump
+    for (let id = current - 4; id <= current + ahead; id++) {
+      if (this.tiles.has(id)) continue
+      let build = this.builds.get(id)
+      if (!build) {
+        const group = new THREE.Group()
+        build = { group, steps: this.buildTile(id, rowsFor(id), group) }
+        this.builds.set(id, build)
+      }
+      if (jump || id <= far + tileStreaming.lead) {
+        while (!build.steps.next().done);
+        this.builds.delete(id)
+      }
+    }
+    this.stream()
     for (const [id, group] of this.tiles) {
       const rows = rowsFor(id)
       if (group.userData.groundRows !== rows) {
@@ -505,23 +546,46 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
           (id + 1) * groundLayout.tileLength > cameraS - grassViewDistance.end
     }
   }
-  removeTile(id: number, group: THREE.Group) {
-    this.scene.remove(group)
+  stream() {
+    const deadline = performance.now() + tileStreaming.budget
+    for (const [id, build] of [...this.builds].sort((a, b) => a[0] - b[0])) {
+      while (performance.now() < deadline) {
+        if (build.steps.next().done) {
+          this.builds.delete(id)
+          break
+        }
+      }
+      if (performance.now() >= deadline) return
+    }
+    const group = this.retired.pop()
+    if (group) this.disposeGroup(group)
+  }
+  disposeGroup(group: THREE.Group) {
     group.traverse((o) => {
       if (o instanceof THREE.InstancedMesh) o.dispose()
       if (o instanceof THREE.Mesh && !this.sharedGeometries.includes(o.geometry))
         o.geometry.dispose()
     })
+  }
+  removeTile(id: number, group: THREE.Group) {
+    this.scene.remove(group)
+    this.retired.push(group)
     this.tiles.delete(id)
+  }
+  clear() {
+    for (const [id, group] of this.tiles) this.removeTile(id, group)
+    for (const build of this.builds.values()) this.disposeGroup(build.group)
+    this.builds.clear()
+    for (const group of this.retired.splice(0)) this.disposeGroup(group)
   }
   refresh(settings: Settings, quality: Settings['quality']) {
     this.quality = quality
-    for (const [id, group] of this.tiles) this.removeTile(id, group)
+    this.clear()
     this.foliage.update(settings.season)
     this.grassMaterial.setAppearance(settings)
   }
   dispose() {
-    for (const [id, group] of this.tiles) this.removeTile(id, group)
+    this.clear()
     for (const material of this.materials) material.dispose()
     this.blade.dispose()
     this.bladeTexture.dispose()

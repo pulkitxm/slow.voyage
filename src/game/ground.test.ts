@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import { groundGeometry } from './ground'
+import { groundGeometry, groundRows } from './ground'
+import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { roadLayout, roadPoint } from './road'
 import { defaults, World } from './world'
@@ -166,3 +167,24 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
     },
   )
 }
+
+test('ground streamed in row batches pauses between batches and matches the whole-tile mesh', () => {
+  const world = new World({ ...defaults, landscape: 'alpine' })
+  const whole = groundGeometry(world, 720, grass, light)
+  const steps = groundRows(world, 720, grass, light, groundLayout.fullRows, 8)
+  let pauses = 0
+  let step = steps.next()
+  while (!step.done) {
+    pauses++
+    step = steps.next()
+  }
+  expect(pauses).toBe(Math.floor(groundLayout.fullRows / 8))
+  const streamed = step.value
+  expect(Array.from(streamed.getIndex()?.array ?? [])).toEqual(
+    Array.from(whole.getIndex()?.array ?? []),
+  )
+  for (const name of Object.keys(whole.attributes))
+    expect(Array.from(streamed.getAttribute(name).array)).toEqual(
+      Array.from(whole.getAttribute(name).array),
+    )
+})

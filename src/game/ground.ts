@@ -12,6 +12,21 @@ export function groundGeometry(
   light: THREE.Color,
   rows: number = groundLayout.fullRows,
 ) {
+  const steps = groundRows(world, start, base, light, rows, Number.POSITIVE_INFINITY)
+  for (;;) {
+    const step = steps.next()
+    if (step.done) return step.value
+  }
+}
+
+export function* groundRows(
+  world: World,
+  start: number,
+  base: THREE.Color,
+  light: THREE.Color,
+  rows: number,
+  batch: number,
+): Generator<undefined, THREE.BufferGeometry, undefined> {
   const positions: number[] = [],
     indices: number[] = [],
     colors: number[] = [],
@@ -26,6 +41,7 @@ export function groundGeometry(
   const snow = new THREE.Color('#dae0dc')
   const normal = new THREE.Vector3()
   for (let row = 0; row <= rows; row++) {
+    if (row && row % batch === 0) yield
     const s = start + (row * groundLayout.tileLength) / rows
     const road = world.road(s)
     for (let col = 0; col < groundOffsets.length; col++) {
