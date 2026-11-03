@@ -175,13 +175,13 @@ export class DrivingCamera {
         const x = target.x + (camera.position.x - target.x) * t
         const z = target.z + (camera.position.z - target.z) * t
         const y = target.y + (camera.position.y - target.y) * t
-        lift = Math.max(lift, (world.height(x, -z) + 0.35 - y) / t)
+        lift = Math.max(lift, (world.surface(x, -z).height + 0.35 - y) / t)
       }
       camera.position.y += lift
     } else
       camera.position.y = Math.max(
         camera.position.y,
-        world.height(camera.position.x, -camera.position.z) + 0.35,
+        world.surface(camera.position.x, -camera.position.z).height + 0.35,
       )
     camera.lookAt(target)
     const fraction = clamp(Math.abs(subject.speed) / metrics.maxSpeed, 0, 1)
