@@ -540,6 +540,38 @@ Forced software rendering measured 166.6-millisecond high-detail and
 samples of 150 and 133.3 milliseconds. This remains a rendering-cost limitation;
 the native result does not establish acceptable software-renderer performance.
 
+The lower car body now uses conforming side skins with wheel-arch returns derived
+from the same opening points. The rearward returns stop at the actual lower body
+edge, avoiding hanging strips below the tail. Rear-facing ray checks protect that
+opening independently of the existing full-lock and suspension-travel checks.
+
+Smooth center profiles and rounded lateral corners replace the flat front and
+rear cap patches. Side endpoints, deck edges, diffuser positions, lamp lenses,
+and headlight origins use the same depth functions. Sampled end normals meet the
+side normals at the corners. Vertical side sampling and concentrated corner
+samples remove the large triangular highlights seen in the first curved trial.
+
+New seam checks require matching side/end positions within one micrometer and
+matching normals. Shoulder rays cover 180 approach angles at three heights on
+both wheelbases. Together with the existing tire, lamp, cockpit, and resource
+checks, the full local gate passes 379 tests. Twenty-six frozen engine captures
+cover both detail settings, opposite headings, banking, airborne poses, all
+vehicles, sunset, winter fog, and night rain without rendering errors.
+
+The final exterior contains 46,984 triangles for the touring car and 31,056 for
+the roadster, each still batched into 21 meshes. No textures or materials were
+added. The wide, plain front fascia and simplified trim remain styling gaps;
+this is original generated geometry informed by reference views, not recovered
+current-release vehicle meshes or verified matching body proportions.
+
+Ten-second native samples for both cars at high and low detail held
+16.7-millisecond median and 95th-percentile frames. Five cycles through all four
+vehicles retained stable per-vehicle geometry, texture, and program counts after
+warmup on both renderers. Forced software samples remain poor: touring medians
+were 183.4 milliseconds at high detail and 166.6 at low detail; roadster medians
+were 166.6 and 150 milliseconds. These finite samples do not establish acceptable
+software-renderer performance.
+
 Static untextured coachwork, interior parts, and wheel components are batched
 by material after construction. Animated wheel pivots and the exterior steering
 wheel retain independent ownership. Batching preserves world-space vertices and
