@@ -69,7 +69,7 @@ async function capture(
   const fixture = productionFixture(
     controller === 'custom' ? 'custom' : controller ? 'standard' : false,
   )
-  const directory = await mkdtemp(join(tmpdir(), 'slowroads-browser-'))
+  const directory = await mkdtemp(join(tmpdir(), 'slow-voyage-browser-'))
   const input = join(directory, 'scenario.json')
   try {
     await Bun.write(

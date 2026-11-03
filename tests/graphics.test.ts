@@ -108,7 +108,7 @@ for (const software of [false, true]) {
         if (message.type() === 'error') errors.push(message.text())
       })
       await page.addInitScript(() => {
-        localStorage.setItem('slowroads-settings', JSON.stringify({ volume: 0 }))
+        localStorage.setItem('slow-voyage-settings', JSON.stringify({ volume: 0 }))
       })
       await page.addInitScript(trackGraphicsTextures)
       await page.goto(fixture.url)
@@ -233,7 +233,7 @@ test('software cockpit changes retain textures and avoid rebuilding world shader
     await page.addInitScript(trackGraphicsTextures)
     await page.addInitScript(() => {
       localStorage.setItem(
-        'slowroads-settings',
+        'slow-voyage-settings',
         JSON.stringify({ volume: 0, camera: 'bonnet', vehicle: 'bus' }),
       )
     })

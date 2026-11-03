@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "slowroads.io",
+      "name": "slow.voyage",
       "dependencies": {
         "@fontsource/dm-sans": "^5.3.0",
         "@fontsource/manrope": "^5.3.0",

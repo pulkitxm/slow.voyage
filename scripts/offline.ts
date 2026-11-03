@@ -12,7 +12,7 @@ const result = await Bun.build({
   target: 'browser',
   minify: true,
   define: {
-    __CACHE_NAME__: JSON.stringify(`slowroads-${hash.digest('hex').slice(0, 12)}`),
+    __CACHE_NAME__: JSON.stringify(`slow-voyage-${hash.digest('hex').slice(0, 12)}`),
     __ASSET_URLS__: JSON.stringify(paths.map((path) => `/${path}`)),
   },
 })

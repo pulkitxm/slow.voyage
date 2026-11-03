@@ -62,7 +62,7 @@ test('calibrates split devices and camera input, drives, and restores bindings a
     await page.locator('.mapping-group > summary:text-is("Camera")').click()
     await bind(page, 'Look left', 'Digit6')
     const saved = await page.evaluate(() =>
-      JSON.parse(localStorage.getItem('slowroads-settings') ?? '{}'),
+      JSON.parse(localStorage.getItem('slow-voyage-settings') ?? '{}'),
     )
     expect(saved.controllerBindings.throttle).toEqual({
       deviceId: 'Portable pedals',
@@ -125,7 +125,7 @@ test('calibrates split devices and camera input, drives, and restores bindings a
         .getAttribute('aria-pressed'),
     ).toBe('true')
     const restored = await page.evaluate(
-      () => JSON.parse(localStorage.getItem('slowroads-settings') ?? '{}').controllerBindings,
+      () => JSON.parse(localStorage.getItem('slow-voyage-settings') ?? '{}').controllerBindings,
     )
     expect(restored).toEqual(saved.controllerBindings)
     await page.setViewportSize({ width: 390, height: 844 })
@@ -144,7 +144,7 @@ test('copies a standard layout without discarding it when changing modes', async
     await page.getByRole('button', { name: 'Copy layout', exact: true }).click()
     const read = () =>
       page.evaluate(
-        () => JSON.parse(localStorage.getItem('slowroads-settings') ?? '{}').controllerBindings,
+        () => JSON.parse(localStorage.getItem('slow-voyage-settings') ?? '{}').controllerBindings,
       )
     const bindings = await read()
     expect(bindings.throttle).toEqual({

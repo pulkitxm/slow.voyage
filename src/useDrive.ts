@@ -51,7 +51,7 @@ export function useDrive() {
     engine.current?.setSettings(next)
     setSettings(next)
     try {
-      localStorage.setItem('slowroads-settings', JSON.stringify(next))
+      localStorage.setItem('slow-voyage-settings', JSON.stringify(next))
     } catch {}
   }
   const update = <K extends keyof Settings>(key: K, value: Settings[K]) =>

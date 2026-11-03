@@ -17,7 +17,7 @@ The application does not use the official game's domain as its own identity.
 
 `VITE_SITE_URL` optionally supplies the public HTTPS origin, such as
 `https://driving.example`. Keep it empty for local work. The `Pages` workflow
-sets it to `https://slowroads.pulkit.page`. The value must contain
+sets it to `https://slow.voyage`. The value must contain
 only a hostname and an optional trailing slash, without a port, path, credentials,
 query, or fragment. Use a domain the project is authorized to publish under.
 

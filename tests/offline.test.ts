@@ -42,7 +42,7 @@ async function request(path: string, mode = 'cors', method = 'GET') {
   return pending
 }
 beforeAll(async () => {
-  stores.set('slowroads-obsolete', new Map())
+  stores.set('slow-voyage-obsolete', new Map())
   stores.set('unrelated-cache', new Map())
   const source = await Bun.file('dist/client/sw.js').text()
   runInNewContext(source, {
@@ -93,7 +93,7 @@ beforeAll(async () => {
 test('installs all production assets before taking control', () => {
   expect(activated).toBe(true)
   expect(claimed).toBe(true)
-  const cache = Array.from(stores.entries()).find(([name]) => name.startsWith('slowroads-'))?.[1]
+  const cache = Array.from(stores.entries()).find(([name]) => name.startsWith('slow-voyage-'))?.[1]
   expect(cache?.has('/index.html')).toBe(true)
   expect(cache?.has('/manifest.webmanifest')).toBe(true)
   expect(cache?.size).toBeGreaterThan(5)
@@ -101,10 +101,10 @@ test('installs all production assets before taking control', () => {
 test('reloads the application shell while the origin is offline', async () => {
   const response = await request('/', 'navigate')
   expect(response?.status).toBe(200)
-  expect(await response?.text()).toContain('Slow Roads')
+  expect(await response?.text()).toContain('slow.voyage')
 })
 test('serves a cached script without a network connection', async () => {
-  const cache = Array.from(stores.entries()).find(([name]) => name.startsWith('slowroads-'))?.[1]
+  const cache = Array.from(stores.entries()).find(([name]) => name.startsWith('slow-voyage-'))?.[1]
   const path = Array.from(cache?.keys() ?? []).find((path) => path.endsWith('.js'))
   if (!path) throw new Error('No production script was precached')
   const response = await request(path)
@@ -112,7 +112,7 @@ test('serves a cached script without a network connection', async () => {
   expect((await response?.text())?.length).toBeGreaterThan(100)
 })
 test('removes obsolete game caches and preserves unrelated storage', () => {
-  expect(stores.has('slowroads-obsolete')).toBe(false)
+  expect(stores.has('slow-voyage-obsolete')).toBe(false)
   expect(stores.has('unrelated-cache')).toBe(true)
 })
 test('leaves external and non-GET requests untouched', async () => {

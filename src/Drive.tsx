@@ -103,8 +103,8 @@ export function Drive() {
       <header className="topbar">
         {!started && (
           <>
-            <a href="/" className="brand" aria-label="Slow Roads home">
-              slow roads<span>TAKE THE LONG WAY HOME</span>
+            <a href="/" className="brand" aria-label="slow.voyage home">
+              slow.voyage<span>TAKE THE LONG WAY HOME</span>
             </a>
             <div className="location">
               <span className="location-dot" />
@@ -163,7 +163,7 @@ export function Drive() {
         </div>
       </header>
       {!started && (
-        <section className="intro" aria-label="Welcome to Slow Roads">
+        <section className="intro" aria-label="Welcome to slow.voyage">
           <div className="eyebrow">
             <span />
             NO DESTINATION. NO HURRY.

@@ -1,6 +1,6 @@
 {
-  "name": "Slow Roads",
-  "short_name": "Slow Roads",
+  "name": "slow.voyage",
+  "short_name": "slow.voyage",
   "description": "An endless scenic driving game with changing landscapes, four vehicles and offline play.",
   "id": "/",
   "start_url": "/",

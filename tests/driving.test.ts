@@ -206,7 +206,7 @@ test('reverse cruise stops, persists, and releases speed control to the driver',
     await page.keyboard.press('w')
     await page.waitForSelector('[data-assistance="steer"]')
     const preference = await page.evaluate(
-      () => JSON.parse(localStorage.getItem('slowroads-settings') ?? '{}').cruiseSpeed,
+      () => JSON.parse(localStorage.getItem('slow-voyage-settings') ?? '{}').cruiseSpeed,
     )
     expect(preference).toBeLessThan(0)
     await page.reload()

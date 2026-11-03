@@ -1,8 +1,8 @@
 import type { MetaHTMLAttributes } from 'react'
 
 export const site = {
-  name: 'Slow Roads',
-  title: 'Slow Roads | Endless Scenic Driving Game',
+  name: 'slow.voyage',
+  title: 'slow.voyage | Endless Scenic Driving Game',
   description:
     'Explore an endless road in your browser. Drive four vehicles through changing landscapes, seasons and weather, with offline play after the first complete load.',
   image: '/og-image.jpg',

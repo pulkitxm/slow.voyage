@@ -165,7 +165,7 @@ async function record(scenario: Scenario) {
     })
     await page.addInitScript(
       ({ vehicle, cruiseSpeed }) => {
-        localStorage.setItem('slowroads-settings', JSON.stringify({ vehicle, cruiseSpeed }))
+        localStorage.setItem('slow-voyage-settings', JSON.stringify({ vehicle, cruiseSpeed }))
         const intervals: number[] = []
         let previous = 0
         const tick = (now: number) => {

@@ -63,7 +63,7 @@ export function decodeSettings(stored: unknown): Settings {
 
 export function loadSettings(): Settings {
   try {
-    return decodeSettings(JSON.parse(localStorage.getItem('slowroads-settings') ?? 'null'))
+    return decodeSettings(JSON.parse(localStorage.getItem('slow-voyage-settings') ?? 'null'))
   } catch {
     return { ...defaults }
   }

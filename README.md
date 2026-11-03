@@ -1,4 +1,4 @@
-# Slow Roads
+# slow.voyage
 
 An endless scenic driving game built with TanStack Start, React, TypeScript, and
 Three.js. All geometry and sounds are generated locally. Fonts and application
@@ -31,7 +31,7 @@ HTTPS or localhost. No application server is required.
 Development and verification stay local. Checkpoint commits are published to
 GitHub through Pukbot. The `Pages` GitHub Actions workflow builds every push to
 main with Bun and publishes `dist/client` to GitHub Pages at
-<https://slowroads.pulkit.page>.
+<https://slow.voyage>.
 Local pre-commit checks remain mandatory.
 
 ## Controls

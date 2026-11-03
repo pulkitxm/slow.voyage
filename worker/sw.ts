@@ -17,7 +17,7 @@ worker.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key.startsWith('slowroads-') && key !== __CACHE_NAME__)
+            .filter((key) => key.startsWith('slow-voyage-') && key !== __CACHE_NAME__)
             .map((key) => caches.delete(key)),
         ),
       )

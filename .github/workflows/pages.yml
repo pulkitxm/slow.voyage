@@ -25,7 +25,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run build
         env:
-          VITE_SITE_URL: https://slowroads.pulkit.page
+          VITE_SITE_URL: https://slow.voyage
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
