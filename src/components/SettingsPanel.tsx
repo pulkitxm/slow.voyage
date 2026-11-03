@@ -4,6 +4,7 @@ import { cruiseLimits } from '../game/cruise'
 import type { ControllerStatus } from '../game/gamepad'
 import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
+import { ControllerMapping } from './ControllerMapping'
 import { IconButton } from './IconButton'
 import { cameras, colors, daylight, landscapes, seasons, vehicles, weather } from './options'
 
@@ -328,9 +329,13 @@ export function SettingsPanel({
               {!settings.controllerEnabled
                 ? 'Controller input is off.'
                 : controller === 'connected'
-                  ? 'Controller connected. Left stick steers; triggers accelerate and brake.'
+                  ? settings.controllerMode === 'custom'
+                    ? 'Custom bindings active. Release controls after changes.'
+                    : 'Controller connected. Left stick steers; triggers accelerate and brake.'
                   : controller === 'unsupported'
-                    ? 'The browser has not mapped this controller to a supported layout.'
+                    ? settings.controllerMode === 'custom'
+                      ? 'Bind controls below to use this device.'
+                      : 'Choose Custom below to bind this device.'
                     : controller === 'unavailable'
                       ? 'Controller access is unavailable in this browser.'
                       : 'Connect a controller and press one of its buttons.'}
@@ -348,6 +353,12 @@ export function SettingsPanel({
               onChange={(event) => update('controllerDeadzone', Number(event.target.value) / 100)}
             />
             <p>Increase the deadzone if your stick drifts when released.</p>
+            <ControllerMapping
+              mode={settings.controllerMode}
+              bindings={settings.controllerBindings}
+              onMode={(mode) => update('controllerMode', mode)}
+              onBindings={(bindings) => update('controllerBindings', bindings)}
+            />
           </section>
         )}
         {tab === 'controls' && (
