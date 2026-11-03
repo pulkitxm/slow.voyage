@@ -6,8 +6,9 @@ driving game. Metadata is present in the prerendered HTML, without waiting for t
 game renderer. No ratings, player counts, publisher identity, or official status
 are claimed.
 
-`public/og-image.jpg` is the 1200 by 630 social card. It is promotional artwork,
-not a gameplay screenshot. Its alternative text says so. The SVG road icon also
+`public/og-image.jpg` is the 1200 by 630 social card. It is an autodrive gameplay
+capture with the interface hidden and the slow.voyage title overlaid. Its
+alternative text says so. The SVG road icon also
 has 192- and 512-pixel PNG versions and a 180-pixel Apple touch icon. All these
 assets are local and included in the production offline cache.
 

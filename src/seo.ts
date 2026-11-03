@@ -7,7 +7,7 @@ export const site = {
     'Explore an endless road in your browser. Drive four vehicles through changing landscapes, seasons and weather, with offline play after the first complete load.',
   image: '/og-image.jpg',
   imageAlt:
-    'Promotional artwork of a white touring car on a winding highland road at sunset, with the Slow Roads title.',
+    'Gameplay capture of a white car driving a country road beside a river under a clear sky, with the slow.voyage title.',
   imageWidth: 1200,
   imageHeight: 630,
 }
