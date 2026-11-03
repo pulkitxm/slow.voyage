@@ -29,8 +29,9 @@ The production build is a static site in `dist/client` and can be served over
 HTTPS or localhost. No application server is required.
 
 Development and verification stay local. Checkpoint commits are published to
-GitHub through Pukbot, and Vercel builds the production site from the main branch.
-The deployment runs the Bun install and build commands and serves `dist/client`.
+GitHub through Pukbot. The `Pages` GitHub Actions workflow builds every push to
+main with Bun and publishes `dist/client` to GitHub Pages at
+<https://slowroads.pulkit.page>.
 Local pre-commit checks remain mandatory.
 
 ## Controls

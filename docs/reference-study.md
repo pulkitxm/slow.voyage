@@ -7,8 +7,8 @@ selection, and endless driving experience of <https://slowroads.io/>, including
 use after the first load without a network connection.
 
 Development, verification, and preview stay local at <http://localhost:3002>.
-Checkpoint commits are published to GitHub through Pukbot, and Vercel builds the
-production site from the main branch. The repository name does not imply
+Checkpoint commits are published to GitHub through Pukbot, and GitHub Pages
+publishes the production site from the main branch. The repository name does not imply
 ownership of the similarly named public domain.
 
 ## Available evidence
