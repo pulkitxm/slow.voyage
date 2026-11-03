@@ -119,13 +119,21 @@ export function groundTexture() {
   context.putImageData(pixels, 0, 0)
   for (let i = 0; i < 6500; i++) {
     const value = 165 + rng() * 65
-    context.strokeStyle = `rgb(${value} ${value} ${value} / 0.25)`
+    context.strokeStyle = `rgb(${value} ${value} ${value} / 0.18)`
     context.lineWidth = 0.4 + rng() * 0.6
     const x = rng() * 256,
       y = rng() * 256
     context.beginPath()
     context.moveTo(x, y)
-    context.lineTo(x + (rng() - 0.5) * 4, y - 1 - rng() * 4)
+    const angle = rng() * Math.PI * 2
+    const length = 3 + rng() * 9
+    const bend = (rng() - 0.5) * 5
+    context.quadraticCurveTo(
+      x + Math.cos(angle) * length * 0.5 - Math.sin(angle) * bend,
+      y + Math.sin(angle) * length * 0.5 + Math.cos(angle) * bend,
+      x + Math.cos(angle) * length,
+      y + Math.sin(angle) * length,
+    )
     context.stroke()
   }
   const texture = new THREE.CanvasTexture(canvas)
@@ -140,6 +148,9 @@ float fieldVariationAt(vec2 p) {
   return texture2D(fieldNoiseMap, (p * 0.007 + 0.5) / 128.0).r * 0.6
     + texture2D(fieldNoiseMap, (p * 0.037 + 0.5) / 128.0).r * 0.28
     + texture2D(fieldNoiseMap, (p * 0.17 + 0.5) / 128.0).r * 0.12;
+}
+float fieldMeadowAt(vec2 p) {
+  return smoothstep(0.28, 0.68, fieldVariationAt(p * 0.35 + vec2(41.7, 93.2)));
 }
 `
 function meadowNoiseTexture() {
@@ -159,6 +170,7 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
     fieldNoiseMap: { value: meadowNoiseTexture() },
     fieldDryGrass: { value: new THREE.Color() },
     fieldDryness: { value: 0 },
+    fieldMeadowShade: { value: new THREE.Color() },
     fieldRock: { value: new THREE.Color() },
     fieldGravel: { value: new THREE.Color() },
     fieldRockMap: { value: rockTexture() },
@@ -203,6 +215,7 @@ varying float fieldGroveCover;
 varying float fieldSlope;
 uniform vec3 fieldDryGrass;
 uniform float fieldDryness;
+uniform vec3 fieldMeadowShade;
 uniform vec3 fieldRock;
 uniform vec3 fieldGravel;
 uniform sampler2D fieldRockMap;
@@ -214,6 +227,7 @@ ${meadowNoise}`,
 float fieldVariation = fieldVariationAt(fieldPosition);
 float dryBlend = smoothstep(0.35, 0.7, fieldVariation) * fieldDryness;
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb, dryBlend);
+diffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldPosition));
 diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
 float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fieldVariation);
 float cutFace = smoothstep(0.06, 0.32, fieldSlope)
@@ -243,14 +257,19 @@ normal = normalize(mix(normal, rockNormal, rockBlend));`,
       autumn = settings.season === 'autumn',
       desert = settings.landscape === 'desert'
     this.fieldUniforms.fieldDryGrass.value.set(
-      winter ? '#d2dad4' : desert ? '#c5ae7b' : autumn ? '#b5a66b' : '#b9b875',
+      winter ? '#d2dad4' : desert ? '#c5ae7b' : autumn ? '#b5a66b' : '#aaa66d',
     )
-    this.fieldUniforms.fieldDryness.value = winter ? 0.08 : autumn ? 0.65 : desert ? 0.2 : 0.18
+    this.fieldUniforms.fieldDryness.value = winter ? 0.08 : autumn ? 0.7 : desert ? 0.24 : 0.38
+    this.fieldUniforms.fieldMeadowShade.value.setRGB(
+      winter ? 0.87 : desert ? 0.83 : autumn ? 0.75 : 0.65,
+      winter ? 0.92 : desert ? 0.77 : autumn ? 0.74 : 0.78,
+      winter ? 0.94 : desert ? 0.66 : autumn ? 0.61 : 0.55,
+    )
     this.fieldUniforms.fieldRock.value.set(winter ? '#aab2b0' : desert ? '#9f8160' : '#8c877a')
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'fractured-road-cut-meadow'
+    return 'layered-road-cut-meadow'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()

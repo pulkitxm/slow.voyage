@@ -9,7 +9,7 @@ import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 export const palettes = {
-  summer: { grass: '#819e48', light: '#b2c76b', tree: '#698344', shrub: '#72804d' },
+  summer: { grass: '#7b9145', light: '#afbd70', tree: '#698344', shrub: '#72804d' },
   autumn: { grass: '#a69a64', light: '#c9b77a', tree: '#ad703b', shrub: '#b58d43' },
   winter: { grass: '#d7dfdc', light: '#edf0e7', tree: '#6f8176', shrub: '#9bada2' },
 }
@@ -67,6 +67,7 @@ export class Terrain {
       shader.uniforms.windTime = this.windTime
       shader.uniforms.fieldDryGrass = this.grassMaterial.fieldUniforms.fieldDryGrass
       shader.uniforms.fieldDryness = this.grassMaterial.fieldUniforms.fieldDryness
+      shader.uniforms.fieldMeadowShade = this.grassMaterial.fieldUniforms.fieldMeadowShade
       shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
@@ -78,11 +79,11 @@ export class Terrain {
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        `#include <common>\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\n${meadowNoise}`,
+        `#include <common>\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\nuniform vec3 fieldMeadowShade;\n${meadowNoise}`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
-        '#include <color_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * 1.08, max(dryBlend, strawBlend));',
+        '#include <color_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
@@ -93,7 +94,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.06 + grassBa
 #include <opaque_fragment>`,
       )
     }
-    this.bladeMaterial.customProgramCacheKey = () => 'translucent-meadow-blades'
+    this.bladeMaterial.customProgramCacheKey = () => 'layered-meadow-blades'
     this.asphalt = asphaltTexture()
     this.roadMaterial = new THREE.MeshStandardMaterial({
       map: this.asphalt,
