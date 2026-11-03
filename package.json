@@ -13,8 +13,8 @@
     "test": "bun test src/game src/seo.test.ts scripts/browser.test.ts",
     "validate": "bun run lint && bun run yaml && bun run check && bun run test",
     "prepare": "lefthook install",
-    "test:offline": "bun test tests/offline.test.ts",
-    "test:browser": "bun test tests/browser.test.ts tests/driving.test.ts",
+    "test:offline": "bun scripts/browser-tests.ts --offline",
+    "test:browser": "bun scripts/browser-tests.ts",
     "review:capture": "bun scripts/review.ts"
   },
   "dependencies": {
