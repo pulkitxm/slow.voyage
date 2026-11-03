@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { groundGeometry, groundRows } from './ground'
-import { groundLayout } from './ground-grid'
+import { groundLayout, groundOffsets } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { roadLayout, roadPoint } from './road'
 import { defaults, World } from './world'
@@ -187,4 +187,20 @@ test('ground streamed in row batches pauses between batches and matches the whol
     expect(Array.from(streamed.getAttribute(name).array)).toEqual(
       Array.from(whole.getAttribute(name).array),
     )
+})
+
+test('ground columns stay fine enough to drive across open country', () => {
+  const limits = [
+    { reach: 98, spacing: 2 },
+    { reach: 410, spacing: 8 },
+    { reach: 1600, spacing: 32 },
+  ]
+  for (let index = 1; index < groundOffsets.length; index++) {
+    const inner = Math.abs(groundOffsets[index - 1] ?? 0)
+    const outer = Math.abs(groundOffsets[index] ?? 0)
+    const far = Math.max(inner, outer)
+    if (Math.min(inner, outer) < 24) continue
+    const limit = limits.find((entry) => far <= entry.reach)?.spacing ?? 32
+    expect(Math.abs(outer - inner)).toBeLessThanOrEqual(limit + 1e-9)
+  }
 })
