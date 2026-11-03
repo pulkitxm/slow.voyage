@@ -614,7 +614,7 @@ export class RoadEngine {
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
-    this.audio.update(p.speed, input.throttle, this.settings, this.paused || !this.started)
+    this.audio.update(p, input, this.settings, this.paused || !this.started, dt)
     this.drawScene()
     this.crossfade.rendered()
     if (!this.rendered) this.canvas.style.visibility = ''
