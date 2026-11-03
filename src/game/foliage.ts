@@ -261,7 +261,7 @@ nonPerturbedNormal = normal;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
-        '#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif',
+        '#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif\nfloat foliageDither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));\nif (smoothstep(1.2, 3.2, foliageDistance) < foliageDither) discard;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
