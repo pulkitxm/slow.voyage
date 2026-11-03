@@ -236,3 +236,33 @@ test.each([0, 20])(
     material.dispose()
   },
 )
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s stays framed and steady while driving across hills and down to the coast',
+  (vehicle) => {
+    for (const direction of [1, -1]) {
+      const world = new World({ ...defaults, vehicle })
+      const s = 900
+      const road = world.road(s)
+      const camera = new THREE.PerspectiveCamera(68, 16 / 9, 0.1, 3600)
+      const view = new DrivingCamera(camera)
+      const yaw = direction > 0 ? -Math.PI / 2 : Math.PI / 2
+      const subject = { x: road.x + 12 * direction, y: 0, s, yaw, speed: 20 }
+      const look = new THREE.Vector3()
+      const previous = new THREE.Vector3()
+      const point = new THREE.Vector3()
+      for (let frame = 0; frame < 60 * 15; frame++) {
+        subject.x += direction * (20 / 60)
+        subject.y = world.surface(subject.x, subject.s).height
+        view.update(subject, world, 'chase', 1 / 60)
+        camera.updateMatrixWorld()
+        point.set(subject.x, subject.y + 0.8, -subject.s).project(camera)
+        expect(Math.abs(point.x)).toBeLessThan(0.6)
+        expect(Math.abs(point.y)).toBeLessThan(0.75)
+        camera.getWorldDirection(look)
+        if (frame > 0) expect(look.angleTo(previous)).toBeLessThan(0.03)
+        previous.copy(look)
+      }
+    }
+  },
+)
