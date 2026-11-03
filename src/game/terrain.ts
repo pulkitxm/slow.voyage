@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
+import { type Trunk, trunkRadius } from './collision'
 import { Foliage } from './foliage'
 import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
@@ -59,6 +60,7 @@ interface TileBuild {
 
 export class Terrain {
   tiles = new Map<number, THREE.Group>()
+  trunks = new Map<number, Trunk[]>()
   builds = new Map<number, TileBuild>()
   retired: THREE.Group[] = []
   materials: THREE.Material[] = []
@@ -336,6 +338,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       d: (rng() > 0.5 ? 1 : -1) * (12 + rng() ** 1.5 * 250),
     }))
     const matrix = new THREE.Object3D()
+    const trunks: Trunk[] = []
     const woodland = createWoodland(this.world, id, this.quality)
     yield
     const conifers =
@@ -395,6 +398,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
                 ? 0.42 + rng() * 0.13
                 : 0.9 + rng() * 0.2)
         matrix.scale.set(width, h, width)
+        if (!shrub) trunks.push({ x, s, radius: trunkRadius(width) })
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
         trees.setColorAt(placed++, new THREE.Color().setScalar(0.88 + rng() * 0.24))
@@ -403,6 +407,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         matrix.position.set(tree.x, groundSurface.sample(tree.x, tree.s) - plantRootRecess, -tree.s)
         matrix.rotation.set(0, tree.yaw, 0)
         matrix.scale.set(tree.width, tree.height, tree.width)
+        if (!shrub) trunks.push({ x: tree.x, s: tree.s, radius: trunkRadius(tree.width) })
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
         trees.setColorAt(placed++, color.setScalar(tree.shade))
@@ -460,6 +465,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     grass.count = placedGrass
     group.add(grass)
     this.tiles.set(id, group)
+    this.trunks.set(id, trunks)
     this.scene.add(group)
   }
   update(s: number, time: number, cameraS: number) {
@@ -546,6 +552,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
           (id + 1) * groundLayout.tileLength > cameraS - grassViewDistance.end
     }
   }
+  *trunksNear(s: number) {
+    const tile = Math.floor(s / groundLayout.tileLength)
+    for (let id = tile - 1; id <= tile + 1; id++) yield* this.trunks.get(id) ?? []
+  }
   stream() {
     const deadline = performance.now() + tileStreaming.budget
     for (const [id, build] of [...this.builds].sort((a, b) => a[0] - b[0])) {
@@ -571,6 +581,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.scene.remove(group)
     this.retired.push(group)
     this.tiles.delete(id)
+    this.trunks.delete(id)
   }
   clear() {
     for (const [id, group] of this.tiles) this.removeTile(id, group)
