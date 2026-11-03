@@ -248,6 +248,6 @@ test('the bus takes longer than the touring car to reach full steering lock', ()
       body.update(step, { ...coast, steer: 1, steeringSource: 'digital' }, settings)
     angles.push(body.steering)
   }
-  expect(angles[0]).toBeGreaterThan(0.5)
-  expect(angles[1]).toBeLessThan(0.3)
+  expect(angles[0]).toBeGreaterThan(0.6)
+  expect(angles[1]).toBeLessThan((angles[0] ?? 0) * 0.85)
 })

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Steering, steeringLimit } from './steering'
+import { digitalResponse, Steering, steeringLimit } from './steering'
 import { vehicleMetrics } from './vehicles'
 import type { SteeringSource, Vehicle } from './world'
 
@@ -22,29 +22,27 @@ for (const vehicle of vehicles) {
   test(`${vehicle} release uses its calibrated centering time`, () => {
     const rack = new Steering()
     rack.angle = vehicleMetrics[vehicle].maxSteering
-    const expected = (
-      { touring: 0.3646495, roadster: 0.3646495, motorcycle: 1.3127382, bus: 0.729299 } as const
-    )[vehicle]
+    const expected =
+      digitalResponse.settle *
+      vehicleMetrics[vehicle].steeringInterval *
+      (vehicle === 'motorcycle' ? 1 : digitalResponse.centering)
     let elapsed = 0
     while (rack.angle > vehicleMetrics[vehicle].maxSteering * 0.1 && elapsed < 4) {
       rack.update(1 / 120, 0, null, 0, vehicle)
       elapsed += 1 / 120
     }
     expect(elapsed).toBeGreaterThanOrEqual(expected - 0.000001)
-    expect(elapsed).toBeLessThan(expected + 1 / 120)
+    expect(elapsed).toBeLessThan(expected + 1 / 120 + 0.000001)
   })
 
   test.each([0, 20])(
     `${vehicle} digital steering reaches 90 percent at its calibrated time at %i m/s`,
     (speed) => {
-      const expected = (
-        {
-          touring: [0.729299, 0.8913654444],
-          roadster: [0.729299, 0.8669025849],
-          motorcycle: [1.3127382, 1.4996677208],
-          bus: [1.458598, 1.914409875],
-        } as const
-      )[vehicle][speed === 0 ? 0 : 1]
+      const ratio = speed / vehicleMetrics[vehicle].maxSpeed
+      const expected =
+        digitalResponse.settle *
+        vehicleMetrics[vehicle].steeringInterval *
+        (vehicle === 'motorcycle' ? 1 + ratio * ratio : 1 + digitalResponse.speedDelay * ratio)
       const rack = new Steering()
       const target = steeringLimit(speed, vehicle)
       let elapsed = 0
@@ -53,7 +51,7 @@ for (const vehicle of vehicles) {
         elapsed += 1 / 120
       }
       expect(elapsed).toBeGreaterThanOrEqual(expected - 0.000001)
-      expect(elapsed).toBeLessThan(expected + 1 / 120)
+      expect(elapsed).toBeLessThan(expected + 1 / 120 + 0.000001)
       const reverse = new Steering()
       advance(reverse, elapsed, 1, 'digital', -speed, vehicle)
       expect(reverse.angle).toBeCloseTo(rack.angle, 12)
@@ -112,7 +110,7 @@ test('mouse command slews through a reversal instead of inheriting keyboard dela
   advance(mouse, 0.25, 1, 'mouse', 0, 'bus')
   advance(keyboard, 0.25, 1, 'digital', 0, 'bus')
   expect(mouse.angle).toBeGreaterThan(0.55)
-  expect(keyboard.angle).toBeLessThan(0.15)
+  expect(keyboard.angle).toBeLessThan(mouse.angle / 2)
   advance(mouse, 0.125, -1, 'mouse', 0, 'bus')
   expect(mouse.mouseCommand).toBeCloseTo(0.5, 10)
 })

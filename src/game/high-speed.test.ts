@@ -297,3 +297,26 @@ describe('rough ground and flight', () => {
     },
   )
 })
+
+test.each(['touring', 'roadster', 'motorcycle'] as const)(
+  '%s held keyboard steering builds most of its cornering within a fifth of a second at 90 km/h',
+  (vehicle) => {
+    const settings: Settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new FlatWorld(settings))
+    car.reset(300)
+    car.speed = 25
+    car.suspension.reset(car)
+    const trace: number[] = []
+    while (trace.length < 60 && !car.offroad) {
+      car.update(
+        1 / 120,
+        { ...neutralInput, throttle: 0.5, steer: 1, steeringSource: 'digital' },
+        settings,
+      )
+      trace.push(Math.abs(car.yawRate * car.speed) / 9.81)
+    }
+    expect(trace.length).toBe(60)
+    expect(trace[11]).toBeGreaterThan(0.3)
+    expect(trace[23]).toBeGreaterThan(0.75)
+  },
+)
