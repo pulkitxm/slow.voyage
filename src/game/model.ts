@@ -21,6 +21,17 @@ export function createVehicleModel(settings: Settings, software = false): Vehicl
     : new CarModel(settings, software)
 }
 
+export const vehicleArrival = { duration: 0.75, lift: 0.5, shrink: 0.06 }
+
+export function arrivalPose(elapsed: number) {
+  const progress = clamp(elapsed / vehicleArrival.duration, 0, 1)
+  const remaining = 1 - progress
+  return {
+    lift: vehicleArrival.lift * remaining ** 2 * Math.abs(Math.cos(1.5 * Math.PI * progress)),
+    scale: 1 - vehicleArrival.shrink * remaining ** 3,
+  }
+}
+
 export function positionVehicle(
   model: VehicleModel,
   pose: ChassisPose,

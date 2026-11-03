@@ -2,12 +2,16 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
+  Bus,
   Camera,
+  Car,
+  CarFront,
   ChevronDown,
   ChevronRight,
   CircleHelp,
   Expand,
   Keyboard,
+  Motorbike,
   Mountain,
   Pause,
   Play,
@@ -23,7 +27,16 @@ import { Modal } from './components/Modal'
 import { landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
+import { vehicleNames } from './game/vehicles'
+import type { Vehicle } from './game/world'
 import { useDrive } from './useDrive'
+
+const vehicleIcons: Record<Vehicle, typeof Car> = {
+  touring: Car,
+  roadster: CarFront,
+  motorcycle: Motorbike,
+  bus: Bus,
+}
 
 export function Drive() {
   const {
@@ -50,9 +63,11 @@ export function Drive() {
     pause,
     toggleAuto,
     cycleCamera,
+    cycleVehicle,
     fullscreen,
     touch,
   } = useDrive()
+  const VehicleIcon = vehicleIcons[settings.vehicle]
   const speed = Math.abs(state.speed) * (settings.units === 'km' ? 3.6 : 2.23694)
   const distance = state.distance / (settings.units === 'km' ? 1000 : 1609.344)
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
@@ -262,6 +277,12 @@ export function Drive() {
               <span className="toolbar-divider" />
               <IconButton label={`Change camera (${settings.camera})`} onClick={cycleCamera}>
                 <Camera />
+              </IconButton>
+              <IconButton
+                label={`Switch vehicle (${vehicleNames[settings.vehicle]})`}
+                onClick={() => cycleVehicle(1)}
+              >
+                <VehicleIcon />
               </IconButton>
               <IconButton
                 label="Reset car to road"
