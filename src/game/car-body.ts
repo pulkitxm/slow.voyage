@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js'
+import { subdividePlanarSurface } from './surface-subdivide'
 
 function rearProfile(wheelbase: number) {
   return [
@@ -87,6 +87,16 @@ export function carSurface(
   return new THREE.Mesh(geometry, material)
 }
 
+function wheelOpening(axle: number, radius: number, opening: number) {
+  const points: [number, number][] = axle < 0 ? [[axle + opening, 0.22]] : []
+  for (let sample = 0; sample <= 24; sample++) {
+    const angle = (sample * Math.PI) / 24
+    points.push([axle + Math.cos(angle) * opening, radius + Math.sin(angle) * opening])
+  }
+  points.push([axle - opening, 0.22])
+  return points
+}
+
 export function createCarBody(
   wheelbase: number,
   wheelRadius: number,
@@ -102,42 +112,54 @@ export function createCarBody(
   shape.moveTo(-1.98, 0.22)
   for (const [y, z] of frontProfile.slice(1)) shape.lineTo(z, y)
   for (const [y, z] of [...rear].reverse()) shape.lineTo(z, y)
-  for (const axle of [wheelbase / 2, -wheelbase / 2]) {
-    if (axle < 0) shape.lineTo(axle + opening, 0.22)
-    shape.lineTo(axle + opening, wheelRadius)
-    shape.absarc(axle, wheelRadius, opening, 0, Math.PI, false)
-    shape.lineTo(axle - opening, 0.22)
-  }
+  const openings = [wheelbase / 2, -wheelbase / 2].map((axle) =>
+    wheelOpening(axle, wheelRadius, opening),
+  )
+  for (const points of openings) for (const [z, y] of points) shape.lineTo(z, y)
   shape.closePath()
   for (const side of [-1, 1]) {
-    const extrusion = new THREE.ExtrudeGeometry(shape, {
-      depth: 0.075,
-      steps: 1,
-      bevelEnabled: true,
-      bevelSize: 0.014,
-      bevelThickness: 0.014,
-      bevelSegments: 2,
-      curveSegments: 12,
-    })
-    const geometry = new TessellateModifier(0.22, 8).modify(extrusion)
-    extrusion.dispose()
-    geometry.translate(0, 0, -0.0375)
-    geometry.rotateY(-Math.PI / 2)
-    const positions = geometry.getAttribute('position'),
-      normals = geometry.getAttribute('normal')
-    for (let i = 0; i < positions.count; i++) {
-      const y = positions.getY(i),
-        z = positions.getZ(i),
-        contour = section(y, z)
-      const normal = new THREE.Vector3(
-        normals.getX(i),
-        normals.getY(i) - normals.getX(i) * side * contour.slopeY,
-        normals.getZ(i) - normals.getX(i) * side * contour.slopeZ,
-      ).normalize()
-      positions.setX(i, positions.getX(i) + side * (contour.width - 0.0375))
-      normals.setXYZ(i, normal.x, normal.y, normal.z)
+    const planar = new THREE.ShapeGeometry(shape, 12)
+    const geometry = subdividePlanarSurface(planar, 0.18)
+    planar.dispose()
+    const positions = geometry.getAttribute('position')
+    const normals = geometry.getAttribute('normal')
+    const normal = new THREE.Vector3()
+    for (let vertex = 0; vertex < positions.count; vertex++) {
+      const z = positions.getX(vertex)
+      const y = positions.getY(vertex)
+      const contour = section(y, z)
+      positions.setXYZ(vertex, side * contour.width, y, z)
+      normal.set(side, -contour.slopeY, -contour.slopeZ).normalize()
+      normals.setXYZ(vertex, normal.x, normal.y, normal.z)
     }
+    const indices = geometry.index
+    if (!indices) throw new Error('Coachwork topology is unavailable')
+    if (side > 0)
+      for (let triangle = 0; triangle < indices.count; triangle += 3) {
+        const second = indices.getX(triangle + 1)
+        indices.setX(triangle + 1, indices.getX(triangle + 2))
+        indices.setX(triangle + 2, second)
+      }
     group.add(new THREE.Mesh(geometry, paint))
+    for (const lip of openings) {
+      for (let segment = 1; segment < lip.length; segment++) {
+        const start = lip[segment - 1]
+        const end = lip[segment]
+        if (!start || !end) continue
+        const point = ([z, y]: [number, number], inset: number): [number, number, number] => [
+          side * (halfWidth(y, z) - inset),
+          y,
+          z,
+        ]
+        group.add(
+          carSurface(
+            [point(start, 0), point(end, 0), point(end, 0.075), point(start, 0.075)],
+            [0, end[0] - start[0], start[1] - end[1]],
+            paint,
+          ),
+        )
+      }
+    }
     for (const axle of [-wheelbase / 2, wheelbase / 2]) {
       const radius = opening - 0.012
       const liner = new THREE.Mesh(
