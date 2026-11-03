@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 import { CarPhysics, type Input } from './physics'
 import { solveTires } from './tires'
-import { vehicleMetrics } from './vehicles'
-import { defaults, type Settings, World } from './world'
+import { vehicleMetrics, yawInertia } from './vehicles'
+import { defaults, random, type Settings, World } from './world'
 
 class FlatWorld extends World {
   override road(_s: number) {
@@ -27,6 +27,50 @@ const step = 1 / 120
 function car(settings: Settings = defaults) {
   return new CarPhysics(new FlatWorld(settings))
 }
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s straight locked braking uses available friction without sideways impulses',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle, grip: 0.2 }
+    const body = car(settings)
+    body.speed = 20
+    solveTires(step, body, body.suspension.wheels, settings, 0, 100, false)
+    const beforeDrag = 20 - settings.grip * 9.81 * step
+    const expected = beforeDrag * (1 - vehicleMetrics[vehicle].drag * beforeDrag * step)
+    expect(body.speed).toBeCloseTo(expected, 7)
+    expect(Math.abs(body.lateralSpeed)).toBeLessThan(0.0000001)
+    expect(Math.abs(body.yawRate)).toBeLessThan(0.0000001)
+    for (const wheel of body.suspension.wheels)
+      expect(Math.abs(wheel.lateralImpulse)).toBeLessThan(0.000001)
+  },
+)
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s locked contacts dissipate planar energy within each friction budget',
+  (vehicle) => {
+    const rng = random(921)
+    const metrics = vehicleMetrics[vehicle]
+    for (let sample = 0; sample < 128; sample++) {
+      const settings = { ...defaults, vehicle, grip: 0.2 + rng() * 0.5 }
+      const body = car(settings)
+      body.speed = (rng() - 0.5) * 40
+      body.lateralSpeed = (rng() - 0.5) * 16
+      body.yawRate = (rng() - 0.5) * 4
+      body.steeringControl.angle = (rng() - 0.5) * 0.8
+      body.suspension.updateSteering(body.steering)
+      const energy = () =>
+        0.5 * metrics.mass * (body.speed ** 2 + body.lateralSpeed ** 2) +
+        0.5 * yawInertia(metrics) * body.yawRate ** 2
+      const before = energy()
+      solveTires(step, body, body.suspension.wheels, settings, 0, 100, false)
+      expect(energy()).toBeLessThanOrEqual(before + 0.00000001)
+      for (const wheel of body.suspension.wheels)
+        expect(Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)).toBeLessThanOrEqual(
+          settings.grip * wheel.load * step + 0.00000001,
+        )
+    }
+  },
+)
 
 test.each([1, 8])('tires share a friction budget under %i m/s² braking', (brake) => {
   const settings = { ...defaults, grip: 0.7, season: 'winter' as const }

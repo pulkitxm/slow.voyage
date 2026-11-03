@@ -28,6 +28,66 @@ function velocity(pose: ChassisPose, wheel: WheelState) {
   return { longitudinal: forward * cos - right * sin, lateral: right * cos + forward * sin }
 }
 
+function solveLockedTire(
+  pose: ChassisPose,
+  wheel: WheelState,
+  capacity: number,
+  inverseMass: number,
+  inverseInertia: number,
+) {
+  const motion = velocity(pose, wheel)
+  const longitudinalLever =
+    wheel.localX * Math.cos(wheel.steering) + wheel.localS * Math.sin(wheel.steering)
+  const lateralLever =
+    wheel.localX * Math.sin(wheel.steering) - wheel.localS * Math.cos(wheel.steering)
+  const longitudinalMass = inverseMass + longitudinalLever ** 2 * inverseInertia
+  const lateralMass = inverseMass + lateralLever ** 2 * inverseInertia
+  const coupling = longitudinalLever * lateralLever * inverseInertia
+  const freeLongitudinal =
+    motion.longitudinal -
+    longitudinalMass * wheel.longitudinalImpulse -
+    coupling * wheel.lateralImpulse
+  const freeLateral =
+    motion.lateral - lateralMass * wheel.lateralImpulse - coupling * wheel.longitudinalImpulse
+  const determinant = longitudinalMass * lateralMass - coupling * coupling
+  let longitudinal = (-freeLongitudinal * lateralMass + freeLateral * coupling) / determinant
+  let lateral = (-freeLateral * longitudinalMass + freeLongitudinal * coupling) / determinant
+  const impulse = Math.hypot(longitudinal, lateral)
+  if (impulse > capacity) {
+    let lower = 0
+    let upper = Math.hypot(freeLongitudinal, freeLateral) / capacity
+    for (let iteration = 0; iteration < 24; iteration++) {
+      const multiplier = (lower + upper) / 2
+      const longitudinalTerm = longitudinalMass + multiplier
+      const lateralTerm = lateralMass + multiplier
+      const constrainedDeterminant = longitudinalTerm * lateralTerm - coupling * coupling
+      const candidateLongitudinal =
+        (-freeLongitudinal * lateralTerm + freeLateral * coupling) / constrainedDeterminant
+      const candidateLateral =
+        (-freeLateral * longitudinalTerm + freeLongitudinal * coupling) / constrainedDeterminant
+      if (Math.hypot(candidateLongitudinal, candidateLateral) > capacity) lower = multiplier
+      else upper = multiplier
+    }
+    const longitudinalTerm = longitudinalMass + upper
+    const lateralTerm = lateralMass + upper
+    const constrainedDeterminant = longitudinalTerm * lateralTerm - coupling * coupling
+    longitudinal =
+      (-freeLongitudinal * lateralTerm + freeLateral * coupling) / constrainedDeterminant
+    lateral =
+      (-freeLateral * longitudinalTerm + freeLongitudinal * coupling) / constrainedDeterminant
+  }
+  applyImpulse(
+    pose,
+    wheel,
+    lateral - wheel.lateralImpulse,
+    longitudinal - wheel.longitudinalImpulse,
+    inverseMass,
+    inverseInertia,
+  )
+  wheel.longitudinalImpulse = longitudinal
+  wheel.lateralImpulse = lateral
+}
+
 export function solveTires(
   dt: number,
   pose: ChassisPose,
@@ -59,6 +119,11 @@ export function solveTires(
     pose.speed += forwardGravity * inverseMass * dt
     pose.yawRate +=
       (wheel.localX * forwardGravity - wheel.localS * rightGravity) * inverseInertia * dt
+  }
+  for (let i = 0; i < wheels.length; i++) {
+    const wheel = wheels[i]
+    const capacity = capacities[i] ?? 0
+    if (!wheel || !capacity) continue
     const motion = velocity(pose, wheel)
     const rolling =
       0.1 +
@@ -67,25 +132,7 @@ export function solveTires(
     const resistance = quarterMass * (rolling + brake) * dt
     wheel.locked ||= brake > 0 && resistance - Math.abs(drive) * quarterMass * dt >= capacity
     if (wheel.locked) {
-      const slidingSpeed = Math.hypot(motion.longitudinal, motion.lateral)
-      if (slidingSpeed > 0) {
-        const rightDirection = (pose.lateralSpeed - pose.yawRate * wheel.localS) / slidingSpeed
-        const forwardDirection = (pose.speed + pose.yawRate * wheel.localX) / slidingSpeed
-        const lever = wheel.localX * forwardDirection - wheel.localS * rightDirection
-        const effectiveInverseMass = inverseMass + lever * lever * inverseInertia
-        const impulse = Math.min(capacity, slidingSpeed / effectiveInverseMass)
-        wheel.longitudinalImpulse = (-motion.longitudinal / slidingSpeed) * impulse
-        wheel.lateralImpulse = (-motion.lateral / slidingSpeed) * impulse
-        applyImpulse(
-          pose,
-          wheel,
-          wheel.lateralImpulse,
-          wheel.longitudinalImpulse,
-          inverseMass,
-          inverseInertia,
-        )
-        wheel.slip = Math.min(1, slidingSpeed)
-      }
+      wheel.slip = Math.min(1, Math.hypot(motion.longitudinal, motion.lateral))
       continue
     }
     const lever = wheel.localX * Math.cos(wheel.steering) + wheel.localS * Math.sin(wheel.steering)
@@ -97,11 +144,16 @@ export function solveTires(
     wheel.slip = Math.max(0, (Math.abs(requested) - capacity) / Math.max(1, capacity))
     applyImpulse(pose, wheel, 0, wheel.longitudinalImpulse, inverseMass, inverseInertia)
   }
-  for (let iteration = 0; iteration < 4; iteration++) {
+  const iterations = wheels.some((wheel) => wheel.locked) ? 12 : 4
+  for (let iteration = 0; iteration < iterations; iteration++) {
     for (let i = 0; i < wheels.length; i++) {
       const wheel = wheels[i]
       const capacity = capacities[i] ?? 0
-      if (!wheel || !capacity || wheel.locked) continue
+      if (!wheel || !capacity) continue
+      if (wheel.locked) {
+        solveLockedTire(pose, wheel, capacity, inverseMass, inverseInertia)
+        continue
+      }
       const motion = velocity(pose, wheel)
       const lever =
         wheel.localX * Math.sin(wheel.steering) - wheel.localS * Math.cos(wheel.steering)

@@ -82,6 +82,78 @@ function simulate(
 }
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s cruise holds forward, reverse and stopped targets on grades',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    for (const grade of [-0.1, 0, 0.1]) {
+      for (const target of [-3, 0, 20]) {
+        const car = new CarPhysics(new GradeWorld(settings, grade))
+        car.speed = target === 0 ? -4 : 0
+        for (let step = 0; step < 40 * 120; step++) {
+          const automatic = car.autoInput(target)
+          car.update(1 / 120, resolveInput(coast, automatic, 'full', false), settings)
+          expect(Number.isFinite(car.speed + car.s)).toBe(true)
+        }
+        expect(Math.abs(car.speed - target)).toBeLessThan(target === 0 ? 0.001 : 0.08)
+      }
+    }
+  },
+)
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s cruise brakes through direction changes and holds a stop without creep',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new FlatWorld(settings))
+    car.speed = 15
+    for (const target of [-3, 10, 0]) {
+      for (let step = 0; step < 20 * 120; step++)
+        car.update(1 / 120, resolveInput(coast, car.autoInput(target), 'speed', false), settings)
+      expect(Math.abs(car.speed - target)).toBeLessThan(target === 0 ? 0.001 : 0.08)
+    }
+    const stoppedAt = car.s
+    for (let step = 0; step < 5 * 120; step++)
+      car.update(1 / 120, resolveInput(coast, car.autoInput(0), 'speed', false), settings)
+    expect(Math.abs(car.s - stoppedAt)).toBeLessThan(0.001)
+  },
+)
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s reverse autodrive follows generated bends through the origin',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new World(settings))
+    const start = car.s
+    for (let step = 0; step < 180 * 120; step++) {
+      car.update(1 / 120, resolveInput(coast, car.autoInput(-5), 'full', false), settings)
+      expect(car.offroad).toBe(false)
+      expect(car.impact).toBe(0)
+      expect(car.speed).toBeGreaterThanOrEqual(-5.001)
+    }
+    expect(car.s).toBeLessThan(start - 700)
+    expect(car.s).toBeLessThan(0)
+  },
+)
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  '%s cruise stops and stays stopped on a wet low-grip downhill in either direction',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle, grip: 0.2, weather: 'rain' as const }
+    for (const direction of [-1, 1]) {
+      const car = new CarPhysics(new GradeWorld(settings, -direction * 0.1))
+      car.speed = direction * 20
+      for (let step = 0; step < 90 * 120; step++)
+        car.update(1 / 120, resolveInput(coast, car.autoInput(0), 'speed', false), settings)
+      expect(Math.abs(car.speed)).toBeLessThan(0.001)
+      const stoppedAt = car.s
+      for (let step = 0; step < 5 * 120; step++)
+        car.update(1 / 120, resolveInput(coast, car.autoInput(0), 'speed', false), settings)
+      expect(Math.abs(car.s - stoppedAt)).toBeLessThan(0.001)
+    }
+  },
+)
+
+test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   '%s resets on the centerline and autosteer recovers from either side',
   (vehicle) => {
     const settings = { ...defaults, vehicle }
@@ -422,7 +494,7 @@ describe('vehicle dynamics', () => {
     expect(car.world.road(car.s).yaw).toBeCloseTo(car.world.road(car.s + 65).yaw, 8)
     expect(car.routeSpeed(45)).toBeLessThan(12)
     expect(car.autoInput(45).throttle).toBe(0)
-    expect(car.autoInput(45).brake).toBeGreaterThan(0)
+    expect(car.autoInput(45).regenBrake).toBeGreaterThan(0)
   })
   test('autodrive plans braking before reaching a bend', () => {
     class UpcomingBend extends World {
@@ -437,7 +509,7 @@ describe('vehicle dynamics', () => {
     car.speed = 30
     expect(car.world.road(car.s + 20).dx).toBe(0)
     expect(car.routeSpeed(45)).toBeLessThan(car.speed)
-    expect(car.autoInput(45).brake).toBeGreaterThan(0)
+    expect(car.autoInput(45).regenBrake).toBeGreaterThan(0)
   })
   test('the same corner gets a lower assisted speed with less grip or ice', () => {
     const dry = new CarPhysics(new OpposingBends({ ...defaults }))
