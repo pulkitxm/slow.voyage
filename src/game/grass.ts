@@ -60,13 +60,13 @@ function clampPixel(value: number) {
 export function grassGeometry() {
   const cards: THREE.PlaneGeometry[] = []
   for (let side = 0; side < 3; side++) {
-    const card = new THREE.PlaneGeometry(0.9, 0.45, 1, 3)
-    card.translate(0, 0.225, 0)
+    const card = new THREE.PlaneGeometry(0.75, 0.5, 1, 3)
+    card.translate(0, 0.25, 0)
     card.rotateY((side * Math.PI) / 3)
     const positions = card.getAttribute('position')
     const colors = new Float32Array(positions.count * 3)
     for (let vertex = 0; vertex < positions.count; vertex++) {
-      const shade = 0.95 + (positions.getY(vertex) / 0.45) * 0.05
+      const shade = 0.85 + (positions.getY(vertex) / 0.5) * 0.15
       colors.set([shade, shade, shade], vertex * 3)
     }
     card.setAttribute('color', new THREE.BufferAttribute(colors, 3))

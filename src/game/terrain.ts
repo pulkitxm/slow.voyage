@@ -83,7 +83,7 @@ export class Terrain {
       blendDst: THREE.ZeroFactor,
       blendSrcAlpha: THREE.ZeroFactor,
       blendDstAlpha: THREE.OneFactor,
-      color: '#cbcbcb',
+      color: '#ffffff',
       vertexColors: true,
       side: THREE.DoubleSide,
       roughness: 1,
@@ -391,6 +391,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
           : 10000
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
     grass.name = 'meadow'
+    grass.receiveShadow = true
     grass.frustumCulled = false
     const grassGround = new GroundSampler(ground.geometry, start, rows)
     let placedGrass = 0
