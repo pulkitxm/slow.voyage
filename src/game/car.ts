@@ -1,12 +1,12 @@
 import * as THREE from 'three'
-import { TessellateModifier } from 'three/addons/modifiers/TessellateModifier.js'
 import { createBonnet } from './bonnet'
 import { createBusBody } from './bus-body'
 import { busLayout } from './bus-layout'
 import { createBusWheel } from './bus-wheel'
-import { carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
+import { carEndNormal, carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
 import { createCarCabin } from './car-cabin'
 import { batchUntexturedMeshes } from './mesh-batch'
+import { subdividePlanarSurface } from './surface-subdivide'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
@@ -89,7 +89,7 @@ export class CarModel {
     this.headlightPositions = [-1, 1].map((side) =>
       isBus
         ? [side * busLayout.headlights.x, busLayout.headlights.y, busLayout.headlights.z]
-        : [side * 0.553, 0.77, -2.06],
+        : [side * 0.553, 0.77, carFrontDepth(0.77, side * 0.553) - 0.025],
     )
     if (isBus) {
       this.exterior.add(
@@ -125,7 +125,7 @@ export class CarModel {
           [0, 0, direction],
           material,
         )
-        const geometry = new TessellateModifier(0.12, 5).modify(mesh.geometry)
+        const geometry = subdividePlanarSurface(mesh.geometry, 0.065)
         mesh.geometry.dispose()
         const positions = geometry.getAttribute('position')
         for (let i = 0; i < positions.count; i++) {
@@ -133,10 +133,21 @@ export class CarModel {
             y = positions.getY(i)
           positions.setZ(
             i,
-            (direction > 0 ? rearSurface(y, x) : carFrontDepth(y)) + direction * depth,
+            (direction > 0 ? rearSurface(y, x) : carFrontDepth(y, x)) + direction * depth,
           )
         }
-        geometry.computeVertexNormals()
+        const normals = geometry.getAttribute('normal')
+        const normal = new THREE.Vector3()
+        for (let vertex = 0; vertex < positions.count; vertex++) {
+          carEndNormal(
+            positions.getY(vertex),
+            positions.getX(vertex),
+            this.wheelbase,
+            direction,
+            normal,
+          )
+          normals.setXYZ(vertex, normal.x, normal.y, normal.z)
+        }
         mesh.geometry = geometry
         this.exterior.add(mesh)
       }
