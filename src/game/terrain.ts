@@ -4,6 +4,7 @@ import { asphaltTexture } from './asphalt'
 import { Foliage } from './foliage'
 import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundTexture, MeadowMaterial, meadowNoise } from './ground'
+import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
@@ -211,7 +212,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.addMesh(group, merged, material)
   }
   createTile(id: number, rows: number) {
-    const start = id * 120,
+    const start = id * groundLayout.tileLength,
       group = new THREE.Group(),
       settings = this.world.settings
     const rng = random(id * 967 + settings.seed * 137)
@@ -225,7 +226,13 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     ground.name = 'ground'
     group.userData.groundRows = rows
     const groundSurface = new GroundSampler(ground.geometry, start, rows)
-    const road = roadStrip(this.world, start, 120, -roadLayout.halfWidth, roadLayout.halfWidth)
+    const road = roadStrip(
+      this.world,
+      start,
+      groundLayout.tileLength,
+      -roadLayout.halfWidth,
+      roadLayout.halfWidth,
+    )
     this.addMesh(group, road, this.roadMaterial)
     const markings: THREE.BufferGeometry[] = []
     for (const side of [-1, 1]) {
@@ -234,14 +241,14 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         roadStrip(
           this.world,
           start,
-          120,
+          groundLayout.tileLength,
           edge - roadLayout.edgeWidth / 2,
           edge + roadLayout.edgeWidth / 2,
           0.012,
         ),
       )
     }
-    for (let s = start; s < start + 120; s += roadLayout.dashPeriod)
+    for (let s = start; s < start + groundLayout.tileLength; s += roadLayout.dashPeriod)
       markings.push(
         roadStrip(
           this.world,
@@ -255,7 +262,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.addBatch(group, markings, this.edgeMaterial)
     const rails: THREE.BufferGeometry[] = []
     for (const side of [-1, 1]) {
-      for (let s = start; s < start + 120; s += roadLayout.railSegmentLength) {
+      for (let s = start; s < start + groundLayout.tileLength; s += roadLayout.railSegmentLength) {
         if (!guardrailAt(this.world, s, side)) continue
         const r1 = this.world.road(s),
           r2 = this.world.road(s + roadLayout.railSegmentLength),
@@ -308,7 +315,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     const treeCount = settings.landscape === 'desert' ? 4 : this.quality === 'low' ? 16 : 28
     const shrubCount = settings.landscape === 'desert' ? 12 : this.quality === 'low' ? 70 : 180
     const clusters = Array.from({ length: 6 }, () => ({
-      s: start + rng() * 120,
+      s: start + rng() * groundLayout.tileLength,
       d: (rng() > 0.5 ? 1 : -1) * (12 + rng() ** 1.5 * 250),
     }))
     const matrix = new THREE.Object3D()
@@ -348,8 +355,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         if (!cluster) continue
         const clustered = rng() < 0.8
         const s = clustered
-          ? clamp(cluster.s + (rng() - 0.5) * 38, start, start + 120)
-          : start + rng() * 120
+          ? clamp(cluster.s + (rng() - 0.5) * 38, start, start + groundLayout.tileLength)
+          : start + rng() * groundLayout.tileLength
         const d = clustered
           ? cluster.d + (rng() - 0.5) * 35
           : (rng() > 0.5 ? 1 : -1) * (8 + rng() ** 1.6 * 350)
@@ -399,7 +406,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     grass.frustumCulled = false
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
-      const s = start + rng() * 120,
+      const s = start + rng() * groundLayout.tileLength,
         d =
           (rng() > 0.5 ? 1 : -1) *
           (roadLayout.halfWidth + roadLayout.shoulder + 0.15 + rng() ** 2.2 * 23)
@@ -437,12 +444,13 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
   }
   update(s: number, time: number, cameraS: number) {
     this.windTime.value = time
-    const current = Math.floor(s / 120),
+    const current = Math.floor(s / groundLayout.tileLength),
       ahead = this.quality === 'low' ? 8 : 14
-    const cameraTile = Math.floor(cameraS / 120)
+    const cameraTile = Math.floor(cameraS / groundLayout.tileLength)
     const near = Math.min(current, cameraTile) - 1
     const far = Math.max(current, cameraTile) + 1
-    const rowsFor = (id: number) => (this.software && (id < near || id > far) ? 12 : 96)
+    const rowsFor = (id: number) =>
+      this.software && (id < near || id > far) ? groundLayout.distantRows : groundLayout.fullRows
     for (const [id, group] of this.tiles)
       if (id < current - 4 || id > current + ahead) this.removeTile(id, group)
     for (let id = current - 4; id <= current + ahead; id++)
@@ -454,9 +462,15 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         if (ground instanceof THREE.Mesh) {
           const { base, light } = terrainColors(this.world.settings)
           ground.geometry.dispose()
-          ground.geometry = groundGeometry(this.world, id * 120, base, light, rows)
+          ground.geometry = groundGeometry(
+            this.world,
+            id * groundLayout.tileLength,
+            base,
+            light,
+            rows,
+          )
           group.userData.groundRows = rows
-          const sampler = new GroundSampler(ground.geometry, id * 120, rows)
+          const sampler = new GroundSampler(ground.geometry, id * groundLayout.tileLength, rows)
           const matrix = new THREE.Matrix4()
           const grass = group.getObjectByName('meadow')
           if (grass instanceof THREE.InstancedMesh) {
@@ -487,8 +501,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       const grass = group.getObjectByName('meadow')
       if (grass)
         grass.visible =
-          id * 120 < cameraS + grassViewDistance.end &&
-          (id + 1) * 120 > cameraS - grassViewDistance.end
+          id * groundLayout.tileLength < cameraS + grassViewDistance.end &&
+          (id + 1) * groundLayout.tileLength > cameraS - grassViewDistance.end
     }
   }
   removeTile(id: number, group: THREE.Group) {
