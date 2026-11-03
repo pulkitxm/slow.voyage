@@ -615,8 +615,13 @@ The local implementation follows that default. Bonnet look recenters on release,
 chase orbit persists, and pointer gestures retain ownership while dragging.
 The [Gamepad input model](https://www.w3.org/TR/gamepad/) supplies normalized axes
 and buttons, without guaranteeing that every physical wheel or pedal exposes a
-usable browser device. Calibration UI and physical-device verification remain
-further work at this checkpoint.
+usable browser device. Calibration records a released baseline, observes the
+largest requested movement and requires release again before a binding can be
+saved. Changed or ambiguous device connections invalidate capture. Shortcut axes
+use separate press/release thresholds; mapped actions must return near calibrated
+rest after suspension. Custom profiles also require neutral input on first use.
+Calibration UI and physical-device verification remain further work at this
+checkpoint.
 
 Completion requires current evidence for the full requested fidelity:
 

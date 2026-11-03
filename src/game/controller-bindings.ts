@@ -49,20 +49,29 @@ export interface ControllerBinding {
 export type ControllerBindings = Partial<Record<ControllerChannel, ControllerBinding>>
 export type ControllerMode = 'standard' | 'custom'
 
+export function readControl(
+  pads: readonly (PadSnapshot | null)[],
+  binding: Pick<ControllerBinding, 'deviceId' | 'kind' | 'index'>,
+) {
+  const matches = pads.filter(
+    (pad): pad is PadSnapshot => !!pad?.connected && pad.id === binding.deviceId,
+  )
+  if (matches.length !== 1) return undefined
+  const pad = matches[0]
+  if (!pad) return undefined
+  const value =
+    binding.kind === 'axis' ? pad.axes[binding.index] : pad.buttons[binding.index]?.value
+  if (value === undefined || !Number.isFinite(value)) return undefined
+  return Math.max(binding.kind === 'axis' ? -1 : 0, Math.min(1, value))
+}
+
 export function readBinding(
   pads: readonly (PadSnapshot | null)[],
   binding: ControllerBinding | undefined,
 ) {
   if (!binding) return 0
-  const matches = pads.filter(
-    (pad): pad is PadSnapshot => !!pad?.connected && pad.id === binding.deviceId,
-  )
-  if (matches.length !== 1) return 0
-  const pad = matches[0]
-  if (!pad) return 0
-  const value =
-    binding.kind === 'axis' ? pad.axes[binding.index] : pad.buttons[binding.index]?.value
-  if (value === undefined || !Number.isFinite(value)) return 0
+  const value = readControl(pads, binding)
+  if (value === undefined) return 0
   return Math.max(0, Math.min(1, (value - binding.from) / (binding.to - binding.from)))
 }
 

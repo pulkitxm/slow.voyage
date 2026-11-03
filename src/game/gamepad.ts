@@ -35,6 +35,8 @@ function decodeController(
   pads: readonly (PadSnapshot | null)[],
   deadzone: number,
   bindings: ControllerBindings,
+  heldActions: ReadonlySet<GamepadAction>,
+  handbrakeHeld: boolean,
 ) {
   const values = {} as Record<ControllerChannel, number>
   for (const key of Object.keys(controllerLabels) as ControllerChannel[])
@@ -45,19 +47,21 @@ function decodeController(
     brake: clamp((values.brake - 0.04) / 0.96, 0, 1),
     steer: deadzoneValue(values.steerLeft - values.steerRight, deadzone),
     steeringSource: 'analog',
-    handbrake: values.handbrake > 0.5,
+    handbrake: values.handbrake >= (handbrakeHeld ? 0.35 : 0.55),
   }
   const look = {
     x: deadzoneValue(values.lookLeft - values.lookRight, deadzone),
     y: deadzoneValue(values.lookUp - values.lookDown, deadzone),
     zoom: deadzoneValue(values.zoomIn - values.zoomOut, deadzone),
   }
-  const actions = new Set(actionChannels.filter((channel) => values[channel] > 0.5))
+  const actions = new Set(
+    actionChannels.filter((channel) => values[channel] >= (heldActions.has(channel) ? 0.35 : 0.55)),
+  )
   const neutral =
     !input.throttle &&
     !input.brake &&
-    !input.handbrake &&
-    !actions.size &&
+    values.handbrake <= 0.1 &&
+    actionChannels.every((channel) => values[channel] <= 0.1) &&
     Math.max(
       values.steerLeft,
       values.steerRight,
@@ -72,7 +76,7 @@ function decodeController(
 }
 
 export function decodeGamepad(pad: PadSnapshot, deadzone: number): Input {
-  return decodeController([pad], deadzone, standardBindings(pad.id)).input
+  return decodeController([pad], deadzone, standardBindings(pad.id), new Set(), false).input
 }
 
 export class GamepadControls {
@@ -86,6 +90,7 @@ export class GamepadControls {
   private standardId: string | null = null
   private standardMap: ControllerBindings = {}
   private standardIndex: number | null = null
+  private hasDevice = false
 
   suspend() {
     this.waitingForRelease = true
@@ -120,10 +125,14 @@ export class GamepadControls {
           )
     const identity = JSON.stringify(active.map((pad) => [pad.id, pad.index, pad.mapping]).sort())
     if (
-      this.identity !== null &&
-      (identity !== this.identity || bindings !== this.bindings || deadzone !== this.deadzone)
+      (this.identity === null && bindings !== null) ||
+      (this.identity !== null &&
+        ((this.hasDevice && identity !== this.identity) ||
+          bindings !== this.bindings ||
+          deadzone !== this.deadzone))
     )
       this.suspend()
+    if (active.length) this.hasDevice = true
     this.identity = identity
     this.bindings = bindings
     this.deadzone = deadzone
@@ -151,6 +160,8 @@ export class GamepadControls {
       bindings === null ? active : connected,
       deadzone,
       bindings ?? this.standardMap,
+      this.actions,
+      this.previous.handbrake,
     )
     if (this.waitingForRelease) {
       if (frame.neutral) this.waitingForRelease = false
