@@ -17,6 +17,7 @@ export class DrivingCamera {
   pitch = 0
   zoom = 1
   private heading = 0
+  private grade = 0
   private ready = false
   private mode: CameraMode = 'cinematic'
   private anchor = new THREE.Vector3()
@@ -121,6 +122,15 @@ export class DrivingCamera {
     this.heading +=
       angleDifference(subject.yaw, this.heading) * (this.ready ? 1 - Math.exp(-3 * dt) : 1)
     const heading = mode === 'bonnet' ? subject.yaw : this.heading
+    const lookahead = mode === 'bonnet' ? 25 : 20
+    const aheadS = subject.s + Math.cos(subject.yaw) * lookahead
+    const aheadSurface = world.surface(subject.x - Math.sin(subject.yaw) * lookahead, aheadS)
+    const ahead =
+      !aheadSurface.onRoad && world.surface(subject.x, subject.s).onRoad
+        ? world.road(aheadS).y
+        : aheadSurface.height
+    const grade = clamp((ahead - subject.y) / lookahead, -0.7, 0.7)
+    this.grade = this.ready ? damp(this.grade, grade, 4, dt) : grade
     forward.set(-Math.sin(heading), 0, -Math.cos(heading))
     side.set(Math.cos(heading), 0, -Math.sin(heading))
     position.set(subject.x, subject.y, -subject.s)
@@ -129,7 +139,7 @@ export class DrivingCamera {
       position.addScaledVector(forward, bus ? -busLayout.driver.z : bike ? 0.65 : 0.9)
       if (bus) position.addScaledVector(side, busLayout.driver.x)
       position.y += bus ? busLayout.driver.y : bike ? 1.1 : 1.45
-      const pitch = Math.atan2(world.road(subject.s + 25).y - subject.y, 25) + this.pitch - 0.007
+      const pitch = Math.atan(this.grade) + this.pitch - 0.007
       const yaw = heading + this.yaw
       target.set(
         position.x - Math.sin(yaw) * Math.cos(pitch) * 35,
@@ -150,10 +160,10 @@ export class DrivingCamera {
       const distance = baseDistance * Math.max(1, 0.9 / camera.aspect)
       const height = bus ? 4.7 : bike ? 1.8 : 2
       const pitch = 0.3 - clamp(Math.abs(subject.speed) / metrics.maxSpeed, 0, 1) * 0.1
-      const slope = (world.road(subject.s + 20).y - subject.y) / 30
+      const slope = (this.grade * 2) / 3
       target.y += bus
         ? 1 + (3.7 * baseDistance) / (baseDistance + 15)
-        : Math.max(0.55, height + baseDistance * (slope - Math.tan(pitch)))
+        : clamp(height + baseDistance * (slope - Math.tan(pitch)), 0.55, height + 1.2)
       const vertical = subject.y + height - target.y
       const radius = Math.hypot(distance, vertical) * this.zoom
       const elevation = clamp(Math.atan2(vertical, distance) + this.pitch, 0.025, 1.25)
