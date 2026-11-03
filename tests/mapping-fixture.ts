@@ -21,7 +21,7 @@ window.addEventListener('keydown', event => {
   if (event.code === 'Digit7') { wheel.index = 7; pedals.index = 4; return; }
   if (event.code === 'Digit8') { pedals.connected = false; return; }
   if (event.code === 'Digit9') { pedals.connected = true; pedals.index = 5; return; }
-  if (!['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'KeyB', 'KeyI', 'KeyO'].includes(event.code)) return;
+  if (!['Digit0', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6', 'KeyB', 'KeyI', 'KeyO', 'KeyJ', 'KeyK'].includes(event.code)) return;
   neutral();
   if (event.code === 'Digit1') wheel.axes[0] = -0.9;
   if (event.code === 'Digit2') wheel.axes[0] = 0.8;
@@ -31,5 +31,7 @@ window.addEventListener('keydown', event => {
   if (event.code === 'Digit6') wheel.axes[1] = -1;
   if (event.code === 'KeyB') press(wheel, 1);
   if (event.code === 'KeyI') press(gamepad, 7);
+  if (event.code === 'KeyJ') press(wheel, 3);
+  if (event.code === 'KeyK') { pedals.axes[0] = -1; press(wheel, 3); }
 });
 `

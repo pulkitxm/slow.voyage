@@ -18,6 +18,7 @@ import {
 
 export interface Input {
   throttle: number
+  boost: boolean
   brake: number
   steer: number
   steeringSource: SteeringSource | null
@@ -26,6 +27,7 @@ export interface Input {
 }
 export interface Telemetry {
   speed: number
+  boost: boolean
   distance: number
   altitude: number
   steering: number
@@ -57,6 +59,7 @@ export class CarPhysics {
   slip = 0
   impact = 0
   driveForce = 0
+  boosting = false
   brakeForce = 0
   offroad = false
   suspension: Suspension
@@ -70,6 +73,7 @@ export class CarPhysics {
   reset(s = this.s) {
     this.s = s
     this.driveForce = this.brakeForce = 0
+    this.boosting = false
     const road = this.world.road(s)
     this.x = road.x
     this.y = road.y
@@ -147,6 +151,7 @@ export class CarPhysics {
       steer: clamp(steer, -1, 1),
       steeringSource: 'automatic',
       handbrake: false,
+      boost: false,
     }
   }
   update(dt: number, input: Input, settings: Settings) {
@@ -167,7 +172,7 @@ export class CarPhysics {
     const reverseGovernor = reverseDriveFactor(this.speed, this.driveForce, vehicle.jerk)
     const targetForce = reverseCommand
       ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
-      : forwardDriveForce(v, input.throttle, false, vehicle, settings.power)
+      : forwardDriveForce(v, input.throttle, input.boost, vehicle, settings.power)
     this.driveForce += clamp(
       targetForce - this.driveForce,
       -vehicle.jerk * dt * 0.5,
@@ -178,6 +183,8 @@ export class CarPhysics {
       forwardBraking ? input.throttle : 0,
       input.regenBrake,
     )
+    this.boosting =
+      input.boost && input.throttle > 0 && !brake && this.speed >= 0 && v < vehicle.maxSpeed
     this.brakeForce = brake
       ? Math.min(
           vehicle.brake * brake,
@@ -257,6 +264,7 @@ export class CarPhysics {
   telemetry(): Telemetry {
     return {
       speed: this.speed,
+      boost: this.boosting,
       distance: this.distance,
       altitude: this.y,
       steering: this.steering,

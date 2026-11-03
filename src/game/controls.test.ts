@@ -15,6 +15,38 @@ test('speed assistance forwards service braking without dropping manual ownershi
 const manual = { ...neutralInput, throttle: 0.8, brake: 0.2, steer: 0.7 }
 const automatic = { ...neutralInput, throttle: 0.3, steer: -0.4 }
 
+test('boost combines independent driver inputs without creating pedal input', () => {
+  const boost = { ...neutralInput, boost: true }
+  for (const input of [
+    mergeManualInput(boost, neutralInput, neutralInput, null),
+    mergeManualInput(neutralInput, boost, neutralInput, null),
+    mergeManualInput(neutralInput, neutralInput, boost, null),
+    mergeManualInput(neutralInput, neutralInput, neutralInput, boost),
+  ]) {
+    expect(input.boost).toBe(true)
+    expect(input.throttle).toBe(0)
+    expect(input.brake).toBe(0)
+  }
+  expect(mergeManualInput(neutralInput, neutralInput, boost, neutralInput).boost).toBe(false)
+  expect(mergeManualInput(boost, neutralInput, boost, neutralInput).boost).toBe(true)
+  expect(mergeManualInput(neutralInput, boost, boost, neutralInput).boost).toBe(true)
+  expect(mergeManualInput(neutralInput, neutralInput, neutralInput, null).boost).toBe(false)
+})
+
+test('only driver-owned speed can use boost', () => {
+  const driver = { ...manual, boost: true }
+  const assisted = { ...automatic, boost: true }
+  for (const mode of ['full', 'speed'] as const) {
+    const input = resolveInput(driver, assisted, mode, false)
+    expect(input.boost).toBe(false)
+    expect(input.throttle).toBe(assisted.throttle)
+  }
+  for (const mode of ['off', 'steer'] as const) {
+    expect(resolveInput(driver, assisted, mode, false).boost).toBe(true)
+    expect(resolveInput(manual, assisted, mode, false).boost).toBe(false)
+  }
+})
+
 test('enabled mouse replaces controller axes while keyboard and touch remain available', () => {
   const controller = { ...neutralInput, throttle: 1, steer: -0.8, handbrake: true }
   expect(mergeManualInput(neutralInput, neutralInput, controller, null)).toEqual(controller)

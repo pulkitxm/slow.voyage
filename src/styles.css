@@ -438,6 +438,14 @@ svg {
   width: 120px;
   position: relative;
 }
+.boost-indicator {
+  position: absolute;
+  left: 0;
+  top: -16px;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: #e2edc7;
+}
 .speed-value {
   font:
     300 57px / 1 "Manrope",
@@ -1288,8 +1296,8 @@ input[type="range"] {
     pointer-events: auto;
   }
   .touch-controls button {
-    width: 54px;
-    height: 54px;
+    width: clamp(44px, 13.5vw, 54px);
+    height: clamp(44px, 13.5vw, 54px);
     background: #f3f5e51f;
     border: 1px solid #ffffff40;
     border-radius: 50%;

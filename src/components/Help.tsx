@@ -14,6 +14,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         <div className="key-list">
           {[
             ['W / ↑', 'Accelerate'],
+            ['Shift + W / ↑', 'Boost while accelerating'],
             ['S / ↓', 'Brake, then reverse'],
             ['A D / ← →', 'Steer'],
             ['Space', 'Handbrake'],
@@ -40,13 +41,15 @@ export function Help({ onClose }: { onClose: () => void }) {
         <p>
           Controller: left stick steers, right trigger accelerates, and left trigger brakes. A
           starts, B holds the handbrake, X toggles assistance, Y changes camera, and Start pauses.
-          Use the left bumper to choose assistance and the D-pad up/down to adjust cruise speed.
-          Choose Custom in Controls to bind a wheel, separate pedals, buttons or camera controls.
+          Hold the right bumper while accelerating to boost. Use the left bumper to choose
+          assistance and the D-pad up/down to adjust cruise speed. Choose Custom in Controls to bind
+          a wheel, separate pedals, buttons or camera controls.
         </p>
         <div className="help-note">
           <p>
             Mouse driving: move horizontally to steer, hold left click to accelerate, or right click
-            to brake and reverse. Adjust sensitivity in Controls settings.
+            to brake and reverse. Hold Shift while accelerating to boost. Adjust sensitivity in
+            Controls settings.
           </p>
         </div>
         <div className="help-note">

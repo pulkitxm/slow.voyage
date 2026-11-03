@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import type { ControllerBindings } from './controller-bindings'
 import { decodeGamepad, GamepadControls } from './gamepad'
 
 function pad(index = 0) {
@@ -22,6 +23,102 @@ function button(
   target.value = value
   target.pressed = pressed
 }
+
+test('the right bumper holds boost through pressure jitter and releases below its threshold', () => {
+  const controller = pad(),
+    reader = new GamepadControls()
+  for (const [pressure, boosted] of [
+    [0.54, false],
+    [0.56, true],
+    [0.45, true],
+    [0.36, true],
+    [0.34, false],
+    [0.45, false],
+    [0.56, true],
+    [0, false],
+  ] as const) {
+    button(controller, 5, pressure, false)
+    const frame = reader.read([controller], 0.12)
+    expect(frame.input.boost).toBe(boosted)
+    expect(frame.input.throttle).toBe(0)
+    expect(frame.pedalsActive).toBe(false)
+    expect(frame.actions).toEqual([])
+  }
+})
+
+test('a fresh boost press takes over held throttle once without repeating the handoff', () => {
+  const controller = pad(),
+    reader = new GamepadControls()
+  button(controller, 7, 0.6)
+  reader.read([controller], 0.12)
+  expect(reader.read([controller], 0.12).pedalsActive).toBe(false)
+  for (let press = 0; press < 2; press++) {
+    button(controller, 5, 1)
+    const fresh = reader.read([controller], 0.12)
+    expect(fresh.input.boost).toBe(true)
+    expect(fresh.pedalsActive).toBe(true)
+    for (let held = 0; held < 10; held++)
+      expect(reader.read([controller], 0.12).pedalsActive).toBe(false)
+    button(controller, 5, 0)
+    expect(reader.read([controller], 0.12).pedalsActive).toBe(false)
+  }
+})
+
+test.each(['suspend', 'disconnect'] as const)(
+  '%s clears boost and requires fully released controls before rearming',
+  (reason) => {
+    const controller = pad(),
+      reader = new GamepadControls()
+    button(controller, 5, 1)
+    button(controller, 7, 1)
+    expect(reader.read([controller], 0.12).input.boost).toBe(true)
+    if (reason === 'suspend') reader.suspend()
+    else {
+      const disconnected = reader.read([], 0.12)
+      expect(disconnected.input.boost).toBe(false)
+      expect(disconnected.input.throttle).toBe(0)
+    }
+    let frame = reader.read([controller], 0.12)
+    expect(frame.input.boost).toBe(false)
+    expect(frame.input.throttle).toBe(0)
+    button(controller, 7, 0)
+    button(controller, 5, 0.2)
+    reader.read([controller], 0.12)
+    button(controller, 7, 1)
+    frame = reader.read([controller], 0.12)
+    expect(frame.input.throttle).toBe(0)
+    expect(frame.pedalsActive).toBe(false)
+    button(controller, 7, 0)
+    button(controller, 5, 0)
+    reader.read([controller], 0.12)
+    button(controller, 7, 1)
+    button(controller, 5, 1)
+    frame = reader.read([controller], 0.12)
+    expect(frame.input.boost).toBe(true)
+    expect(frame.input.throttle).toBe(1)
+    expect(frame.pedalsActive).toBe(true)
+  },
+)
+
+test('a calibrated custom axis can hold boost without activating standard bumper bindings', () => {
+  const controller = pad(),
+    reader = new GamepadControls()
+  controller.mapping = ''
+  controller.axes[2] = -1
+  const bindings: ControllerBindings = {
+    boost: { deviceId: controller.id, kind: 'axis', index: 2, from: -1, to: 1 },
+  }
+  reader.read([controller], 0.12, bindings)
+  button(controller, 5, 1)
+  expect(reader.read([controller], 0.12, bindings).input.boost).toBe(false)
+  controller.axes[2] = 1
+  const held = reader.read([controller], 0.12, bindings)
+  expect(held.input.boost).toBe(true)
+  expect(held.input.throttle).toBe(0)
+  expect(held.pedalsActive).toBe(false)
+  controller.axes[2] = -1
+  expect(reader.read([controller], 0.12, bindings).input.boost).toBe(false)
+})
 
 test('standard analog triggers retain pressure even when pressed is false', () => {
   const controller = pad()

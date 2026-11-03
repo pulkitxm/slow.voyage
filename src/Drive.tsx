@@ -67,6 +67,7 @@ export function Drive() {
       data-vehicle={settings.vehicle}
       data-camera={settings.camera}
       data-steering={state.steering.toFixed(4)}
+      data-boost={state.boost}
     >
       <canvas
         ref={canvas}
@@ -224,6 +225,9 @@ export function Drive() {
         <>
           <section className="telemetry" aria-label="Driving dashboard">
             <div className="speed">
+              {state.boost && !state.paused && !panel && !help && (
+                <span className="boost-indicator">BOOST</span>
+              )}
               <span className="speed-value">{speed.toFixed(0).padStart(2, '0')}</span>
               <span className="speed-unit">
                 {settings.units === 'km' ? 'km/h' : 'mph'}
@@ -290,6 +294,7 @@ export function Drive() {
                   }}
                   onPointerUp={() => touch(item.key, 0)}
                   onPointerCancel={() => touch(item.key, 0)}
+                  onLostPointerCapture={() => touch(item.key, 0)}
                 >
                   <item.icon />
                 </button>
@@ -299,6 +304,7 @@ export function Drive() {
               {[
                 { label: 'Brake', key: 'brake' as const, text: 'BRAKE' },
                 { label: 'Accelerate', key: 'throttle' as const, text: 'GO' },
+                { label: 'Boost', key: 'boost' as const, text: 'BOOST' },
               ].map((item) => (
                 <button
                   key={item.label}
@@ -310,6 +316,7 @@ export function Drive() {
                   }}
                   onPointerUp={() => touch(item.key, 0)}
                   onPointerCancel={() => touch(item.key, 0)}
+                  onLostPointerCapture={() => touch(item.key, 0)}
                 >
                   {item.text}
                 </button>
