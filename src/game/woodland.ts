@@ -4,7 +4,6 @@ import { clamp, type Landscape, random, type Settings, type World } from './worl
 export interface WoodlandTree {
   variant: 0 | 1 | 4 | 5
   x: number
-  y: number
   s: number
   height: number
   width: number
@@ -84,7 +83,6 @@ export function createWoodland(world: World, tile: number, quality: Settings['qu
       trees.push({
         variant,
         x,
-        y: surface.height - 0.1,
         s,
         height,
         width,

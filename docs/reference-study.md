@@ -933,6 +933,50 @@ per median high-detail frame and 67 to 83 milliseconds at low detail. Individual
 intervals still reach 767 milliseconds. This path remains slow; the reduced
 shading work does not resolve streaming stalls or establish other-device speed.
 
+Cross-road terrain sampling now uses 16-meter intervals from 90 to 650 meters
+and 32-meter intervals beyond that to the existing 1,600-meter extent. The
+roadside samples within 90 meters are unchanged. A native ground section grows
+from 16,587 to 27,451 vertices. A three-seed audit of 23,360 woodland placements
+finds that the largest height-field-to-mesh mismatch falls from 45.67 to 1.66
+meters. A separate grid across all three landscapes, signed sections and both
+longitudinal detail levels remains below two meters within the sampled woodland
+range. This is an approximation bound for those samples, not exact agreement
+everywhere off the road.
+
+Ground construction in the native audit takes roughly 27 milliseconds per
+section, compared with about 20 milliseconds before the denser sampling. The
+checked high-detail frame grows to approximately 1.8 million triangles. The
+new silhouette restores rounded distant hills in the sampled Highlands view.
+Independent review separates that improvement from the nearby Alpine material
+swath and long tree-shadow ribbons, which remain visible. Denser geometry is
+not an established cure for all of those shading patterns.
+
+Tree and shrub origins now sample the rendered ground triangles with a
+10-centimeter recess. Woodland generation retains horizontal placement, scale,
+orientation and habitat filtering; the renderer owns vertical placement.
+Obsolete height values are removed from the woodland descriptors. Changes in
+software ground detail reproject vegetation and refresh its culling spheres,
+alongside the existing grass adjustment. Raycasting checks now validate the
+ground sampler at offsets up to 649 meters, including signed sections and
+million-meter longitudinal positions.
+
+An actual-instance audit covers 80,773 native origin checks and 42,036 software
+checks. Maximum deviation from the intended recess is 0.128 and 0.063 millimeters,
+respectively. The software checks cover 120 ground-detail changes without
+altering horizontal transforms, rotation or scale. Updated culling spheres
+contain the checked instance spheres. These origin checks do not establish
+exact contact for every opaque texel or the full footprint of a vegetation card.
+
+Four ten-second native driving samples retain 16.7-millisecond medians and
+16.7 to 16.8-millisecond 95th percentiles on the test M4 Pro. The largest frame
+interval is 50.1 milliseconds. Geometry, texture and shader-program counts stay
+bounded across five cycles of all four vehicles. These finite samples do not
+establish sustained or other-device performance.
+
+Software samples retain approximately 83.4-millisecond high-detail medians and
+66.7 to 83.2-millisecond low-detail medians. The largest interval is 733.3
+milliseconds. That renderer remains slow, especially around streaming work.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
