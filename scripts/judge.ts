@@ -18,6 +18,7 @@ interface Scenario {
   vehicle: 'touring' | 'roadster' | 'motorcycle' | 'bus'
   cruiseSpeed: number
   seconds: number
+  expectation?: string
   setup: (page: Page) => Promise<void>
   during?: (page: Page, elapsed: number) => Promise<void>
 }
@@ -87,6 +88,25 @@ const scenarios: Scenario[] = [
       await autodrive(page)
       await hold(page, 'w', 'Shift')
       await page.waitForSelector('[data-assistance="steer"]')
+    },
+  },
+  {
+    id: 'offroad-excursion-touring',
+    title:
+      'The driver steers off the road at high speed and keeps the throttle down across the terrain in the touring car',
+    vehicle: 'touring',
+    cruiseSpeed: 45,
+    seconds: 22,
+    expectation:
+      'Leaving the road is intended here. Pass the run if the vehicle stays upright and controllable, lands on its wheels, sheds speed on the rough ground, and the camera stays clear of scenery.',
+    setup: autodrive,
+    during: async (page, elapsed) => {
+      if (elapsed < 10 || firedTaps.has(-2)) return
+      firedTaps.add(-2)
+      await page.keyboard.down('w')
+      await page.keyboard.down('a')
+      await page.waitForTimeout(900)
+      await page.keyboard.up('a')
     },
   },
   {
@@ -280,7 +300,8 @@ async function review(scenario: Scenario, directory: string, telemetry: Telemetr
     'Look for: the vehicle leaving the road or spinning, oscillating or twitchy steering, the camera jerking, terrain or wheels clipping, popping or missing scenery, broken lighting or sky, and stutter in the frame timings.',
     `Frame timing and speed summary: ${JSON.stringify({ frames: telemetry.frames, speedKmh: telemetry.speedKmh, steering: telemetry.steering, assistance: telemetry.assistance, errors: telemetry.errors })}`,
     `Speed and steering trace: ${trace}`,
-    'Scores are 1 to 10. Fail the run if the vehicle leaves the road, spins, or a visual defect would be obvious to a player.',
+    scenario.expectation ??
+      'Scores are 1 to 10. Fail the run if the vehicle leaves the road, spins, or a visual defect would be obvious to a player.',
     'Reply with only one JSON object and nothing else: {"verdict":"pass"|"fail","scores":{"stability":n,"laneKeeping":n,"visuals":n,"smoothness":n},"issues":["..."]}',
   ].join('\n')
   const child = Bun.spawn(

@@ -253,3 +253,47 @@ describe('high-speed manual handling', () => {
     expect(response()).toBeGreaterThan(0.4)
   })
 })
+
+class GrassWorld extends FlatWorld {
+  override surface(_x: number, _s: number) {
+    return { height: 0, onRoad: false, slopeX: 0, slopeS: 0 }
+  }
+}
+
+describe('rough ground and flight', () => {
+  test.each(vehicles)('%s full throttle on rough ground settles at a calm speed', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new GrassWorld(settings))
+    car.speed = 40
+    for (let step = 0; step < 20 * 120; step++)
+      car.update(1 / 120, { ...neutralInput, throttle: 1 }, settings)
+    expect(car.offroad).toBe(true)
+    expect(car.speed).toBeGreaterThan(10)
+    expect(car.speed).toBeLessThan(27)
+  })
+
+  test.each(vehicles)(
+    '%s rotates back toward the ground before landing from a tumble',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      car.y += 12
+      car.speed = 25
+      car.pitch = 0.5
+      car.pitchRate = 1.5
+      if (vehicleMetrics[vehicle].trackWidth) {
+        car.roll = -0.4
+        car.rollRate = -2
+      }
+      car.suspension.updateOffsets(car)
+      let landed = false
+      for (let step = 0; step < 4 * 120 && !landed; step++) {
+        car.update(1 / 120, neutralInput, settings)
+        landed = car.suspension.wheels.some((wheel) => wheel.load > 0)
+      }
+      expect(landed).toBe(true)
+      expect(Math.abs(car.pitch)).toBeLessThan(0.12)
+      expect(Math.abs(car.roll)).toBeLessThan(0.12)
+    },
+  )
+})
