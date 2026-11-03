@@ -9,6 +9,7 @@ import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
+import { RoamingMeadow } from './roaming-meadow'
 import { receiveUnbiasedShadows } from './shadow-receiver'
 import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
@@ -81,6 +82,7 @@ export class Terrain {
   bladeFootprint: number
   asphalt: THREE.CanvasTexture
   groundTexture: THREE.CanvasTexture
+  meadow: RoamingMeadow | null = null
   windTime = { value: 0 }
   roadWetness = { value: 0 }
   constructor(
@@ -214,6 +216,30 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       ...this.foliage.winterShrubGeometries,
       this.blade,
     ]
+    if (!software) {
+      this.meadow = new RoamingMeadow(
+        this.blade,
+        this.bladeMaterial,
+        quality === 'low' ? 3600 : 12000,
+        world,
+        (s) => this.samplerAt(s),
+        terrainColors(world.settings),
+      )
+      scene.add(this.meadow.mesh)
+    }
+  }
+  samplerAt(s: number) {
+    const id = Math.floor(s / groundLayout.tileLength)
+    const group = this.tiles.get(id)
+    const ground = group?.getObjectByName('ground')
+    if (!group || !(ground instanceof THREE.Mesh)) return null
+    if (!(group.userData.sampler instanceof GroundSampler))
+      group.userData.sampler = new GroundSampler(
+        ground.geometry,
+        id * groundLayout.tileLength,
+        group.userData.groundRows,
+      )
+    return group.userData.sampler as GroundSampler
   }
   addMesh(group: THREE.Group, g: THREE.BufferGeometry, material: THREE.Material) {
     const mesh = new THREE.Mesh(g, material)
@@ -468,7 +494,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.trunks.set(id, trunks)
     this.scene.add(group)
   }
-  update(s: number, time: number, cameraS: number) {
+  update(s: number, time: number, cameraS: number, x = this.world.road(s).x) {
     this.windTime.value = time
     const current = Math.floor(s / groundLayout.tileLength),
       ahead = this.quality === 'low' ? 8 : 14
@@ -517,6 +543,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
             rows,
           )
           group.userData.groundRows = rows
+          group.userData.sampler = undefined
           const sampler = new GroundSampler(ground.geometry, id * groundLayout.tileLength, rows)
           const matrix = new THREE.Matrix4()
           const grass = group.getObjectByName('meadow')
@@ -551,6 +578,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
           id * groundLayout.tileLength < cameraS + grassViewDistance.end &&
           (id + 1) * groundLayout.tileLength > cameraS - grassViewDistance.end
     }
+    this.meadow?.update(x, s)
   }
   *trunksNear(s: number) {
     const tile = Math.floor(s / groundLayout.tileLength)
@@ -594,9 +622,17 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.clear()
     this.foliage.update(settings.season)
     this.grassMaterial.setAppearance(settings)
+    if (this.meadow) {
+      this.meadow.palette = terrainColors(settings)
+      this.meadow.reset()
+    }
   }
   dispose() {
     this.clear()
+    if (this.meadow) {
+      this.scene.remove(this.meadow.mesh)
+      this.meadow.dispose()
+    }
     for (const material of this.materials) material.dispose()
     this.blade.dispose()
     this.bladeTexture.dispose()
