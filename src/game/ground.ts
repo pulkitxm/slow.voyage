@@ -172,6 +172,7 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
     fieldDryness: { value: 0 },
     fieldMeadowShade: { value: new THREE.Color() },
     fieldRock: { value: new THREE.Color() },
+    fieldSoil: { value: new THREE.Color() },
     fieldGravel: { value: new THREE.Color() },
     fieldRockMap: { value: rockTexture() },
   }
@@ -217,6 +218,7 @@ uniform vec3 fieldDryGrass;
 uniform float fieldDryness;
 uniform vec3 fieldMeadowShade;
 uniform vec3 fieldRock;
+uniform vec3 fieldSoil;
 uniform vec3 fieldGravel;
 uniform sampler2D fieldRockMap;
 ${meadowNoise}`,
@@ -233,12 +235,16 @@ float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fi
 float cutFace = smoothstep(0.06, 0.32, fieldSlope)
   * (1.0 - smoothstep(6.0, 13.0, fieldRoadDistance))
   * smoothstep(0.15, 1.8, fieldBankHeight);
+float bankPatch = fieldVariationAt(fieldPosition * 2.4 + vec2(19.1, 3.7));
+float grassPocket = (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * smoothstep(0.25, 0.55, bankPatch);
+cutFace *= 1.0 - grassPocket * 0.88;
 rockBlend = max(rockBlend, cutFace);
 float rockGrain = fieldVariationAt(fieldPosition * 80.0);
 vec2 rockUv = vec2(fieldPosition.y + fieldPosition.x * 0.2, fieldHeight) * 0.125;
 rockUv += (fieldVariationAt(fieldPosition * 4.0) - 0.5) * 0.2;
 vec4 rockSurface = mix(texture2D(fieldRockMap, rockUv), texture2D(fieldRockMap, rockUv * 2.13 + vec2(0.27, 0.69)), 0.35);
-vec3 rockColor = fieldRock * rockSurface.a * (1.08 + rockGrain * 0.2);
+float earthBlend = cutFace * (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * bankPatch;
+vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockSurface.a * (1.08 + rockGrain * 0.2);
 diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
 float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);
@@ -266,10 +272,13 @@ normal = normalize(mix(normal, rockNormal, rockBlend));`,
       winter ? 0.94 : desert ? 0.66 : autumn ? 0.61 : 0.55,
     )
     this.fieldUniforms.fieldRock.value.set(winter ? '#aab2b0' : desert ? '#9f8160' : '#8c877a')
+    this.fieldUniforms.fieldSoil.value.set(
+      winter ? '#969b8e' : desert ? '#a2855e' : autumn ? '#8a7755' : '#807350',
+    )
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'layered-road-cut-meadow'
+    return 'vegetated-soil-road-cuts'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
