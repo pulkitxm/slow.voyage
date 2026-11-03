@@ -873,6 +873,30 @@ pedals and a standard gamepad, including reconnection, slot changes, saved-profi
 reload, optional camera look and manual assistance handoff. These synthetic
 fixtures do not establish physical-device compatibility.
 
+Rendered tire contact is now checked through the same vehicle-positioning helper
+used by the live engine. Across four vehicles, three seeds and thirty seconds
+of assisted driving per run, 5,040 sampled tire positions remain within six
+millimeters of the rendered road. The measured extremes are 3.95 millimeters
+above and 2.85 millimeters below its triangles. Separate airborne checks retain
+wheel droop rather than pinning wheels to the ground. These checks establish
+local geometric contact, not reference handling fidelity.
+
+The latest contact-shadow pass leaves suspension behavior unchanged. Terrain
+materials that receive shadows without casting them use zero receiver bias,
+while vehicle and foliage materials retain their existing bias. This reduces
+the visible separation between tire bottoms and road shadows without a contact
+plane. Native high detail now uses a 4096-pixel shadow map, bounded by the
+renderer texture limit. Low-detail and software map budgets remain unchanged.
+The high-detail map has four times the previous pixel count and consequently
+uses more shadow-buffer memory. Three fixed moving poses render without shader
+errors, including a low tire view and sunset.
+
+Four isolated ten-second native samples at 1280 by 720 retain 16.7-millisecond
+median frames and 16.7 to 16.8-millisecond 95th percentiles on the test M4 Pro.
+The largest interval is 49.9 milliseconds. Geometry, texture and shader-program
+counts remain bounded through five cycles of all four vehicles. These short
+samples do not establish sustained performance or other-device behavior.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.
