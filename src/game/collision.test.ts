@@ -6,6 +6,7 @@ import {
   railFaces,
   railObstacles,
   type Trunk,
+  terrainBounds,
   trunkObstacle,
   trunkRadius,
 } from './collision'
@@ -212,5 +213,80 @@ describe('guard rails', () => {
   test('there is nothing to hit where the road has no rail', () => {
     const world = new OpenWorld({ ...defaults }, false)
     expect(railObstacles(world, { x: 3, s: 0, yaw: 0.3 }, footprints.touring)).toEqual([])
+  })
+})
+
+class ShoreWorld extends OpenWorld {
+  override surface(x: number, _s: number) {
+    const onRoad = Math.abs(x) < 3
+    return { height: onRoad ? 1 : 1 - 0.05 * x, onRoad, sand: false, slopeX: -0.05, slopeS: 0 }
+  }
+}
+
+function deepestPoint(car: CarPhysics) {
+  let deepest = Number.POSITIVE_INFINITY
+  for (const point of outline(footprints[car.world.settings.vehicle])) {
+    const cos = Math.cos(car.yaw),
+      sin = Math.sin(car.yaw)
+    const x = car.x + point.localX * cos - point.localS * sin
+    const s = car.s + point.localX * sin + point.localS * cos
+    deepest = Math.min(deepest, car.world.surface(x, s).height)
+  }
+  return deepest
+}
+
+describe('terrain bounds', () => {
+  const throttle: Input = { ...neutralInput, throttle: 1 }
+  const reverse: Input = { ...neutralInput, brake: 1 }
+
+  test.each(vehicles)('%s wades into shallow water but cannot drive into the deep', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new ShoreWorld(settings))
+    car.reset(0)
+    car.x = 4
+    car.yaw = -Math.PI / 2
+    car.suspension.reset(car)
+    let deepest = Number.POSITIVE_INFINITY
+    for (let step = 0; step < 20 * 120; step++) {
+      car.update(1 / 120, throttle, settings)
+      deepest = Math.min(deepest, deepestPoint(car))
+      expect(Number.isFinite(car.x + car.s + car.y + car.speed)).toBe(true)
+    }
+    expect(deepest).toBeLessThan(0)
+    expect(deepest).toBeGreaterThan(-terrainBounds.wadeDepth - 0.05)
+    expect(Math.abs(car.speed)).toBeLessThan(1)
+    const stuck = car.x
+    for (let step = 0; step < 9 * 120; step++) car.update(1 / 120, reverse, settings)
+    expect(car.x).toBeLessThan(stuck - 3)
+  })
+
+  test.each(vehicles)('%s stops softly at the edge of the generated world', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    for (const side of [1, -1]) {
+      const car = new CarPhysics(new OpenWorld(settings))
+      car.reset(0)
+      car.x = side * (terrainBounds.edge - 60)
+      car.yaw = -side * (Math.PI / 2)
+      car.suspension.reset(car)
+      for (let step = 0; step < 15 * 120; step++) {
+        car.update(1 / 120, throttle, settings)
+        expect(Math.abs(car.x)).toBeLessThan(terrainBounds.edge + 0.05)
+      }
+      expect(Math.abs(car.x)).toBeGreaterThan(terrainBounds.edge - 5)
+    }
+  })
+
+  test('driving full throttle toward the real coastline ends at the water line', () => {
+    const settings = { ...defaults, vehicle: 'touring' as const }
+    const world = new World(settings)
+    const car = new CarPhysics(world)
+    car.reset(900)
+    car.x = world.road(900).x + 12
+    car.yaw = -Math.PI / 2 + 0.3
+    car.suspension.reset(car)
+    for (let step = 0; step < 40 * 120; step++) {
+      car.update(1 / 120, throttle, settings)
+      expect(deepestPoint(car)).toBeGreaterThan(-terrainBounds.wadeDepth - 0.3)
+    }
   })
 })
