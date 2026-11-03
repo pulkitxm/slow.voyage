@@ -1,6 +1,6 @@
 import type { BarrierContact } from './barrier'
 import { guardrailAt, roadCoordinates, roadLayout } from './road'
-import type { Vehicle, World } from './world'
+import { clamp, type Vehicle, type World } from './world'
 
 export interface Footprint {
   front: number
@@ -133,4 +133,39 @@ export function trunkObstacle(pose: Pose, footprint: Footprint, trunk: Trunk): O
     normalX,
     normalS,
   }
+}
+
+export const terrainBounds = { waterLevel: 0, wadeDepth: 0.6, edge: 1500, step: 0.25 }
+
+export function boundaryObstacle(world: World, pose: Pose, footprint: Footprint): Obstacle | null {
+  const contacts: BarrierContact[] = []
+  let deepest: Obstacle | null = null
+  for (const point of outline(footprint)) {
+    const position = toWorld(pose, point.localX, point.localS)
+    const offset = position.x - world.road(position.s).x
+    const outward = Math.sign(offset) || 1
+    let penetration = Math.abs(offset) - terrainBounds.edge
+    let normalX = outward
+    let normalS = 0
+    if (penetration <= 0) {
+      const ground = world.surface(position.x, position.s)
+      const depth = terrainBounds.waterLevel - terrainBounds.wadeDepth - ground.height
+      if (ground.onRoad || depth <= 0) continue
+      const gradient = Math.hypot(ground.slopeX, ground.slopeS)
+      if (gradient > 1e-3) {
+        normalX = -ground.slopeX / gradient
+        normalS = -ground.slopeS / gradient
+      }
+      penetration = Math.min(depth / Math.max(gradient, 0.05), terrainBounds.step)
+    }
+    contacts.push({ localX: point.localX, localS: point.localS, normalX, normalS })
+    if (!deepest || penetration > deepest.penetration)
+      deepest = { contacts, penetration, normalX, normalS }
+  }
+  return deepest
+}
+
+export function wadingDrag(depth: number, speed: number) {
+  const immersion = clamp(depth / terrainBounds.wadeDepth, 0, 1.5)
+  return immersion * (0.4 * Math.abs(speed) + 0.12 * speed * speed)
 }

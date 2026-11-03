@@ -1,5 +1,13 @@
 import { resolveBarrierImpulse } from './barrier'
-import { footprints, railObstacles, type Trunk, trunkObstacle } from './collision'
+import {
+  boundaryObstacle,
+  footprints,
+  railObstacles,
+  type Trunk,
+  terrainBounds,
+  trunkObstacle,
+  wadingDrag,
+} from './collision'
 import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
 import { forwardDriveForce } from './drive'
 import { surfaceGrip } from './grip'
@@ -254,6 +262,8 @@ export class CarPhysics {
       const obstacle = trunkObstacle(this, footprint, trunk)
       if (obstacle) obstacles.push(obstacle)
     }
+    const boundary = boundaryObstacle(this.world, this, footprint)
+    if (boundary) obstacles.push(boundary)
     if (obstacles.length) {
       for (const obstacle of obstacles) {
         this.x -= obstacle.normalX * (obstacle.penetration + 0.001)
@@ -265,6 +275,14 @@ export class CarPhysics {
         vehicle,
       )
       this.impact = Math.max(this.impact, clamp(approach / 8, 0, 1))
+    }
+    const underfoot = this.world.surface(this.x, this.s)
+    const depth = terrainBounds.waterLevel - underfoot.height
+    if (depth > 0 && !underfoot.onRoad) {
+      const slowdown = wadingDrag(depth, this.speed) * dt
+      this.speed -= Math.sign(this.speed) * Math.min(Math.abs(this.speed), slowdown)
+      this.lateralSpeed -=
+        Math.sign(this.lateralSpeed) * Math.min(Math.abs(this.lateralSpeed), slowdown)
     }
     this.suspension.update(dt, this, acceleration.forward, acceleration.lateral, handbrake)
     this.offroad = this.suspension.wheels.some((wheel) => wheel.contact && !wheel.onRoad)
