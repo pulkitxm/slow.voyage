@@ -5,7 +5,7 @@ import { DrivingCamera } from './camera'
 import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
-import { createVehicleModel, type VehicleModel } from './model'
+import { createVehicleModel, positionVehicle, type VehicleModel } from './model'
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
@@ -14,7 +14,7 @@ import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { Water } from './water'
-import { type AssistanceMode, clamp, damp, defaults, type Settings, World } from './world'
+import { type AssistanceMode, defaults, type Settings, World } from './world'
 
 export interface DriveState extends Telemetry {
   assistance: AssistanceMode
@@ -551,21 +551,9 @@ export class RoadEngine {
       })
     }
     const p = this.physics
-    const isBike = this.settings.vehicle === 'motorcycle'
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
-    this.car.group.position.set(p.x, p.y, -p.s)
-    this.car.group.rotation.order = 'YXZ'
-    this.car.group.rotation.y = p.yaw
-    this.car.group.rotation.x = p.pitch
-    this.car.group.rotation.z = isBike
-      ? damp(
-          this.car.group.rotation.z,
-          clamp(Math.atan((p.yawRate * p.speed) / 9.81), -0.65, 0.65),
-          5,
-          dt,
-        )
-      : p.roll
+    positionVehicle(this.car, p, this.settings.vehicle, dt)
     this.car.update(
       p.suspension.wheels,
       input.brake > 0 || input.regenBrake > 0,
