@@ -9,8 +9,9 @@ const sideOffsets = [
   4.5,
   5,
   ...Array.from({ length: 38 }, (_, index) => 5.5 + index * 0.5),
-  ...Array.from({ length: 33 }, (_, index) => 26 + index * 2),
-  ...Array.from({ length: 35 }, (_, index) => 106 + index * 16),
+  ...Array.from({ length: 37 }, (_, index) => 26 + index * 2),
+  ...Array.from({ length: 39 }, (_, index) => 106 + index * 8),
+  ...Array.from({ length: 16 }, (_, index) => 426 + index * 16),
   ...Array.from({ length: 29 }, (_, index) => 682 + index * 32),
   1600,
 ]
