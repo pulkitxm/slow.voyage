@@ -1,5 +1,6 @@
 export const controllerFixture = `
 const virtualPad = {
+  id: 'Portable test controller',
   index: 0,
   connected: true,
   mapping: 'standard',

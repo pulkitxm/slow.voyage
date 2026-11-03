@@ -1,111 +1,165 @@
+import {
+  type ControllerBindings,
+  type ControllerChannel,
+  controllerGroups,
+  controllerLabels,
+  readBinding,
+  standardBindings,
+} from './controller-bindings'
 import { neutralInput } from './controls'
 import type { Input } from './physics'
 import { clamp } from './world'
 
 export type ControllerStatus = 'none' | 'connected' | 'unsupported' | 'unavailable'
-export type GamepadAction =
-  | 'start'
-  | 'pause'
-  | 'auto'
-  | 'camera'
-  | 'reset'
-  | 'autoMode'
-  | 'cruiseUp'
-  | 'cruiseDown'
-export type PadSnapshot = Pick<Gamepad, 'index' | 'connected' | 'mapping' | 'axes' | 'buttons'>
-const buttonActions: [number, GamepadAction][] = [
-  [0, 'start'],
-  [2, 'auto'],
-  [3, 'camera'],
-  [4, 'autoMode'],
-  [8, 'reset'],
-  [9, 'pause'],
-  [12, 'cruiseUp'],
-  [13, 'cruiseDown'],
+export type GamepadAction = keyof typeof controllerGroups.Shortcuts | 'cameraCenter'
+export type PadSnapshot = Pick<
+  Gamepad,
+  'id' | 'index' | 'connected' | 'mapping' | 'axes' | 'buttons'
+>
+export interface ControllerLook {
+  x: number
+  y: number
+  zoom: number
+}
+const actionChannels: GamepadAction[] = [
+  ...(Object.keys(controllerGroups.Shortcuts) as GamepadAction[]),
+  'cameraCenter',
 ]
 
-function finite(value: number | undefined) {
-  return value !== undefined && Number.isFinite(value) ? value : 0
+function deadzoneValue(value: number, deadzone: number) {
+  return Math.abs(value) <= deadzone
+    ? 0
+    : (Math.sign(value) * (Math.abs(value) - deadzone)) / (1 - deadzone)
 }
-function trigger(pad: PadSnapshot, index: number) {
-  return clamp((finite(pad.buttons[index]?.value) - 0.04) / 0.96, 0, 1)
-}
-function pressed(pad: PadSnapshot, index: number) {
-  return (pad.buttons[index]?.pressed ?? false) || finite(pad.buttons[index]?.value) > 0.5
-}
-export function decodeGamepad(pad: PadSnapshot, deadzone: number): Input {
-  const axis = clamp(finite(pad.axes[0]), -1, 1)
-  const steer =
-    Math.abs(axis) <= deadzone
-      ? 0
-      : (-Math.sign(axis) * (Math.abs(axis) - deadzone)) / (1 - deadzone)
-  return {
+function decodeController(
+  pads: readonly (PadSnapshot | null)[],
+  deadzone: number,
+  bindings: ControllerBindings,
+) {
+  const values = {} as Record<ControllerChannel, number>
+  for (const key of Object.keys(controllerLabels) as ControllerChannel[])
+    values[key] = readBinding(pads, bindings[key])
+  const input: Input = {
     ...neutralInput,
-    throttle: trigger(pad, 7),
-    brake: trigger(pad, 6),
-    steer,
+    throttle: clamp((values.throttle - 0.04) / 0.96, 0, 1),
+    brake: clamp((values.brake - 0.04) / 0.96, 0, 1),
+    steer: deadzoneValue(values.steerLeft - values.steerRight, deadzone),
     steeringSource: 'analog',
-    handbrake: pressed(pad, 1),
+    handbrake: values.handbrake > 0.5,
   }
+  const look = {
+    x: deadzoneValue(values.lookLeft - values.lookRight, deadzone),
+    y: deadzoneValue(values.lookUp - values.lookDown, deadzone),
+    zoom: deadzoneValue(values.zoomIn - values.zoomOut, deadzone),
+  }
+  const actions = new Set(actionChannels.filter((channel) => values[channel] > 0.5))
+  const neutral =
+    !input.throttle &&
+    !input.brake &&
+    !input.handbrake &&
+    !actions.size &&
+    Math.max(
+      values.steerLeft,
+      values.steerRight,
+      values.lookLeft,
+      values.lookRight,
+      values.lookUp,
+      values.lookDown,
+      values.zoomIn,
+      values.zoomOut,
+    ) <= deadzone
+  return { input, look, actions, neutral }
+}
+
+export function decodeGamepad(pad: PadSnapshot, deadzone: number): Input {
+  return decodeController([pad], deadzone, standardBindings(pad.id)).input
 }
 
 export class GamepadControls {
-  index: number | null = null
   previous: Input = { ...neutralInput }
   activity: Input = { ...neutralInput }
-  buttons = new Set<number>()
+  actions = new Set<GamepadAction>()
   waitingForRelease = false
+  private identity: string | null = null
+  private bindings: ControllerBindings | null | undefined
+  private deadzone = 0
+  private standardId: string | null = null
+  private standardMap: ControllerBindings = {}
+  private standardIndex: number | null = null
+
   suspend() {
     this.waitingForRelease = true
     this.previous = { ...neutralInput }
     this.activity = { ...neutralInput }
-    this.buttons.clear()
+    this.actions.clear()
   }
-  read(pads: readonly (PadSnapshot | null)[], deadzone: number) {
-    const supported = pads.filter(
-      (pad): pad is PadSnapshot => !!pad?.connected && pad.mapping === 'standard',
+  read(
+    pads: readonly (PadSnapshot | null)[],
+    deadzone: number,
+    bindings: ControllerBindings | null = null,
+  ) {
+    const connected = pads.filter((pad): pad is PadSnapshot => !!pad?.connected)
+    const supported = connected.filter((pad) => pad.mapping === 'standard')
+    const standard = supported.find((pad) => pad.index === this.standardIndex) ?? supported[0]
+    if (standard) {
+      this.standardIndex = standard.index
+      if (standard.id !== this.standardId) {
+        this.standardId = standard.id
+        this.standardMap = standardBindings(standard.id)
+      }
+    } else this.standardIndex = null
+    const sources = new Set(Object.values(bindings ?? {}).map((binding) => binding.deviceId))
+    const active =
+      bindings === null
+        ? standard
+          ? [standard]
+          : []
+        : connected.filter(
+            (pad) =>
+              sources.has(pad.id) && connected.filter((other) => other.id === pad.id).length === 1,
+          )
+    const identity = JSON.stringify(active.map((pad) => [pad.id, pad.index, pad.mapping]).sort())
+    if (
+      this.identity !== null &&
+      (identity !== this.identity || bindings !== this.bindings || deadzone !== this.deadzone)
     )
-    const pad = supported.find((candidate) => candidate.index === this.index) ?? supported[0]
-    const status: ControllerStatus = pad
+      this.suspend()
+    this.identity = identity
+    this.bindings = bindings
+    this.deadzone = deadzone
+    const status: ControllerStatus = active.length
       ? 'connected'
-      : pads.some((candidate) => candidate?.connected)
+      : connected.length
         ? 'unsupported'
         : 'none'
     const empty = {
       input: { ...neutralInput },
+      look: { x: 0, y: 0, zoom: 0 },
       actions: [] as GamepadAction[],
       steerActive: false,
       pedalsActive: false,
       handbrakeActive: false,
       status,
     }
-    if (!pad) {
-      if (this.index !== null) this.waitingForRelease = true
-      this.index = null
+    if (!active.length) {
       this.previous = { ...neutralInput }
       this.activity = { ...neutralInput }
-      this.buttons.clear()
+      this.actions.clear()
       return empty
     }
-    if (this.index !== pad.index) {
-      if (this.index !== null) this.waitingForRelease = true
-      this.index = pad.index
-      this.previous = { ...neutralInput }
-      this.activity = { ...neutralInput }
-      this.buttons.clear()
-    }
-    const input = decodeGamepad(pad, deadzone)
-    const buttons = new Set(pad.buttons.flatMap((_, index) => (pressed(pad, index) ? [index] : [])))
+    const frame = decodeController(
+      bindings === null ? active : connected,
+      deadzone,
+      bindings ?? this.standardMap,
+    )
     if (this.waitingForRelease) {
-      if (!input.steer && !input.throttle && !input.brake && !buttons.size)
-        this.waitingForRelease = false
-      this.buttons = buttons
-      this.previous = input
+      if (frame.neutral) this.waitingForRelease = false
+      this.actions = frame.actions
+      this.previous = frame.input
       return empty
     }
-    const actions = buttonActions
-      .filter(([index]) => buttons.has(index) && !this.buttons.has(index))
-      .map(([, action]) => action)
+    const { input, look, actions } = frame
+    const pressed = [...actions].filter((action) => !this.actions.has(action))
     const steerActive =
       Math.abs(input.steer) > 0.02 &&
       (Math.abs(this.previous.steer) <= 0.02 || Math.abs(input.steer - this.activity.steer) > 0.08)
@@ -119,8 +173,8 @@ export class GamepadControls {
     if (steerActive || Math.abs(input.steer) <= 0.02) this.activity.steer = input.steer
     if (pedalsActive || !input.throttle) this.activity.throttle = input.throttle
     if (pedalsActive || !input.brake) this.activity.brake = input.brake
-    this.buttons = buttons
+    this.actions = actions
     this.previous = input
-    return { input, actions, steerActive, pedalsActive, handbrakeActive, status }
+    return { input, look, actions: pressed, steerActive, pedalsActive, handbrakeActive, status }
   }
 }

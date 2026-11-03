@@ -15,6 +15,36 @@ function fixture(aspect = 16 / 9) {
   return { world, camera, view, subject }
 }
 
+test('controller look holds bonnet angles while active and recenters when released', () => {
+  const { view, subject, world } = fixture()
+  view.update(subject, world, 'bonnet', 1 / 60)
+  for (let i = 0; i < 60; i++) {
+    view.controllerLook({ x: 1, y: 1, zoom: 0 }, 'bonnet', 1 / 60)
+    view.update(subject, world, 'bonnet', 1 / 60)
+  }
+  expect(view.yaw).toBe(1.55)
+  expect(view.pitch).toBe(0.65)
+  for (let i = 0; i < 120; i++) {
+    view.controllerLook({ x: 0, y: 0, zoom: 0 }, 'bonnet', 1 / 60)
+    view.update(subject, world, 'bonnet', 1 / 60)
+  }
+  expect(Math.abs(view.yaw)).toBeLessThan(0.001)
+  expect(Math.abs(view.pitch)).toBeLessThan(0.001)
+})
+
+test('controller orbit respects pointer ownership, zoom bounds and elapsed time', () => {
+  for (const fps of [30, 60, 120]) {
+    const { view } = fixture()
+    for (let i = 0; i < fps; i++) view.controllerLook({ x: 0.5, y: 0, zoom: 1 }, 'chase', 1 / fps)
+    expect(view.yaw).toBeCloseTo(0.85, 8)
+    expect(view.zoom).toBe(0.72)
+    view.beginDrag(1, 0, 0, 'chase')
+    view.controllerLook({ x: 1, y: 1, zoom: -1 }, 'chase', 0.05)
+    expect(view.yaw).toBeCloseTo(0.85, 8)
+    expect(view.zoom).toBe(0.72)
+  }
+})
+
 test('camera gestures keep pointer ownership and bound look and zoom', () => {
   const { view } = fixture()
   expect(view.beginDrag(1, 400, 300, 'chase')).toBe(true)

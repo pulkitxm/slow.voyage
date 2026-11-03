@@ -3,7 +3,7 @@ import { Atmosphere, atmosphereProfile } from './atmosphere'
 import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
 import { mergeManualInput, neutralInput, releaseAssistance, resolveInput } from './controls'
-import { type ControllerStatus, GamepadControls } from './gamepad'
+import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { graphicsBudget } from './graphics'
 import { createVehicleModel, type VehicleModel } from './model'
 import { MouseControls } from './mouse'
@@ -48,6 +48,7 @@ export class RoadEngine {
   touch: Input = { ...neutralInput }
   controller = new GamepadControls()
   controllerInput: Input = { ...neutralInput }
+  controllerLook: ControllerLook = { x: 0, y: 0, zoom: 0 }
   controllerStatus: ControllerStatus = 'none'
   mouse = new MouseControls()
   lookPointer: number | null = null
@@ -120,6 +121,7 @@ export class RoadEngine {
     this.keys.clear()
     this.touch = { ...neutralInput }
     this.controllerInput = { ...neutralInput }
+    this.controllerLook = { x: 0, y: 0, zoom: 0 }
     this.controller.suspend()
     this.mouse.reset()
     this.physics.steeringControl.releaseInput()
@@ -473,6 +475,7 @@ export class RoadEngine {
   }
   pollController() {
     this.controllerInput = { ...neutralInput }
+    this.controllerLook = { x: 0, y: 0, zoom: 0 }
     if (!this.settings.controllerEnabled) {
       this.controllerStatus = 'none'
       this.controller.suspend()
@@ -485,10 +488,15 @@ export class RoadEngine {
       }
       const blocked = this.controlsBlocked || document.hidden || !document.hasFocus()
       if (blocked) this.controller.suspend()
-      const frame = this.controller.read(navigator.getGamepads(), this.settings.controllerDeadzone)
+      const frame = this.controller.read(
+        navigator.getGamepads(),
+        this.settings.controllerDeadzone,
+        this.settings.controllerMode === 'custom' ? this.settings.controllerBindings : null,
+      )
       this.controllerStatus = frame.status
       if (blocked) return
       this.controllerInput = frame.input
+      if (!this.paused) this.controllerLook = frame.look
       if (!this.paused && !this.settings.mouseEnabled) {
         if (frame.steerActive) this.manualOverride('steer')
         if (frame.pedalsActive) this.manualOverride('speed')
@@ -499,6 +507,7 @@ export class RoadEngine {
           if (!this.started) this.start()
           else if (this.paused) this.onAction?.('pause')
         } else if (action === 'reset') this.reset()
+        else if (action === 'cameraCenter') this.view.center()
         else this.onAction?.(action)
       }
       if (!this.started && frame.pedalsActive && !this.settings.mouseEnabled) this.start()
@@ -552,6 +561,7 @@ export class RoadEngine {
     )
     const cameraMode = this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
+    this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
     this.terrain.update(p.s, time / 1000, -this.camera.position.z)
     this.sky.position.copy(this.camera.position)

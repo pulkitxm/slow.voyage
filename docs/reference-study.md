@@ -601,6 +601,23 @@ zero before crossing into the other direction. Signed preferences survive reload
 and manual pedal input still releases assisted speed. Browser verification covers
 reverse gear, a stopped hold, takeover, saved direction and restarting assistance.
 
+Custom controller input now resolves saved bindings by device identifier rather
+than browser slot. Separate devices can supply steering and pedals. Measured
+rest/active endpoints normalize inverted or partial-range axes and buttons.
+Driving channels, shortcut edges and optional camera look/zoom remain distinct.
+Changes of mapping, device identity or focus require mapped controls to return
+to neutral. Duplicate device identifiers are treated as ambiguous and supply no
+custom input. Standard-layout input remains the default.
+
+The developer confirms that controller camera mappings are optional and unmapped
+by default in the [web edition discussion](https://itch.io/post/15660972).
+The local implementation follows that default. Bonnet look recenters on release,
+chase orbit persists, and pointer gestures retain ownership while dragging.
+The [Gamepad input model](https://www.w3.org/TR/gamepad/) supplies normalized axes
+and buttons, without guaranteeing that every physical wheel or pedal exposes a
+usable browser device. Calibration UI and physical-device verification remain
+further work at this checkpoint.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

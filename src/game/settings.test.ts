@@ -3,6 +3,23 @@ import { decodeSettings } from './settings'
 import { defaults } from './world'
 
 describe('saved preferences', () => {
+  test('custom bindings survive storage with measured ranges and independent devices', () => {
+    const settings = {
+      ...defaults,
+      controllerMode: 'custom' as const,
+      controllerBindings: {
+        steerLeft: {
+          deviceId: 'Portable wheel',
+          kind: 'axis' as const,
+          index: 0,
+          from: 0.04,
+          to: -0.86,
+        },
+        throttle: { deviceId: 'Portable pedals', kind: 'axis' as const, index: 1, from: 1, to: -1 },
+      },
+    }
+    expect(decodeSettings(JSON.parse(JSON.stringify(settings)))).toEqual(settings)
+  })
   test('preserves stopped and reverse cruise targets and clamps powered reverse', () => {
     for (const speed of [-5, -3, 0, 3, 45])
       expect(decodeSettings({ cruiseSpeed: speed }).cruiseSpeed).toBe(speed)
