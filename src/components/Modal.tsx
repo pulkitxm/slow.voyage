@@ -28,7 +28,10 @@ export function Modal({
         if (event.target === event.currentTarget) onClose()
       }}
       onKeyDown={(event) => {
-        if (event.key === 'Escape') event.stopPropagation()
+        if (event.key !== 'Escape' || event.repeat) return
+        event.preventDefault()
+        event.stopPropagation()
+        onClose()
       }}
     >
       {children}

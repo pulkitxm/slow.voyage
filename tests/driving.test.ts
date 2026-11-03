@@ -305,3 +305,18 @@ test('held steering keys turn, center, and cancel each other on the bus', async 
     )
   })
 }, 120000)
+
+test('escape pauses, resumes from the pause dialog, and closes the settings panel', async () => {
+  await drive(async (page) => {
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('dialog[open] #pause-title')
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('[aria-label="Pause driving"]')
+    expect(await page.locator('dialog[open]').count()).toBe(0)
+    await page.locator('[aria-label="Open settings"]').click()
+    await page.waitForSelector('.settings-panel')
+    await page.keyboard.press('Escape')
+    await page.waitForSelector('.settings-panel', { state: 'detached' })
+    expect(await page.locator('[aria-label="Pause driving"]').count()).toBe(1)
+  })
+}, 60000)
