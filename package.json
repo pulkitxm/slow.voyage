@@ -15,7 +15,8 @@
     "prepare": "lefthook install",
     "test:offline": "bun scripts/browser-tests.ts --offline",
     "test:browser": "bun scripts/browser-tests.ts",
-    "review:capture": "bun scripts/review.ts"
+    "review:capture": "bun scripts/review.ts",
+    "review:judge": "bun scripts/judge.ts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",
