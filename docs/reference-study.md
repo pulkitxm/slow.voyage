@@ -338,6 +338,16 @@ rejects water, steep faces, deserts, and exposed alpine peaks. Instances join th
 existing species batches, and shared grove coverage shades the understory while
 leaving the verge and steep rock clear.
 
+Foliage crowns now use asymmetric groups of leaf clusters with openings around
+the lower forks. A shared canopy normal field softens lighting changes between
+crossed cards, while the lower trunk and bare winter branches retain ordinary
+card normals. The canopy shading approximates a visible volume in view space;
+it does not reconstruct the geometry of individual leaves and upper forks.
+Approximate thin-leaf lighting follows the directional light's color and intensity
+instead of constant green emission. These changes retain the existing atlas,
+geometry, and texture counts. Fixed-camera seasonal and orbit comparisons support
+this local improvement, but do not establish current-release foliage fidelity.
+
 Distant foliage gradually lowers its alpha threshold from 0.46 to 0.28 to retain
 canopy coverage through mip levels. Fog remains active. Distant woodland is still
 stylized and requires further comparison, especially during side-view movement.

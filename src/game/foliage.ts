@@ -206,6 +206,7 @@ export class Foliage {
   canvas: HTMLCanvasElement
   texture: THREE.CanvasTexture
   treeMaterial: THREE.MeshStandardMaterial
+  leafNormals = { value: 1 }
   treeGeometries: THREE.BufferGeometry[] = []
   winterShrubGeometries: THREE.BufferGeometry[] = []
   constructor(season: Season) {
@@ -221,13 +222,23 @@ export class Foliage {
       alphaTest: 0.46,
       alphaToCoverage: false,
       roughness: 1,
-      emissive: '#657745',
-      emissiveIntensity: 0.18,
     })
     this.treeMaterial.onBeforeCompile = (shader) => {
+      shader.uniforms.leafNormals = this.leafNormals
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nvarying float foliageDistance;',
+        '#include <common>\nvarying float foliageDistance;\nvarying vec3 foliageNormal;',
+      )
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <defaultnormal_vertex>',
+        `#include <defaultnormal_vertex>
+vec3 crownNormal = vec3(position.x * 2.4, (position.y - 0.62) * 1.8, position.z * 2.4);
+#ifdef USE_INSTANCING
+mat3 crownInstance = mat3(instanceMatrix);
+crownNormal /= vec3(dot(crownInstance[0], crownInstance[0]), dot(crownInstance[1], crownInstance[1]), dot(crownInstance[2], crownInstance[2]));
+crownNormal = crownInstance * crownNormal;
+#endif
+foliageNormal = normalMatrix * crownNormal;`,
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <project_vertex>',
@@ -235,14 +246,33 @@ export class Foliage {
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        '#include <common>\nvarying float foliageDistance;',
+        '#include <common>\nuniform float leafNormals;\nvarying float foliageDistance;\nvarying vec3 foliageNormal;',
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <normal_fragment_begin>',
+        `#include <normal_fragment_begin>
+vec2 foliageUv = fract(vMapUv * vec2(2.0, 3.0));
+float evergreen = step(2.0 / 3.0, vMapUv.y) * (1.0 - step(0.5, vMapUv.x));
+float crownWeight = smoothstep(0.24, 0.48, foliageUv.y) * max(leafNormals, evergreen);
+vec3 crownNormal = foliageNormal;
+crownNormal.z = abs(crownNormal.z) + 0.35 * length(crownNormal) + 0.001;
+normal = normalize(mix(normal, normalize(crownNormal), crownWeight));
+nonPerturbedNormal = normal;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
         '#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif',
       )
+      shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <opaque_fragment>',
+        `#if NUM_DIR_LIGHTS > 0
+float foliageBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
+outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.04 + foliageBacklight * 0.12) * crownWeight;
+#endif
+#include <opaque_fragment>`,
+      )
     }
-    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-coverage'
+    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-volume'
     for (let variant = 0; variant < 8; variant++) {
       const planes: THREE.BufferGeometry[] = []
       const shrub = variant >= 2 && variant < 4
@@ -279,6 +309,7 @@ export class Foliage {
     this.update(season)
   }
   update(season: Season) {
+    this.leafNormals.value = season === 'winter' ? 0 : 1
     const context = this.canvas.getContext('2d')
     if (!context) throw new Error('Foliage canvas is unavailable')
     context.clearRect(0, 0, this.canvas.width, this.canvas.height)
