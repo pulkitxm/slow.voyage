@@ -897,6 +897,42 @@ The largest interval is 49.9 milliseconds. Geometry, texture and shader-program
 counts remain bounded through five cycles of all four vehicles. These short
 samples do not establish sustained performance or other-device behavior.
 
+Cut banks now use bundled 512-pixel photographic color and OpenGL normal maps
+from Poly Haven's CC0 Rock Face 03, with source and processing details in
+[the asset record](assets.md). The two images total 680,024 bytes. Color is
+normalized into the existing seasonal rock tint; normal vectors are normalized
+after downsampling. Startup waits for both images before shader preparation and
+enabling driving. Browser checks hold image requests to verify this boundary,
+then abort and restore a request to verify error reporting and reload recovery.
+The material checkpoint passes 394 unit tests, 22 browser flows and five offline
+cache checks. Independent still review finds clearer fractured rock without
+blocking winter, low-detail or night color changes. The rounded bank geometry
+and uniform exposure boundary remain separate limitations.
+
+The follow-up mapping blends three world-space projections by surface normal,
+with an independent tangent frame for each normal-map projection. A controlled
+render of identical X-facing and Z-facing vertical surfaces produces identical
+color images. The preceding projection produces a mean difference of 9.37
+channel values and maximum difference of 60 in the same test. This establishes
+consistent axis-aligned texture scale, not arbitrary-slope equivalence. All
+26 native scene captures retain opaque photo exports without renderer errors.
+Independent review finds less texture smearing on the alpine slope without new
+projection seams in the sampled stills. Distant broad terrain bands and faceting
+remain visible and their causes have not been isolated by these images.
+
+Four isolated ten-second native samples with the three projections retain
+16.7-millisecond median frames and 16.7 to 16.8-millisecond 95th percentiles on
+the test M4 Pro. The largest interval is 33.4 milliseconds. Texture count rises
+from eleven to twelve compared with the procedural rock surface; geometry,
+texture and shader-program counts remain bounded across five vehicle cycles.
+
+Software rendering retains the three color projections at one texture scale and
+uses the existing terrain bump shading instead of the three rock normal-map
+frames. Isolated ten-second samples take approximately 83 to 100 milliseconds
+per median high-detail frame and 67 to 83 milliseconds at low detail. Individual
+intervals still reach 767 milliseconds. This path remains slow; the reduced
+shading work does not resolve streaming stalls or establish other-device speed.
+
 Completion requires current evidence for the full requested fidelity:
 
 - Inspect the current official game after browser verification is available.

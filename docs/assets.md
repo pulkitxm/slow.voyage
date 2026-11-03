@@ -9,8 +9,12 @@ by Dario Barresi and Rico Cilliers, published by Poly Haven under
 
 Both maps are reduced to 512 by 512 pixels. The color map uses JPEG compression.
 The OpenGL normal map is converted to eight-bit PNG with renormalized vectors.
-The material tiles over 3.6 meters, combining two scales with world-space color
-variation. Seasonal rock and soil colors tint the photographic surface.
+The material tiles over 3.6 meters with world-space color variation. Native
+rendering combines two texture scales and normal detail; software rendering
+samples one color scale and retains the underlying terrain bump shading.
+Three projections blend by surface orientation to avoid stretching
+on differently facing slopes. Each normal projection uses its own tangent frame.
+Seasonal rock and soil colors tint the photographic surface.
 
 The files are served from the application and included in its offline cache.
 The running game makes no requests to Poly Haven.

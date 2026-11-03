@@ -72,7 +72,7 @@ export class Terrain {
     multisampling: boolean,
   ) {
     this.groundTexture = groundTexture()
-    this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings)
+    this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings, software)
     this.foliage = new Foliage(world.settings.season)
     this.bladeTexture = grassTexture()
     this.bladeMaterial = new THREE.MeshStandardMaterial({
