@@ -159,8 +159,9 @@ the material colors update with the landscape and season.
 
 The meadow uses broad, shared world-space color masks and curved ground strokes.
 Grass clumps use an original grayscale blade atlas on three crossed cards, with
-18 triangles per clump instead of 36. Alpha testing preserves the color at the
-blade edges; alpha-to-coverage produced pale flecks in the checked rendering path.
+18 triangles per clump instead of 36. An earlier alpha-to-coverage trial produced
+pale flecks in the checked rendering path; the follow-up below isolates and
+corrects its canvas-alpha loss.
 The grass shader preserves instance tint in dry patches and uses terrain-oriented
 normals. The atlas adds one shared texture, bringing the checked scenes to 11.
 
@@ -178,6 +179,40 @@ found no pavement intrusion, with minimum lateral distance above 3.13 meters.
 No sampled root within 45 meters of the camera belonged to a hidden grass tile.
 Finite clump footprints can still expose lower edges on curved banks: sampled
 maximum gaps were 5.7 centimeters native and 3.1 centimeters software.
+
+The latest refinement reduces each crossed card from 0.9 by 0.45 meters to 0.75
+by 0.5 meters, retaining three cards, 18 triangles, and the same instance counts.
+A white material tint and a 0.85-to-1 vertex shade remove the previous extra gray
+darkening while preserving darker roots. Grass now receives the existing scene
+shadows. Fixed-view comparisons rejected the narrowest cards because they left
+large bare islands; the selected width retains more meadow continuity and finer
+upright strands. Near summer, autumn, and winter review finds no seasonal color
+blocker. Crossed-card patterns and repeated tuft outlines remain visible nearby.
+
+Hardware contexts with actual multisampling use alpha-to-coverage and custom
+blending that preserves destination alpha while writing the grass color. A
+positive-control trial with ordinary blending left 8.3 to 15.8 percent of pixels
+below alpha 250, with a minimum of 116. The corrected near, bank, and quarter
+photos retain alpha 255 throughout. Software contexts retain hard alpha testing
+and the existing FXAA pass. Production photo tests now require every pixel to be
+fully opaque rather than accepting a small transparent fraction.
+
+The updated three-seed audit checks 58,300 native and 48,666 software roots, with
+maximum height errors below 0.023 and 0.015 millimeters. All 1,065,648 sampled card
+vertices at both wind extremes remain beyond 3.136 meters from the centerline.
+No nearby grass tile is hidden, including 66 software ground-detail changes.
+Sampled maximum lower-edge gaps are approximately 5.64 centimeters native and
+3.00 software.
+Twenty-six frozen views on each rendering path cover both detail levels, vehicle
+changes, day, sunset, night rain, winter fog, banking, and airborne poses without
+page errors or lost photo opacity. All 20 browser flows and the 379-test local
+gate pass. Isolated ten-second hardware samples retain 16.7-millisecond medians
+and 16.7-to-16.8-millisecond 95th percentiles, with bounded resources across five
+vehicle cycles. Software medians remain 83.3 milliseconds at high detail and
+66.7 at low detail, with low-detail 95th percentiles between 66.8 and 83.3 and
+individual frames reaching 400 milliseconds. Software rendering remains slow.
+These finite checks do not establish current-release fidelity
+or behavior on other graphics devices.
 
 Ten-second native driving samples at 1280 by 720 held 16.7-millisecond median and
 95th-percentile frame times at both detail settings. The checked high-detail frame
