@@ -292,6 +292,8 @@ export class RoadEngine {
   }
   async prepare() {
     this.canvas.style.visibility = 'hidden'
+    await this.terrain.grassMaterial.rock.ready
+    if (this.disposed) return
     const p = this.physics
     this.terrain.update(p.s, 0, p.s)
     this.car.group.position.set(p.x, p.y, -p.s)

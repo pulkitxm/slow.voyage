@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { roadCoordinates, roadLayout } from './road'
-import { rockTexture } from './rock'
+import { loadRockSurface } from './rock'
 import { woodlandCoverage } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
@@ -166,6 +166,7 @@ function meadowNoiseTexture() {
   return texture
 }
 export class MeadowMaterial extends THREE.MeshStandardMaterial {
+  rock = loadRockSurface()
   fieldUniforms = {
     fieldNoiseMap: { value: meadowNoiseTexture() },
     fieldDryGrass: { value: new THREE.Color() },
@@ -174,7 +175,8 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
     fieldRock: { value: new THREE.Color() },
     fieldSoil: { value: new THREE.Color() },
     fieldGravel: { value: new THREE.Color() },
-    fieldRockMap: { value: rockTexture() },
+    fieldRockMap: { value: this.rock.normal },
+    fieldRockColorMap: { value: this.rock.albedo },
   }
   constructor(texture: THREE.Texture, settings: Settings) {
     super({ map: texture, bumpMap: texture, bumpScale: 0.02, vertexColors: true, roughness: 1 })
@@ -221,6 +223,7 @@ uniform vec3 fieldRock;
 uniform vec3 fieldSoil;
 uniform vec3 fieldGravel;
 uniform sampler2D fieldRockMap;
+uniform sampler2D fieldRockColorMap;
 ${meadowNoise}`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
@@ -240,11 +243,12 @@ float grassPocket = (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * smoothstep(0.25,
 cutFace *= 1.0 - grassPocket * 0.88;
 rockBlend = max(rockBlend, cutFace);
 float rockGrain = fieldVariationAt(fieldPosition * 80.0);
-vec2 rockUv = vec2(fieldPosition.y + fieldPosition.x * 0.2, fieldHeight) * 0.125;
+vec2 rockUv = vec2(fieldPosition.y + fieldPosition.x * 0.2, fieldHeight) / 3.6;
 rockUv += (fieldVariationAt(fieldPosition * 4.0) - 0.5) * 0.2;
 vec4 rockSurface = mix(texture2D(fieldRockMap, rockUv), texture2D(fieldRockMap, rockUv * 2.13 + vec2(0.27, 0.69)), 0.35);
+vec3 rockAlbedo = mix(texture2D(fieldRockColorMap, rockUv).rgb, texture2D(fieldRockColorMap, rockUv * 2.13 + vec2(0.27, 0.69)).rgb, 0.35);
 float earthBlend = cutFace * (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * bankPatch;
-vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockSurface.a * (1.08 + rockGrain * 0.2);
+vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockAlbedo / vec3(0.2314, 0.1465, 0.0838) * (0.8 + rockGrain * 0.2);
 diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
 float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);
@@ -278,11 +282,12 @@ normal = normalize(mix(normal, rockNormal, rockBlend));`,
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'vegetated-soil-road-cuts'
+    return 'photographic-rock-road-cuts'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
     this.fieldUniforms.fieldRockMap.value.dispose()
+    this.fieldUniforms.fieldRockColorMap.value.dispose()
     super.dispose()
   }
 }
