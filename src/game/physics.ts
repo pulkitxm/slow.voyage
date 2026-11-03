@@ -1,5 +1,6 @@
 import { type BarrierContact, resolveBarrierImpulse } from './barrier'
 import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
+import { forwardDriveForce } from './drive'
 import { surfaceGrip } from './grip'
 import { guardrailAt, roadCoordinates, roadLayout } from './road'
 import { Steering, steeringLimit } from './steering'
@@ -166,11 +167,7 @@ export class CarPhysics {
     const reverseGovernor = reverseDriveFactor(this.speed, this.driveForce, vehicle.jerk)
     const targetForce = reverseCommand
       ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
-      : input.throttle *
-        vehicle.acceleration *
-        settings.power *
-        0.5 *
-        (1 + Math.max(0, 0.5 * (1 - v / 27)))
+      : forwardDriveForce(v, input.throttle, false, vehicle, settings.power)
     this.driveForce += clamp(
       targetForce - this.driveForce,
       -vehicle.jerk * dt * 0.5,

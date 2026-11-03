@@ -1,3 +1,4 @@
+import { forwardDriveForce } from './drive'
 import type { Input } from './physics'
 import type { VehicleMetrics } from './vehicles'
 import { clamp } from './world'
@@ -42,7 +43,7 @@ export function cruisePedals(
     }
   const drive =
     direction > 0
-      ? metrics.acceleration * power * 0.5 * (1 + Math.max(0, 0.5 * (1 - velocity / 27)))
+      ? forwardDriveForce(velocity, 1, false, metrics, power)
       : metrics.reverse * 0.5 * reverseFactor
   const demand = Math.min(Math.abs(force), traction * 0.5 + rolling)
   const pedal = drive <= demand ? 1 : demand / drive
