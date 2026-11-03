@@ -30,7 +30,7 @@ function car(settings: Settings = defaults) {
 }
 
 test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-  '%s boosted high-power acceleration stays inside each contact friction budget',
+  '%s boosted high-power acceleration stays inside each contact friction budget with a cornering reserve',
   (vehicle) => {
     const settings = { ...defaults, vehicle, power: 20, grip: 0.2 }
     const body = car(settings)
@@ -42,7 +42,7 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
         const budget = budgets[index] ?? 0
         const impulse = Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)
         expect(impulse).toBeLessThanOrEqual(budget + 1e-8)
-        if (budget > 0 && impulse > budget * 0.99) saturated = true
+        if (budget > 0 && impulse > budget * 0.59) saturated = true
       }
       expect(Number.isFinite(body.speed + body.yawRate)).toBe(true)
     }
@@ -96,28 +96,26 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   },
 )
 
-test.each([1, 8])('tires share a friction budget under %i m/s² braking', (brake) => {
-  const settings = { ...defaults, grip: 0.7, season: 'winter' as const }
-  const body = car(settings)
-  body.speed = 30
-  body.steeringControl.angle = 0.3
-  body.suspension.updateSteering(body.steering)
-  solveTires(step, body, body.suspension.wheels, settings, 0, brake, false)
-  for (const wheel of body.suspension.wheels) {
-    const budget = settings.grip * 0.58 * wheel.load * step
-    expect(Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)).toBeLessThanOrEqual(
-      budget + 1e-8,
-    )
-  }
-  expect(body.speed).toBeLessThan(30)
-  if (brake === 8) {
-    expect(Math.abs(body.yawRate)).toBeLessThan(0.001)
-    expect(body.suspension.wheels.every((wheel) => wheel.locked)).toBe(true)
-  } else {
+test.each([1, 8])(
+  'antilock tires share a friction budget and keep steering under %i m/s² braking',
+  (brake) => {
+    const settings = { ...defaults, grip: 0.7, season: 'winter' as const }
+    const body = car(settings)
+    body.speed = 30
+    body.steeringControl.angle = 0.3
+    body.suspension.updateSteering(body.steering)
+    solveTires(step, body, body.suspension.wheels, settings, 0, brake, false)
+    for (const wheel of body.suspension.wheels) {
+      const budget = settings.grip * 0.58 * wheel.load * step
+      expect(Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)).toBeLessThanOrEqual(
+        budget + 1e-8,
+      )
+    }
+    expect(body.speed).toBeLessThan(30)
     expect(body.yawRate).toBeGreaterThan(0)
     expect(body.suspension.wheels.every((wheel) => !wheel.locked)).toBe(true)
-  }
-})
+  },
+)
 
 test('unequal grip changes wheel traction independently', () => {
   const body = car()
