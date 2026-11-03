@@ -99,17 +99,17 @@ for (const software of [false, true]) {
         expect(image.width).toBe(graphics.width)
         expect(image.height).toBe(graphics.height)
         const colors = new Set<number>()
-        let opaque = 0
+        let minimumAlpha = 255
         for (let pixel = 0; pixel < image.data.length; pixel += 4) {
           const red = image.data[pixel] ?? 0
           const green = image.data[pixel + 1] ?? 0
           const blue = image.data[pixel + 2] ?? 0
           colors.add((red << 16) | (green << 8) | blue)
-          if ((image.data[pixel + 3] ?? 0) > 240) opaque++
+          minimumAlpha = Math.min(minimumAlpha, image.data[pixel + 3] ?? 0)
         }
         expect(colors.size).toBeGreaterThan(120)
-        expect(opaque / (image.width * image.height)).toBeGreaterThan(0.99)
-        samples.push({ viewport, graphics, photo: name, colors: colors.size })
+        expect(minimumAlpha).toBe(255)
+        samples.push({ viewport, graphics, photo: name, colors: colors.size, minimumAlpha })
       }
       await page.getByRole('button', { name: 'Close settings' }).click()
       await page.keyboard.press('f')
