@@ -49,6 +49,9 @@ function geometry(positions: number[], indices: number[], colors?: number[]) {
 export const tileStreaming = {
   lead: 2,
   budget: 3,
+  refreshBudget: 9,
+  rebuildBehind: 15,
+  rebuildAhead: 130,
   jump: 2,
   groundBatch: 8,
   grassBatch: 2500,
@@ -83,6 +86,8 @@ export class Terrain {
   asphalt: THREE.CanvasTexture
   groundTexture: THREE.CanvasTexture
   meadow: RoamingMeadow | null = null
+  rebuilding = false
+  private current = 0
   windTime = { value: 0 }
   roadWetness = { value: 0 }
   constructor(
@@ -513,7 +518,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     let missing = 0
     for (let id = current - 4; id <= current + ahead; id++)
       if (!this.tiles.has(id) && !this.builds.has(id)) missing++
-    const jump = missing > tileStreaming.jump
+    const jump = missing > tileStreaming.jump && !this.rebuilding
+    this.current = current
     for (let id = current - 4; id <= current + ahead; id++) {
       if (this.tiles.has(id)) continue
       let build = this.builds.get(id)
@@ -522,7 +528,11 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         build = { group, steps: this.buildTile(id, rowsFor(id), group) }
         this.builds.set(id, build)
       }
-      if (jump || id <= far + tileStreaming.lead) {
+      const immediate = this.rebuilding
+        ? id >= Math.floor((s - tileStreaming.rebuildBehind) / groundLayout.tileLength) &&
+          id <= Math.floor((s + tileStreaming.rebuildAhead) / groundLayout.tileLength)
+        : jump || id <= far + tileStreaming.lead
+      if (immediate) {
         while (!build.steps.next().done);
         this.builds.delete(id)
       }
@@ -585,8 +595,12 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     for (let id = tile - 1; id <= tile + 1; id++) yield* this.trunks.get(id) ?? []
   }
   stream() {
-    const deadline = performance.now() + tileStreaming.budget
-    for (const [id, build] of [...this.builds].sort((a, b) => a[0] - b[0])) {
+    if (!this.builds.size) this.rebuilding = false
+    const budget = this.rebuilding ? tileStreaming.refreshBudget : tileStreaming.budget
+    const deadline = performance.now() + budget
+    const priority = (id: number) =>
+      id >= this.current ? id - this.current : (this.current - id) * 3
+    for (const [id, build] of [...this.builds].sort((a, b) => priority(a[0]) - priority(b[0]))) {
       while (performance.now() < deadline) {
         if (build.steps.next().done) {
           this.builds.delete(id)
@@ -620,6 +634,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
   refresh(settings: Settings, quality: Settings['quality']) {
     this.quality = quality
     this.clear()
+    this.rebuilding = true
     this.foliage.update(settings.season)
     this.grassMaterial.setAppearance(settings)
     if (this.meadow) {
