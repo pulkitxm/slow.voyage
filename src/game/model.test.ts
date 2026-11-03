@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { DrivingCamera } from './camera'
 import { CarModel } from './car'
-import { createVehicleModel } from './model'
+import { arrivalPose, createVehicleModel, vehicleArrival } from './model'
 import { Suspension } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import { defaults, World } from './world'
@@ -524,3 +524,28 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
     model.dispose()
   },
 )
+
+test('a switched vehicle drops onto the road with one soft bounce and settles exactly', () => {
+  const start = arrivalPose(0)
+  expect(start.lift).toBeCloseTo(vehicleArrival.lift)
+  expect(start.scale).toBeCloseTo(1 - vehicleArrival.shrink)
+  const samples = Array.from({ length: 301 }, (_, index) =>
+    arrivalPose((index / 300) * vehicleArrival.duration),
+  )
+  const touchdowns = samples.filter(
+    (sample, index) =>
+      index > 0 &&
+      index < samples.length - 1 &&
+      sample.lift < (samples[index - 1]?.lift ?? 0) &&
+      sample.lift < (samples[index + 1]?.lift ?? 0),
+  )
+  expect(touchdowns).toHaveLength(1)
+  for (const [index, sample] of samples.entries()) {
+    expect(sample.lift).toBeGreaterThanOrEqual(0)
+    if (index) expect(sample.scale).toBeGreaterThanOrEqual(samples[index - 1]?.scale ?? 0)
+  }
+  const bounce = Math.max(...samples.slice(110).map((sample) => sample.lift))
+  expect(bounce).toBeLessThan(vehicleArrival.lift * 0.2)
+  expect(arrivalPose(vehicleArrival.duration)).toEqual({ lift: 0, scale: 1 })
+  expect(arrivalPose(vehicleArrival.duration * 4)).toEqual({ lift: 0, scale: 1 })
+})

@@ -11,7 +11,13 @@ import {
 } from './controls'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
-import { createVehicleModel, positionVehicle, type VehicleModel } from './model'
+import {
+  arrivalPose,
+  createVehicleModel,
+  positionVehicle,
+  type VehicleModel,
+  vehicleArrival,
+} from './model'
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
@@ -48,6 +54,7 @@ export class RoadEngine {
   headlights: THREE.SpotLight[] = []
   sky: ScenicSky
   frame = 0
+  arrival = vehicleArrival.duration
   started = false
   paused = false
   assistance: AssistanceMode = 'off'
@@ -406,6 +413,7 @@ export class RoadEngine {
       this.car = createVehicleModel(this.settings, budget.software)
       this.scene.add(this.car.group)
       this.configureHeadlights()
+      this.arrival = 0
       this.view.snap()
       this.physics.suspension.configure(settings.vehicle)
       this.physics.suspension.reset(this.physics)
@@ -566,6 +574,13 @@ export class RoadEngine {
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
     positionVehicle(this.car, p, this.settings.vehicle, dt)
+    const settling = this.arrival < vehicleArrival.duration
+    this.arrival += dt
+    if (settling) {
+      const pose = arrivalPose(this.arrival)
+      this.car.group.position.y += pose.lift
+      this.car.group.scale.setScalar(pose.scale)
+    }
     this.car.update(
       p.suspension.wheels,
       input.brake > 0 || input.regenBrake > 0,

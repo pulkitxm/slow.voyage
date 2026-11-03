@@ -256,6 +256,7 @@ export function useDrive() {
     pause,
     toggleAuto,
     cycleCamera,
+    cycleVehicle,
     fullscreen,
     touch,
   }
