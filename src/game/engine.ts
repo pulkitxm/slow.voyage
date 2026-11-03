@@ -110,7 +110,7 @@ export class RoadEngine {
     )
       return
     if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) return
-    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code))
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Escape'].includes(event.code))
       event.preventDefault()
     if (event.repeat) return
     this.keys.add(event.code)

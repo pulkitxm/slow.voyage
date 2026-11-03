@@ -1,4 +1,5 @@
 import { AudioLines, Camera, Check, RotateCcw, ShieldCheck, X } from 'lucide-react'
+import { useEffect } from 'react'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
 import type { ControllerStatus } from '../game/gamepad'
@@ -31,6 +32,16 @@ export function SettingsPanel({
   onNewJourney,
   onCapture,
 }: Props) {
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.repeat || event.defaultPrevented) return
+      if (document.querySelector('dialog[open]')) return
+      event.preventDefault()
+      onClose()
+    }
+    window.addEventListener('keydown', close)
+    return () => window.removeEventListener('keydown', close)
+  }, [onClose])
   const cruiseFactor = settings.units === 'km' ? 3.6 : 2.23694
   const cruiseReverse = settings.cruiseSpeed < 0
   return (
