@@ -12,6 +12,7 @@ import {
 import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
+import { lapState, Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
   createVehicleModel,
@@ -37,6 +38,9 @@ export interface DriveState extends Telemetry {
   fps: number
   controller: ControllerStatus
   mouseSteering: number
+  lap: number
+  lapDistance: number
+  roadDistance: number
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
@@ -46,6 +50,7 @@ export class RoadEngine {
   settings: Settings
   world: World
   physics: CarPhysics
+  minimap: Minimap
   water: Water
   terrain: Terrain
   car: VehicleModel
@@ -257,6 +262,7 @@ export class RoadEngine {
     this.settings = { ...settings }
     this.world = new World(this.settings)
     this.physics = new CarPhysics(this.world)
+    this.minimap = new Minimap(this.world)
     this.crossfade = new SceneCrossfade(canvas)
     this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
@@ -372,8 +378,12 @@ export class RoadEngine {
   }
   emitState() {
     if (!this.rendered) return
+    const lap = lapState(this.physics.s)
     this.onState?.({
       ...this.physics.telemetry(),
+      lap: lap.lap,
+      lapDistance: lap.distance,
+      roadDistance: roadGuide(this.world, this.physics).distance,
       assistance: this.assistance,
       paused: this.paused,
       fps: this.frameRate,
@@ -405,6 +415,7 @@ export class RoadEngine {
       settings.daylight !== this.settings.daylight ||
       settings.weather !== this.settings.weather
     if (environmentChange && this.rendered) this.crossfade.capture()
+    if (environmentChange) this.minimap.invalidate()
     this.settings = { ...settings }
     this.world.settings = this.settings
     if (roadChange) {
@@ -615,6 +626,7 @@ export class RoadEngine {
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p, input, this.settings, this.paused || !this.started, dt)
+    if (this.started) this.minimap.update(p)
     this.drawScene()
     this.crossfade.rendered()
     if (!this.rendered) this.canvas.style.visibility = ''

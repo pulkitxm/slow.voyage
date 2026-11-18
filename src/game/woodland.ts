@@ -1,4 +1,4 @@
-import { latticeValue, smoothStep } from './field'
+import { latticeValue, loopCells, loopIndex, smoothStep, worldLoop } from './field'
 import { clamp, type Landscape, random, type Settings, type World } from './world'
 
 export interface WoodlandTree {
@@ -19,15 +19,18 @@ export function roadsidePlantHeight(world: World, x: number, s: number) {
 }
 
 function noise(x: number, s: number, scale: number, seed: number) {
+  const rows = loopCells(scale)
   const u = x / scale
-  const v = s / scale
+  const v = (s * rows) / worldLoop.length
   const column = Math.floor(u)
-  const row = Math.floor(v)
+  const cell = Math.floor(v)
   const tx = smoothStep(u - column)
-  const ts = smoothStep(v - row)
+  const ts = smoothStep(v - cell)
+  const row = loopIndex(cell, rows)
+  const next = loopIndex(cell + 1, rows)
   const near = latticeValue(column, row, seed) * (1 - tx) + latticeValue(column + 1, row, seed) * tx
   const far =
-    latticeValue(column, row + 1, seed) * (1 - tx) + latticeValue(column + 1, row + 1, seed) * tx
+    latticeValue(column, next, seed) * (1 - tx) + latticeValue(column + 1, next, seed) * tx
   return near * (1 - ts) + far * ts
 }
 
@@ -59,7 +62,9 @@ export function createWoodland(world: World, tile: number, quality: Settings['qu
     const last = Math.ceil((center + 650) / 8)
     for (let column = first; column <= last; column++) {
       if (low && column % 3 !== 0) continue
-      const rng = random(Math.imul(row, 94537) ^ Math.imul(column, 62969) ^ seed)
+      const rng = random(
+        Math.imul(loopIndex(row, loopCells(8)), 94537) ^ Math.imul(column, 62969) ^ seed,
+      )
       const x = column * 8 + 4 + (rng() - 0.5) * 5
       const s = row * 8 + 4 + (rng() - 0.5) * 5
       const distance = Math.abs(x - world.road(s).x)

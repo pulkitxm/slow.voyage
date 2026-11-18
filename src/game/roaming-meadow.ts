@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { smoothStep } from './field'
+import { loopCells, loopIndex, smoothStep } from './field'
 import type { GroundSampler } from './ground-sample'
 import { random, type World } from './world'
 
@@ -90,7 +90,9 @@ export class RoamingMeadow {
 
   private fill(slot: number, column: number, row: number) {
     const { cell, roadsideStart, roadsideFull } = roamingLayout
-    const rng = random(cellSeed(column, row, this.world.settings.seed))
+    const rng = random(
+      cellSeed(column, loopIndex(row, loopCells(roamingLayout.cell)), this.world.settings.seed),
+    )
     const first = slot * this.perCell
     let complete = true
     for (let index = 0; index < this.perCell; index++) {

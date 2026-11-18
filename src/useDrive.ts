@@ -23,10 +23,16 @@ const initial: DriveState = {
   fps: 60,
   controller: 'none',
   mouseSteering: 0,
+  lap: 1,
+  lapDistance: 0,
+  roadDistance: 0,
 }
 export function useDrive() {
   const canvas = useRef<HTMLCanvasElement>(null)
   const engine = useRef<RoadEngine | null>(null)
+  const minimap = useCallback((node: HTMLCanvasElement | null) => {
+    engine.current?.minimap.attach(node)
+  }, [])
   const [settings, setSettings] = useState<Settings>(defaults)
   const [state, setState] = useState(initial)
   const [started, setStarted] = useState(false)
@@ -239,6 +245,7 @@ export function useDrive() {
   }
   return {
     canvas,
+    minimap,
     engine,
     settings,
     state,

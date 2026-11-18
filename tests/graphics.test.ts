@@ -48,9 +48,9 @@ test('bundled terrain images finish loading before driving becomes available', a
     await requested
     await page.locator('.intro .primary-button').waitFor()
     expect(await page.locator('.intro .primary-button').isDisabled()).toBe(true)
-    expect(await page.locator('canvas').evaluate((canvas) => canvas.style.visibility)).toBe(
-      'hidden',
-    )
+    expect(
+      await page.locator('.drive > canvas').evaluate((canvas) => canvas.style.visibility),
+    ).toBe('hidden')
     release()
     await page.waitForFunction(() => {
       const button = document.querySelector<HTMLButtonElement>('.intro .primary-button')
@@ -58,7 +58,9 @@ test('bundled terrain images finish loading before driving becomes available', a
     })
     await page.locator('.intro .text-button').click()
     await page.waitForSelector('[data-assistance="full"]')
-    expect(await page.locator('canvas').evaluate((canvas) => canvas.style.visibility)).toBe('')
+    expect(
+      await page.locator('.drive > canvas').evaluate((canvas) => canvas.style.visibility),
+    ).toBe('')
   } finally {
     release()
     await browser.close()
@@ -77,9 +79,9 @@ test('bundled terrain image failures surface a recoverable startup error', async
       timeout: 60000,
     })
     expect(await page.locator('.intro .primary-button').isDisabled()).toBe(true)
-    expect(await page.locator('canvas').evaluate((canvas) => canvas.style.visibility)).toBe(
-      'hidden',
-    )
+    expect(
+      await page.locator('.drive > canvas').evaluate((canvas) => canvas.style.visibility),
+    ).toBe('hidden')
     await page.unroute(/\/assets\/rock-normal[^/]*\.png$/)
     await page.reload()
     await page.locator('.intro .text-button').click({ timeout: 60000 })
