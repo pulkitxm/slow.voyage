@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { loopCells, loopIndex, smoothStep } from './field'
+import { centeredIndex, loopCells, loopColumns, loopIndex, smoothStep } from './field'
 import type { GroundSampler } from './ground-sample'
 import { random, type World } from './world'
 
@@ -59,12 +59,12 @@ export class RoamingMeadow {
     this.mesh.instanceMatrix.needsUpdate = true
   }
 
-  update(x: number, s: number) {
+  update(x: number, s: number, immediate = false) {
     const { cell, span, cellsPerFrame } = roamingLayout
     const half = Math.floor(span / 2)
     const centerColumn = Math.floor(x / cell)
     const centerRow = Math.floor(s / cell)
-    let budget = cellsPerFrame
+    let budget = immediate ? Number.POSITIVE_INFINITY : cellsPerFrame
     let changed = false
     for (let ring = 0; ring <= half && budget > 0; ring++)
       for (let row = centerRow - ring; row <= centerRow + ring && budget > 0; row++)
@@ -91,7 +91,11 @@ export class RoamingMeadow {
   private fill(slot: number, column: number, row: number) {
     const { cell, roadsideStart, roadsideFull } = roamingLayout
     const rng = random(
-      cellSeed(column, loopIndex(row, loopCells(roamingLayout.cell)), this.world.settings.seed),
+      cellSeed(
+        centeredIndex(column, loopColumns(cell)),
+        loopIndex(row, loopCells(cell)),
+        this.world.settings.seed,
+      ),
     )
     const first = slot * this.perCell
     let complete = true
@@ -103,13 +107,14 @@ export class RoamingMeadow {
       const width = 0.8 + rng() * 0.8
       const height = 0.55 + rng() * 0.65
       const shade = rng()
-      const offset = Math.abs(x - this.world.road(s).x)
+      const canonical = this.world.canonical(x, s)
+      const offset = Math.abs(canonical - this.world.road(s).x)
       const density = smoothStep(
         Math.min(1, Math.max(0, (offset - roadsideStart) / (roadsideFull - roadsideStart))),
       )
       const ground = keep < density ? this.sampler(s) : null
       if (keep < density && !ground) complete = false
-      const elevation = ground?.sample(x, s) ?? 0
+      const elevation = ground?.sample(canonical, s) ?? 0
       if (!ground || elevation < 0.3 || ground.normal.y < 0.65) {
         this.mesh.setMatrixAt(first + index, this.hidden)
         continue

@@ -14,7 +14,7 @@ export interface Trunk {
   radius: number
 }
 
-export type ObstacleMaterial = 'rail' | 'trunk' | 'edge' | 'water'
+export type ObstacleMaterial = 'rail' | 'trunk' | 'water'
 
 export interface Obstacle {
   material: ObstacleMaterial
@@ -139,34 +139,27 @@ export function trunkObstacle(pose: Pose, footprint: Footprint, trunk: Trunk): O
   }
 }
 
-export const terrainBounds = { waterLevel: 0, wadeDepth: 0.6, edge: 1500, step: 0.25 }
+export const terrainBounds = { waterLevel: 0, wadeDepth: 0.6, step: 0.25 }
 
 export function boundaryObstacle(world: World, pose: Pose, footprint: Footprint): Obstacle | null {
   const contacts: BarrierContact[] = []
   let deepest: Obstacle | null = null
   for (const point of outline(footprint)) {
     const position = toWorld(pose, point.localX, point.localS)
-    const offset = position.x - world.road(position.s).x
-    const outward = Math.sign(offset) || 1
-    let penetration = Math.abs(offset) - terrainBounds.edge
-    let normalX = outward
+    const ground = world.surface(position.x, position.s)
+    const depth = terrainBounds.waterLevel - terrainBounds.wadeDepth - ground.height
+    if (ground.onRoad || depth <= 0) continue
+    const gradient = Math.hypot(ground.slopeX, ground.slopeS)
+    let normalX = Math.sign(position.x - world.road(position.s).x) || 1
     let normalS = 0
-    let material: ObstacleMaterial = 'edge'
-    if (penetration <= 0) {
-      material = 'water'
-      const ground = world.surface(position.x, position.s)
-      const depth = terrainBounds.waterLevel - terrainBounds.wadeDepth - ground.height
-      if (ground.onRoad || depth <= 0) continue
-      const gradient = Math.hypot(ground.slopeX, ground.slopeS)
-      if (gradient > 1e-3) {
-        normalX = -ground.slopeX / gradient
-        normalS = -ground.slopeS / gradient
-      }
-      penetration = Math.min(depth / Math.max(gradient, 0.05), terrainBounds.step)
+    if (gradient > 1e-3) {
+      normalX = -ground.slopeX / gradient
+      normalS = -ground.slopeS / gradient
     }
+    const penetration = Math.min(depth / Math.max(gradient, 0.05), terrainBounds.step)
     contacts.push({ localX: point.localX, localS: point.localS, normalX, normalS })
     if (!deepest || penetration > deepest.penetration)
-      deepest = { material, contacts, penetration, normalX, normalS }
+      deepest = { material: 'water', contacts, penetration, normalX, normalS }
   }
   return deepest
 }

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { worldLoop } from './field'
-import { groundLayout } from './ground-grid'
+import { groundLayout, groundOffsets } from './ground-grid'
 import { createWoodland } from './woodland'
 import { defaults, World } from './world'
 
@@ -92,4 +92,35 @@ test('the road, terrain and woodland repeat exactly after one lap', () => {
 test('the lap length holds whole terrain tiles and control cells', () => {
   expect(worldLoop.length % groundLayout.tileLength).toBe(0)
   expect(worldLoop.length % 1000).toBe(0)
+})
+
+test('terrain joins itself across the side of the world', () => {
+  for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
+    for (const seed of [42, 7, 90210]) {
+      const world = new World({ ...defaults, landscape, seed })
+      for (const s of [0, 310, 2750, 6400, 11810]) {
+        const center = world.road(s).x
+        const half = worldLoop.width / 2
+        const left = world.surface(center - half + 0.001, s)
+        const right = world.surface(center + half - 0.001, s)
+        expect(Math.abs(left.height - right.height)).toBeLessThan(0.01)
+        const seam = center + half
+        const inside = (world.height(seam, s) - world.height(seam - 0.05, s)) / 0.05
+        const beyond = (world.height(seam + 0.05, s) - world.height(seam, s)) / 0.05
+        expect(Math.abs(inside - beyond)).toBeLessThan(0.005)
+        for (const offset of [-1200, -300, 0, 45, 900, 1499])
+          for (const turns of [-2, 1, 3])
+            expect(world.height(center + offset + turns * worldLoop.width, s)).toBeCloseTo(
+              world.height(center + offset, s),
+              6,
+            )
+      }
+    }
+  }
+})
+
+test('the outermost ground column sits exactly on the side seam', () => {
+  expect(groundOffsets[0]).toBe(-worldLoop.width / 2)
+  expect(groundOffsets[groundOffsets.length - 1]).toBe(worldLoop.width / 2)
+  expect(worldLoop.width % 1000).toBe(0)
 })

@@ -15,17 +15,17 @@ test.each(['highlands', 'alpine'] as const)(
 
 test('woodland is deterministic and preserves tree positions across seasons', () => {
   const world = new World({ ...defaults })
-  const summer = createWoodland(world, 0, 'high')
+  const summer = createWoodland(world, 3, 'high')
   expect(summer.length).toBeGreaterThan(0)
-  expect(createWoodland(world, 0, 'high')).toEqual(summer)
+  expect(createWoodland(world, 3, 'high')).toEqual(summer)
   world.settings.season = 'winter'
-  expect(createWoodland(world, 0, 'high')).toEqual(summer)
+  expect(createWoodland(world, 3, 'high')).toEqual(summer)
   world.settings.seed = 73
-  expect(createWoodland(world, 0, 'high')).not.toEqual(summer)
+  expect(createWoodland(world, 3, 'high')).not.toEqual(summer)
 })
 
 test('low detail retains a stable subset of the same woodland', () => {
-  for (const tile of [-5, 0, 7]) {
+  for (const tile of [-5, 3, 7]) {
     const world = new World({ ...defaults })
     const high = createWoodland(world, tile, 'high')
     const low = createWoodland(world, tile, 'low')
