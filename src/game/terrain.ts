@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
 import { type Trunk, trunkRadius } from './collision'
+import { loopCells, loopIndex } from './field'
 import { Foliage } from './foliage'
 import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
@@ -262,7 +263,9 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
   *buildTile(id: number, rows: number, group: THREE.Group): Generator<undefined, void, undefined> {
     const start = id * groundLayout.tileLength,
       settings = this.world.settings
-    const rng = random(id * 967 + settings.seed * 137)
+    const rng = random(
+      loopIndex(id, loopCells(groundLayout.tileLength)) * 967 + settings.seed * 137,
+    )
     const { base, light } = terrainColors(settings)
     const color = new THREE.Color()
     const ground = this.addMesh(
