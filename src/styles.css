@@ -425,6 +425,48 @@ svg {
 .bottom-line > button:hover {
   opacity: 0.7;
 }
+.minimap {
+  position: absolute;
+  top: 24px;
+  left: 34px;
+  width: 188px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  color: #f6f7ea;
+  filter: drop-shadow(0 6px 18px #0f1a1440);
+}
+.minimap canvas {
+  width: 188px;
+  height: 188px;
+  display: block;
+}
+.minimap-caption {
+  display: flex;
+  gap: 10px;
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 6px #0f1a1480;
+}
+.minimap-caption > span:last-child {
+  opacity: 0.72;
+  text-transform: none;
+}
+.road-finder {
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: #1d2822b8;
+  color: #ffd98a;
+  font-variant-numeric: tabular-nums;
+}
+.panel-open .minimap {
+  opacity: 0.25;
+}
 .telemetry {
   position: absolute;
   bottom: 85px;
@@ -1168,6 +1210,15 @@ input[type="range"] {
 @media (max-width: 700px) {
   .topbar {
     padding: 24px;
+  }
+  .minimap {
+    top: 14px;
+    left: 14px;
+    width: 124px;
+  }
+  .minimap canvas {
+    width: 124px;
+    height: 124px;
   }
   .brand {
     font-size: 23px;

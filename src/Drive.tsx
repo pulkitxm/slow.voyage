@@ -27,6 +27,8 @@ import { Modal } from './components/Modal'
 import { landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
+import { worldLoop } from './game/field'
+import { minimapLayout } from './game/minimap'
 import { vehicleNames } from './game/vehicles'
 import type { Vehicle } from './game/world'
 import { useDrive } from './useDrive'
@@ -41,6 +43,7 @@ const vehicleIcons: Record<Vehicle, typeof Car> = {
 export function Drive() {
   const {
     canvas,
+    minimap,
     engine,
     settings,
     state,
@@ -70,6 +73,7 @@ export function Drive() {
   const VehicleIcon = vehicleIcons[settings.vehicle]
   const speed = Math.abs(state.speed) * (settings.units === 'km' ? 3.6 : 2.23694)
   const distance = state.distance / (settings.units === 'km' ? 1000 : 1609.344)
+  const mapUnit = settings.units === 'km' ? 1000 : 1609.344
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
   return (
     <main
@@ -238,6 +242,24 @@ export function Drive() {
       )}
       {started && (
         <>
+          <aside className="minimap" aria-label="Map of the road around you">
+            <canvas ref={minimap} />
+            <div className="minimap-caption">
+              <span>LAP {state.lap}</span>
+              <span>
+                {(state.lapDistance / mapUnit).toFixed(1)} /{' '}
+                {(worldLoop.length / mapUnit).toFixed(1)} {settings.units}
+              </span>
+            </div>
+            {state.roadDistance > minimapLayout.guideDistance && (
+              <div className="road-finder">
+                ROAD{' '}
+                {settings.units === 'km'
+                  ? `${Math.round(state.roadDistance)} m`
+                  : `${Math.round(state.roadDistance * 3.28084)} ft`}
+              </div>
+            )}
+          </aside>
           <section className="telemetry" aria-label="Driving dashboard">
             <div className="speed">
               {state.boost && !state.paused && !panel && !help && (
