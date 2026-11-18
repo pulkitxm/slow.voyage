@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
 import { type Trunk, trunkRadius } from './collision'
-import { loopCells, loopIndex } from './field'
+import { loopCells, loopIndex, worldLoop } from './field'
 import { Foliage } from './foliage'
 import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
@@ -47,6 +47,36 @@ function geometry(positions: number[], indices: number[], colors?: number[]) {
   g.computeVertexNormals()
   return g
 }
+export const seamTwins = { show: 150, hide: 100 }
+
+function twinMesh(source: THREE.Mesh) {
+  let twin: THREE.Mesh
+  if (source instanceof THREE.InstancedMesh) {
+    const instances = new THREE.InstancedMesh(source.geometry, source.material, 0)
+    instances.instanceMatrix = source.instanceMatrix
+    instances.instanceColor = source.instanceColor
+    instances.count = source.count
+    twin = instances
+  } else twin = new THREE.Mesh(source.geometry, source.material)
+  twin.name = source.name
+  twin.castShadow = source.castShadow
+  twin.receiveShadow = source.receiveShadow
+  twin.frustumCulled = source.frustumCulled
+  twin.userData.source = source
+  return twin
+}
+
+function twinMatches(twin: THREE.Object3D | undefined, source: THREE.Object3D) {
+  return (
+    twin instanceof THREE.Mesh &&
+    source instanceof THREE.Mesh &&
+    twin.userData.source === source &&
+    twin.geometry === source.geometry &&
+    (!(source instanceof THREE.InstancedMesh) ||
+      (twin instanceof THREE.InstancedMesh && twin.count === source.count))
+  )
+}
+
 export const tileStreaming = {
   lead: 2,
   budget: 3,
@@ -65,6 +95,9 @@ interface TileBuild {
 
 export class Terrain {
   tiles = new Map<number, THREE.Group>()
+  twins = new Map<number, THREE.Group>()
+  seamSide = 0
+  private lastX = 0
   trunks = new Map<number, Trunk[]>()
   builds = new Map<number, TileBuild>()
   retired: THREE.Group[] = []
@@ -591,7 +624,47 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
           id * groundLayout.tileLength < cameraS + grassViewDistance.end &&
           (id + 1) * groundLayout.tileLength > cameraS - grassViewDistance.end
     }
-    this.meadow?.update(x, s)
+    const offset = x - this.world.road(s).x
+    if (Math.abs(offset) > seamTwins.show) this.seamSide = Math.sign(offset)
+    else if (Math.abs(offset) < seamTwins.hide) this.seamSide = 0
+    this.syncTwins()
+    const wrapped = Math.abs(x - this.lastX) > worldLoop.width / 2
+    this.lastX = x
+    this.meadow?.update(x, s, wrapped)
+  }
+  syncTwins() {
+    for (const [id, twin] of this.twins) {
+      if (this.tiles.get(id) === twin.userData.source) continue
+      this.scene.remove(twin)
+      this.twins.delete(id)
+    }
+    if (!this.seamSide) {
+      for (const twin of this.twins.values()) twin.visible = false
+      return
+    }
+    for (const [id, group] of this.tiles) {
+      let twin = this.twins.get(id)
+      if (!twin) {
+        twin = new THREE.Group()
+        twin.userData.source = group
+        this.twins.set(id, twin)
+        this.scene.add(twin)
+      }
+      twin.visible = true
+      twin.position.x = this.seamSide * worldLoop.width
+      const current =
+        twin.children.length === group.children.length &&
+        group.children.every((source, index) => twinMatches(twin.children[index], source))
+      if (!current) {
+        twin.clear()
+        for (const source of group.children)
+          if (source instanceof THREE.Mesh) twin.add(twinMesh(source))
+      }
+      for (const [index, source] of group.children.entries()) {
+        const copy = twin.children[index]
+        if (copy) copy.visible = source.visible
+      }
+    }
   }
   *trunksNear(s: number) {
     const tile = Math.floor(s / groundLayout.tileLength)
@@ -629,6 +702,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.trunks.delete(id)
   }
   clear() {
+    for (const twin of this.twins.values()) this.scene.remove(twin)
+    this.twins.clear()
     for (const [id, group] of this.tiles) this.removeTile(id, group)
     for (const build of this.builds.values()) this.disposeGroup(build.group)
     this.builds.clear()

@@ -5,14 +5,27 @@ export function latticeValue(x: number, s: number, seed: number) {
   return ((value ^ (value >>> 15)) >>> 0) / 2147483648 - 1
 }
 
-export const worldLoop = { length: 12000 } as const
+export const worldLoop = { length: 12000, width: 3000 } as const
 
 export function loopCells(spacing: number) {
   return Math.max(1, Math.round(worldLoop.length / spacing))
 }
 
+export function loopColumns(spacing: number) {
+  return Math.max(1, Math.round(worldLoop.width / spacing))
+}
+
+export function wrapOffset(offset: number) {
+  return offset - worldLoop.width * Math.round(offset / worldLoop.width)
+}
+
 export function loopIndex(index: number, cells: number) {
   return ((index % cells) + cells) % cells
+}
+
+export function centeredIndex(index: number, cells: number) {
+  const half = Math.floor(cells / 2)
+  return loopIndex(index + half, cells) - half
 }
 
 export function smoothStep(value: number) {
@@ -27,14 +40,19 @@ export function terrainField(x: number, s: number, seed: number) {
       v = s / scale - 0.5
     const column = Math.floor(u),
       row = Math.floor(v),
-      rows = loopCells(scale)
+      rows = loopCells(scale),
+      columns = loopColumns(scale)
     for (let i = 0; i < 2; i++) {
       for (let j = 0; j < 2; j++) {
         const dx = u - column - i,
           ds = v - row - j
         const radiusSquared = dx * dx + ds * ds
         if (radiusSquared >= 1) continue
-        const control = latticeValue(column + i, loopIndex(row + j, rows), seed + layer * 977)
+        const control = latticeValue(
+          centeredIndex(column + i, columns),
+          loopIndex(row + j, rows),
+          seed + layer * 977,
+        )
         const shaped = control * Math.abs(control) * (1 - Math.abs(control)) * 4
         height += shaped * (1 - smoothStep(radiusSquared)) * 160 * (scale / 1000)
       }

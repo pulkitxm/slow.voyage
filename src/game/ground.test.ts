@@ -193,7 +193,7 @@ test('ground columns stay fine enough to drive across open country', () => {
   const limits = [
     { reach: 98, spacing: 2 },
     { reach: 410, spacing: 8 },
-    { reach: 1600, spacing: 32 },
+    { reach: 1500, spacing: 32 },
   ]
   for (let index = 1; index < groundOffsets.length; index++) {
     const inner = Math.abs(groundOffsets[index - 1] ?? 0)

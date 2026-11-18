@@ -205,15 +205,6 @@ export function impactVoice(material: ObstacleMaterial, strength: number, vehicl
       thumpPitch: 58 * pitch,
       crunch,
     },
-    edge: {
-      partials: [],
-      noiseBand: 260,
-      noiseDecay: 0.2,
-      noiseGain: 0.5,
-      thump: 0.9,
-      thumpPitch: 48 * pitch,
-      crunch: crunch * 0.5,
-    },
     water: {
       partials: [],
       noiseBand: 900,

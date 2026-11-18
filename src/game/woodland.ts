@@ -1,4 +1,4 @@
-import { latticeValue, loopCells, loopIndex, smoothStep, worldLoop } from './field'
+import { latticeValue, loopCells, loopColumns, loopIndex, smoothStep, worldLoop } from './field'
 import { clamp, type Landscape, random, type Settings, type World } from './world'
 
 export interface WoodlandTree {
@@ -20,17 +20,19 @@ export function roadsidePlantHeight(world: World, x: number, s: number) {
 
 function noise(x: number, s: number, scale: number, seed: number) {
   const rows = loopCells(scale)
-  const u = x / scale
+  const columns = loopColumns(scale)
+  const u = (x * columns) / worldLoop.width
   const v = (s * rows) / worldLoop.length
-  const column = Math.floor(u)
+  const strip = Math.floor(u)
   const cell = Math.floor(v)
-  const tx = smoothStep(u - column)
+  const tx = smoothStep(u - strip)
   const ts = smoothStep(v - cell)
+  const column = loopIndex(strip, columns)
+  const beside = loopIndex(strip + 1, columns)
   const row = loopIndex(cell, rows)
   const next = loopIndex(cell + 1, rows)
-  const near = latticeValue(column, row, seed) * (1 - tx) + latticeValue(column + 1, row, seed) * tx
-  const far =
-    latticeValue(column, next, seed) * (1 - tx) + latticeValue(column + 1, next, seed) * tx
+  const near = latticeValue(column, row, seed) * (1 - tx) + latticeValue(beside, row, seed) * tx
+  const far = latticeValue(column, next, seed) * (1 - tx) + latticeValue(beside, next, seed) * tx
   return near * (1 - ts) + far * ts
 }
 
