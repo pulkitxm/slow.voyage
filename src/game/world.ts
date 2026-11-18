@@ -1,5 +1,5 @@
 import type { ControllerBindings, ControllerMode } from './controller-bindings'
-import { roadCurve, smoothStep, terrainField } from './field'
+import { roadCurve, smoothStep, terrainField, wrapOffset } from './field'
 import { groundSurface } from './ground-grid'
 import { roadCoordinates, roadLayout } from './road'
 
@@ -65,6 +65,7 @@ export const defaults: Settings = {
   mouseSensitivity: 1,
 }
 export const shoreHeight = 1.2
+export const coastBasin = { start: 700, fade: 600 }
 export const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 export const damp = (a: number, b: number, rate: number, dt: number) =>
   a + (b - a) * (1 - Math.exp(-rate * dt))
@@ -95,9 +96,14 @@ export class World {
     const dy = rise.derivative * riseScale + crest.derivative * crestScale
     return { x, y, dx, dy, yaw: Math.atan2(-dx, 1) }
   }
-  height(x: number, s: number) {
+  canonical(x: number, s: number) {
+    const center = this.road(s).x
+    return center + wrapOffset(x - center)
+  }
+  height(position: number, s: number) {
     const center = this.road(s)
-    const offset = x - center.x
+    const offset = wrapOffset(position - center.x)
+    const x = center.x + offset
     const corridor = 1 - smoothStep(clamp((Math.abs(offset) - 8) / 12, 0, 1))
     const frame = corridor ? roadCoordinates(this, x, s) : null
     const road = frame?.road ?? center
@@ -112,7 +118,9 @@ export class World {
     const coastDirection = roadCurve(s, 2600, this.settings.seed + 1029).value
     const coastFactor =
       this.settings.landscape === 'highlands' ? clamp(0.5 + coastDirection * Math.sign(d), 0, 1) : 0
-    const coast = Math.min(110, Math.max(0, distance - roadLayout.halfWidth) * 0.26) * coastFactor
+    const basin = 1 - smoothStep(clamp((distance - coastBasin.start) / coastBasin.fade, 0, 1))
+    const coast =
+      Math.min(110, Math.max(0, distance - roadLayout.halfWidth) * 0.26) * coastFactor * basin
     const relief = hills * amplitude - coast
     const cut = smoothStep(clamp((relief - 0.6) / 3, 0, 1))
     const blend = smoothStep(
@@ -135,7 +143,8 @@ export class World {
     )
   }
 
-  surface(x: number, s: number) {
+  surface(position: number, s: number) {
+    const x = this.canonical(position, s)
     const { road, distance } = roadCoordinates(this, x, s)
     const onRoad = Math.abs(distance) <= roadLayout.halfWidth
     const grade = road.dy / (1 + road.dx * road.dx)

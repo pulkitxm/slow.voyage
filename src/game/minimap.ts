@@ -224,13 +224,13 @@ export class Minimap {
     const guide = roadGuide(this.world, pose)
     const first = Math.floor((guide.s - roadSpan) / roadStep) * roadStep
     context.beginPath()
-    for (let s = first; s <= guide.s + roadSpan; s += roadStep) {
-      const road = this.world.road(s)
-      const px = (road.x - pose.x) * zoom
-      const py = -(s - pose.s) * zoom
-      if (s === first) context.moveTo(px, py)
-      else context.lineTo(px, py)
-    }
+    for (const turn of [-1, 0, 1])
+      for (let s = first; s <= guide.s + roadSpan; s += roadStep) {
+        const px = (this.world.road(s).x + turn * worldLoop.width - pose.x) * zoom
+        const py = -(s - pose.s) * zoom
+        if (s === first) context.moveTo(px, py)
+        else context.lineTo(px, py)
+      }
     context.lineJoin = context.lineCap = 'round'
     context.strokeStyle = '#1d2822b8'
     context.lineWidth = 5.4

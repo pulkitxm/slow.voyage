@@ -1,3 +1,4 @@
+import { worldLoop } from './field'
 import { type RoadSample, roadLayout } from './road'
 
 export const groundLayout = { tileLength: 120, fullRows: 96, distantRows: 12 } as const
@@ -12,8 +13,8 @@ const sideOffsets = [
   ...Array.from({ length: 37 }, (_, index) => 26 + index * 2),
   ...Array.from({ length: 39 }, (_, index) => 106 + index * 8),
   ...Array.from({ length: 16 }, (_, index) => 426 + index * 16),
-  ...Array.from({ length: 29 }, (_, index) => 682 + index * 32),
-  1600,
+  ...Array.from({ length: 26 }, (_, index) => 682 + index * 32),
+  worldLoop.width / 2,
 ]
 export const groundOffsets = Object.freeze([
   ...sideOffsets.map((offset) => -offset).reverse(),

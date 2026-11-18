@@ -11,6 +11,7 @@ import {
   trunkRadius,
 } from './collision'
 import { neutralInput } from './controls'
+import { worldLoop } from './field'
 import { createVehicleModel } from './model'
 import { CarPhysics, type Input } from './physics'
 import { roadCoordinates } from './road'
@@ -263,22 +264,32 @@ describe('terrain bounds', () => {
     expect(car.x).toBeLessThan(stuck - 3)
   })
 
-  test.each(vehicles)('%s stops softly at the edge of the generated world', (vehicle) => {
-    const settings = { ...defaults, vehicle }
-    for (const side of [1, -1]) {
-      const car = new CarPhysics(new OpenWorld(settings))
-      car.reset(0)
-      car.x = side * (terrainBounds.edge - 60)
-      car.yaw = -side * (Math.PI / 2)
-      car.suspension.reset(car)
-      for (let step = 0; step < 15 * 120; step++) {
-        car.update(1 / 120, throttle, settings)
-        expect(Math.abs(car.x)).toBeLessThan(terrainBounds.edge + 0.05)
+  test.each(vehicles)(
+    '%s crosses the side of the world and arrives back at the road',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      for (const side of [1, -1]) {
+        const car = new CarPhysics(new OpenWorld(settings))
+        car.reset(0)
+        car.x = side * (worldLoop.width / 2 - 60)
+        car.yaw = -side * (Math.PI / 2)
+        car.suspension.reset(car)
+        let crossed = false
+        let previous = car.x
+        for (let step = 0; step < 15 * 120; step++) {
+          car.update(1 / 120, throttle, settings)
+          expect(Math.abs(car.x)).toBeLessThan(worldLoop.width / 2 + 1)
+          if (Math.abs(car.x - previous) > worldLoop.width / 2) crossed = true
+          previous = car.x
+        }
+        expect(crossed).toBe(true)
+        expect(Math.sign(car.x)).toBe(-side)
+        expect(Math.abs(car.x)).toBeLessThan(worldLoop.width / 2 - 20)
+        expect(car.hits).toBe(0)
+        expect(car.speed).toBeGreaterThan(10)
       }
-      expect(Math.abs(car.x)).toBeGreaterThan(terrainBounds.edge - 5)
-      expect(car.hitMaterial).toBe('edge')
-    }
-  })
+    },
+  )
 
   test('driving full throttle toward the real coastline ends at the water line', () => {
     const settings = { ...defaults, vehicle: 'touring' as const }
