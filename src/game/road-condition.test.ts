@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { CarPhysics } from './physics'
 import { roadLayout } from './road'
 import { potholeDepth, puddleDepth, roadConditionAt, roadConditionLayout } from './road-condition'
 import { defaults, World } from './world'
@@ -50,4 +51,20 @@ test('a broken road lowers the pavement under a wheel', () => {
     dropped = Math.max(dropped, gap)
   }
   expect(dropped).toBeGreaterThan(0.02)
+})
+
+test('autodrive holds a potholed road for a minute and feels the holes', () => {
+  const settings = { ...defaults, roadWear: 'broken' as const }
+  const car = new CarPhysics(new World(settings))
+  car.reset(0)
+  let deepest = 0
+  for (let step = 0; step < 60 * 120; step++) {
+    car.update(1 / 120, car.autoInput(settings.cruiseSpeed), settings)
+    if (step > 240) expect(car.offroad).toBe(false)
+    for (const wheel of car.suspension.wheels)
+      deepest = Math.max(deepest, car.world.road(wheel.s).y - wheel.ground)
+  }
+  expect(car.hits).toBe(0)
+  expect(car.distance).toBeGreaterThan(900)
+  expect(deepest).toBeGreaterThan(0.02)
 })

@@ -6,7 +6,7 @@ import { random, shoreHeight, type World } from './world'
 
 export const waterfallLayout = {
   nearest: 30,
-  farthest: 150,
+  farthest: 95,
   step: 2,
   longest: 90,
   drop: 12,
@@ -213,13 +213,13 @@ export function waterfallClearing(falls: Waterfall[], lap: number, x: number, s:
   for (const fall of falls) {
     const dx = x - fall.foot.x
     const ds = s - fall.foot.s - lap
-    if (Math.abs(dx) > 60 || Math.abs(ds) > 60) continue
+    if (Math.abs(dx) > 130 || Math.abs(ds) > 130) continue
     const ahead = dx * fall.facing.x + ds * fall.facing.s
     const aside = Math.abs(-dx * fall.facing.s + ds * fall.facing.x)
     if (
       ahead > -waterfallLayout.shelf - 3 &&
-      ahead < 46 &&
-      aside < fall.span * 0.62 + Math.max(0, ahead) * 0.22
+      ahead < 110 &&
+      aside < fall.span * 0.62 + Math.max(0, ahead) * 0.3
     )
       return true
   }

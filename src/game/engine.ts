@@ -29,7 +29,8 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
-import { puddleLevel } from './road-condition'
+import { roadCoordinates } from './road'
+import { puddleDepth, puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
@@ -681,7 +682,7 @@ export class RoadEngine {
     this.dark = night
     this.wetRoad = profile.wet
     this.tyreClouds.setLight(
-      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1),
+      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1) ** 1.7,
     )
     this.dustTone.set(
       this.settings.season === 'winter'
@@ -719,7 +720,7 @@ export class RoadEngine {
       light.intensity =
         index < this.car.headlightPositions.length &&
         (night || profile.wet || profile.snow || this.settings.weather === 'fog')
-          ? 210 * clamp(1.25 - profile.ambient / 2.6, 0.12, 1)
+          ? 210 * (night ? 1 : clamp(1 - profile.sunlight * 0.6 - profile.ambient * 0.25, 0.08, 1))
           : 0
   }
   advanceSky(dt: number) {
@@ -771,9 +772,14 @@ export class RoadEngine {
         rate = 26 * wheel.slip
         this.cloudTone.set('#dfe3e3')
       } else if (this.wetRoad && speed > 10) {
-        rate = speed * 2.6
-        opacity = 0.15
-        size = 2.1
+        const pooled = puddleDepth(
+          this.settings.weather,
+          wheel.s,
+          roadCoordinates(this.world, wheel.x, wheel.s).distance,
+        )
+        rate = speed * (2.6 + pooled * 3.4)
+        opacity = 0.15 + pooled * 0.1
+        size = 2.1 + pooled * 1.3
         this.cloudTone.set('#c9d6dc')
       }
       if (Math.random() >= rate * dt) continue
@@ -930,6 +936,7 @@ export class RoadEngine {
     )
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
+    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.55
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)

@@ -10,7 +10,6 @@ export const roadConditionLayout = {
   potholeDepth: 0.07,
   potholeEdge: 0.5,
   puddleLevel: { rain: 0.6, storm: 0.5 },
-  puddleGrip: 0.78,
 } as const
 
 export interface RoadCondition {

@@ -156,6 +156,7 @@ export class Terrain {
   })
   glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true })
   fallMaterial: THREE.MeshStandardMaterial
+  fallWarmUp: THREE.Mesh
   shadeMaterial: THREE.MeshBasicMaterial | null = null
   shadeDisc = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2)
   chevronMaterial: THREE.MeshStandardMaterial
@@ -276,6 +277,14 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       this.grassMaterial.fieldUniforms.fieldNoiseMap,
       this.windTime,
     )
+    const warmUp = new THREE.BufferGeometry()
+    warmUp.setAttribute('position', new THREE.Float32BufferAttribute(new Array(9).fill(0), 3))
+    warmUp.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(9).fill(0), 3))
+    warmUp.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(6).fill(0), 2))
+    warmUp.setAttribute('fallFlow', new THREE.Float32BufferAttribute(new Array(9).fill(0), 3))
+    this.fallWarmUp = new THREE.Mesh(warmUp, this.fallMaterial)
+    this.fallWarmUp.frustumCulled = false
+    scene.add(this.fallWarmUp)
     this.roadSurface = new RoadSurface(
       this.asphalt,
       this.grassMaterial.fieldUniforms.fieldNoiseMap,
@@ -897,6 +906,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.foliage.dispose()
     this.asphalt.dispose()
     this.roadSurface.dispose()
+    this.fallWarmUp.removeFromParent()
+    this.fallWarmUp.geometry.dispose()
     this.groundTexture.dispose()
   }
 }

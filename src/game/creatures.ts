@@ -255,17 +255,6 @@ const builds: Record<Species, Build> = {
   },
 }
 
-export const creatureHeights: Record<Creature, number> = {
-  person: 1.75,
-  cow: builds.cow.back,
-  sheep: builds.sheep.back,
-  deer: builds.deer.back,
-  horse: builds.horse.back,
-  goat: builds.goat.back,
-  camel: builds.camel.back,
-  elephant: builds.elephant.back,
-}
-
 export const creatureRadius: Record<Creature, number> = {
   person: 0.3,
   cow: 0.75,
