@@ -173,8 +173,8 @@ export function terraced(value: number, step: number, smooth: (t: number) => num
   if (!step) return value
   const scaled = value / step
   const level = Math.floor(scaled)
-  const rise = smooth(Math.max(0, Math.min(1, (scaled - level - 0.36) / 0.28)))
-  return value + ((level + rise) * step - value) * 0.82
+  const rise = smooth(Math.max(0, Math.min(1, (scaled - level - 0.3) / 0.4)))
+  return value + ((level + rise) * step - value) * 0.68
 }
 
 export const passLayout = { floor: 0.13, core: 110, shoulder: 560 } as const

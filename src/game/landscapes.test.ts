@@ -17,7 +17,7 @@ test('terraces stay continuous, keep the road level and leave smooth ground unto
   }
   expect(
     Math.abs(terraced(26 * 3 + 2, 26, smoothStep) - terraced(26 * 3 + 6, 26, smoothStep)),
-  ).toBeLessThan(1)
+  ).toBeLessThan(1.6)
 })
 
 test.each(landscapeIds)('%s keeps its whole lap above the water line', (landscape) => {
