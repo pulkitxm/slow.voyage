@@ -58,6 +58,27 @@ export const journeys: readonly Journey[] = [
     weather: 'overcast',
   },
   {
+    name: 'Forest morning',
+    landscape: 'forest',
+    season: 'summer',
+    daylight: 'day',
+    weather: 'fog',
+  },
+  {
+    name: 'Canyon sunset',
+    landscape: 'canyon',
+    season: 'summer',
+    daylight: 'sunset',
+    weather: 'clear',
+  },
+  {
+    name: 'Northern lakes',
+    landscape: 'fjord',
+    season: 'autumn',
+    daylight: 'day',
+    weather: 'clear',
+  },
+  {
     name: 'Summer night',
     landscape: 'highlands',
     season: 'summer',

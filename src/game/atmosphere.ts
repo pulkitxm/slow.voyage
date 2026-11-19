@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { landscapeProfiles } from './landscapes'
 import type { Settings } from './world'
 
 export const sunOffset = { x: -90, z: -80 }
@@ -80,9 +81,7 @@ export class Atmosphere {
     const groundColor =
       settings.season === 'winter'
         ? '#c8d1cc'
-        : settings.landscape === 'desert'
-          ? '#8d7554'
-          : '#556c3c'
+        : (landscapeProfiles[settings.landscape].reflection ?? '#556c3c')
     const profile = atmosphereProfile(settings)
     const key = `${profile.sky}/${profile.horizon}/${profile.sun}/${profile.sunlight}/${profile.ambient}/${groundColor}/${settings.daylight === 'sunset'}`
     if (key === this.key && this.reflection) return this.reflection.texture
