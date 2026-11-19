@@ -4,6 +4,7 @@ import { assistanceLabels } from './game/controls'
 import { adjustCruiseSpeed } from './game/cruise'
 import { type DriveState, RoadEngine } from './game/engine'
 import { nextJourney } from './game/journeys'
+import { landmarkNames } from './game/landmarks'
 import { formatLap } from './game/laps'
 import { cameras, loadSettings } from './game/settings'
 import { decodeSpot, encodeSpot } from './game/share'
@@ -33,6 +34,8 @@ const initial: DriveState = {
   lastLap: null,
   bestLap: null,
   photo: false,
+  found: 0,
+  landmarks: 0,
 }
 export function useDrive() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -205,6 +208,8 @@ export function useDrive() {
       engine.current = instance
       if (import.meta.env.DEV) Reflect.set(window, 'voyage', instance)
       if (spot) instance.travelTo(spot.distance)
+      instance.onDiscover = (kind, found, total) =>
+        announce(`You found ${landmarkNames[kind]}. ${found} of ${total}.`)
       instance.onLap = (time, record) =>
         announce(`Lap in ${formatLap(time)}${record ? ', your best yet.' : '.'}`)
       instance.onError = () =>
