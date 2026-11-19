@@ -468,6 +468,26 @@ export function SettingsPanel({
               </div>
             </section>
             <section className="setting-section">
+              <h3>Camera motion</h3>
+              <div className="segmented">
+                {(['full', 'calm'] as const).map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    className={settings.motion === item ? 'selected' : ''}
+                    aria-pressed={settings.motion === item}
+                    onClick={() => update('motion', item)}
+                  >
+                    {item === 'full' ? 'Feel the road' : 'Keep it steady'}
+                  </button>
+                ))}
+              </div>
+              <p>
+                The view leans into bends, dips under braking and trembles at speed. Steady turns
+                that off, along with speed blur and drops on the lens.
+              </p>
+            </section>
+            <section className="setting-section">
               <h3>Scenery detail</h3>
               <div className="segmented">
                 {(['low', 'high'] as const).map((item) => (

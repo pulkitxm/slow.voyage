@@ -42,19 +42,19 @@ export class CarModel {
     this.wheelRadius = dimensions.wheelRadius
     this.body = new THREE.MeshPhysicalMaterial({
       color: settings.color,
-      metalness: 0.12,
+      metalness: 0.35,
       roughness: 0.32,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.18,
-      envMapIntensity: 0.9,
+      clearcoat: 1,
+      clearcoatRoughness: 0.05,
+      envMapIntensity: 1.15,
     })
     const glass = new THREE.MeshPhysicalMaterial({
-      color: '#6b6d70',
-      metalness: 0,
-      roughness: 0.18,
-      clearcoat: 0.5,
-      clearcoatRoughness: 0.12,
-      envMapIntensity: 0.45,
+      color: '#3a3f44',
+      metalness: 0.2,
+      roughness: 0.06,
+      clearcoat: 1,
+      clearcoatRoughness: 0.04,
+      envMapIntensity: 1.3,
       side: THREE.DoubleSide,
     })
     const black = new THREE.MeshStandardMaterial({ color: '#222724', roughness: 0.7 })
@@ -62,8 +62,9 @@ export class CarModel {
     const diffuser = new THREE.MeshStandardMaterial({ color: '#303432', roughness: 0.88 })
     const chrome = new THREE.MeshStandardMaterial({
       color: '#bec5c0',
-      metalness: 0.8,
-      roughness: 0.3,
+      metalness: 1,
+      roughness: 0.16,
+      envMapIntensity: 1.4,
     })
     const tire = new THREE.MeshStandardMaterial({ color: '#232422', roughness: 0.95 })
     const wheelWell = new THREE.MeshStandardMaterial({

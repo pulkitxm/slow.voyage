@@ -39,19 +39,19 @@ export class LoftCarModel {
     this.wheelRadius = dimensions.wheelRadius
     this.body = new THREE.MeshPhysicalMaterial({
       color: settings.color,
-      metalness: 0.12,
+      metalness: 0.35,
       roughness: 0.32,
-      clearcoat: 0.8,
-      clearcoatRoughness: 0.18,
-      envMapIntensity: 0.9,
+      clearcoat: 1,
+      clearcoatRoughness: 0.05,
+      envMapIntensity: 1.15,
     })
     const glass = new THREE.MeshPhysicalMaterial({
-      color: '#4d5154',
-      metalness: 0,
-      roughness: 0.16,
-      clearcoat: 0.5,
-      clearcoatRoughness: 0.12,
-      envMapIntensity: 0.45,
+      color: '#33383d',
+      metalness: 0.2,
+      roughness: 0.06,
+      clearcoat: 1,
+      clearcoatRoughness: 0.04,
+      envMapIntensity: 1.3,
     })
     const black = new THREE.MeshStandardMaterial({ color: '#222724', roughness: 0.7 })
     const chrome = new THREE.MeshStandardMaterial({

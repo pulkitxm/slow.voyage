@@ -15,6 +15,14 @@ interface CameraSubject {
 }
 
 export const cameraRush = { fov: 9, distance: 0.9, rate: 3.5 }
+export const cameraFeel = {
+  lean: 0.0032,
+  leanLimit: 0.04,
+  dive: 0.0022,
+  diveLimit: 0.028,
+  tremor: 0.0013,
+  settle: 5,
+}
 
 export class DrivingCamera {
   yaw = 0
@@ -22,6 +30,12 @@ export class DrivingCamera {
   zoom = 1
   rush = 0
   rear = false
+  motion = 1
+  private lean = 0
+  private dive = 0
+  private clock = 0
+  private lastYaw = 0
+  private lastSpeed = 0
   private heading = 0
   private grade = 0
   private ready = false
@@ -205,11 +219,37 @@ export class DrivingCamera {
       )
     camera.lookAt(target)
     const fraction = clamp(Math.abs(subject.speed) / metrics.maxSpeed, 0, 1)
+    const turning = this.ready && dt > 0 ? angleDifference(subject.yaw, this.lastYaw) / dt : 0
+    const pushing = this.ready && dt > 0 ? (subject.speed - this.lastSpeed) / dt : 0
+    this.lastYaw = subject.yaw
+    this.lastSpeed = subject.speed
+    this.clock += dt
+    const riding = mode === 'cinematic' ? 0 : this.motion
+    this.lean = damp(
+      this.lean,
+      clamp(turning * subject.speed * cameraFeel.lean, -cameraFeel.leanLimit, cameraFeel.leanLimit),
+      cameraFeel.settle,
+      dt,
+    )
+    this.dive = damp(
+      this.dive,
+      clamp(-pushing * cameraFeel.dive, -cameraFeel.diveLimit, cameraFeel.diveLimit),
+      cameraFeel.settle,
+      dt,
+    )
+    if (riding) {
+      const cabin = mode === 'bonnet' ? 1 : 0.55
+      const tremor = fraction * fraction * fraction * cameraFeel.tremor * cabin * riding
+      camera.rotateZ(-this.lean * cabin * riding)
+      camera.rotateX(-this.dive * cabin * riding + Math.sin(this.clock * 37) * tremor)
+      camera.rotateY(Math.sin(this.clock * 29 + 1.7) * tremor * 0.7)
+    }
     const fov =
       68 +
       (mode === 'cinematic'
         ? 0
-        : 8 * fraction * fraction * (3 - 2 * fraction) + cameraRush.fov * this.rush)
+        : (8 * fraction * fraction * (3 - 2 * fraction) + cameraRush.fov * this.rush) *
+          (0.35 + 0.65 * this.motion))
     camera.fov = damp(camera.fov, fov, 4, dt)
     camera.updateProjectionMatrix()
     this.ready = true

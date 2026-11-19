@@ -708,7 +708,9 @@ export class RoadEngine {
       this.settings.roadWear,
       profile.wet ? puddleLevel(this.settings.weather) : 2,
       profile.wet,
-      this.dustTone,
+      this.settings.season === 'winter'
+        ? '#b9bcb8'
+        : (landscapeProfiles[this.settings.landscape].field?.soil ?? '#7d6a4f'),
       this.skyTone.set(profile.horizon).multiplyScalar(clamp(profile.ambient / 2.6, 0.12, 1) * 0.9),
     )
     this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
@@ -717,7 +719,7 @@ export class RoadEngine {
       light.intensity =
         index < this.car.headlightPositions.length &&
         (night || profile.wet || profile.snow || this.settings.weather === 'fog')
-          ? 210
+          ? 210 * clamp(1.25 - profile.ambient / 2.6, 0.12, 1)
           : 0
   }
   advanceSky(dt: number) {
@@ -769,9 +771,9 @@ export class RoadEngine {
         rate = 26 * wheel.slip
         this.cloudTone.set('#dfe3e3')
       } else if (this.wetRoad && speed > 10) {
-        rate = speed * 2.4
-        opacity = 0.085
-        size = 1.9
+        rate = speed * 2.6
+        opacity = 0.15
+        size = 2.1
         this.cloudTone.set('#c9d6dc')
       }
       if (Math.random() >= rate * dt) continue
@@ -928,9 +930,10 @@ export class RoadEngine {
     )
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
+    this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
-    if (p.impact > 0.005) {
+    if (p.impact > 0.005 && this.view.motion) {
       const seconds = time / 1000
       this.camera.rotateX(Math.sin(seconds * 41 + 1.3) * p.impact * impactShake.pitch)
       this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
@@ -969,10 +972,12 @@ export class RoadEngine {
       air.sunColor.copy(this.sun.color).multiplyScalar(this.sun.intensity * 0.22)
       if (this.scene.fog) air.hazeColor.copy(this.scene.fog.color)
       const pace = Math.abs(this.physics.speed) / vehicleMetrics[this.settings.vehicle].maxSpeed
-      this.cinema.rush = this.started
-        ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
-        : 0
-      this.cinema.lensRain = this.wetRoad ? (this.settings.camera === 'bonnet' ? 1 : 0.55) : 0
+      this.cinema.rush =
+        this.started && this.view.motion
+          ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
+          : 0
+      this.cinema.lensRain =
+        this.wetRoad && this.view.motion ? (this.settings.camera === 'bonnet' ? 1 : 0.55) : 0
       this.cinema.lensTime = this.dayClock
       this.cinema.render(this.scene, this.camera)
     } else this.renderer.render(this.scene, this.camera)

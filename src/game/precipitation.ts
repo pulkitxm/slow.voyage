@@ -93,7 +93,7 @@ float rainReach = length(rainToward);
 vec3 rainAcross = normalize(cross(rainTail, rainToward));
 float rainWidth = max(0.0045, rainReach * rainPixel);
 vec3 transformed = rainCentre - rainTail * fallCorner.y + rainAcross * fallCorner.x * rainWidth;
-rainShape = vec3(fallCorner.xy, (0.45 + fallCorner.z * 0.55) * min(1.0, 0.0045 / (rainReach * rainPixel) + 0.35) * smoothstep(0.4, 1.6, rainReach));`,
+rainShape = vec3(fallCorner.xy, (0.45 + fallCorner.z * 0.55) * min(1.0, 0.0045 / (rainReach * rainPixel) + 0.35) * smoothstep(1.2, 4.0, rainReach));`,
         )
         if (snow)
           shader.fragmentShader = shader.fragmentShader.replace(
@@ -122,7 +122,9 @@ diffuseColor.a *= (1.0 - rainShape.x * rainShape.x) * (1.0 - rainShape.y) * (0.3
   setAppearance(settings: Settings, profile: AtmosphereProfile) {
     this.rain.visible = profile.wet
     this.snow.visible = profile.snow
-    this.rain.material.color.set(profile.night > 0.5 ? '#839aaa' : '#c2d5df')
+    this.rain.material.color
+      .set('#c2d5df')
+      .multiplyScalar(Math.max(0.16, Math.min(1, profile.ambient / 2.4) ** 1.4))
     const share =
       (profile.downpour > 0.5 ? 1 : precipitationLayout.calm) / (settings.quality === 'low' ? 3 : 1)
     this.rain.geometry.setDrawRange(0, Math.round(precipitationLayout.drops * share) * 6)

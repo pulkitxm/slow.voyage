@@ -120,13 +120,16 @@ diffuseColor.rgb *= 1.0 - roadSeam * 0.42;
 float roadCrackField = fieldVariationAt(roadPosition * 30.0 + vec2(3.0, 19.0));
 float roadCrackWidth = max(0.0035, fwidth(roadCrackField) * 1.2);
 float roadCrackZone = smoothstep(0.5, 0.66, fieldVariationAt(roadPosition * 2.3 + vec2(71.0, 13.0))) * roadWear.z * (1.0 - roadRepair);
-float roadCrack = (1.0 - smoothstep(roadCrackWidth * 0.4, roadCrackWidth, abs(roadCrackField - 0.5))) * roadCrackZone * min(1.0, 0.0035 / roadCrackWidth * 2.0);
+float roadCrack = (1.0 - smoothstep(roadCrackWidth * 0.4, roadCrackWidth, abs(roadCrackField - 0.5))) * roadCrackZone * min(1.0, 0.0035 / roadCrackWidth * 2.0) * smoothstep(0.46, 0.56, fieldVariationAt(roadPosition * 9.0 + vec2(47.0, 83.0)));
 diffuseColor.rgb *= 1.0 - roadCrack * 0.42;
-float roadBroken = roadState.b + (roadSurfaceNoise - 0.5) * 0.14;
+float roadBroken = roadState.b + (roadSurfaceNoise - 0.5) * 0.16 + (roadVariation - 0.5) * 0.1;
 float roadHole = smoothstep(${(roadConditionLayout.potholeEdge - 0.14).toFixed(2)}, ${(roadConditionLayout.potholeEdge + 0.2).toFixed(2)}, roadBroken) * roadWear.y;
-float roadRim = smoothstep(0.16, 0.36, roadBroken) * (1.0 - roadHole) * roadWear.y;
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.19, 0.175) * (0.6 + roadSurfaceNoise * 0.8), roadHole * 0.9);
-diffuseColor.rgb *= 1.0 + roadRim * (roadSurfaceNoise - 0.35) * 0.5;
+float roadRim = smoothstep(0.26, 0.44, roadBroken) * (1.0 - roadHole) * roadWear.y;
+float roadPit = smoothstep(0.47, 0.53, roadBroken) * roadWear.y;
+float roadGrit = fieldVariationAt(roadPosition * 140.0 + vec2(9.0, 4.0));
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.15, 0.14, 0.13) * (0.45 + roadGrit * 1.2), roadPit * 0.95);
+diffuseColor.rgb *= 1.0 - roadPit * (1.0 - roadHole) * 0.55;
+diffuseColor.rgb *= 1.0 + roadRim * (1.0 - roadPit) * (roadGrit - 0.3) * 0.7;
 float roadDirt = smoothstep(0.3, 0.9, roadState.g * (0.5 + roadVariation * 1.0)) * roadWear.x;
 diffuseColor.rgb = mix(diffuseColor.rgb, mix(roadDirtColor, vec3(0.42, 0.4, 0.37), 0.35) * (0.6 + roadSurfaceNoise * 0.5) * mix(1.0, 0.5, roadWetness), roadDirt * 0.7);
 float roadPuddle = smoothstep(roadPuddleLevel - 0.03, roadPuddleLevel + 0.05, roadState.r + roadHole * 0.3);
@@ -145,7 +148,7 @@ roughnessFactor = mix(roughnessFactor, 0.02, roadPuddle);`,
         '#include <normal_fragment_maps>',
         `#include <normal_fragment_maps>
 normal = normalize(mix(normal, nonPerturbedNormal, roadPuddle));
-float roadRelief = -roadHole * ${roadConditionLayout.potholeDepth.toFixed(3)} + roadRim * roadSurfaceNoise * 0.006 - roadCrack * 0.002;
+float roadRelief = -roadPit * 0.02 + roadPit * roadGrit * 0.012 - roadHole * ${roadConditionLayout.potholeDepth.toFixed(3)} + roadRim * roadSurfaceNoise * 0.006 - roadCrack * 0.002;
 ${
   software
     ? ''

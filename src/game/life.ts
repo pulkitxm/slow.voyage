@@ -253,8 +253,14 @@ export function placeMember(
     s: along,
     yaw: Math.atan2(toX - fromX, -(toS - fromS)),
     step: (cycle * 7 + walked * distance * 3.2) * 1.6,
-    stride: moving ? 0.42 * Math.sin(Math.PI * Math.min(1, part / 0.3)) : 0,
-    graze: member.grazer * ease((part - 0.36) / 0.12) * (1 - ease((part - 0.86) / 0.1)),
+    stride: moving
+      ? 0.42 * Math.sin(Math.PI * Math.min(1, part / 0.3))
+      : 0.035 * Math.max(0, Math.sin(time * 0.7 + member.phase * 3)),
+    graze:
+      member.grazer *
+      ease((part - 0.36) / 0.12) *
+      (1 - ease((part - 0.86) / 0.1)) *
+      (0.9 + 0.1 * Math.sin(time * 2.6 + member.phase * 5)),
     member,
   }
 }

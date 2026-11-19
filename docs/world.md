@@ -60,3 +60,20 @@ of the whole loop.
 - The road carries delineator posts, bend chevrons, and a gantry at the lap line.
   Up to eight landmarks per lap can be found.
 - Tyres raise dust, smoke, and spray, and leave skid marks when they slide.
+- The road wears. One condition map, 2.4 km long and repeated five times a lap,
+  holds puddle basins, dirt, pothole damage, and repair patches. The asphalt shader
+  and the pavement height both read it, so a pothole that shows is one the
+  suspension drops into. The road surface setting chooses freshly laid, well
+  travelled (the default), or potholed. Only the potholed road changes the
+  pavement height.
+- Rain falls as streaks that lean with the car's speed. On capable hardware the
+  wet road mirrors the scene in screen space, puddles reflect the sky and carry
+  rain rings, and drops gather on the lens.
+- Walkers follow the verge by day and step aside for a passing car. Herds chosen
+  for each landscape graze in the fields: cows, sheep, horses, deer, goats, camels,
+  and elephants. They are solid to drive into and never placed on the carriageway.
+  The roadside life setting chooses empty, quiet, or lively (the default).
+- Waterfalls pour over rock ledges set into steep hillsides that face the road.
+  Monsoon Jungle is a seventh landscape of dense broadleaf canopy.
+- The camera leans into bends, dips under braking, and trembles at speed. The
+  camera motion setting turns that off together with speed blur and lens drops.
