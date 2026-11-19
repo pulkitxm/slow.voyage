@@ -25,6 +25,11 @@ export function graphicsBudget(renderer: WebGLRenderer, quality: Settings['quali
   const software = softwareRendering(renderer.getContext())
   return {
     software,
+    cinematic:
+      !software &&
+      quality === 'high' &&
+      (renderer.extensions.has('EXT_color_buffer_float') ||
+        renderer.extensions.has('EXT_color_buffer_half_float')),
     detail: software ? ('low' as const) : quality,
     pixelRatio: software
       ? quality === 'high'

@@ -20,6 +20,7 @@ export class ScenicSky extends THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMate
           sunColor: { value: new THREE.Color() },
           sunGlow: { value: 0 },
           stars: { value: 0 },
+          solid: { value: 1 },
         },
         vertexShader: `
 varying vec3 direction;
@@ -39,6 +40,7 @@ uniform vec3 sunDirection;
 uniform vec3 sunColor;
 uniform float sunGlow;
 uniform float stars;
+uniform float solid;
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
 }
@@ -86,7 +88,7 @@ void main() {
   cloud *= smoothstep(0.025, 0.2, height);
   color = mix(color, cloudColor + halo * 1.5, cloud * 0.82);
   color = mix(color, horizon, haze * (1.0 - smoothstep(0.25, 0.9, height)));
-  gl_FragColor = vec4(color, 1.0);
+  gl_FragColor = vec4(color, solid);
   #include <colorspace_fragment>
 }`,
       }),

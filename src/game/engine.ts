@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Atmosphere, atmosphereProfile, sunOffset } from './atmosphere'
 import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
+import { CinematicPipeline } from './cinema'
 import {
   automaticTarget,
   mergeManualInput,
@@ -28,9 +29,10 @@ import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { Water } from './water'
-import { type AssistanceMode, defaults, type Settings, World } from './world'
+import { type AssistanceMode, clamp, defaults, type Settings, World } from './world'
 
 const impactShake = { pitch: 0.025, roll: 0.035 }
+export const cinemaRelief = { frame: 1 / 40, patience: 4 }
 
 export interface DriveState extends Telemetry {
   assistance: AssistanceMode
@@ -45,6 +47,9 @@ export interface DriveState extends Telemetry {
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
   antialiasing: SoftwareAntialias | null
+  cinema: CinematicPipeline | null = null
+  cinemaStrain = 0
+  cinemaBlocked = false
   scene = new THREE.Scene()
   camera = new THREE.PerspectiveCamera(68, 1, 0.1, 3600)
   settings: Settings
@@ -297,6 +302,7 @@ export class RoadEngine {
     this.scene.add(this.car.group)
     this.configureHeadlights()
     this.applyLighting()
+    this.configureCinema(budget)
     this.resize()
     window.addEventListener('resize', this.resize)
     window.addEventListener('keydown', this.keyDown)
@@ -331,7 +337,12 @@ export class RoadEngine {
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.precipitation.rain.visible = this.precipitation.snow.visible = true
+    if (this.cinema) {
+      this.cinema.resize()
+      this.renderer.setRenderTarget(this.cinema.scene)
+    }
     await this.renderer.compileAsync(this.scene, this.camera)
+    this.renderer.setRenderTarget(null)
     if (this.disposed) return
     this.drawScene()
     this.renderer.getContext().finish()
@@ -443,9 +454,26 @@ export class RoadEngine {
     }
     this.car.body.color.set(settings.color)
     this.renderer.setPixelRatio(budget.pixelRatio)
+    this.configureCinema(budget)
     this.configureShadows(budget)
     this.applyLighting()
     if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
+  }
+  configureCinema(budget: ReturnType<typeof graphicsBudget>) {
+    const cinematic = budget.cinematic && !this.cinemaBlocked
+    if (cinematic && !this.cinema) this.cinema = new CinematicPipeline(this.renderer)
+    if (!cinematic && this.cinema) {
+      this.cinema.dispose()
+      this.cinema = null
+    }
+    const solid = this.sky.material.uniforms.solid
+    if (solid) solid.value = this.cinema ? 0 : 1
+    const blade = this.terrain.bladeMaterial
+    const alpha = this.cinema ? THREE.OneFactor : THREE.ZeroFactor
+    if (blade.blendSrcAlpha !== alpha) {
+      blade.blendSrcAlpha = alpha
+      blade.needsUpdate = true
+    }
   }
   configureShadows(budget: ReturnType<typeof graphicsBudget>) {
     const shadow = this.sun.shadow
@@ -574,6 +602,17 @@ export class RoadEngine {
     const elapsed = this.lastTime ? (time - this.lastTime) / 1000 : 1 / 60
     const dt = Math.min(elapsed, 0.05)
     this.frameRate = Math.round(1 / Math.max(elapsed, 0.001))
+    if (this.cinema && this.started && !this.paused) {
+      this.cinemaStrain = clamp(
+        this.cinemaStrain + (elapsed > cinemaRelief.frame ? elapsed : -elapsed),
+        0,
+        cinemaRelief.patience,
+      )
+      if (this.cinemaStrain >= cinemaRelief.patience) {
+        this.cinemaBlocked = true
+        this.configureCinema(graphicsBudget(this.renderer, this.settings.quality))
+      }
+    }
     this.lastTime = time
     this.pollController()
     let input = this.manualInput()
@@ -637,7 +676,8 @@ export class RoadEngine {
     }
   }
   drawScene() {
-    this.renderer.render(this.scene, this.camera)
+    if (this.cinema) this.cinema.render(this.scene, this.camera)
+    else this.renderer.render(this.scene, this.camera)
     this.antialiasing?.render(this.renderer)
   }
   screenshot() {
@@ -674,6 +714,7 @@ export class RoadEngine {
     this.sun.shadow.dispose()
     this.audio.dispose()
     this.antialiasing?.dispose()
+    this.cinema?.dispose()
     this.crossfade.dispose()
     this.renderer.dispose()
   }
