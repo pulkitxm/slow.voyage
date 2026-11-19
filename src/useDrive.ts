@@ -47,6 +47,7 @@ export function useDrive() {
   const [state, setState] = useState(initial)
   const [started, setStarted] = useState(false)
   const [ready, setReady] = useState(false)
+  const [loading, setLoading] = useState({ fraction: 0, stage: 'stone' })
   const [panel, setPanel] = useState(false)
   const [help, setHelp] = useState(false)
   const [tab, setTab] = useState<SettingsTab>('journey')
@@ -208,6 +209,7 @@ export function useDrive() {
       engine.current = instance
       if (import.meta.env.DEV) Reflect.set(window, 'voyage', instance)
       if (spot) instance.travelTo(spot.distance)
+      instance.onProgress = (fraction, stage) => setLoading({ fraction, stage })
       instance.onDiscover = (kind, found, total) =>
         announce(`You found ${landmarkNames[kind]}. ${found} of ${total}.`)
       instance.onLap = (time, record) =>
@@ -296,6 +298,7 @@ export function useDrive() {
     state,
     started,
     ready,
+    loading,
     panel,
     setPanel,
     help,

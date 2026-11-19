@@ -488,6 +488,32 @@ svg {
   color: #ffd98a;
   font-variant-numeric: tabular-nums;
 }
+.world-loader {
+  margin-top: 22px;
+  width: min(300px, 70vw);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.world-loader > div {
+  height: 2px;
+  background: #ffffff33;
+  overflow: hidden;
+  border-radius: 2px;
+}
+.world-loader > div > span {
+  display: block;
+  height: 100%;
+  background: #f6f7ea;
+  transition: width 0.25s ease-out;
+}
+.world-loader > em {
+  font-style: normal;
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
 .minimap-best {
   display: flex;
   gap: 10px;
