@@ -15,6 +15,7 @@ import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
+import { landscapeProfiles } from './landscapes'
 import { LapClock } from './laps'
 import { lapState, Minimap, roadGuide } from './minimap'
 import {
@@ -31,6 +32,7 @@ import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
+import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
 import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
 import { type AssistanceMode, clamp, defaults, type Settings, World } from './world'
@@ -98,6 +100,13 @@ export class RoadEngine {
   cinemaStrain = 0
   dayClock = 0
   contact = contactShadow()
+  tyreClouds = new TyreParticles()
+  skids = new SkidMarks()
+  wetRoad = false
+  private dustTone = new THREE.Color()
+  private cloudTone = new THREE.Color()
+  private cloudPlace = new THREE.Vector3()
+  private cloudDrift = new THREE.Vector3()
   laps = new LapClock()
   photo = false
   onLap?: (time: number, record: boolean) => void
@@ -376,6 +385,7 @@ export class RoadEngine {
     this.car = createVehicleModel(this.settings, budget.software)
     this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
     this.scene.add(this.car.group, this.contact)
+    if (!budget.software) this.scene.add(this.tyreClouds.points, this.skids.mesh)
     this.configureHeadlights()
     this.applyLighting()
     this.configureCinema(budget)
@@ -553,6 +563,7 @@ export class RoadEngine {
     this.world.settings = this.settings
     if (roadChange || vehicleChange) this.laps.reset(this.physics.s)
     if (roadChange) this.minimap.found.clear()
+    if (roadChange) this.skids.clear()
     if (roadChange) {
       const speed = this.physics.speed
       this.physics.reset()
@@ -646,6 +657,12 @@ export class RoadEngine {
     this.precipitation.setAppearance(this.settings, profile)
     const night = profile.night > 0.5
     this.dark = night
+    this.wetRoad = profile.wet
+    this.dustTone.set(
+      this.settings.season === 'winter'
+        ? '#eef1f0'
+        : (landscapeProfiles[this.settings.landscape].ground?.light ?? '#b9ad8a'),
+    )
     this.terrain.setNight(night)
     this.minimap.dim = clamp(0.3 + (profile.ambient / 2.6) * 0.7, 0.5, 1)
     this.lightning.base = profile.ambient * 0.3
@@ -692,6 +709,43 @@ export class RoadEngine {
     }
     flash.flash = Math.max(0, flash.flash - dt * stormFlash.decay * (0.4 + Math.random()))
     this.ambient.intensity = flash.base * (1 + flash.flash * stormFlash.strength)
+  }
+  trailTyres(dt: number, seconds: number) {
+    const p = this.physics
+    const speed = Math.abs(p.speed)
+    const active = this.started && !this.paused && !this.photo
+    for (const [index, wheel] of p.suspension.wheels.entries()) {
+      const sliding =
+        active && wheel.contact && wheel.onRoad && wheel.slip > trailLayout.markSlip && speed > 3
+      this.skids.trace(index, sliding, wheel.x, wheel.ground + 0.03, -wheel.s)
+      if (!active || !wheel.contact || speed < 4) continue
+      let rate = 0
+      let opacity = 0.3
+      let size = 1.3
+      if (!wheel.onRoad) {
+        rate = Math.min(speed, 30) * 1.3
+        opacity = 0.44
+        size = 2
+        this.cloudTone.copy(this.dustTone)
+      } else if (wheel.slip > trailLayout.smokeSlip) {
+        rate = 26 * wheel.slip
+        this.cloudTone.set('#dfe3e3')
+      } else if (this.wetRoad && speed > 10) {
+        rate = speed * 0.6
+        opacity = 0.22
+        size = 1.1
+        this.cloudTone.set('#c9d6dc')
+      }
+      if (Math.random() >= rate * dt) continue
+      this.cloudPlace.set(wheel.x, wheel.ground + 0.15, -wheel.s)
+      this.cloudDrift.set(
+        (Math.random() - 0.5) * 1.4 - Math.sin(p.yaw) * p.speed * 0.12,
+        0.5 + Math.random() * 0.8,
+        (Math.random() - 0.5) * 1.4 - Math.cos(p.yaw) * p.speed * 0.12,
+      )
+      this.tyreClouds.emit(this.cloudPlace, this.cloudDrift, this.cloudTone, opacity, size, seconds)
+    }
+    this.tyreClouds.update(seconds, this.canvas.height)
   }
   manualInput(): Input {
     if (this.controlsBlocked) return { ...neutralInput }
@@ -805,6 +859,7 @@ export class RoadEngine {
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
     positionVehicle(this.car, p, this.settings.vehicle, dt)
+    this.trailTyres(dt, time / 1000)
     const footprint = footprints[this.settings.vehicle]
     const grounded = p.suspension.wheels.filter((wheel) => wheel.contact).length
     this.contact.position.copy(this.car.group.position)
@@ -898,6 +953,8 @@ export class RoadEngine {
     this.precipitation.dispose()
     this.atmosphere.dispose()
     this.car.dispose()
+    this.tyreClouds.dispose()
+    this.skids.dispose()
     this.contact.geometry.dispose()
     this.contact.material.map?.dispose()
     this.contact.material.dispose()
