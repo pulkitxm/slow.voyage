@@ -17,6 +17,7 @@ import { cinemaRelief, createGraphicsRenderer, frameStrained, graphicsBudget } f
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { LapClock } from './laps'
+import { Life } from './life'
 import { lapState, Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
@@ -102,6 +103,8 @@ export class RoadEngine {
   framePace = 1 / 60
   frameJitter = 0
   dayClock = 0
+  lifeClock = 0
+  life: Life | null = null
   contact = contactShadow()
   tyreClouds = new TyreParticles()
   skids = new SkidMarks()
@@ -389,7 +392,16 @@ export class RoadEngine {
       budget.software,
       this.renderer.getContext().getContextAttributes()?.antialias ?? false,
     )
-    this.physics.trunks = (s) => this.terrain.trunksNear(s)
+    if (!budget.software) {
+      this.life = new Life(this.world)
+      this.scene.add(this.life.group)
+    }
+    const terrain = this.terrain
+    const life = this.life
+    this.physics.trunks = function* (s) {
+      yield* terrain.trunksNear(s)
+      if (life) yield* life.obstacles(s)
+    }
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
@@ -923,6 +935,14 @@ export class RoadEngine {
       this.camera.rotateX(Math.sin(seconds * 41 + 1.3) * p.impact * impactShake.pitch)
       this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
     }
+    if (!this.paused && !this.photo) this.lifeClock += dt
+    this.life?.update(
+      this.settings,
+      p,
+      this.lifeClock,
+      !this.dark,
+      this.settings.weather !== 'storm',
+    )
     this.travel.set(-Math.sin(p.yaw) * p.speed, 0, -Math.cos(p.yaw) * p.speed)
     this.precipitation.update(this.camera, this.canvas.height, time / 1000, this.travel)
     this.terrain.update(p.s, time / 1000, -this.camera.position.z, p.x)
@@ -984,6 +1004,7 @@ export class RoadEngine {
     this.terrain.dispose()
     this.water.dispose()
     this.precipitation.dispose()
+    this.life?.dispose()
     this.atmosphere.dispose()
     this.car.dispose()
     this.tyreClouds.dispose()

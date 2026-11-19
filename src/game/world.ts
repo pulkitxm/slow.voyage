@@ -8,6 +8,8 @@ import { potholeDepth, type RoadWear } from './road-condition'
 export type { Landscape } from './landscapes'
 export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'dawn' | 'day' | 'sunset' | 'dusk' | 'night' | 'cycle'
+export const lifeLevels = ['none', 'quiet', 'lively'] as const
+export type LifeLevel = (typeof lifeLevels)[number]
 export type Weather = 'clear' | 'overcast' | 'rain' | 'storm' | 'fog'
 export const vehicles = [
   'touring',
@@ -28,6 +30,7 @@ export interface Settings {
   daylight: Daylight
   weather: Weather
   roadWear: RoadWear
+  life: LifeLevel
   vehicle: Vehicle
   camera: CameraMode
   color: string
@@ -53,6 +56,7 @@ export const defaults: Settings = {
   daylight: 'day',
   weather: 'clear',
   roadWear: 'worn',
+  life: 'lively',
   vehicle: 'touring',
   camera: 'chase',
   color: '#f8f8f8',

@@ -76,6 +76,11 @@ export const roadWear = [
   { id: 'worn', label: 'Well travelled' },
   { id: 'broken', label: 'Potholed' },
 ] as const
+export const life = [
+  { id: 'none', label: 'Empty' },
+  { id: 'quiet', label: 'Quiet' },
+  { id: 'lively', label: 'Lively' },
+] as const
 export const daylight = [
   { id: 'dawn', label: 'Dawn', icon: Sunrise, mood: 'First light' },
   { id: 'day', label: 'Daylight', icon: CloudSun, mood: 'A clear afternoon' },

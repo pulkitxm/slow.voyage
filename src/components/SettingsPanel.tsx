@@ -12,6 +12,7 @@ import {
   colors,
   daylight,
   landscapes,
+  life,
   roadWear,
   seasons,
   vehicles,
@@ -163,6 +164,23 @@ export function SettingsPanel({
                 ))}
               </div>
               <p>Q and E cycle scenery and weather. V changes your vehicle.</p>
+            </section>
+            <section className="setting-section">
+              <h3>Roadside life</h3>
+              <div className="segmented">
+                {life.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={settings.life === item.id ? 'selected' : ''}
+                    aria-pressed={settings.life === item.id}
+                    onClick={() => update('life', item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p>Walkers on the verge and herds grazing in the fields.</p>
             </section>
             <section className="setting-section">
               <h3>Road surface</h3>

@@ -2,7 +2,7 @@ import { decodeBindings } from './controller-bindings'
 import { cruiseLimits } from './cruise'
 import { landscapeIds } from './landscapes'
 import { roadWears } from './road-condition'
-import { defaults, type Settings, vehicles } from './world'
+import { defaults, lifeLevels, type Settings, vehicles } from './world'
 
 const numericRanges = {
   volume: [0, 1],
@@ -25,6 +25,7 @@ export function decodeSettings(stored: unknown): Settings {
       'daylight',
       'weather',
       'roadWear',
+      'life',
       'vehicle',
       'camera',
       'quality',
@@ -38,6 +39,7 @@ export function decodeSettings(stored: unknown): Settings {
         daylight: ['dawn', 'day', 'sunset', 'dusk', 'night', 'cycle'],
         weather: ['clear', 'overcast', 'rain', 'storm', 'fog'],
         roadWear: roadWears,
+        life: lifeLevels,
         vehicle: vehicles,
         camera: cameras,
         quality: ['high', 'low'],
