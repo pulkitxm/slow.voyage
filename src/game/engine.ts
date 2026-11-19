@@ -35,7 +35,8 @@ import { Water } from './water'
 import { type AssistanceMode, clamp, defaults, type Settings, World } from './world'
 
 const impactShake = { pitch: 0.025, roll: 0.035 }
-export const cinemaRelief = { frame: 1 / 40, patience: 4 }
+export const cinemaRelief = { frame: 1 / 40, patience: 3, scales: [1, 0.82, 0.68] }
+const paintBudget = 11
 export const lightingPace = { step: 0.5, reflection: 6 }
 export const stormFlash = { shortest: 5, longest: 14, strength: 9, decay: 7 }
 
@@ -64,6 +65,9 @@ export class RoadEngine {
   laps = new LapClock()
   photo = false
   onLap?: (time: number, record: boolean) => void
+  onProgress?: (fraction: number, stage: 'stone' | 'hills' | 'light') => void
+  software = false
+  renderScale = 0
   onDiscover?: (kind: LandmarkKind, found: number, total: number) => void
   lightingAt = 0
   reflectionAt = Number.NEGATIVE_INFINITY
@@ -306,7 +310,8 @@ export class RoadEngine {
     this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
     this.antialiasing = budget.software ? new SoftwareAntialias() : null
-    this.renderer.setPixelRatio(budget.pixelRatio)
+    this.software = budget.software
+    this.renderer.setPixelRatio(this.pixelRatio(budget))
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -358,9 +363,12 @@ export class RoadEngine {
   }
   async prepare() {
     this.canvas.style.visibility = 'hidden'
+    this.onProgress?.(0.04, 'stone')
     await this.terrain.grassMaterial.rock.ready
     if (this.disposed) return
     const p = this.physics
+    await this.paint()
+    if (this.disposed) return
     this.terrain.update(p.s, 0, p.s, p.x)
     this.car.group.position.set(p.x, p.y, -p.s)
     this.camera.position.set(p.x, p.y + 5, -p.s + 12)
@@ -375,13 +383,27 @@ export class RoadEngine {
       this.cinema.resize()
       this.renderer.setRenderTarget(this.cinema.scene)
     }
+    this.onProgress?.(0.9, 'light')
     await this.renderer.compileAsync(this.scene, this.camera)
     this.renderer.setRenderTarget(null)
     if (this.disposed) return
+    this.onProgress?.(1, 'light')
     this.drawScene()
     this.renderer.getContext().finish()
     this.precipitation.setAppearance(this.settings, atmosphereProfile(this.settings, this.dayClock))
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
+  }
+  paint() {
+    return new Promise<void>((resolve) => {
+      const stroke = () => {
+        if (this.disposed) return resolve()
+        const painted = this.software ? 1 : this.terrain.prime(this.physics.s, paintBudget)
+        this.onProgress?.(0.1 + painted * 0.78, 'hills')
+        if (painted >= 1) resolve()
+        else requestAnimationFrame(stroke)
+      }
+      stroke()
+    })
   }
   start(assistance: AssistanceMode = 'off') {
     this.started = true
@@ -518,11 +540,14 @@ export class RoadEngine {
       this.physics.suspension.reset(this.physics)
     }
     this.car.body.color.set(settings.color)
-    this.renderer.setPixelRatio(budget.pixelRatio)
+    this.renderer.setPixelRatio(this.pixelRatio(budget))
     this.configureCinema(budget)
     this.configureShadows(budget)
     this.applyLighting()
     if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
+  }
+  pixelRatio(budget: ReturnType<typeof graphicsBudget>) {
+    return budget.pixelRatio * (cinemaRelief.scales[this.renderScale] ?? 1)
   }
   configureCinema(budget: ReturnType<typeof graphicsBudget>) {
     const cinematic = budget.cinematic && !this.cinemaBlocked
@@ -697,15 +722,22 @@ export class RoadEngine {
     const elapsed = this.lastTime ? (time - this.lastTime) / 1000 : 1 / 60
     const dt = Math.min(elapsed, 0.05)
     this.frameRate = Math.round(1 / Math.max(elapsed, 0.001))
-    if (this.cinema && this.started && !this.paused) {
+    if (!this.software && this.started && !this.paused && !this.photo) {
       this.cinemaStrain = clamp(
         this.cinemaStrain + (elapsed > cinemaRelief.frame ? elapsed : -elapsed),
         0,
         cinemaRelief.patience,
       )
       if (this.cinemaStrain >= cinemaRelief.patience) {
-        this.cinemaBlocked = true
-        this.configureCinema(graphicsBudget(this.renderer, this.settings.quality))
+        this.cinemaStrain = 0
+        const budget = graphicsBudget(this.renderer, this.settings.quality)
+        if (this.renderScale < cinemaRelief.scales.length - 1) {
+          this.renderScale++
+          this.renderer.setPixelRatio(this.pixelRatio(budget))
+        } else {
+          this.cinemaBlocked = true
+          this.configureCinema(budget)
+        }
       }
     }
     this.lastTime = time

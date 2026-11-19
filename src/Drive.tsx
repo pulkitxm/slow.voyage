@@ -38,6 +38,12 @@ import { vehicleNames } from './game/vehicles'
 import type { Vehicle } from './game/world'
 import { useDrive } from './useDrive'
 
+const loadingCopy: Record<string, string> = {
+  stone: 'Gathering stone and soil',
+  hills: 'Painting the hills',
+  light: 'Mixing the light',
+}
+
 const vehicleIcons: Record<Vehicle, typeof Car> = {
   touring: Car,
   roadster: CarFront,
@@ -57,6 +63,7 @@ export function Drive() {
     state,
     started,
     ready,
+    loading,
     panel,
     setPanel,
     help,
@@ -206,6 +213,21 @@ export function Drive() {
               Or, just enjoy the ride <ChevronRight size={14} />
             </button>
           </div>
+          {!ready && (
+            <div
+              className="world-loader"
+              role="progressbar"
+              aria-label="Preparing the world"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={Math.round(loading.fraction * 100)}
+            >
+              <div>
+                <span style={{ width: `${Math.round(loading.fraction * 100)}%` }} />
+              </div>
+              <em>{loadingCopy[loading.stage] ?? loadingCopy.stone}</em>
+            </div>
+          )}
           <div className="intro-controls">
             <Keyboard size={16} />
             <span>WASD or arrow keys to drive</span>
