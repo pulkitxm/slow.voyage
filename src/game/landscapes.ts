@@ -6,6 +6,7 @@ export interface LandscapeProfile {
   road: readonly [base: number, rise: number, crest: number]
   relief: number
   terrace: number
+  passes: number
   coast: 'none' | 'side' | 'both'
   sand: boolean
   shore: boolean
@@ -33,6 +34,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     road: [24, 10, 3],
     relief: 1,
     terrace: 0,
+    passes: 0,
     coast: 'side',
     sand: false,
     shore: true,
@@ -51,6 +53,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     road: [100, 28, 8],
     relief: 2.4,
     terrace: 0,
+    passes: 2,
     coast: 'none',
     sand: false,
     shore: true,
@@ -69,6 +72,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     road: [18, 4, 1],
     relief: 0.45,
     terrace: 0,
+    passes: 0,
     coast: 'none',
     sand: true,
     shore: false,
@@ -94,6 +98,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     road: [34, 14, 4],
     relief: 1.15,
     terrace: 0,
+    passes: 0,
     coast: 'none',
     sand: false,
     shore: true,
@@ -112,6 +117,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     road: [46, 16, 4],
     relief: 1.7,
     terrace: 26,
+    passes: 2,
     coast: 'none',
     sand: false,
     shore: false,
@@ -137,6 +143,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     road: [9, 5, 1.6],
     relief: 1.25,
     terrace: 0,
+    passes: 0,
     coast: 'both',
     sand: false,
     shore: true,
@@ -168,4 +175,28 @@ export function terraced(value: number, step: number, smooth: (t: number) => num
   const level = Math.floor(scaled)
   const rise = smooth(Math.max(0, Math.min(1, (scaled - level - 0.36) / 0.28)))
   return value + ((level + rise) * step - value) * 0.82
+}
+
+export const passLayout = { floor: 0.13, core: 110, shoulder: 560 } as const
+
+export function passEasing(
+  s: number,
+  lap: number,
+  passes: number,
+  seed: number,
+  smooth: (t: number) => number,
+) {
+  if (!passes) return 1
+  const spacing = lap / passes
+  const local = ((s % lap) + lap) % lap
+  let nearest = Number.POSITIVE_INFINITY
+  for (let index = -1; index <= passes; index++) {
+    const wrapped = ((index % passes) + passes) % passes
+    const jitter = (Math.sin(seed * 12.9898 + wrapped * 78.233) * 43758.5453) % 1
+    const center = (index + 0.5 + jitter * 0.3) * spacing
+    nearest = Math.min(nearest, Math.abs(local - center))
+  }
+  const open =
+    1 - smooth(Math.max(0, Math.min(1, (nearest - passLayout.core) / passLayout.shoulder)))
+  return 1 - (1 - passLayout.floor) * open
 }

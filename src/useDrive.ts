@@ -50,6 +50,10 @@ export function useDrive() {
   const [loading, setLoading] = useState({ fraction: 0, stage: 'stone' })
   const [panel, setPanel] = useState(false)
   const [help, setHelp] = useState(false)
+  const [atlas, setAtlas] = useState(false)
+  const atlasCanvas = useCallback((node: HTMLCanvasElement | null) => {
+    engine.current?.atlas.attach(node)
+  }, [])
   const [tab, setTab] = useState<SettingsTab>('journey')
   const [offline, setOffline] = useState(false)
   const [online, setOnline] = useState(true)
@@ -238,6 +242,7 @@ export function useDrive() {
         if (action === 'vehiclePrevious') handlers.current.cycleVehicle(-1)
         if (action === 'help') setHelp((current) => !current)
         if (action === 'photo') handlers.current.togglePhoto()
+        if (action === 'map') setAtlas((current) => !current)
       }
     } catch {
       setError(
@@ -319,6 +324,9 @@ export function useDrive() {
     cycleVehicle,
     togglePhoto,
     copyLink,
+    atlas,
+    setAtlas,
+    atlasCanvas,
     fullscreen,
     touch,
   }

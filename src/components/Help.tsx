@@ -24,6 +24,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['C', 'Change camera'],
             ['X', 'Look behind'],
             ['T', 'Photo mode'],
+            ['N', 'World map'],
             ['B', 'Horn'],
             ['Q / E', 'Previous / next scenery'],
             ['V / Shift V', 'Next / previous vehicle'],
