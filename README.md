@@ -1,7 +1,8 @@
 # slow.voyage
 
 An endless scenic driving game built with TanStack Start, React, TypeScript, and
-Three.js. All geometry and sounds are generated locally. Fonts and application
+Three.js. The world is a closed 12 km lap that also wraps sideways across 3 km,
+so driving away from the road in any direction leads back to it. All geometry and sounds are generated locally. Fonts and application
 assets are bundled for offline play.
 
 ## Run
@@ -39,6 +40,7 @@ Local pre-commit checks remain mandatory.
 | Key              | Action                  |
 | ---------------- | ----------------------- |
 | W / Up           | Accelerate              |
+| Shift            | Boost while charged     |
 | S / Down         | Brake, then reverse     |
 | A D / Left Right | Steer                   |
 | Space            | Handbrake               |
@@ -46,6 +48,9 @@ Local pre-commit checks remain mandatory.
 | G                | Assistance mode         |
 | + / -            | Cruise speed            |
 | C                | Cycle camera            |
+| X                | Look behind             |
+| T                | Photo mode              |
+| B                | Horn                    |
 | Q / E            | Previous / next scenery |
 | V / Shift V      | Next / previous vehicle |
 | M                | Toggle mouse driving    |
@@ -53,9 +58,14 @@ Local pre-commit checks remain mandatory.
 | P / Escape       | Pause                   |
 | H                | Help                    |
 
-Touch devices have steering and pedal buttons. Settings include four vehicles,
-three landscapes, three seasons, lighting, paint, camera, grip, power, sound,
-detail, and units. Preferences are stored on the device.
+Touch devices have steering and pedal buttons. Settings include seven vehicles,
+six landscapes, three seasons, six skies including a live day cycle, five kinds
+of weather, paint, camera, grip, power, sound, detail, and units. Preferences are
+stored on the device.
+
+The minimap shows the road, terrain, landmarks to find, lap progress, and an
+arrow back to the road when off it. Laps are timed from line to line. The Journey
+tab copies a link that reopens the same road at the same spot.
 
 The Controls tab selects full autodrive, steering assistance, or speed assistance.
 Steering input releases steering assistance; pedal input releases speed
