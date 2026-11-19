@@ -635,13 +635,13 @@ export class RoadEngine {
     if (!this.headlights.length)
       this.headlights = Array.from(
         { length: 2 },
-        () => new THREE.SpotLight('#fff0cf', 40, 100, 0.42, 0.6, 1),
+        () => new THREE.SpotLight('#fff3df', 40, 120, 0.34, 0.95, 1.2),
       )
     for (const [index, light] of this.headlights.entries()) {
       const position = this.car.headlightPositions[index] ??
         this.car.headlightPositions[0] ?? [0, 0, 0]
       light.position.set(...position)
-      light.target.position.set(position[0] * 2, -0.5, position[2] - 45)
+      light.target.position.set(position[0] * 1.3, -0.9, position[2] - 34)
       this.car.group.add(light, light.target)
     }
   }
@@ -695,7 +695,7 @@ export class RoadEngine {
       light.intensity =
         index < this.car.headlightPositions.length &&
         (night || profile.wet || profile.snow || this.settings.weather === 'fog')
-          ? 65
+          ? 210
           : 0
   }
   advanceSky(dt: number) {
