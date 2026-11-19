@@ -45,3 +45,16 @@ export function graphicsBudget(renderer: WebGLRenderer, quality: Settings['quali
     shadowNormalBias: software ? 0.05 : 0.012,
   }
 }
+
+export const cinemaRelief = {
+  frame: 1 / 40,
+  cappedFrame: 1 / 30,
+  steadyJitter: 0.0015,
+  patience: 3,
+  scales: [1, 0.82, 0.68],
+}
+export function frameStrained(elapsed: number, pace: number, jitter: number) {
+  const capped =
+    Math.abs(pace - cinemaRelief.cappedFrame) < 0.002 && jitter < cinemaRelief.steadyJitter
+  return elapsed > cinemaRelief.frame && !capped
+}

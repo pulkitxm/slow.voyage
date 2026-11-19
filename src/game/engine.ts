@@ -13,7 +13,7 @@ import {
 } from './controls'
 import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
-import { createGraphicsRenderer, graphicsBudget } from './graphics'
+import { cinemaRelief, createGraphicsRenderer, frameStrained, graphicsBudget } from './graphics'
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { LapClock } from './laps'
@@ -36,9 +36,9 @@ import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
 import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
 import { type AssistanceMode, clamp, defaults, type Settings, World } from './world'
+import { WorldMap } from './world-map'
 
 const impactShake = { pitch: 0.025, roll: 0.035 }
-export const cinemaRelief = { frame: 1 / 40, patience: 3, scales: [1, 0.82, 0.68] }
 const paintBudget = 11
 const paintDepth = 0.86
 export const contactShade = { opacity: 0.5, margin: 1.25, lift: 0.045 }
@@ -98,6 +98,8 @@ export class RoadEngine {
   antialiasing: SoftwareAntialias | null
   cinema: CinematicPipeline | null = null
   cinemaStrain = 0
+  framePace = 1 / 60
+  frameJitter = 0
   dayClock = 0
   contact = contactShadow()
   tyreClouds = new TyreParticles()
@@ -125,6 +127,7 @@ export class RoadEngine {
   world: World
   physics: CarPhysics
   minimap: Minimap
+  atlas: WorldMap
   water: Water
   terrain: Terrain
   car: VehicleModel
@@ -175,7 +178,8 @@ export class RoadEngine {
       | 'journeyPrevious'
       | 'vehicleNext'
       | 'vehiclePrevious'
-      | 'photo',
+      | 'photo'
+      | 'map',
   ) => void
   resize = () => {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -222,6 +226,7 @@ export class RoadEngine {
     if (event.code === 'KeyH') this.onAction?.('help')
     if (event.code === 'KeyR') this.reset()
     if (event.code === 'KeyT' && this.started) this.onAction?.('photo')
+    if (event.code === 'KeyN' && this.started) this.onAction?.('map')
     if (event.code === 'KeyB') this.audio.hornHeld = this.started
     if (event.code === 'KeyX') this.view.rear = this.started
   }
@@ -351,6 +356,8 @@ export class RoadEngine {
     this.world = new World(this.settings)
     this.physics = new CarPhysics(this.world)
     this.minimap = new Minimap(this.world)
+    this.atlas = new WorldMap(this.world)
+    this.atlas.found = this.minimap.found
     this.crossfade = new SceneCrossfade(canvas)
     this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
@@ -668,6 +675,7 @@ export class RoadEngine {
     )
     this.terrain.setNight(night)
     this.minimap.dim = clamp(0.3 + (profile.ambient / 2.6) * 0.7, 0.5, 1)
+    this.atlas.dim = this.minimap.dim
     this.lightning.base = profile.ambient * 0.3
     this.sky.setAppearance(profile)
     if (this.scene.fog instanceof THREE.FogExp2) {
@@ -821,9 +829,12 @@ export class RoadEngine {
     const elapsed = this.lastTime ? (time - this.lastTime) / 1000 : 1 / 60
     const dt = Math.min(elapsed, 0.05)
     this.frameRate = Math.round(1 / Math.max(elapsed, 0.001))
+    this.framePace += (elapsed - this.framePace) * 0.05
+    this.frameJitter += (Math.abs(elapsed - this.framePace) - this.frameJitter) * 0.05
+    const strained = frameStrained(elapsed, this.framePace, this.frameJitter)
     if (!this.software && this.started && !this.paused && !this.photo) {
       this.cinemaStrain = clamp(
-        this.cinemaStrain + (elapsed > cinemaRelief.frame ? elapsed : -elapsed),
+        this.cinemaStrain + (strained ? elapsed : -elapsed),
         0,
         cinemaRelief.patience,
       )
@@ -910,6 +921,7 @@ export class RoadEngine {
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.audio.update(p, input, this.settings, this.paused || this.photo || !this.started, dt)
     if (this.started) this.minimap.update(p)
+    if (this.started) this.atlas.update(p)
     this.drawScene()
     this.crossfade.rendered()
     if (!this.rendered) this.canvas.style.visibility = ''

@@ -13,6 +13,7 @@ import {
   CircleHelp,
   Expand,
   Keyboard,
+  Map as MapIcon,
   Motorbike,
   Mountain,
   Pause,
@@ -84,6 +85,9 @@ export function Drive() {
     cycleVehicle,
     togglePhoto,
     copyLink,
+    atlas,
+    setAtlas,
+    atlasCanvas,
     fullscreen,
     touch,
   } = useDrive()
@@ -340,6 +344,13 @@ export function Drive() {
                 <Aperture />
               </IconButton>
               <IconButton
+                label={atlas ? 'Hide the world map' : 'Show the world map'}
+                active={atlas}
+                onClick={() => setAtlas((current) => !current)}
+              >
+                <MapIcon />
+              </IconButton>
+              <IconButton
                 label={`Switch vehicle (${vehicleNames[settings.vehicle]})`}
                 onClick={() => cycleVehicle(1)}
               >
@@ -459,6 +470,22 @@ export function Drive() {
             </button>
           </section>
         </Modal>
+      )}
+      {started && atlas && !state.photo && (
+        <section className="world-map" aria-label="Map of the whole world">
+          <header>
+            <span>THE WHOLE LOOP</span>
+            <span>
+              {(worldLoop.length / mapUnit).toFixed(1)} {settings.units} around,{' '}
+              {(worldLoop.width / mapUnit).toFixed(1)} {settings.units} across. Every edge joins the
+              opposite one.
+            </span>
+            <button type="button" onClick={() => setAtlas(false)}>
+              <kbd>N</kbd> close
+            </button>
+          </header>
+          <canvas ref={atlasCanvas} />
+        </section>
       )}
       {state.photo && (
         <div className="photo-hint" role="status">
