@@ -1,7 +1,7 @@
 {
   "name": "slow.voyage",
   "short_name": "slow.voyage",
-  "description": "An endless scenic driving game with changing landscapes, four vehicles and offline play.",
+  "description": "An endless scenic driving game with six landscapes, seven vehicles and offline play.",
   "id": "/",
   "start_url": "/",
   "display": "fullscreen",
