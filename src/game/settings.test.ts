@@ -29,7 +29,7 @@ describe('saved preferences', () => {
     const settings = decodeSettings({
       vehicle: 'unknown',
       season: null,
-      weather: 'storm',
+      weather: 'tornado',
       volume: Number.NaN,
       power: '2',
       camera: {},

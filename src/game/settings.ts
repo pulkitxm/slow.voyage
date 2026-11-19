@@ -33,8 +33,8 @@ export function decodeSettings(stored: unknown): Settings {
       const options: Record<typeof key, readonly string[]> = {
         landscape: landscapeIds,
         season: ['summer', 'autumn', 'winter'],
-        daylight: ['day', 'sunset', 'night'],
-        weather: ['clear', 'overcast', 'rain', 'fog'],
+        daylight: ['dawn', 'day', 'sunset', 'dusk', 'night', 'cycle'],
+        weather: ['clear', 'overcast', 'rain', 'storm', 'fog'],
         vehicle: ['touring', 'roadster', 'motorcycle', 'bus'],
         camera: cameras,
         quality: ['high', 'low'],

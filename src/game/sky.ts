@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { type atmosphereProfile, sunDirection } from './atmosphere'
+import { type AtmosphereProfile, sunDirection } from './atmosphere'
 
 export class ScenicSky extends THREE.Mesh<THREE.SphereGeometry, THREE.ShaderMaterial> {
   constructor() {
@@ -96,7 +96,7 @@ void main() {
     this.frustumCulled = false
   }
 
-  setAppearance(profile: ReturnType<typeof atmosphereProfile>) {
+  setAppearance(profile: AtmosphereProfile) {
     this.material.uniforms.top?.value.set(profile.sky)
     this.material.uniforms.horizon?.value.set(profile.horizon)
     this.material.uniforms.cloudColor?.value.set(profile.cloudColor)

@@ -1,6 +1,8 @@
 import * as THREE from 'three'
-import { atmosphereProfile } from './atmosphere'
+import type { AtmosphereProfile } from './atmosphere'
 import { random, type Settings } from './world'
+
+export const precipitationLayout = { particles: 3600, calm: 0.5 }
 
 export class Precipitation {
   origin = { value: new THREE.Vector3() }
@@ -12,7 +14,7 @@ export class Precipitation {
     const rainPositions: number[] = [],
       snowPositions: number[] = [],
       tips: number[] = []
-    for (let i = 0; i < 1800; i++) {
+    for (let i = 0; i < precipitationLayout.particles; i++) {
       const position = [rng() * 64, rng() * 32, rng() * 64]
       rainPositions.push(...position, ...position)
       tips.push(0, 1)
@@ -74,12 +76,12 @@ diffuseColor.a *= 1.0 - smoothstep(0.2, 0.5, flakeRadius);`,
     this.rain.visible = this.snow.visible = false
     scene.add(this.rain, this.snow)
   }
-  setAppearance(settings: Settings) {
-    const profile = atmosphereProfile(settings)
+  setAppearance(settings: Settings, profile: AtmosphereProfile) {
     this.rain.visible = profile.wet
     this.snow.visible = profile.snow
-    this.rain.material.color.set(settings.daylight === 'night' ? '#839aaa' : '#c2d5df')
-    const count = settings.quality === 'low' ? 600 : 1800
+    this.rain.material.color.set(profile.night > 0.5 ? '#839aaa' : '#c2d5df')
+    const base = precipitationLayout.particles / (settings.quality === 'low' ? 3 : 1)
+    const count = Math.round(base * (profile.downpour > 0.5 ? 1 : precipitationLayout.calm))
     this.rain.geometry.setDrawRange(0, count * 2)
     this.snow.geometry.setDrawRange(0, count)
   }

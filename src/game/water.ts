@@ -1,6 +1,5 @@
 import * as THREE from 'three'
-import { type atmosphereProfile, sunDirection } from './atmosphere'
-import type { Daylight } from './world'
+import { type AtmosphereProfile, sunDirection } from './atmosphere'
 
 export class Water {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
@@ -66,25 +65,13 @@ void main() {
     this.mesh.position.z = -s
     if (this.mesh.material.uniforms.time) this.mesh.material.uniforms.time.value = time
   }
-  setAppearance(
-    daylight: Daylight,
-    winter: boolean,
-    profile: ReturnType<typeof atmosphereProfile>,
-  ) {
-    const colors =
-      daylight === 'night'
-        ? ['#132639', '#2b3f52']
-        : daylight === 'sunset'
-          ? ['#53687a', '#e8bc98']
-          : ['#4f8098', '#d8e8ea']
+  setAppearance(winter: boolean, profile: AtmosphereProfile) {
     this.mesh.material.uniforms.sunDirection?.value.copy(sunDirection(profile.sunHeight))
     this.mesh.material.uniforms.sunColor?.value.set(profile.sun)
     if (this.mesh.material.uniforms.glitter)
       this.mesh.material.uniforms.glitter.value = profile.sunGlow * 1.5
-    this.mesh.material.uniforms.deepColor?.value.set(
-      winter ? (daylight === 'night' ? '#4e647c' : '#b7c8cd') : colors[0],
-    )
-    this.mesh.material.uniforms.skyColor?.value.set(colors[1])
+    this.mesh.material.uniforms.deepColor?.value.set(winter ? profile.frozenWater : profile.water)
+    this.mesh.material.uniforms.skyColor?.value.set(profile.waterSky)
     if (this.mesh.material.uniforms.frozen)
       this.mesh.material.uniforms.frozen.value = winter ? 1 : 0
   }
