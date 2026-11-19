@@ -1,9 +1,10 @@
 import type { ControllerBindings, ControllerMode } from './controller-bindings'
 import { roadCurve, smoothStep, terrainField, wrapOffset } from './field'
 import { groundSurface } from './ground-grid'
+import { type Landscape, landscapeProfiles, terraced } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
 
-export type Landscape = 'highlands' | 'alpine' | 'desert'
+export type { Landscape } from './landscapes'
 export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'day' | 'sunset' | 'night'
 export type Weather = 'clear' | 'overcast' | 'rain' | 'fog'
@@ -11,11 +12,6 @@ export type Vehicle = 'touring' | 'roadster' | 'motorcycle' | 'bus'
 export type CameraMode = 'chase' | 'bonnet' | 'cinematic'
 export type AssistanceMode = 'off' | 'full' | 'steer' | 'speed'
 export type SteeringSource = 'digital' | 'analog' | 'mouse' | 'automatic'
-const roadProfiles = {
-  highlands: [24, 10, 3],
-  alpine: [100, 28, 8],
-  desert: [18, 4, 1],
-} as const
 export interface Settings {
   landscape: Landscape
   season: Season
@@ -91,7 +87,7 @@ export class World {
     const dx = broad.derivative * 200 + middle.derivative * 75 + bend.derivative * 14
     const rise = roadCurve(s, 1350, seed + 499),
       crest = roadCurve(s + 129, 420, seed + 951)
-    const [base, riseScale, crestScale] = roadProfiles[this.settings.landscape]
+    const [base, riseScale, crestScale] = landscapeProfiles[this.settings.landscape].road
     const y = base + rise.value * riseScale + crest.value * crestScale
     const dy = rise.derivative * riseScale + crest.derivative * crestScale
     return { x, y, dx, dy, yaw: Math.atan2(-dx, 1) }
@@ -111,17 +107,20 @@ export class World {
     const d = offset + ((frame?.distance ?? offset) - offset) * corridor
     const distance = Math.abs(d)
     if (distance <= roadLayout.halfWidth + roadLayout.verge) return level - roadLayout.surfaceRecess
-    const amplitude =
-      this.settings.landscape === 'alpine' ? 2.4 : this.settings.landscape === 'desert' ? 0.45 : 1
+    const profile = landscapeProfiles[this.settings.landscape]
     const hills =
       terrainField(x, s, this.settings.seed) - terrainField(center.x, s, this.settings.seed)
     const coastDirection = roadCurve(s, 2600, this.settings.seed + 1029).value
     const coastFactor =
-      this.settings.landscape === 'highlands' ? clamp(0.5 + coastDirection * Math.sign(d), 0, 1) : 0
+      profile.coast === 'side'
+        ? clamp(0.5 + coastDirection * Math.sign(d), 0, 1)
+        : profile.coast === 'both'
+          ? clamp(0.3 + Math.abs(coastDirection) * 1.4, 0, 1)
+          : 0
     const basin = 1 - smoothStep(clamp((distance - coastBasin.start) / coastBasin.fade, 0, 1))
     const coast =
       Math.min(110, Math.max(0, distance - roadLayout.halfWidth) * 0.26) * coastFactor * basin
-    const relief = hills * amplitude - coast
+    const relief = terraced(hills * profile.relief, profile.terrace, smoothStep) - coast
     const cut = smoothStep(clamp((relief - 0.6) / 3, 0, 1))
     const blend = smoothStep(
       clamp((distance - roadLayout.halfWidth - roadLayout.verge) / (13.2 - cut * 6.5), 0, 1),
@@ -139,7 +138,7 @@ export class World {
   sandy(height: number, distance: number) {
     return (
       Math.abs(distance) > roadLayout.halfWidth + roadLayout.shoulder &&
-      (this.settings.landscape === 'desert' || height < shoreHeight)
+      (landscapeProfiles[this.settings.landscape].sand || height < shoreHeight)
     )
   }
 

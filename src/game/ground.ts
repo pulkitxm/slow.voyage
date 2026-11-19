@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { groundLayout, groundOffsets } from './ground-grid'
+import { landscapeProfiles } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
 import { loadRockSurface } from './rock'
 import { woodlandCoverage } from './woodland'
@@ -36,6 +37,7 @@ export function* groundRows(
     bankHeights: number[] = [],
     uv: number[] = []
   const settings = world.settings
+  const profile = landscapeProfiles[settings.landscape]
   const color = new THREE.Color()
   const shore = new THREE.Color(settings.season === 'winter' ? '#dde3dc' : '#c5c1a3')
   const snow = new THREE.Color('#dae0dc')
@@ -64,16 +66,17 @@ export function* groundRows(
       const variation =
         0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055
       color.copy(base).lerp(light, variation)
-      if (elevation < shoreHeight && settings.landscape !== 'desert')
+      if (elevation < shoreHeight && profile.shore)
         color.lerp(shore, clamp((shoreHeight - elevation) / 1.5, 0, 1))
-      if (settings.landscape === 'alpine' && elevation > 120)
-        color.lerp(snow, clamp((elevation - 120) / 80, 0, 1))
+      if (profile.snowLine !== null && elevation > profile.snowLine)
+        color.lerp(snow, clamp((elevation - profile.snowLine) / 80, 0, 1))
       colors.push(color.r, color.g, color.b)
       let forest = 0
-      if (settings.landscape !== 'desert' && elevation > 0.7) {
+      if (profile.woodland && elevation > 0.7) {
         const grove = woodlandCoverage(x, s, settings.seed, settings.landscape)
         const verge = clamp((Math.abs(distance) - 45) / 30, 0, 1)
-        const treeLine = settings.landscape === 'alpine' ? clamp((220 - elevation) / 60, 0, 1) : 1
+        const treeLine =
+          profile.treeLine === null ? 1 : clamp((profile.treeLine - elevation) / 60, 0, 1)
         forest = grove * verge * treeLine
       }
       groveCover.push(forest)
@@ -285,21 +288,22 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
   setAppearance(settings: Settings) {
     const winter = settings.season === 'winter',
       autumn = settings.season === 'autumn',
-      desert = settings.landscape === 'desert'
+      field = landscapeProfiles[settings.landscape].field
     this.fieldUniforms.fieldDryGrass.value.set(
-      winter ? '#d2dad4' : desert ? '#c5ae7b' : autumn ? '#b5a66b' : '#aaa66d',
+      winter ? '#d2dad4' : field ? field.dry : autumn ? '#b5a66b' : '#aaa66d',
     )
-    this.fieldUniforms.fieldDryness.value = winter ? 0.08 : autumn ? 0.7 : desert ? 0.24 : 0.38
+    this.fieldUniforms.fieldDryness.value = winter ? 0.08 : autumn ? 0.7 : (field?.dryness ?? 0.38)
+    const shade = field?.shade
     this.fieldUniforms.fieldMeadowShade.value.setRGB(
-      winter ? 0.87 : desert ? 0.83 : autumn ? 0.75 : 0.65,
-      winter ? 0.92 : desert ? 0.77 : autumn ? 0.74 : 0.78,
-      winter ? 0.94 : desert ? 0.66 : autumn ? 0.61 : 0.55,
+      winter ? 0.87 : shade ? shade[0] : autumn ? 0.75 : 0.65,
+      winter ? 0.92 : shade ? shade[1] : autumn ? 0.74 : 0.78,
+      winter ? 0.94 : shade ? shade[2] : autumn ? 0.61 : 0.55,
     )
-    this.fieldUniforms.fieldRock.value.set(winter ? '#aab2b0' : desert ? '#9f8160' : '#8c877a')
+    this.fieldUniforms.fieldRock.value.set(winter ? '#aab2b0' : field ? field.rock : '#8c877a')
     this.fieldUniforms.fieldSoil.value.set(
-      winter ? '#969b8e' : desert ? '#a2855e' : autumn ? '#8a7755' : '#807350',
+      winter ? '#969b8e' : field ? field.soil : autumn ? '#8a7755' : '#807350',
     )
-    this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : desert ? '#b39a75' : '#a9a99b')
+    this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
     return 'triplanar-rock-road-cuts'

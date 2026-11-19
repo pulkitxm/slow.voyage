@@ -360,6 +360,15 @@ svg {
 .landscape-preview.desert {
   background: linear-gradient(180deg, #d7c5ae 0 43%, #d0b27f 44% 70%, #b59668 71%);
 }
+.landscape-preview.forest {
+  background: linear-gradient(180deg, #c3d3cc 0 38%, #55724f 39% 70%, #3f5a40 71%);
+}
+.landscape-preview.canyon {
+  background: linear-gradient(180deg, #e3c6a8 0 43%, #c9774b 44% 70%, #a55a39 71%);
+}
+.landscape-preview.fjord {
+  background: linear-gradient(180deg, #c9d8dd 0 40%, #e4e9e6 41% 50%, #6f8fa3 51% 72%, #8c9160 73%);
+}
 .mini-mountain {
   position: absolute;
   bottom: 0;
@@ -378,6 +387,21 @@ svg {
 }
 .desert .mini-mountain {
   background: #c4a472;
+}
+.forest .mini-mountain {
+  background: #4c6a49;
+}
+.canyon .mini-mountain {
+  background: #b9683f;
+  clip-path: polygon(0 100%, 8% 30%, 38% 30%, 44% 55%, 62% 55%, 68% 12%, 92% 12%, 100% 100%);
+  height: 46px;
+  border-radius: 0;
+}
+.fjord .mini-mountain {
+  background: #8d9aa0;
+  clip-path: polygon(0 100%, 26% 18%, 46% 58%, 70% 6%, 100% 100%);
+  height: 50px;
+  border-radius: 0;
 }
 .mini-road {
   position: absolute;

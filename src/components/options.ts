@@ -12,8 +12,11 @@ import {
   Mountain,
   Snowflake,
   Sun,
+  Sunrise,
   Sunset,
+  TreePine,
   Trees,
+  Waves,
 } from 'lucide-react'
 
 export { cameras } from '../game/settings'
@@ -31,6 +34,24 @@ export const landscapes = [
     icon: Mountain,
   },
   { id: 'desert', title: 'Desert Highway', subtitle: 'Quiet sands. Endless skies.', icon: Sun },
+  {
+    id: 'forest',
+    title: 'Old Forest',
+    subtitle: 'Tall pines. Soft light.',
+    icon: TreePine,
+  },
+  {
+    id: 'canyon',
+    title: 'Red Canyon',
+    subtitle: 'Mesas and long shadows.',
+    icon: Sunrise,
+  },
+  {
+    id: 'fjord',
+    title: 'Northern Lakes',
+    subtitle: 'Still water. Snowy tops.',
+    icon: Waves,
+  },
 ] as const
 export const seasons = [
   { id: 'summer', label: 'Summer', icon: Sun },
