@@ -1,4 +1,4 @@
-import { AudioLines, Camera, Check, RotateCcw, ShieldCheck, X } from 'lucide-react'
+import { AudioLines, Camera, Check, Link2, RotateCcw, ShieldCheck, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
@@ -19,6 +19,7 @@ interface Props {
   controller: ControllerStatus
   onClose: () => void
   onNewJourney: () => void
+  onShare: () => void
   onCapture: () => void
 }
 export function SettingsPanel({
@@ -30,6 +31,7 @@ export function SettingsPanel({
   controller,
   onClose,
   onNewJourney,
+  onShare,
   onCapture,
 }: Props) {
   useEffect(() => {
@@ -158,6 +160,9 @@ export function SettingsPanel({
               <p>The same feeling, somewhere different.</p>
               <button type="button" className="secondary-button" onClick={onNewJourney}>
                 <RotateCcw size={15} /> Generate a new journey
+              </button>
+              <button type="button" className="secondary-button" onClick={onShare}>
+                <Link2 size={15} /> Copy a link to this spot
               </button>
             </section>
           </>

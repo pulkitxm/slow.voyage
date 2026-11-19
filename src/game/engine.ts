@@ -13,6 +13,7 @@ import {
 import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
+import { LapClock } from './laps'
 import { lapState, Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
@@ -46,6 +47,10 @@ export interface DriveState extends Telemetry {
   lap: number
   lapDistance: number
   roadDistance: number
+  lapTime: number | null
+  lastLap: number | null
+  bestLap: number | null
+  photo: boolean
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
@@ -53,6 +58,9 @@ export class RoadEngine {
   cinema: CinematicPipeline | null = null
   cinemaStrain = 0
   dayClock = 0
+  laps = new LapClock()
+  photo = false
+  onLap?: (time: number, record: boolean) => void
   lightingAt = 0
   reflectionAt = Number.NEGATIVE_INFINITY
   dark = false
@@ -113,7 +121,8 @@ export class RoadEngine {
       | 'journeyNext'
       | 'journeyPrevious'
       | 'vehicleNext'
-      | 'vehiclePrevious',
+      | 'vehiclePrevious'
+      | 'photo',
   ) => void
   resize = () => {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -122,6 +131,12 @@ export class RoadEngine {
   }
   keyDown = (event: KeyboardEvent) => {
     if (!this.rendered) return
+    if (this.photo) {
+      if (['Escape', 'KeyT'].includes(event.code)) this.onAction?.('photo')
+      if (['Enter', 'Space'].includes(event.code)) this.screenshot()
+      if (['Escape', 'Space', 'Enter'].includes(event.code)) event.preventDefault()
+      return
+    }
     if (this.controlsBlocked || document.querySelector('dialog[open]')) return
     if (event.metaKey || event.ctrlKey || event.altKey) return
     if (
@@ -153,6 +168,7 @@ export class RoadEngine {
     if (event.code === 'KeyC') this.onAction?.('camera')
     if (event.code === 'KeyH') this.onAction?.('help')
     if (event.code === 'KeyR') this.reset()
+    if (event.code === 'KeyT' && this.started) this.onAction?.('photo')
     if (event.code === 'KeyB') this.audio.hornHeld = this.started
     if (event.code === 'KeyX') this.view.rear = this.started
   }
@@ -367,6 +383,7 @@ export class RoadEngine {
     this.started = true
     this.assistance = assistance
     this.paused = false
+    this.laps.reset(this.physics.s)
     this.audio.start(this.settings.volume)
     this.physics.distance = 0
     if (assistance === 'off' || assistance === 'steer') this.physics.speed = 0
@@ -409,12 +426,28 @@ export class RoadEngine {
       lap: lap.lap,
       lapDistance: lap.distance,
       roadDistance: roadGuide(this.world, this.physics).distance,
+      lapTime: this.laps.timed ? this.laps.time : null,
+      lastLap: this.laps.last,
+      bestLap: this.laps.best,
+      photo: this.photo,
       assistance: this.assistance,
       paused: this.paused,
       fps: this.frameRate,
       controller: this.controllerStatus,
       mouseSteering: this.mouse.steer,
     })
+  }
+  setPhoto(photo: boolean) {
+    if (!this.started || this.paused) return
+    this.photo = photo
+    this.blur()
+    this.emitState()
+  }
+  travelTo(s: number) {
+    this.physics.reset(s)
+    this.laps.reset(s)
+    this.view.center()
+    this.view.snap()
   }
   reset() {
     this.mouse.reset()
@@ -443,6 +476,7 @@ export class RoadEngine {
     if (environmentChange) this.minimap.invalidate()
     this.settings = { ...settings }
     this.world.settings = this.settings
+    if (roadChange || vehicleChange) this.laps.reset(this.physics.s)
     if (roadChange) {
       const speed = this.physics.speed
       this.physics.reset()
@@ -661,6 +695,7 @@ export class RoadEngine {
     let input = this.manualInput()
     if (
       !this.paused &&
+      !this.photo &&
       !document.hidden &&
       (!this.controlsBlocked || !this.started || this.assistance === 'full')
     ) {
@@ -674,9 +709,11 @@ export class RoadEngine {
           ? automatic
           : resolveInput(this.manualInput(), automatic, this.assistance, this.settings.onePedal)
         this.physics.update(step, input, this.settings)
+        const lap = this.started ? this.laps.step(this.physics.s, step) : null
+        if (lap) this.onLap?.(lap.time, lap.record)
       })
     }
-    if (this.started && !this.paused && !document.hidden) this.advanceSky(dt)
+    if (this.started && !this.paused && !this.photo && !document.hidden) this.advanceSky(dt)
     const p = this.physics
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
@@ -694,7 +731,7 @@ export class RoadEngine {
       this.dark,
       p.speed,
     )
-    const cameraMode = this.started ? this.settings.camera : 'cinematic'
+    const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
@@ -708,7 +745,7 @@ export class RoadEngine {
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
-    this.audio.update(p, input, this.settings, this.paused || !this.started, dt)
+    this.audio.update(p, input, this.settings, this.paused || this.photo || !this.started, dt)
     if (this.started) this.minimap.update(p)
     this.drawScene()
     this.crossfade.rendered()
@@ -731,7 +768,7 @@ export class RoadEngine {
   }
   screenshot() {
     const link = document.createElement('a')
-    link.download = 'slow-roads.png'
+    link.download = 'slow-voyage.png'
     link.href = this.canvas.toDataURL('image/png')
     link.click()
   }

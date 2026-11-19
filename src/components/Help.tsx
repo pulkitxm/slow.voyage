@@ -23,6 +23,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['+ / -', 'Adjust cruise speed'],
             ['C', 'Change camera'],
             ['X', 'Look behind'],
+            ['T', 'Photo mode'],
             ['B', 'Horn'],
             ['Q / E', 'Previous / next scenery'],
             ['V / Shift V', 'Next / previous vehicle'],
