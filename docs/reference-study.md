@@ -120,6 +120,8 @@ and actual initial speed. The local fixed-step response is more consistent acros
 60 Hz and 120 Hz, but the ordinary acceleration and coast responses still differ.
 These measurements do not justify retuning current-release drag or brakes.
 
+Boost has since become a draining charge with extra drive above the nominal top
+speed; see `world.md`. The reserve described here still applies while it fires.
 Forward boost now uses the historical speed-dependent reserve, tapering to the
 ordinary base drive at each vehicle's nominal speed. Pedal pressure and the power
 setting remain linear. Braking retains priority, reverse ignores boost, and boost

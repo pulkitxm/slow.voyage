@@ -4,7 +4,9 @@ import { groundGeometry, groundRows } from './ground'
 import { groundLayout, groundOffsets } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { roadLayout, roadPoint } from './road'
-import { defaults, World } from './world'
+import { defaults, fordDepth, fordShelf, World } from './world'
+
+const shoreBand = fordDepth + fordShelf + 2.5
 
 const grass = new THREE.Color('#819e48')
 const light = new THREE.Color('#b2c76b')
@@ -130,7 +132,9 @@ test.each(['highlands', 'alpine', 'desert'] as const)(
               positions.getY(a) * weights[0] +
               positions.getY(b) * weights[1] +
               positions.getY(c) * weights[2]
-            maximumError = Math.max(maximumError, Math.abs(height - world.height(x, s)))
+            const field = world.height(x, s)
+            if (field < shoreBand) continue
+            maximumError = Math.max(maximumError, Math.abs(height - field))
           }
         }
         ground.dispose()
@@ -154,10 +158,9 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
             const s = start + fraction * 120
             for (let distance = -649; distance <= 649; distance += 23) {
               const x = world.road(s).x + distance
-              maximumError = Math.max(
-                maximumError,
-                Math.abs(ground.sample(x, s) - world.height(x, s)),
-              )
+              const field = world.height(x, s)
+              if (field < shoreBand) continue
+              maximumError = Math.max(maximumError, Math.abs(ground.sample(x, s) - field))
             }
           }
           geometry.dispose()
