@@ -1,4 +1,5 @@
 import {
+  Aperture,
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
@@ -28,6 +29,7 @@ import { daylight, landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
 import { worldLoop } from './game/field'
+import { formatLap } from './game/laps'
 import { minimapLayout } from './game/minimap'
 import { vehicleNames } from './game/vehicles'
 import type { Vehicle } from './game/world'
@@ -67,6 +69,8 @@ export function Drive() {
     toggleAuto,
     cycleCamera,
     cycleVehicle,
+    togglePhoto,
+    copyLink,
     fullscreen,
     touch,
   } = useDrive()
@@ -78,7 +82,7 @@ export function Drive() {
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
   return (
     <main
-      className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''}`}
+      className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''} ${state.photo ? 'is-photo' : ''}`}
       data-controller={state.controller}
       data-landscape={settings.landscape}
       data-season={settings.season}
@@ -240,7 +244,11 @@ export function Drive() {
                 {(state.lapDistance / mapUnit).toFixed(1)} /{' '}
                 {(worldLoop.length / mapUnit).toFixed(1)} {settings.units}
               </span>
+              {state.lapTime !== null && <span>{formatLap(state.lapTime)}</span>}
             </div>
+            {state.bestLap !== null && (
+              <div className="minimap-best">BEST {formatLap(state.bestLap)}</div>
+            )}
             {state.roadDistance > minimapLayout.guideDistance && (
               <div className="road-finder">
                 ROAD{' '}
@@ -292,6 +300,9 @@ export function Drive() {
               <span className="toolbar-divider" />
               <IconButton label={`Change camera (${settings.camera})`} onClick={cycleCamera}>
                 <Camera />
+              </IconButton>
+              <IconButton label="Photo mode" onClick={togglePhoto}>
+                <Aperture />
               </IconButton>
               <IconButton
                 label={`Switch vehicle (${vehicleNames[settings.vehicle]})`}
@@ -385,6 +396,7 @@ export function Drive() {
             engine.current?.reset()
             announce('A new road, just for you.')
           }}
+          onShare={copyLink}
           onCapture={() => {
             engine.current?.screenshot()
             announce('A little memory, saved.')
@@ -412,6 +424,18 @@ export function Drive() {
             </button>
           </section>
         </Modal>
+      )}
+      {state.photo && (
+        <div className="photo-hint" role="status">
+          <span>Drag to look around</span>
+          <span>Scroll to zoom</span>
+          <span>
+            <kbd>Enter</kbd> saves
+          </span>
+          <button type="button" onClick={togglePhoto}>
+            <kbd>Esc</kbd> back to the road
+          </button>
+        </div>
       )}
       {help && <Help onClose={() => setHelp(false)} />}
       {error && (
