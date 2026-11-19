@@ -28,6 +28,7 @@ export const mixLevels = {
   rumble: 0.3,
   wind: 0.24,
   horn: 0.16,
+  thunder: 0.5,
   squeal: 0.11,
   brakeSqueal: 0.03,
   scrape: 0.28,
@@ -126,6 +127,14 @@ export class DriveAudio {
     this.hornGain = this.createHorn(context, this.master)
   }
 
+  thunder(delay: number) {
+    const { context } = this
+    if (!context) return
+    const t = context.currentTime + delay
+    this.burst(t, 140, 0.7, mixLevels.thunder, 0.5, 'lowpass')
+    this.burst(t + 0.3, 90, 0.6, mixLevels.thunder * 0.7, 0.9, 'lowpass')
+  }
+
   private createHorn(context: AudioContext, output: AudioNode) {
     const gain = context.createGain()
     gain.gain.value = 0
@@ -194,7 +203,15 @@ export class DriveAudio {
       wadeLevel(car.wading, speed) * mixLevels.wade * (0.7 + Math.random() * 0.6),
       0.05,
     )
-    set(loops.rain.gain, settings.weather === 'rain' ? mixLevels.rain : 0, 1)
+    set(
+      loops.rain.gain,
+      settings.weather === 'storm'
+        ? mixLevels.rain * 1.7
+        : settings.weather === 'rain'
+          ? mixLevels.rain
+          : 0,
+      1,
+    )
     const enclosed = settings.camera === 'bonnet' && vehicle !== 'motorcycle'
     cabin.frequency.setTargetAtTime(enclosed ? 4800 : 20000, t, 0.3)
 
@@ -377,6 +394,7 @@ export class DriveAudio {
     if (!context || !mix || !this.noise) return
     const source = context.createBufferSource()
     source.buffer = this.noise
+    source.loop = true
     const filter = context.createBiquadFilter()
     filter.type = type
     filter.frequency.value = band

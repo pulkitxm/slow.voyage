@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { landscapeProfiles } from './landscapes'
-import type { Settings } from './world'
+import type { Daylight, Settings, Weather } from './world'
 
 export const sunOffset = { x: -90, z: -80 }
 
@@ -8,66 +8,179 @@ export function sunDirection(height: number) {
   return new THREE.Vector3(sunOffset.x, height, sunOffset.z).normalize()
 }
 
-export function atmosphereProfile(settings: Settings) {
-  const night = settings.daylight === 'night'
-  const sunset = settings.daylight === 'sunset'
-  const weather = settings.weather
+export type DayPhase = Exclude<Daylight, 'cycle'>
+
+const clearSkies: Record<DayPhase, string> = {
+  dawn: '#6f93c4',
+  day: '#69b7ef',
+  sunset: '#829bb6',
+  dusk: '#2c3d66',
+  night: '#122239',
+}
+const clearHorizons: Record<DayPhase, string> = {
+  dawn: '#f6cdbb',
+  day: '#e1f2ec',
+  sunset: '#f0b48e',
+  dusk: '#b98a8c',
+  night: '#2d4258',
+}
+const clearClouds: Record<DayPhase, string> = {
+  dawn: '#f7d9c8',
+  day: '#f3f8f6',
+  sunset: '#f3cfb6',
+  dusk: '#8d7f93',
+  night: '#35465e',
+}
+const lowSuns: Partial<Record<DayPhase, string>> = {
+  dawn: '#ffd7b0',
+  sunset: '#ffc48e',
+  dusk: '#ff9c7c',
+  night: '#a3bde0',
+}
+const dimming: Record<DayPhase, number> = { dawn: 0.12, day: 0, sunset: 0, dusk: 0.6, night: 1 }
+const sunHeights: Record<DayPhase, number> = {
+  dawn: 30,
+  day: 110,
+  sunset: 38,
+  dusk: 16,
+  night: 110,
+}
+const clearSunlight: Record<DayPhase, number> = {
+  dawn: 1.7,
+  day: 2.5,
+  sunset: 2.3,
+  dusk: 0.55,
+  night: 0.5,
+}
+const clearGlow: Record<DayPhase, number> = {
+  dawn: 1.2,
+  day: 0.8,
+  sunset: 1.4,
+  dusk: 0.9,
+  night: 0.35,
+}
+const waters: Record<DayPhase, [deep: string, sky: string]> = {
+  dawn: ['#5a7890', '#f0cdbd'],
+  day: ['#4f8098', '#d8e8ea'],
+  sunset: ['#53687a', '#e8bc98'],
+  dusk: ['#2a3d58', '#8f7f95'],
+  night: ['#132639', '#2b3f52'],
+}
+const scratch = new THREE.Color()
+const scratchTarget = new THREE.Color()
+
+function mixColor(from: string, to: string, amount: number) {
+  if (amount <= 0) return from
+  if (amount >= 1) return to
+  return `#${scratch.set(from).lerp(scratchTarget.set(to), amount).getHexString()}`
+}
+
+function phaseProfile(phase: DayPhase, weather: Weather, season: Settings['season']) {
+  const night = phase === 'night'
+  const storm = weather === 'storm'
+  const raining = weather === 'rain' || storm
   const covered = weather !== 'clear'
+  const dim = dimming[phase]
+  const shaded = (color: string, dark: string) => mixColor(color, dark, dim)
+  const coveredLight = storm ? 0.3 : weather === 'fog' ? 0.35 : raining ? 0.5 : 0.85
+  const twilight = phase === 'dawn' ? 0.8 : phase === 'dusk' ? 0.35 : 1
   return {
-    sunHeight: sunset ? 38 : 110,
-    sunGlow: night ? 0.35 : covered ? 0.15 : sunset ? 1.4 : 0.8,
-    stars: night && !covered ? 1 : 0,
-    sky: night
-      ? '#122239'
-      : covered
-        ? weather === 'rain'
-          ? '#596e7b'
-          : '#8c9da6'
-        : sunset
-          ? '#829bb6'
-          : '#69b7ef',
-    horizon: night
-      ? '#2d4258'
-      : weather === 'fog'
-        ? '#c3cecb'
-        : weather === 'rain'
-          ? '#9dafb4'
-          : covered
-            ? '#c4cfce'
-            : sunset
-              ? '#f0b48e'
-              : '#e1f2ec',
-    cloudColor: night
-      ? '#35465e'
-      : covered
-        ? weather === 'rain'
-          ? '#9dafb4'
-          : '#d0d9d7'
-        : sunset
-          ? '#f3cfb6'
-          : '#f3f8f6',
-    sun: night ? '#a3bde0' : sunset ? '#ffc48e' : covered ? '#d8e3e9' : '#fff3db',
-    sunlight: night
-      ? 0.5
-      : weather === 'fog'
-        ? 0.35
-        : weather === 'rain'
-          ? 0.5
-          : covered
-            ? 0.85
-            : sunset
-              ? 2.3
-              : 2.5,
-    ambient: night ? 0.8 : covered ? 2.2 : 2.6,
-    exposure: night ? 0.86 : weather === 'rain' ? 0.94 : 1.02,
+    sunHeight: sunHeights[phase],
+    sunGlow: night ? 0.35 : covered ? 0.15 : clearGlow[phase],
+    stars: covered ? 0 : night ? 1 : phase === 'dusk' ? 0.45 : 0,
+    sky: covered
+      ? shaded(storm ? '#3f4f5a' : raining ? '#596e7b' : '#8c9da6', clearSkies.night)
+      : clearSkies[phase],
+    horizon: covered
+      ? shaded(
+          weather === 'fog' ? '#c3cecb' : storm ? '#7d8d93' : raining ? '#9dafb4' : '#c4cfce',
+          clearHorizons.night,
+        )
+      : clearHorizons[phase],
+    cloudColor: covered
+      ? shaded(storm ? '#7c8b92' : raining ? '#9dafb4' : '#d0d9d7', clearClouds.night)
+      : clearClouds[phase],
+    sun: lowSuns[phase] ?? (covered ? '#d8e3e9' : '#fff3db'),
+    sunlight: night ? 0.5 : covered ? coveredLight * twilight : clearSunlight[phase],
+    ambient: night
+      ? 0.8
+      : (covered ? 2.2 : 2.6) * (phase === 'dawn' ? 0.86 : phase === 'dusk' ? 0.5 : 1),
+    exposure: night ? 0.86 : storm ? 0.9 : raining ? 0.94 : phase === 'dusk' ? 0.92 : 1.02,
     fog: Math.max(
-      night ? 0.0018 : 0.0009,
-      weather === 'fog' ? 0.008 : weather === 'rain' ? 0.0032 : covered ? 0.0018 : 0,
+      night ? 0.0018 : phase === 'dawn' ? 0.0013 : phase === 'dusk' ? 0.0012 : 0.0009,
+      weather === 'fog' ? 0.008 : storm ? 0.004 : raining ? 0.0032 : covered ? 0.0018 : 0,
     ),
-    clouds: night ? (covered ? 0.8 : 0.05) : covered ? 1 : 0.5,
-    wet: weather === 'rain' && settings.season !== 'winter',
-    snow: weather === 'rain' && settings.season === 'winter',
+    clouds: night ? (covered ? 0.8 : 0.05) : covered ? 1 : phase === 'dusk' ? 0.4 : 0.5,
+    wet: raining && season !== 'winter',
+    snow: raining && season === 'winter',
+    downpour: storm ? 1 : 0,
+    night: dim > 0.5 ? 1 : 0,
+    water: waters[phase][0],
+    waterSky: waters[phase][1],
+    frozenWater: night ? '#4e647c' : shaded('#b7c8cd', '#4e647c'),
   }
+}
+
+export type AtmosphereProfile = ReturnType<typeof phaseProfile>
+
+export const dayCycle = {
+  seconds: 720,
+  start: 0.2,
+  stages: [
+    [0, 'dawn'],
+    [0.04, 'dawn'],
+    [0.14, 'day'],
+    [0.46, 'day'],
+    [0.56, 'sunset'],
+    [0.6, 'sunset'],
+    [0.66, 'dusk'],
+    [0.72, 'night'],
+    [0.94, 'night'],
+    [1, 'dawn'],
+  ] as const,
+}
+
+export function cycleStage(clock: number) {
+  const fraction = (((clock / dayCycle.seconds + dayCycle.start) % 1) + 1) % 1
+  for (let index = 1; index < dayCycle.stages.length; index++) {
+    const previous = dayCycle.stages[index - 1]
+    const next = dayCycle.stages[index]
+    if (!previous || !next || fraction > next[0]) continue
+    const span = next[0] - previous[0]
+    return {
+      from: previous[1],
+      to: next[1],
+      blend: previous[1] === next[1] || span <= 0 ? 0 : (fraction - previous[0]) / span,
+    }
+  }
+  return { from: 'dawn' as DayPhase, to: 'dawn' as DayPhase, blend: 0 }
+}
+
+function mixProfiles(from: AtmosphereProfile, to: AtmosphereProfile, amount: number) {
+  const eased = amount * amount * (3 - 2 * amount)
+  const mixed = { ...from }
+  for (const key of Object.keys(from) as (keyof AtmosphereProfile)[]) {
+    const a = from[key]
+    const b = to[key]
+    if (typeof a === 'number' && typeof b === 'number')
+      Object.assign(mixed, { [key]: a + (b - a) * eased })
+    else if (typeof a === 'string' && typeof b === 'string')
+      Object.assign(mixed, { [key]: mixColor(a, b, eased) })
+  }
+  return mixed
+}
+
+export function atmosphereProfile(
+  settings: Pick<Settings, 'daylight' | 'weather' | 'season'>,
+  clock = 0,
+): AtmosphereProfile {
+  if (settings.daylight !== 'cycle')
+    return phaseProfile(settings.daylight, settings.weather, settings.season)
+  const stage = cycleStage(clock)
+  const from = phaseProfile(stage.from, settings.weather, settings.season)
+  return stage.blend
+    ? mixProfiles(from, phaseProfile(stage.to, settings.weather, settings.season), stage.blend)
+    : from
 }
 
 export class Atmosphere {
@@ -77,13 +190,12 @@ export class Atmosphere {
   constructor(renderer: THREE.WebGLRenderer) {
     this.generator = new THREE.PMREMGenerator(renderer)
   }
-  setAppearance(settings: Settings) {
+  setAppearance(settings: Settings, profile: AtmosphereProfile) {
     const groundColor =
       settings.season === 'winter'
         ? '#c8d1cc'
         : (landscapeProfiles[settings.landscape].reflection ?? '#556c3c')
-    const profile = atmosphereProfile(settings)
-    const key = `${profile.sky}/${profile.horizon}/${profile.sun}/${profile.sunlight}/${profile.ambient}/${groundColor}/${settings.daylight === 'sunset'}`
+    const key = `${profile.sky}/${profile.horizon}/${profile.sun}/${profile.sunlight}/${profile.ambient}/${groundColor}/${profile.sunHeight}`
     if (key === this.key && this.reflection) return this.reflection.texture
     const sky = new THREE.Color(profile.sky)
     const horizon = new THREE.Color(profile.horizon)
