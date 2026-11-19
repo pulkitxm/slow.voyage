@@ -12,6 +12,7 @@ import {
 import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
 import { forwardDriveForce } from './drive'
 import { surfaceGrip } from './grip'
+import { NitroTank, nitroForce } from './nitro'
 import { engineProfiles, Gearbox } from './powertrain'
 import { stabilize } from './stability'
 import { Steering, steeringLimit } from './steering'
@@ -39,6 +40,7 @@ export interface Input {
 export interface Telemetry {
   speed: number
   boost: boolean
+  nitro: number
   distance: number
   altitude: number
   steering: number
@@ -81,6 +83,7 @@ export class CarPhysics {
   gearbox = new Gearbox(engineProfiles.touring)
   driveForce = 0
   boosting = false
+  nitro = new NitroTank()
   brakeForce = 0
   offroad = false
   sand = false
@@ -99,6 +102,7 @@ export class CarPhysics {
     this.s = s
     this.driveForce = this.brakeForce = 0
     this.boosting = false
+    this.nitro.reset()
     const road = this.world.road(s)
     this.x = road.x
     this.y = road.y
@@ -206,21 +210,24 @@ export class CarPhysics {
     const forwardBraking =
       input.throttle > 0 && input.brake === 0 && this.speed < -directionChangeSpeed
     const reverseGovernor = reverseDriveFactor(this.speed, this.driveForce, vehicle.jerk)
-    const targetForce = reverseCommand
-      ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
-      : forwardDriveForce(v, input.throttle, input.boost, vehicle, settings.power)
-    this.driveForce += clamp(
-      targetForce - this.driveForce,
-      -vehicle.jerk * dt * 0.5,
-      vehicle.jerk * dt * 0.5,
-    )
     const brake = Math.max(
       reversing ? 0 : input.brake,
       forwardBraking ? input.throttle : 0,
       input.regenBrake,
     )
-    this.boosting =
-      input.boost && input.throttle > 0 && !brake && this.speed >= 0 && v < vehicle.maxSpeed
+    this.boosting = this.nitro.step(
+      input.boost && input.throttle > 0 && !brake && this.speed >= 0,
+      dt,
+    )
+    const targetForce = reverseCommand
+      ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
+      : forwardDriveForce(v, input.throttle, this.boosting, vehicle, settings.power) +
+        (this.boosting ? input.throttle * nitroForce(v, vehicle, settings.power) : 0)
+    this.driveForce += clamp(
+      targetForce - this.driveForce,
+      -vehicle.jerk * dt * 0.5,
+      vehicle.jerk * dt * 0.5,
+    )
     this.brakeForce = brake
       ? Math.min(
           vehicle.brake * brake,
@@ -322,6 +329,7 @@ export class CarPhysics {
     return {
       speed: this.speed,
       boost: this.boosting,
+      nitro: this.nitro.level,
       distance: this.distance,
       altitude: this.y,
       steering: this.steering,

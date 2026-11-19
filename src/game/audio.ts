@@ -18,6 +18,8 @@ import {
 } from './sound-design'
 import { clamp, type Settings, type Vehicle } from './world'
 
+const hornPitches = [415, 494]
+
 export const mixLevels = {
   master: 1.6,
   engine: 0.32,
@@ -25,6 +27,7 @@ export const mixLevels = {
   gravel: 0.22,
   rumble: 0.3,
   wind: 0.24,
+  horn: 0.16,
   squeal: 0.11,
   brakeSqueal: 0.03,
   scrape: 0.28,
@@ -88,6 +91,8 @@ export class DriveAudio {
   private lastHitAt = 0
   private lastThrottle = 0
   private brakeHeld = 0
+  private hornGain?: GainNode
+  hornHeld = false
 
   start(volume: number) {
     if (this.context) {
@@ -118,6 +123,25 @@ export class DriveAudio {
     this.mix.connect(this.cabin)
     this.engine = this.createEngine(context, this.mix)
     this.loops = this.createLoops(context, this.mix)
+    this.hornGain = this.createHorn(context, this.master)
+  }
+
+  private createHorn(context: AudioContext, output: AudioNode) {
+    const gain = context.createGain()
+    gain.gain.value = 0
+    const filter = context.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 2400
+    filter.connect(gain)
+    gain.connect(output)
+    for (const pitch of hornPitches) {
+      const voice = context.createOscillator()
+      voice.type = 'sawtooth'
+      voice.frequency.value = pitch
+      voice.connect(filter)
+      voice.start()
+    }
+    return gain
   }
 
   update(car: CarPhysics, input: Input, settings: Settings, paused: boolean, dt: number) {
@@ -150,8 +174,10 @@ export class DriveAudio {
     const gravel = gravelLevel(speed, car.offroad, car.sand, car.slip)
     set(loops.gravel.gain, gravel * mixLevels.gravel * (0.55 + Math.random() * 0.9), 0.025)
     set(loops.rumble.gain, gravel * mixLevels.rumble, 0.1)
-    set(loops.wind.gain, windLevel(speed) * mixLevels.wind, 0.25)
-    loops.wind.filter.frequency.setTargetAtTime(280 + speed * 30, t, 0.3)
+    const surge = car.boosting ? 1 : 0
+    set(loops.wind.gain, windLevel(speed) * mixLevels.wind * (1 + surge * 1.6), 0.25)
+    loops.wind.filter.frequency.setTargetAtTime(280 + speed * 30 + surge * 900, t, 0.3)
+    this.hornGain?.gain.setTargetAtTime(this.hornHeld && !paused ? mixLevels.horn : 0, t, 0.02)
     const squeal = squealLevel(car.slip, speed, car.offroad)
     set(loops.squeal, squeal * mixLevels.squeal, 0.06)
     loops.squealTone.frequency.setTargetAtTime(tirePitch[vehicle] * (0.92 + 0.16 * squeal), t, 0.1)
