@@ -164,6 +164,7 @@ export class Terrain {
     })
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings, software)
     this.foliage = new Foliage(world.settings.season)
+    this.tintFoliage(world.settings)
     this.bladeTexture = grassTexture()
     this.bladeMaterial = new THREE.MeshStandardMaterial({
       map: this.bladeTexture,
@@ -218,7 +219,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
-        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));',
+        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));\ndiffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldGrassPosition * 0.13 + vec2(17.3, 61.9))) * 1.14;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
@@ -243,15 +244,15 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nvarying vec2 roadPosition;',
+        '#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <begin_vertex>',
-        '#include <begin_vertex>\nroadPosition = (modelMatrix * vec4(position, 1.0)).xz;',
+        '#include <begin_vertex>\nroadPosition = (modelMatrix * vec4(position, 1.0)).xz;\nroadLane = abs(uv.x - 0.5) * 2.0;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        `#include <common>\nvarying vec2 roadPosition;\nuniform float roadWetness;\n${meadowNoise}`,
+        `#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;\nuniform float roadWetness;\n${meadowNoise}`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <roughnessmap_fragment>',
@@ -259,10 +260,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
-        '#include <color_fragment>\nfloat roadVariation = fieldVariationAt(roadPosition * 25.0);\nfloat roadSurfaceNoise = fieldVariationAt(roadPosition * 45.0);\ndiffuseColor.rgb *= (0.92 + roadVariation * 0.16) * mix(1.0, 0.68 + roadSurfaceNoise * 0.3, roadWetness);',
+        '#include <color_fragment>\nfloat roadVariation = fieldVariationAt(roadPosition * 25.0);\nfloat roadSurfaceNoise = fieldVariationAt(roadPosition * 45.0);\ndiffuseColor.rgb *= (0.92 + roadVariation * 0.16) * mix(1.0, 0.68 + roadSurfaceNoise * 0.3, roadWetness);\nfloat roadTracks = (1.0 - smoothstep(0.0, 0.1, abs(roadLane - 0.27))) + (1.0 - smoothstep(0.0, 0.1, abs(roadLane - 0.73)));\nfloat roadPatchy = fieldVariationAt(roadPosition * 1.7 + vec2(5.0, 11.0));\ndiffuseColor.rgb *= 1.0 - roadTracks * (0.5 + roadPatchy * 0.5) * 0.11;\ndiffuseColor.rgb *= mix(1.0, 1.09, smoothstep(0.84, 1.0, roadLane));\ndiffuseColor.rgb *= 1.0 - smoothstep(0.69, 0.72, fieldVariationAt(roadPosition * 0.9 + vec2(31.0, 7.0))) * 0.1;',
       )
     }
-    this.roadMaterial.customProgramCacheKey = () => 'aggregate-asphalt'
+    this.roadMaterial.customProgramCacheKey = () => 'aggregate-asphalt-worn'
     this.blade = grassGeometry()
     const bounds = this.blade.boundingBox
     if (!bounds) throw new Error('Grass bounds are unavailable')
@@ -692,7 +693,13 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.lastX = x
     this.meadow?.update(x, s, wrapped)
   }
+  tintFoliage(settings: Settings) {
+    const material = this.foliage.treeMaterial
+    material.color.set(landscapeProfiles[settings.landscape].foliage ?? '#ffffff')
+    material.emissive.set(palettes[settings.season].tree).multiplyScalar(0.09)
+  }
   setNight(dark: boolean) {
+    this.foliage.treeMaterial.emissiveIntensity = dark ? 0.1 : 1
     this.glowMaterial.color.setScalar(dark ? 3.2 : 1.1)
     this.reflectorMaterial.emissiveIntensity = dark ? 1.8 : 0.25
   }
@@ -804,6 +811,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.clear()
     this.rebuilding = true
     this.foliage.update(settings.season)
+    this.tintFoliage(settings)
     this.grassMaterial.setAppearance(settings)
     if (this.meadow) {
       this.meadow.palette = terrainColors(settings)

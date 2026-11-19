@@ -247,6 +247,8 @@ float dryBlend = smoothstep(0.35, 0.7, fieldVariation) * fieldDryness;
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb, dryBlend);
 diffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldPosition));
 diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
+diffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldPosition * 0.13 + vec2(17.3, 61.9)));
+diffuseColor.rgb *= 0.93 + fieldVariationAt(fieldPosition * 11.0 + vec2(3.1, 8.7)) * 0.14;
 float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fieldVariation);
 float cutFace = smoothstep(0.06, 0.32, fieldSlope)
   * (1.0 - smoothstep(6.0, 13.0, fieldRoadDistance))
@@ -306,7 +308,7 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'triplanar-rock-road-cuts'
+    return 'triplanar-rock-road-cuts-varied'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()

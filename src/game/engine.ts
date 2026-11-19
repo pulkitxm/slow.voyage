@@ -3,6 +3,7 @@ import { Atmosphere, atmosphereProfile, sunOffset } from './atmosphere'
 import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
 import { CinematicPipeline } from './cinema'
+import { footprints } from './collision'
 import {
   automaticTarget,
   mergeManualInput,
@@ -37,6 +38,40 @@ import { type AssistanceMode, clamp, defaults, type Settings, World } from './wo
 const impactShake = { pitch: 0.025, roll: 0.035 }
 export const cinemaRelief = { frame: 1 / 40, patience: 3, scales: [1, 0.82, 0.68] }
 const paintBudget = 11
+const paintDepth = 0.86
+export const contactShade = { opacity: 0.5, margin: 1.25, lift: 0.045 }
+
+function contactShadow() {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const context = canvas.getContext('2d')
+  if (context) {
+    const fade = context.createRadialGradient(32, 32, 6, 32, 32, 32)
+    fade.addColorStop(0, 'rgba(0, 0, 0, 1)')
+    fade.addColorStop(0.55, 'rgba(0, 0, 0, 0.62)')
+    fade.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    context.fillStyle = fade
+    context.fillRect(0, 0, 64, 64)
+  }
+  const geometry = new THREE.PlaneGeometry(1, 1)
+  geometry.rotateX(-Math.PI / 2)
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      map: new THREE.CanvasTexture(canvas),
+      color: '#000000',
+      transparent: true,
+      opacity: contactShade.opacity,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+      fog: false,
+    }),
+  )
+  mesh.renderOrder = 1
+  return mesh
+}
 export const lightingPace = { step: 0.5, reflection: 6 }
 export const stormFlash = { shortest: 5, longest: 14, strength: 9, decay: 7 }
 
@@ -62,6 +97,7 @@ export class RoadEngine {
   cinema: CinematicPipeline | null = null
   cinemaStrain = 0
   dayClock = 0
+  contact = contactShadow()
   laps = new LapClock()
   photo = false
   onLap?: (time: number, record: boolean) => void
@@ -338,7 +374,8 @@ export class RoadEngine {
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
-    this.scene.add(this.car.group)
+    this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
+    this.scene.add(this.car.group, this.contact)
     this.configureHeadlights()
     this.applyLighting()
     this.configureCinema(budget)
@@ -539,7 +576,7 @@ export class RoadEngine {
       this.physics.suspension.configure(settings.vehicle)
       this.physics.suspension.reset(this.physics)
     }
-    this.car.body.color.set(settings.color)
+    this.car.body.color.set(settings.color).multiplyScalar(paintDepth)
     this.renderer.setPixelRatio(this.pixelRatio(budget))
     this.configureCinema(budget)
     this.configureShadows(budget)
@@ -768,6 +805,19 @@ export class RoadEngine {
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
     positionVehicle(this.car, p, this.settings.vehicle, dt)
+    const footprint = footprints[this.settings.vehicle]
+    const grounded = p.suspension.wheels.filter((wheel) => wheel.contact).length
+    this.contact.position.copy(this.car.group.position)
+    this.contact.quaternion.copy(this.car.group.quaternion)
+    this.contact.translateY(contactShade.lift)
+    this.contact.translateZ((footprint.rear - footprint.front) / 2)
+    this.contact.scale.set(
+      footprint.halfWidth * 2 * contactShade.margin,
+      1,
+      (footprint.front + footprint.rear) * contactShade.margin,
+    )
+    this.contact.material.opacity =
+      (contactShade.opacity * grounded) / Math.max(1, p.suspension.wheels.length)
     const settling = this.arrival < vehicleArrival.duration
     this.arrival += dt
     if (settling) {
@@ -808,6 +858,10 @@ export class RoadEngine {
   }
   drawScene() {
     if (this.cinema) {
+      const air = this.cinema.air
+      air.sunDirection.copy(this.sun.position).sub(this.sun.target.position).normalize()
+      air.sunColor.copy(this.sun.color).multiplyScalar(this.sun.intensity * 0.22)
+      if (this.scene.fog) air.hazeColor.copy(this.scene.fog.color)
       const pace = Math.abs(this.physics.speed) / vehicleMetrics[this.settings.vehicle].maxSpeed
       this.cinema.rush = this.started
         ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
@@ -844,6 +898,9 @@ export class RoadEngine {
     this.precipitation.dispose()
     this.atmosphere.dispose()
     this.car.dispose()
+    this.contact.geometry.dispose()
+    this.contact.material.map?.dispose()
+    this.contact.material.dispose()
     for (const light of this.headlights) light.dispose()
     this.sky.geometry.dispose()
     this.sky.material.dispose()
