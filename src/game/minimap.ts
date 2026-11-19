@@ -1,4 +1,5 @@
 import { loopIndex, worldLoop } from './field'
+import { type LandscapeProfile, landscapeProfiles } from './landscapes'
 import { roadCoordinates } from './road'
 import { woodlandCoverage } from './woodland'
 import { clamp, type Settings, shoreHeight, type World } from './world'
@@ -52,15 +53,20 @@ export function terrainTone(
 ): Tone {
   if (height < shoreHeight) return waterTones[settings.season]
   const lift = clamp(relief / 90 + 0.5, 0, 1)
-  if (settings.landscape === 'desert') return mix(desertTones.low, desertTones.high, lift)
+  const profile = landscapeProfiles[settings.landscape]
+  if (profile.map && settings.season !== 'winter')
+    return snowCapped(profile, mix(profile.map.low, profile.map.high, lift), height)
+  if (profile.sand) return mix(desertTones.low, desertTones.high, lift)
   const tones = landTones[settings.season]
   let tone = mix(tones.low, tones.high, lift)
   tone = mix(tone, tones.wood, clamp(woodland, 0, 1) * 0.75)
-  if (settings.landscape === 'alpine') {
-    tone = mix(tone, rockTone, clamp((height - 150) / 70, 0, 1))
-    tone = mix(tone, snowTone, clamp((height - 215) / 40, 0, 1))
-  }
-  return tone
+  return snowCapped(profile, tone, height)
+}
+
+function snowCapped(profile: LandscapeProfile, tone: Tone, height: number) {
+  if (profile.snowLine === null) return tone
+  const rock = mix(tone, rockTone, clamp((height - profile.snowLine * 1.25) / 70, 0, 1))
+  return mix(rock, snowTone, clamp((height - profile.snowLine * 1.25 - 65) / 40, 0, 1))
 }
 
 export function mapOffset(pose: MapPose, x: number, s: number) {

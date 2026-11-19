@@ -8,6 +8,7 @@ import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
+import { landscapeProfiles } from './landscapes'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
 import { RoamingMeadow } from './roaming-meadow'
@@ -34,9 +35,11 @@ export const palettes = {
 }
 function terrainColors(settings: Settings) {
   const palette = palettes[settings.season]
+  const profile = landscapeProfiles[settings.landscape]
+  const ground = profile.sand || settings.season !== 'winter' ? profile.ground : null
   return {
-    base: new THREE.Color(settings.landscape === 'desert' ? '#c8ad7f' : palette.grass),
-    light: new THREE.Color(settings.landscape === 'desert' ? '#ddc291' : palette.light),
+    base: new THREE.Color(ground?.base ?? palette.grass),
+    light: new THREE.Color(ground?.light ?? palette.light),
   }
 }
 function geometry(positions: number[], indices: number[], colors?: number[]) {
@@ -398,8 +401,16 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }
     this.addBatch(group, rails, this.railMaterial)
     yield
-    const treeCount = settings.landscape === 'desert' ? 4 : this.quality === 'low' ? 16 : 28
-    const shrubCount = settings.landscape === 'desert' ? 12 : this.quality === 'low' ? 70 : 180
+    const profile = landscapeProfiles[settings.landscape]
+    const low = this.quality === 'low'
+    const treeCount =
+      low && profile.roadside.trees > 8
+        ? Math.round((profile.roadside.trees * 4) / 7)
+        : profile.roadside.trees
+    const shrubCount =
+      low && profile.roadside.shrubs > 20
+        ? Math.round((profile.roadside.shrubs * 7) / 18)
+        : profile.roadside.shrubs
     const clusters = Array.from({ length: 6 }, () => ({
       s: start + rng() * groundLayout.tileLength,
       d: (rng() > 0.5 ? 1 : -1) * (12 + rng() ** 1.5 * 250),
@@ -408,11 +419,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     const trunks: Trunk[] = []
     const woodland = createWoodland(this.world, id, this.quality)
     yield
-    const conifers =
-      settings.landscape === 'desert'
-        ? 0
-        : Math.round(treeCount * (settings.landscape === 'alpine' ? 0.7 : 0.3))
-    const narrow = settings.landscape === 'desert' ? 0 : Math.round(treeCount * 0.15)
+    const conifers = Math.round(treeCount * profile.roadside.conifers)
+    const narrow = Math.round(treeCount * profile.roadside.narrow)
     const broadleaf = treeCount - conifers - narrow
     const vegetationCounts = [
       Math.ceil(broadleaf / 2),
@@ -486,11 +494,9 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }
     const count = this.software
       ? 600
-      : settings.landscape === 'desert'
-        ? 1200
-        : this.quality === 'low'
-          ? 2800
-          : 10000
+      : this.quality === 'low'
+        ? Math.min(2800, profile.grass)
+        : profile.grass
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
     grass.name = 'meadow'
     grass.receiveShadow = true

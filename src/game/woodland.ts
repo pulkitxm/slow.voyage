@@ -1,4 +1,5 @@
 import { latticeValue, loopCells, loopColumns, loopIndex, smoothStep, worldLoop } from './field'
+import { landscapeProfiles } from './landscapes'
 import { clamp, type Landscape, random, type Settings, type World } from './world'
 
 export interface WoodlandTree {
@@ -41,27 +42,23 @@ export function woodlandDensity(x: number, s: number, seed: number) {
 }
 
 export function woodlandCoverage(x: number, s: number, seed: number, landscape: Landscape) {
-  if (landscape === 'desert') return 0
-  return smoothStep(
-    clamp(
-      (woodlandDensity(x, s, seed) - (landscape === 'alpine' ? -0.02 : 0.08) + 0.18) / 0.36,
-      0,
-      1,
-    ),
-  )
+  const woodland = landscapeProfiles[landscape].woodland
+  if (!woodland) return 0
+  return smoothStep(clamp((woodlandDensity(x, s, seed) - woodland.threshold + 0.18) / 0.36, 0, 1))
 }
 
 export function createWoodland(world: World, tile: number, quality: Settings['quality']) {
   const trees: WoodlandTree[] = []
-  if (world.settings.landscape === 'desert') return trees
+  const profile = landscapeProfiles[world.settings.landscape]
+  const woodland = profile.woodland
+  if (!woodland) return trees
   const low = quality === 'low'
-  const alpine = world.settings.landscape === 'alpine'
   const seed = world.settings.seed
   for (let row = tile * 15; row < (tile + 1) * 15; row++) {
     if (low && row % 3 !== 0) continue
     const center = world.road(row * 8 + 4).x
-    const first = Math.floor((center - 650) / 8)
-    const last = Math.ceil((center + 650) / 8)
+    const first = Math.floor((center - woodland.reach) / 8)
+    const last = Math.ceil((center + woodland.reach) / 8)
     for (let column = first; column <= last; column++) {
       if (low && column % 3 !== 0) continue
       const rng = random(
@@ -70,14 +67,22 @@ export function createWoodland(world: World, tile: number, quality: Settings['qu
       const x = column * 8 + 4 + (rng() - 0.5) * 5
       const s = row * 8 + 4 + (rng() - 0.5) * 5
       const distance = Math.abs(x - world.road(s).x)
-      if (distance < 60 || distance > (low ? 360 : 650)) continue
+      if (
+        distance < woodland.start ||
+        distance > (low ? (woodland.reach * 36) / 65 : woodland.reach)
+      )
+        continue
       const coverage = woodlandCoverage(x, s, seed, world.settings.landscape)
       if (rng() > coverage) continue
       const surface = world.surface(x, s)
       if (surface.height < 0.7 || Math.hypot(surface.slopeX, surface.slopeS) > 1.1) continue
-      if (alpine && rng() > clamp((220 - surface.height) / 60, 0, 1)) continue
+      if (
+        profile.treeLine !== null &&
+        rng() > clamp((profile.treeLine - surface.height) / 60, 0, 1)
+      )
+        continue
       const choice = rng()
-      const evergreen = alpine ? 0.7 : 0.3
+      const evergreen = woodland.evergreen
       const variant = choice < evergreen ? 4 : choice < evergreen + 0.15 ? 5 : rng() < 0.5 ? 0 : 1
       const height = 7 + rng() * 6
       const width =

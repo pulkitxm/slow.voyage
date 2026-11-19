@@ -1,5 +1,6 @@
 import { decodeBindings } from './controller-bindings'
 import { cruiseLimits } from './cruise'
+import { landscapeIds } from './landscapes'
 import { defaults, type Settings } from './world'
 
 const numericRanges = {
@@ -30,7 +31,7 @@ export function decodeSettings(stored: unknown): Settings {
       'controllerMode',
     ] as const) {
       const options: Record<typeof key, readonly string[]> = {
-        landscape: ['highlands', 'alpine', 'desert'],
+        landscape: landscapeIds,
         season: ['summer', 'autumn', 'winter'],
         daylight: ['day', 'sunset', 'night'],
         weather: ['clear', 'overcast', 'rain', 'fog'],
