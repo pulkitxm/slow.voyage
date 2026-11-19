@@ -59,6 +59,11 @@ export class CinematicPipeline {
   private occlusion = [buffer(THREE.UnsignedByteType), buffer(THREE.UnsignedByteType)]
   private size = new THREE.Vector2()
   rush = 0
+  air = {
+    sunDirection: new THREE.Vector3(0, 1, 0),
+    sunColor: new THREE.Color(),
+    hazeColor: new THREE.Color(),
+  }
   private bright = pass(
     `
 uniform sampler2D source;
@@ -220,6 +225,13 @@ uniform float vignette;
 uniform float aspect;
 uniform float rush;
 uniform float rushReach;
+uniform sampler2D depth;
+uniform mat4 unprojection;
+uniform mat4 cameraWorld;
+uniform vec3 sunDirection;
+uniform vec3 sunColor;
+uniform vec3 hazeColor;
+uniform float haze;
 varying vec2 vUv;
 float grain(vec2 pixel) {
   return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
@@ -233,12 +245,25 @@ void main() {
     float edge = smoothstep(0.16, 0.7, length(toward * vec2(aspect, 1.0)));
     vec2 stride = toward * rush * rushReach * edge / 5.0;
     float jitter = grain(gl_FragCoord.xy);
-    for (int index = 1; index <= 5; index++)
-      color += texture2D(source, vUv + stride * (float(index) - jitter)).rgb;
-    color /= 6.0;
+    for (int index = 1; index <= 8; index++)
+      color += texture2D(source, vUv + stride * (float(index) - jitter) * 0.625).rgb;
+    color /= 9.0;
   }
   float open = texture2D(shade, vUv).r;
   color *= mix(1.0, pow(open, shadeStrength), solid);
+  float depthValue = texture2D(depth, vUv).x;
+  if (depthValue < 1.0 && haze > 0.0) {
+    vec4 view = unprojection * vec4(vUv * 2.0 - 1.0, depthValue * 2.0 - 1.0, 1.0);
+    view /= view.w;
+    float reach = length(view.xyz);
+    vec3 ray = normalize((cameraWorld * vec4(view.xyz, 0.0)).xyz);
+    float height = (cameraWorld * vec4(view.xyz, 1.0)).y - cameraWorld[3].y;
+    float thick = 1.0 - exp(-reach * 0.0006);
+    float low = exp(-max(height + 25.0, 0.0) * 0.011);
+    float toward = pow(max(dot(ray, sunDirection), 0.0), 5.0);
+    vec3 air = hazeColor + sunColor * toward * 0.45;
+    color = mix(color, air, clamp(thick * (0.22 + 0.42 * low) * haze, 0.0, 1.0) * solid);
+  }
   color += texture2D(glow, vUv).rgb * glowStrength;
   vec3 mapped = color;
   #ifdef TONE_MAPPING
@@ -266,6 +291,13 @@ void main() {
       vignette: { value: cinemaLook.vignette },
       aspect: { value: 1 },
       rush: { value: 0 },
+      depth: { value: null },
+      unprojection: { value: new THREE.Matrix4() },
+      cameraWorld: { value: new THREE.Matrix4() },
+      sunDirection: { value: new THREE.Vector3(0, 1, 0) },
+      sunColor: { value: new THREE.Color() },
+      hazeColor: { value: new THREE.Color() },
+      haze: { value: 1 },
       rushReach: { value: cinemaLook.rushReach },
     },
     true,
@@ -356,6 +388,12 @@ void main() {
       this.bind(this.develop, 'shade', rough.texture)
       if (develop.aspect) develop.aspect.value = this.scene.width / this.scene.height
       if (develop.rush) develop.rush.value = this.rush
+      this.bind(this.develop, 'depth', this.scene.depthTexture)
+      develop.unprojection?.value.copy(camera.projectionMatrixInverse)
+      develop.cameraWorld?.value.copy(camera.matrixWorld)
+      develop.sunDirection?.value.copy(this.air.sunDirection)
+      develop.sunColor?.value.copy(this.air.sunColor)
+      develop.hazeColor?.value.copy(this.air.hazeColor)
       this.draw(this.develop, null)
     } finally {
       renderer.setRenderTarget(null)

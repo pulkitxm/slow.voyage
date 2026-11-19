@@ -39,11 +39,15 @@ uniform float glitter;
 varying vec3 waterPosition;
 void main() {
   vec2 p = waterPosition.xz;
+  float reach = length(cameraPosition - waterPosition);
+  float swell = 1.0 / (1.0 + reach * 0.004);
+  float chop = 1.0 / (1.0 + reach * 0.02);
+  p += vec2(sin(p.y * 0.047 + time * 0.2), cos(p.x * 0.039 - time * 0.17)) * 4.0;
   float a = sin(p.x * 0.32 + p.y * 0.26 + time * 0.9);
   float b = sin(p.x * 1.2 - p.y * 0.8 + time * 0.6);
   float c = sin(p.x * 3.1 + p.y * 2.3 - time * 1.4);
   float liquid = 1.0 - frozen;
-  vec3 normal = normalize(vec3((a * 0.08 + b * 0.035 + c * 0.012) * liquid, 1.0, (cos(p.y * 0.22 + time) * 0.06 + b * 0.025 + c * 0.012) * liquid));
+  vec3 normal = normalize(vec3((a * 0.08 * swell + b * 0.035 * chop + c * 0.012 * chop) * liquid, 1.0, (cos(p.y * 0.22 + time) * 0.06 * swell + b * 0.025 * chop + c * 0.012 * chop) * liquid));
   vec3 viewDirection = normalize(cameraPosition - waterPosition);
   float fresnel = 0.03 + 0.97 * pow(1.0 - max(0.0, dot(normal, viewDirection)), 5.0);
   vec3 color = mix(deepColor, skyColor, fresnel * mix(0.72, 0.86, frozen));

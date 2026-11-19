@@ -24,6 +24,7 @@ export interface LandscapeProfile {
     gravel: string
   } | null
   reflection: string | null
+  foliage: string | null
   map: { low: Tone; high: Tone } | null
 }
 
@@ -43,6 +44,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     ground: null,
     field: null,
     reflection: null,
+    foliage: null,
     map: null,
   },
   alpine: {
@@ -60,6 +62,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     ground: null,
     field: null,
     reflection: null,
+    foliage: null,
     map: null,
   },
   desert: {
@@ -84,6 +87,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#b39a75',
     },
     reflection: '#8d7554',
+    foliage: '#c9c088',
     map: { low: [196, 168, 120], high: [226, 201, 152] },
   },
   forest: {
@@ -101,6 +105,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     ground: null,
     field: null,
     reflection: '#3f5536',
+    foliage: null,
     map: null,
   },
   canyon: {
@@ -125,6 +130,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#b98866',
     },
     reflection: '#8a5236',
+    foliage: '#c4b77e',
     map: { low: [176, 104, 68], high: [222, 158, 108] },
   },
   fjord: {
@@ -149,6 +155,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#a3a6a4',
     },
     reflection: '#59663f',
+    foliage: '#d2d6a6',
     map: { low: [132, 140, 92], high: [186, 186, 138] },
   },
 }
