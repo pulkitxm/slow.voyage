@@ -4,6 +4,7 @@ const weatherGrip: Record<Weather, number> = {
   clear: 1,
   overcast: 1,
   rain: 0.72,
+  storm: 0.62,
   fog: 1,
 }
 

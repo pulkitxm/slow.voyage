@@ -112,6 +112,7 @@ export class Minimap {
   private raster: Raster | null = null
   private build: RasterBuild | null = null
   private frame = 0
+  dim = 1
   private scale = 1
 
   constructor(private world: World) {}
@@ -176,7 +177,6 @@ export class Minimap {
     if (!context) return canvas
     const image = context.createImageData(cells, cells)
     const settings = this.world.settings
-    const dim = settings.daylight === 'night' ? 0.5 : settings.daylight === 'sunset' ? 0.86 : 1
     let total = 0
     for (const height of build.heights) total += height
     const mean = total / build.heights.length
@@ -187,9 +187,9 @@ export class Minimap {
         const lit = build.heights[Math.max(row - 1, 0) * cells + Math.max(column - 1, 0)] ?? height
         const shade = height < shoreHeight ? 1 : clamp(1 + (height - lit) * 0.035, 0.7, 1.22)
         const tone = terrainTone(settings, height, height - mean, build.woods[index] ?? 0)
-        image.data[index * 4] = clamp(tone[0] * shade * dim, 0, 255)
-        image.data[index * 4 + 1] = clamp(tone[1] * shade * dim, 0, 255)
-        image.data[index * 4 + 2] = clamp(tone[2] * shade * dim, 0, 255)
+        image.data[index * 4] = clamp(tone[0] * shade, 0, 255)
+        image.data[index * 4 + 1] = clamp(tone[1] * shade, 0, 255)
+        image.data[index * 4 + 2] = clamp(tone[2] * shade, 0, 255)
         image.data[index * 4 + 3] = 255
       }
     }
@@ -226,6 +226,10 @@ export class Minimap {
         span * zoom,
         span * zoom,
       )
+    }
+    if (this.dim < 0.99) {
+      context.fillStyle = `rgba(12, 20, 28, ${(1 - this.dim).toFixed(3)})`
+      context.fillRect(-size, -size, size * 2, size * 2)
     }
     const guide = roadGuide(this.world, pose)
     const first = Math.floor((guide.s - roadSpan) / roadStep) * roadStep

@@ -34,6 +34,8 @@ import { type AssistanceMode, clamp, defaults, type Settings, World } from './wo
 
 const impactShake = { pitch: 0.025, roll: 0.035 }
 export const cinemaRelief = { frame: 1 / 40, patience: 4 }
+export const lightingPace = { step: 0.5, reflection: 6 }
+export const stormFlash = { shortest: 5, longest: 14, strength: 9, decay: 7 }
 
 export interface DriveState extends Telemetry {
   assistance: AssistanceMode
@@ -50,6 +52,11 @@ export class RoadEngine {
   antialiasing: SoftwareAntialias | null
   cinema: CinematicPipeline | null = null
   cinemaStrain = 0
+  dayClock = 0
+  lightingAt = 0
+  reflectionAt = Number.NEGATIVE_INFINITY
+  dark = false
+  lightning = { next: 6, flash: 0, base: 0 }
   cinemaBlocked = false
   scene = new THREE.Scene()
   camera = new THREE.PerspectiveCamera(68, 1, 0.1, 3600)
@@ -353,7 +360,7 @@ export class RoadEngine {
     if (this.disposed) return
     this.drawScene()
     this.renderer.getContext().finish()
-    this.precipitation.setAppearance(this.settings)
+    this.precipitation.setAppearance(this.settings, atmosphereProfile(this.settings, this.dayClock))
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
   }
   start(assistance: AssistanceMode = 'off') {
@@ -507,20 +514,27 @@ export class RoadEngine {
       this.car.group.add(light, light.target)
     }
   }
-  applyLighting() {
-    const profile = atmosphereProfile(this.settings)
-    this.water.setAppearance(this.settings.daylight, this.settings.season === 'winter', profile)
+  applyLighting(drifting = false) {
+    const profile = atmosphereProfile(this.settings, this.dayClock)
+    this.water.setAppearance(this.settings.season === 'winter', profile)
     this.sunHeight = profile.sunHeight
-    const environment = this.atmosphere.setAppearance(this.settings)
-    this.scene.environment = environment
-    this.scene.environmentIntensity = 0.35
-    this.car.group.traverse((object) => {
-      if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial) {
-        object.material.envMap = environment
-      }
-    })
-    this.precipitation.setAppearance(this.settings)
-    const night = this.settings.daylight === 'night'
+    if (!drifting || this.dayClock - this.reflectionAt >= lightingPace.reflection) {
+      this.reflectionAt = this.dayClock
+      const environment = this.atmosphere.setAppearance(this.settings, profile)
+      this.scene.environment = environment
+      this.scene.environmentIntensity = 0.35
+      this.car.group.traverse((object) => {
+        if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial) {
+          object.material.envMap = environment
+        }
+      })
+      this.terrain.roadMaterial.envMap = environment
+    }
+    this.precipitation.setAppearance(this.settings, profile)
+    const night = profile.night > 0.5
+    this.dark = night
+    this.minimap.dim = clamp(0.3 + (profile.ambient / 2.6) * 0.7, 0.5, 1)
+    this.lightning.base = profile.ambient * 0.3
     this.sky.setAppearance(profile)
     if (this.scene.fog instanceof THREE.FogExp2) {
       this.scene.fog.color.set(profile.horizon)
@@ -534,14 +548,36 @@ export class RoadEngine {
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0
     this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
-    this.terrain.roadMaterial.envMap = environment
     this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
     for (const [index, light] of this.headlights.entries())
       light.intensity =
         index < this.car.headlightPositions.length &&
-        (night || this.settings.weather === 'fog' || this.settings.weather === 'rain')
+        (night || profile.wet || profile.snow || this.settings.weather === 'fog')
           ? 65
           : 0
+  }
+  advanceSky(dt: number) {
+    this.dayClock += dt
+    if (
+      this.settings.daylight === 'cycle' &&
+      this.dayClock - this.lightingAt >= lightingPace.step
+    ) {
+      this.lightingAt = this.dayClock
+      this.applyLighting(true)
+    }
+    const flash = this.lightning
+    if (this.settings.weather !== 'storm') {
+      flash.flash = 0
+      return
+    }
+    flash.next -= dt
+    if (flash.next <= 0) {
+      flash.next = stormFlash.shortest + Math.random() * (stormFlash.longest - stormFlash.shortest)
+      flash.flash = 1
+      this.audio.thunder(0.4 + Math.random() * 1.8)
+    }
+    flash.flash = Math.max(0, flash.flash - dt * stormFlash.decay * (0.4 + Math.random()))
+    this.ambient.intensity = flash.base * (1 + flash.flash * stormFlash.strength)
   }
   manualInput(): Input {
     if (this.controlsBlocked) return { ...neutralInput }
@@ -640,6 +676,7 @@ export class RoadEngine {
         this.physics.update(step, input, this.settings)
       })
     }
+    if (this.started && !this.paused && !document.hidden) this.advanceSky(dt)
     const p = this.physics
     this.water.update(p.x, p.s, time / 1000)
     this.precipitation.update(p.x, p.y, p.s, time / 1000)
@@ -654,7 +691,7 @@ export class RoadEngine {
     this.car.update(
       p.suspension.wheels,
       input.brake > 0 || input.regenBrake > 0,
-      this.settings.daylight === 'night',
+      this.dark,
       p.speed,
     )
     const cameraMode = this.started ? this.settings.camera : 'cinematic'

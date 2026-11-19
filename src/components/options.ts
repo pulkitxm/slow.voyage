@@ -3,9 +3,12 @@ import {
   CarFront,
   Cloud,
   CloudFog,
+  CloudLightning,
+  CloudMoon,
   CloudRain,
   CloudSun,
   Gauge,
+  History,
   Leaf,
   Moon,
   Motorbike,
@@ -62,12 +65,16 @@ export const weather = [
   { id: 'clear', label: 'Clear', icon: Sun },
   { id: 'overcast', label: 'Overcast', icon: Cloud },
   { id: 'rain', label: 'Rain', icon: CloudRain },
+  { id: 'storm', label: 'Storm', icon: CloudLightning },
   { id: 'fog', label: 'Fog', icon: CloudFog },
 ] as const
 export const daylight = [
-  { id: 'day', label: 'Daylight', icon: CloudSun },
-  { id: 'sunset', label: 'Golden hour', icon: Sunset },
-  { id: 'night', label: 'Night', icon: Moon },
+  { id: 'dawn', label: 'Dawn', icon: Sunrise, mood: 'First light' },
+  { id: 'day', label: 'Daylight', icon: CloudSun, mood: 'A clear afternoon' },
+  { id: 'sunset', label: 'Golden hour', icon: Sunset, mood: 'The golden hour' },
+  { id: 'dusk', label: 'Dusk', icon: CloudMoon, mood: 'The blue hour' },
+  { id: 'night', label: 'Night', icon: Moon, mood: 'Under the stars' },
+  { id: 'cycle', label: 'Live sky', icon: History, mood: 'A whole day, passing' },
 ] as const
 export const vehicles = [
   { id: 'touring', icon: CarFront },

@@ -24,7 +24,7 @@ import {
 import { Help } from './components/Help'
 import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
-import { landscapes } from './components/options'
+import { daylight, landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
 import { worldLoop } from './game/field'
@@ -74,6 +74,7 @@ export function Drive() {
   const speed = Math.abs(state.speed) * (settings.units === 'km' ? 3.6 : 2.23694)
   const distance = state.distance / (settings.units === 'km' ? 1000 : 1609.344)
   const mapUnit = settings.units === 'km' ? 1000 : 1609.344
+  const sky = daylight.find((item) => item.id === settings.daylight) ?? daylight[1]
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
   return (
     <main
@@ -114,13 +115,7 @@ export function Drive() {
               <span className="location-dot" />
               <span>{landscape.title}</span>
               <span className="location-divider" />
-              <span>
-                {settings.daylight === 'day'
-                  ? 'A clear afternoon'
-                  : settings.daylight === 'sunset'
-                    ? 'The golden hour'
-                    : 'Under the stars'}
-              </span>
+              <span>{sky.mood}</span>
             </div>
           </>
         )}
@@ -227,12 +222,7 @@ export function Drive() {
             <div>
               <span className="journey-title">{landscape.title}</span>
               <span className="journey-subtitle">
-                {settings.season} <span>·</span>{' '}
-                {settings.daylight === 'day'
-                  ? 'Daylight'
-                  : settings.daylight === 'sunset'
-                    ? 'Golden hour'
-                    : 'Night'}
+                {settings.season} <span>·</span> {sky.label}
               </span>
             </div>
             <ChevronDown size={16} />
