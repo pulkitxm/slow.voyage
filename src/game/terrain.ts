@@ -730,6 +730,32 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       }
     }
   }
+  prime(s: number, budget: number) {
+    const current = Math.floor(s / groundLayout.tileLength)
+    const ahead = this.quality === 'low' ? 8 : 14
+    const deadline = performance.now() + budget
+    let ready = 0
+    for (let id = current - 4; id <= current + ahead; id++) {
+      if (this.tiles.has(id)) {
+        ready++
+        continue
+      }
+      let build = this.builds.get(id)
+      if (!build) {
+        const group = new THREE.Group()
+        build = { group, steps: this.buildTile(id, groundLayout.fullRows, group) }
+        this.builds.set(id, build)
+      }
+      while (performance.now() < deadline) {
+        if (!build.steps.next().done) continue
+        this.builds.delete(id)
+        ready++
+        break
+      }
+      if (performance.now() >= deadline) break
+    }
+    return ready / (ahead + 5)
+  }
   *trunksNear(s: number) {
     const tile = Math.floor(s / groundLayout.tileLength)
     for (let id = tile - 1; id <= tile + 1; id++) yield* this.trunks.get(id) ?? []
