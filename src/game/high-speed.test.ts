@@ -4,9 +4,15 @@ import { CarPhysics, type Input } from './physics'
 import { roadCoordinates, roadLayout } from './road'
 import { SimulationClock } from './simulation-clock'
 import { vehicleMetrics } from './vehicles'
-import { type AssistanceMode, defaults, type Settings, type Vehicle, World } from './world'
+import {
+  type AssistanceMode,
+  defaults,
+  type Settings,
+  type Vehicle,
+  vehicles,
+  World,
+} from './world'
 
-const vehicles = ['touring', 'roadster', 'motorcycle', 'bus'] as const
 const routes = [
   { landscape: 'highlands', seed: 42 },
   { landscape: 'alpine', seed: 43 },

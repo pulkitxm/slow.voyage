@@ -29,6 +29,9 @@ export const footprints: Record<Vehicle, Footprint> = {
   roadster: { front: 2.12, rear: 2.03, halfWidth: 0.85 },
   motorcycle: { front: 1.44, rear: 1.28, halfWidth: 0.38 },
   bus: { front: 4.5, rear: 4.88, halfWidth: 1.18 },
+  pickup: { front: 2.68, rear: 2.79, halfWidth: 1.04 },
+  hatchback: { front: 1.89, rear: 1.85, halfWidth: 0.88 },
+  supercar: { front: 2.23, rear: 2.2, halfWidth: 1.01 },
 }
 
 export const railFaces = {

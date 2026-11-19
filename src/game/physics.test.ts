@@ -5,7 +5,7 @@ import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { SimulationClock } from './simulation-clock'
-import { defaults, type Settings, World } from './world'
+import { defaults, type Settings, vehicles, World } from './world'
 
 class FlatWorld extends World {
   override road(_s: number) {
@@ -84,7 +84,7 @@ function simulate(
 }
 
 describe('boosted driving', () => {
-  for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const) {
+  for (const vehicle of vehicles) {
     test(`${vehicle} gains forward acceleration and releases boost without cutting throttle`, () => {
       const settings = { ...defaults, vehicle }
       const normal = new CarPhysics(new GradeWorld(settings, 0))
@@ -141,26 +141,23 @@ describe('boosted driving', () => {
   }
 })
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-  '%s cruise holds forward, reverse and stopped targets on grades',
-  (vehicle) => {
-    const settings = { ...defaults, vehicle }
-    for (const grade of [-0.1, 0, 0.1]) {
-      for (const target of [-3, 0, 20]) {
-        const car = new CarPhysics(new GradeWorld(settings, grade))
-        car.speed = target === 0 ? -4 : 0
-        for (let step = 0; step < 40 * 120; step++) {
-          const automatic = car.autoInput(target)
-          car.update(1 / 120, resolveInput(coast, automatic, 'full', false), settings)
-          expect(Number.isFinite(car.speed + car.s)).toBe(true)
-        }
-        expect(Math.abs(car.speed - target)).toBeLessThan(target === 0 ? 0.001 : 0.08)
+test.each(vehicles)('%s cruise holds forward, reverse and stopped targets on grades', (vehicle) => {
+  const settings = { ...defaults, vehicle }
+  for (const grade of [-0.1, 0, 0.1]) {
+    for (const target of [-3, 0, 20]) {
+      const car = new CarPhysics(new GradeWorld(settings, grade))
+      car.speed = target === 0 ? -4 : 0
+      for (let step = 0; step < 40 * 120; step++) {
+        const automatic = car.autoInput(target)
+        car.update(1 / 120, resolveInput(coast, automatic, 'full', false), settings)
+        expect(Number.isFinite(car.speed + car.s)).toBe(true)
       }
+      expect(Math.abs(car.speed - target)).toBeLessThan(target === 0 ? 0.001 : 0.08)
     }
-  },
-)
+  }
+})
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s cruise brakes through direction changes and holds a stop without creep',
   (vehicle) => {
     const settings = { ...defaults, vehicle }
@@ -178,7 +175,7 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s reverse autodrive follows generated bends through the origin',
   (vehicle) => {
     const settings = { ...defaults, vehicle }
@@ -195,7 +192,7 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s cruise stops and stays stopped on a wet low-grip downhill in either direction',
   (vehicle) => {
     const settings = { ...defaults, vehicle, grip: 0.2, weather: 'rain' as const }
@@ -213,7 +210,7 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s resets on the centerline and autosteer recovers from either side',
   (vehicle) => {
     const settings = { ...defaults, vehicle }
@@ -233,28 +230,25 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-  '%s autosteer recovers after taking over a moving digital rack',
-  (vehicle) => {
-    const settings = { ...defaults, vehicle }
-    const car = new CarPhysics(new World(settings))
-    car.speed = 18
-    for (let step = 0; step < 120; step++) car.update(1 / 120, car.autoInput(18), settings)
-    for (let step = 0; step < 24; step++) {
-      const manual: Input = { ...coast, steer: 0.3, steeringSource: 'digital' }
-      car.update(1 / 120, resolveInput(manual, car.autoInput(18), 'speed', false), settings)
-    }
-    expect(car.steeringControl.source).toBe('digital')
-    expect(Math.abs(car.steeringControl.rate)).toBeGreaterThan(0.01)
-    for (let step = 0; step < 60 * 120; step++) {
-      car.update(1 / 120, car.autoInput(18), settings)
-      expect(car.offroad).toBe(false)
-      expect(car.impact).toBeLessThan(0.99)
-    }
-    expect(car.steeringControl.source).toBe('automatic')
-    expect(car.distance).toBeGreaterThan(900)
-  },
-)
+test.each(vehicles)('%s autosteer recovers after taking over a moving digital rack', (vehicle) => {
+  const settings = { ...defaults, vehicle }
+  const car = new CarPhysics(new World(settings))
+  car.speed = 18
+  for (let step = 0; step < 120; step++) car.update(1 / 120, car.autoInput(18), settings)
+  for (let step = 0; step < 24; step++) {
+    const manual: Input = { ...coast, steer: 0.3, steeringSource: 'digital' }
+    car.update(1 / 120, resolveInput(manual, car.autoInput(18), 'speed', false), settings)
+  }
+  expect(car.steeringControl.source).toBe('digital')
+  expect(Math.abs(car.steeringControl.rate)).toBeGreaterThan(0.01)
+  for (let step = 0; step < 60 * 120; step++) {
+    car.update(1 / 120, car.autoInput(18), settings)
+    expect(car.offroad).toBe(false)
+    expect(car.impact).toBeLessThan(0.99)
+  }
+  expect(car.steeringControl.source).toBe('automatic')
+  expect(car.distance).toBeGreaterThan(900)
+})
 
 test('reset clears a moving mouse rack and its filtered command', () => {
   const settings = { ...defaults }
@@ -269,7 +263,7 @@ test('reset clears a moving mouse rack and its filtered command', () => {
 })
 
 describe('brake priority after powered acceleration', () => {
-  for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const)
+  for (const vehicle of vehicles)
     test.each([
       { name: 'service brake', throttle: 0, brake: 1, regenBrake: 0 },
       { name: 'one-pedal brake', throttle: 0, brake: 0, regenBrake: 0.15 },
@@ -290,7 +284,7 @@ describe('brake priority after powered acceleration', () => {
 })
 
 describe('service brake response', () => {
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  test.each(vehicles)(
     '%s responds within a tenth of a second and releases without residual braking',
     (vehicle) => {
       const settings = { ...defaults, vehicle }
@@ -334,7 +328,7 @@ describe('service brake response', () => {
 })
 
 describe('powered direction handoff', () => {
-  for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const) {
+  for (const vehicle of vehicles) {
     test(`${vehicle} slows accelerating reverse before driving forward`, () => {
       const settings = { ...defaults, vehicle }
       const car = new CarPhysics(new FlatWorld(settings))
@@ -430,7 +424,7 @@ function railContact(
 }
 
 describe('guardrail response', () => {
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+  test.each(vehicles)(
     '%s keeps its whole body outline inside the visible rail on either side',
     (vehicle) => {
       for (const side of [-1, 1])
@@ -504,21 +498,18 @@ describe('guardrail response', () => {
 })
 
 describe('powertrain telemetry', () => {
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-    '%s reports gears from its own gearbox while accelerating',
-    (vehicle) => {
-      const settings = { ...defaults, vehicle }
-      const car = new CarPhysics(new World(settings))
-      const seen = new Set<string>()
-      for (let i = 0; i < 60 * 25; i++) {
-        car.update(1 / 60, { ...coast, throttle: 1 }, settings)
-        seen.add(car.telemetry().gear)
-      }
-      expect(seen.size).toBeGreaterThan(2)
-      expect(car.gearbox.profile.redline).toBeGreaterThan(car.gearbox.rpm)
-      expect(car.gearbox.rpm).toBeGreaterThan(car.gearbox.profile.idle)
-    },
-  )
+  test.each(vehicles)('%s reports gears from its own gearbox while accelerating', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new World(settings))
+    const seen = new Set<string>()
+    for (let i = 0; i < 60 * 25; i++) {
+      car.update(1 / 60, { ...coast, throttle: 1 }, settings)
+      seen.add(car.telemetry().gear)
+    }
+    expect(seen.size).toBeGreaterThan(2)
+    expect(car.gearbox.profile.redline).toBeGreaterThan(car.gearbox.rpm)
+    expect(car.gearbox.rpm).toBeGreaterThan(car.gearbox.profile.idle)
+  })
   test('switching vehicles swaps the engine profile', () => {
     const car = new CarPhysics(new World(defaults))
     car.update(1 / 60, coast, defaults)
@@ -529,40 +520,34 @@ describe('powertrain telemetry', () => {
 })
 
 describe('vehicle dynamics', () => {
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-    '%s coasts downhill equally while facing forward or backward',
-    (vehicle) => {
-      const settings = { ...defaults, vehicle }
-      const backward = new CarPhysics(new GradeWorld(settings, 0.1))
-      const forward = new CarPhysics(new GradeWorld(settings, 0.1))
-      forward.yaw = Math.PI
-      forward.suspension.reset(forward)
-      simulate(backward, 20, coast, 1 / 120, settings)
-      simulate(forward, 20, coast, 1 / 120, settings)
-      expect(backward.speed).toBeLessThan(-5)
-      expect(Math.abs(backward.speed + forward.speed)).toBeLessThan(0.001)
-      expect(Math.abs(backward.s - forward.s)).toBeLessThan(0.01)
-    },
-  )
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-    '%s governs powered reverse and responds to forward throttle',
-    (vehicle) => {
-      const settings = { ...defaults, vehicle }
-      for (const dt of [1 / 60, 1 / 120]) {
-        const car = new CarPhysics(new FlatWorld(settings))
-        let reversePeak = 0
-        for (let step = 0; step < 30 / dt; step++) {
-          car.update(dt, { ...coast, brake: 1 }, settings)
-          reversePeak = Math.min(reversePeak, car.speed)
-        }
-        expect(car.speed).toBeLessThan(-4.7)
-        expect(reversePeak).toBeGreaterThanOrEqual(-5)
-        simulate(car, 6, { ...coast, throttle: 1 }, dt, settings)
-        expect(car.speed).toBeGreaterThan(10)
-        expect(car.telemetry().gear).not.toBe('R')
+  test.each(vehicles)('%s coasts downhill equally while facing forward or backward', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const backward = new CarPhysics(new GradeWorld(settings, 0.1))
+    const forward = new CarPhysics(new GradeWorld(settings, 0.1))
+    forward.yaw = Math.PI
+    forward.suspension.reset(forward)
+    simulate(backward, 20, coast, 1 / 120, settings)
+    simulate(forward, 20, coast, 1 / 120, settings)
+    expect(backward.speed).toBeLessThan(-5)
+    expect(Math.abs(backward.speed + forward.speed)).toBeLessThan(0.001)
+    expect(Math.abs(backward.s - forward.s)).toBeLessThan(0.01)
+  })
+  test.each(vehicles)('%s governs powered reverse and responds to forward throttle', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    for (const dt of [1 / 60, 1 / 120]) {
+      const car = new CarPhysics(new FlatWorld(settings))
+      let reversePeak = 0
+      for (let step = 0; step < 30 / dt; step++) {
+        car.update(dt, { ...coast, brake: 1 }, settings)
+        reversePeak = Math.min(reversePeak, car.speed)
       }
-    },
-  )
+      expect(car.speed).toBeLessThan(-4.7)
+      expect(reversePeak).toBeGreaterThanOrEqual(-5)
+      simulate(car, 6, { ...coast, throttle: 1 }, dt, settings)
+      expect(car.speed).toBeGreaterThan(10)
+      expect(car.telemetry().gear).not.toBe('R')
+    }
+  })
   test('the reverse governor cannot brake or clip unpowered downhill motion', () => {
     const settings = { ...defaults }
     const free = new CarPhysics(new GradeWorld(settings, 0.1))
@@ -574,27 +559,24 @@ describe('vehicle dynamics', () => {
     expect(governed.speed).toBeCloseTo(free.speed, 8)
     expect(governed.s).toBeCloseTo(free.s, 8)
   })
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-    '%s retains full braking before transitioning into reverse',
-    (vehicle) => {
-      const settings = { ...defaults, vehicle }
-      const car = new CarPhysics(new FlatWorld(settings))
-      car.speed = 20
-      let stoppingTime: number | null = null
-      let stoppingDistance = 0
-      for (let step = 0; step < 120 * 8; step++) {
-        car.update(1 / 120, { ...coast, brake: 1 }, settings)
-        if (stoppingTime === null && car.speed <= 0) {
-          stoppingTime = step / 120
-          stoppingDistance = car.distance
-        }
+  test.each(vehicles)('%s retains full braking before transitioning into reverse', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new FlatWorld(settings))
+    car.speed = 20
+    let stoppingTime: number | null = null
+    let stoppingDistance = 0
+    for (let step = 0; step < 120 * 8; step++) {
+      car.update(1 / 120, { ...coast, brake: 1 }, settings)
+      if (stoppingTime === null && car.speed <= 0) {
+        stoppingTime = step / 120
+        stoppingDistance = car.distance
       }
-      expect(stoppingTime).not.toBeNull()
-      expect(stoppingTime).toBeLessThan(6)
-      expect(stoppingDistance).toBeLessThan(80)
-      expect(car.speed).toBeLessThan(-1)
-    },
-  )
+    }
+    expect(stoppingTime).not.toBeNull()
+    expect(stoppingTime).toBeLessThan(6)
+    expect(stoppingDistance).toBeLessThan(80)
+    expect(car.speed).toBeLessThan(-1)
+  })
   test('autodrive sees opposing bends even when their net heading change cancels', () => {
     const car = new CarPhysics(new OpposingBends({ ...defaults }))
     car.speed = 20
@@ -632,25 +614,22 @@ describe('vehicle dynamics', () => {
     expect(wet.routeSpeed(45)).toBeLessThan(dry.routeSpeed(45) * 0.9)
     expect(wet.world.settings.cruiseSpeed).toBe(defaults.cruiseSpeed)
   })
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-    '%s autodrive reserves steering traction in rain',
-    (vehicle) => {
-      for (const grip of [0.2, 1]) {
-        const settings: Settings = { ...defaults, vehicle, grip, weather: 'rain', cruiseSpeed: 45 }
-        const car = new CarPhysics(new World(settings))
-        let leftRoad = false,
-          collided = false
-        for (let step = 0; step < 120 * 120; step++) {
-          car.update(1 / 120, car.autoInput(settings.cruiseSpeed), settings)
-          leftRoad ||= car.offroad
-          collided ||= car.impact > 0.99
-        }
-        expect({ grip, leftRoad, collided }).toEqual({ grip, leftRoad: false, collided: false })
-        expect(car.distance).toBeGreaterThan(600)
+  test.each(vehicles)('%s autodrive reserves steering traction in rain', (vehicle) => {
+    for (const grip of [0.2, 1]) {
+      const settings: Settings = { ...defaults, vehicle, grip, weather: 'rain', cruiseSpeed: 45 }
+      const car = new CarPhysics(new World(settings))
+      let leftRoad = false,
+        collided = false
+      for (let step = 0; step < 120 * 120; step++) {
+        car.update(1 / 120, car.autoInput(settings.cruiseSpeed), settings)
+        leftRoad ||= car.offroad
+        collided ||= car.impact > 0.99
       }
-    },
-  )
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+      expect({ grip, leftRoad, collided }).toEqual({ grip, leftRoad: false, collided: false })
+      expect(car.distance).toBeGreaterThan(600)
+    }
+  })
+  test.each(vehicles)(
     '%s autodrive handles maximum cruise across traction and terrain extremes',
     (vehicle) => {
       for (const grip of [0.2, 1, 2])
@@ -725,17 +704,14 @@ describe('vehicle dynamics', () => {
     expect(car.telemetry().gear).toBe('R')
     expect(Number.isFinite(car.x + car.y + car.s)).toBe(true)
   })
-  test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-    '%s autodrive follows several kilometers of generated curves',
-    (vehicle) => {
-      const settings = { ...defaults, vehicle }
-      const car = new CarPhysics(new World(settings))
-      for (let i = 0; i < 120 * 240; i++) car.update(1 / 120, car.autoInput(24), settings)
-      expect(car.distance).toBeGreaterThan(4500)
-      expect(Math.abs(car.x - car.world.road(car.s).x)).toBeLessThan(4.5)
-      expect(car.offroad).toBe(false)
-    },
-  )
+  test.each(vehicles)('%s autodrive follows several kilometers of generated curves', (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const car = new CarPhysics(new World(settings))
+    for (let i = 0; i < 120 * 240; i++) car.update(1 / 120, car.autoInput(24), settings)
+    expect(car.distance).toBeGreaterThan(4500)
+    expect(Math.abs(car.x - car.world.road(car.s).x)).toBeLessThan(4.5)
+    expect(car.offroad).toBe(false)
+  })
   test('gives similar results at different simulation rates', () => {
     const a = new CarPhysics(new FlatWorld({ ...defaults }))
     const b = new CarPhysics(new FlatWorld({ ...defaults }))

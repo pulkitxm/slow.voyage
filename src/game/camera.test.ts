@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { DrivingCamera } from './camera'
 import { groundGeometry } from './ground'
 import { createVehicleModel } from './model'
-import { defaults, World } from './world'
+import { defaults, vehicles, World } from './world'
 
 function fixture(aspect = 16 / 9) {
   const world = new World({ ...defaults })
@@ -80,7 +80,7 @@ test('bonnet look recenters after release without changing vehicle heading', () 
   expect(subject.yaw).toBe(yaw)
 })
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s stays outside the camera near plane at closest zoom and fits portrait framing',
   (vehicle) => {
     for (const aspect of [16 / 9, 9 / 16]) {
@@ -237,7 +237,7 @@ test.each([0, 20])(
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s stays framed and steady while driving across hills and down to the coast',
   (vehicle) => {
     for (const direction of [1, -1]) {

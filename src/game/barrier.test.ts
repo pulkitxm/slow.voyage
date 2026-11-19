@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { barrierResponse, resolveBarrierImpulse } from './barrier'
 import { vehicleMetrics, yawInertia } from './vehicles'
+import { vehicles } from './world'
 
 const energy = (
   pose: { speed: number; lateralSpeed: number; yawRate: number },
@@ -9,7 +10,7 @@ const energy = (
   0.5 * metrics.mass * (pose.speed ** 2 + pose.lateralSpeed ** 2) +
   0.5 * yawInertia(metrics) * pose.yawRate ** 2
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s exchanges rotational and linear momentum at a rail contact without adding energy',
   (vehicle) => {
     const metrics = vehicleMetrics[vehicle]

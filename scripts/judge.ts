@@ -2,6 +2,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { chromium, type Page } from 'playwright-core'
 import { z } from 'zod'
+import type { Vehicle } from '../src/game/world'
 import { browserExecutable } from './browser'
 
 interface Sample {
@@ -15,7 +16,7 @@ interface Sample {
 interface Scenario {
   id: string
   title: string
-  vehicle: 'touring' | 'roadster' | 'motorcycle' | 'bus'
+  vehicle: Vehicle
   cruiseSpeed: number
   seconds: number
   expectation?: string

@@ -7,6 +7,7 @@ import {
   Camera,
   Car,
   CarFront,
+  CarTaxiFront,
   ChevronDown,
   ChevronRight,
   CircleHelp,
@@ -19,8 +20,10 @@ import {
   RotateCcw,
   Route,
   Settings2,
+  Truck,
   Volume2,
   VolumeX,
+  Zap,
 } from 'lucide-react'
 import { Help } from './components/Help'
 import { IconButton } from './components/IconButton'
@@ -40,6 +43,9 @@ const vehicleIcons: Record<Vehicle, typeof Car> = {
   roadster: CarFront,
   motorcycle: Motorbike,
   bus: Bus,
+  pickup: Truck,
+  hatchback: CarTaxiFront,
+  supercar: Zap,
 }
 
 export function Drive() {
