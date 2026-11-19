@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { busLayout } from './bus-layout'
 import type { ControllerLook } from './gamepad'
+import { isLoftVehicle, loftVehicles } from './loft-vehicles'
 import { vehicleMetrics } from './vehicles'
 import { angleDifference, type CameraMode, clamp, damp, type World } from './world'
 
@@ -113,6 +114,7 @@ export class DrivingCamera {
     const metrics = vehicleMetrics[vehicle]
     const bus = vehicle === 'bus'
     const bike = vehicle === 'motorcycle'
+    const loft = isLoftVehicle(vehicle) ? loftVehicles[vehicle] : null
     if (mode !== this.mode) {
       this.yaw = 0
       this.pitch = 0
@@ -142,9 +144,10 @@ export class DrivingCamera {
     position.set(subject.x, subject.y, -subject.s)
     target.copy(position)
     if (mode === 'bonnet') {
-      position.addScaledVector(forward, bus ? -busLayout.driver.z : bike ? 0.65 : 0.9)
-      if (bus) position.addScaledVector(side, busLayout.driver.x)
-      position.y += bus ? busLayout.driver.y : bike ? 1.1 : 1.45
+      const seat = bus ? busLayout.driver : loft?.seat
+      position.addScaledVector(forward, seat ? -seat.z : bike ? 0.65 : 0.9)
+      if (seat) position.addScaledVector(side, seat.x)
+      position.y += seat ? seat.y : bike ? 1.1 : 1.45
       const pitch = Math.atan(this.grade) + this.pitch - 0.007
       const yaw = heading + this.yaw
       target.set(
@@ -162,10 +165,10 @@ export class DrivingCamera {
         ? 9 + 2 * clamp(Math.abs(subject.speed) / 32, 0, 1)
         : bike
           ? 3.5 + clamp(Math.abs(subject.speed) / 50, 0, 1)
-          : 4.2 + Math.abs(subject.speed) * 0.01
+          : (loft?.chase.distance ?? 4.2) + Math.abs(subject.speed) * 0.01
       const distance =
         (baseDistance + cameraRush.distance * this.rush) * Math.max(1, 0.9 / camera.aspect)
-      const height = bus ? 4.7 : bike ? 1.8 : 2
+      const height = bus ? 4.7 : bike ? 1.8 : (loft?.chase.height ?? 2)
       const pitch = 0.3 - clamp(Math.abs(subject.speed) / metrics.maxSpeed, 0, 1) * 0.1
       const slope = (this.grade * 2) / 3
       target.y += bus

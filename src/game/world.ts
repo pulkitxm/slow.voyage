@@ -8,7 +8,16 @@ export type { Landscape } from './landscapes'
 export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'dawn' | 'day' | 'sunset' | 'dusk' | 'night' | 'cycle'
 export type Weather = 'clear' | 'overcast' | 'rain' | 'storm' | 'fog'
-export type Vehicle = 'touring' | 'roadster' | 'motorcycle' | 'bus'
+export const vehicles = [
+  'touring',
+  'roadster',
+  'hatchback',
+  'supercar',
+  'pickup',
+  'motorcycle',
+  'bus',
+] as const
+export type Vehicle = (typeof vehicles)[number]
 export type CameraMode = 'chase' | 'bonnet' | 'cinematic'
 export type AssistanceMode = 'off' | 'full' | 'steer' | 'speed'
 export type SteeringSource = 'digital' | 'analog' | 'mouse' | 'automatic'
