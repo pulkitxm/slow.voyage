@@ -53,6 +53,21 @@ function geometry(positions: number[], indices: number[], colors?: number[]) {
   return g
 }
 export const foliageWarmth = 1.5
+export const canopyShade = { opacity: 0.34, spread: 0.62, lift: 0.07 }
+
+function shadeTexture() {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const context = canvas.getContext('2d')
+  if (!context) throw new Error('Shade texture canvas is unavailable')
+  const fade = context.createRadialGradient(32, 32, 3, 32, 32, 32)
+  fade.addColorStop(0, 'rgba(255, 255, 255, 1)')
+  fade.addColorStop(0.6, 'rgba(255, 255, 255, 0.55)')
+  fade.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = fade
+  context.fillRect(0, 0, 64, 64)
+  return new THREE.CanvasTexture(canvas)
+}
 export const seamTwins = { show: 150, hide: 100 }
 
 function twinMesh(source: THREE.Mesh) {
@@ -131,6 +146,8 @@ export class Terrain {
     roughness: 0.9,
   })
   glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true })
+  shadeMaterial: THREE.MeshBasicMaterial | null = null
+  shadeDisc = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2)
   chevronMaterial: THREE.MeshStandardMaterial
   bannerMaterial: THREE.MeshStandardMaterial
   foliage: Foliage
@@ -153,6 +170,17 @@ export class Terrain {
     multisampling: boolean,
   ) {
     this.groundTexture = groundTexture()
+    if (!software)
+      this.shadeMaterial = new THREE.MeshBasicMaterial({
+        color: '#0b130c',
+        alphaMap: shadeTexture(),
+        transparent: true,
+        opacity: canopyShade.opacity,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        polygonOffsetUnits: -2,
+      })
     this.chevronMaterial = new THREE.MeshStandardMaterial({
       map: chevronTexture(),
       side: THREE.DoubleSide,
@@ -291,6 +319,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       ...this.foliage.treeGeometries,
       ...this.foliage.winterShrubGeometries,
       this.blade,
+      this.shadeDisc,
     ]
     if (!software) {
       this.meadow = new RoamingMeadow(
@@ -486,6 +515,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       conifers,
       narrow,
     ]
+    const shades: number[] = []
     for (let variant = 0; variant < vegetationCounts.length; variant++) {
       const geometry =
         settings.season === 'winter' && variant >= 2 && variant < 4
@@ -530,6 +560,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
                 : 0.9 + rng() * 0.2)
         matrix.scale.set(width, h, width)
         if (!shrub) trunks.push({ x, s, radius: trunkRadius(width) })
+        shades.push(x, s, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
         trees.setColorAt(placed++, new THREE.Color().setScalar(0.88 + rng() * 0.24))
@@ -539,6 +570,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
         matrix.rotation.set(0, tree.yaw, 0)
         matrix.scale.set(tree.width, tree.height, tree.width)
         if (!shrub) trunks.push({ x: tree.x, s: tree.s, radius: trunkRadius(tree.width) })
+        shades.push(tree.x, tree.s, tree.width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
         trees.setColorAt(placed++, color.setScalar(tree.shade))
@@ -546,6 +578,26 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       trees.count = placed
       trees.castShadow = true
       group.add(trees)
+      yield
+    }
+    if (this.shadeMaterial && shades.length) {
+      const pools = new THREE.InstancedMesh(this.shadeDisc, this.shadeMaterial, shades.length / 3)
+      pools.name = 'shade'
+      pools.renderOrder = 1
+      const pool = new THREE.Matrix4()
+      for (let index = 0; index < shades.length; index += 3) {
+        const x = shades[index] ?? 0
+        const s = shades[index + 1] ?? 0
+        const reach = (shades[index + 2] ?? 1) * canopyShade.spread
+        const height = groundSurface.sample(x, s)
+        const normal = groundSurface.normal
+        pool.makeScale(reach, 1, reach)
+        pool.elements[1] = (-normal.x / normal.y) * reach
+        pool.elements[9] = (-normal.z / normal.y) * reach
+        pool.setPosition(x, height + canopyShade.lift, -s)
+        pools.setMatrixAt(index / 3, pool)
+      }
+      group.add(pools)
       yield
     }
     const count = this.software
@@ -828,6 +880,9 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }
     for (const material of this.materials) material.dispose()
     this.glowMaterial.dispose()
+    this.shadeMaterial?.alphaMap?.dispose()
+    this.shadeMaterial?.dispose()
+    this.shadeDisc.dispose()
     this.chevronMaterial.map?.dispose()
     this.bannerMaterial.map?.dispose()
     this.blade.dispose()
