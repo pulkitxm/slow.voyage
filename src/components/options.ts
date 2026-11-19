@@ -71,6 +71,11 @@ export const weather = [
   { id: 'storm', label: 'Storm', icon: CloudLightning },
   { id: 'fog', label: 'Fog', icon: CloudFog },
 ] as const
+export const roadWear = [
+  { id: 'fresh', label: 'Freshly laid' },
+  { id: 'worn', label: 'Well travelled' },
+  { id: 'broken', label: 'Potholed' },
+] as const
 export const daylight = [
   { id: 'dawn', label: 'Dawn', icon: Sunrise, mood: 'First light' },
   { id: 'day', label: 'Daylight', icon: CloudSun, mood: 'A clear afternoon' },

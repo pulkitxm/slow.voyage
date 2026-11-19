@@ -2,34 +2,56 @@ import * as THREE from 'three'
 import type { AtmosphereProfile } from './atmosphere'
 import { random, type Settings } from './world'
 
-export const precipitationLayout = { particles: 3600, calm: 0.5 }
+export const precipitationLayout = {
+  particles: 3600,
+  drops: 13000,
+  calm: 0.55,
+  fall: [1.5, -18, 0.5],
+  exposure: 1 / 42,
+} as const
 
 export class Precipitation {
   origin = { value: new THREE.Vector3() }
   time = { value: 0 }
-  rain: THREE.LineSegments<THREE.BufferGeometry, THREE.LineBasicMaterial>
+  streak = { value: new THREE.Vector3(0, -0.6, 0) }
+  pixel = { value: 0.001 }
+  rain: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>
   snow: THREE.Points<THREE.BufferGeometry, THREE.PointsMaterial>
   constructor(scene: THREE.Scene) {
     const rng = random(7021)
-    const rainPositions: number[] = [],
-      snowPositions: number[] = [],
-      tips: number[] = []
-    for (let i = 0; i < precipitationLayout.particles; i++) {
+    const snowPositions: number[] = []
+    for (let i = 0; i < precipitationLayout.particles; i++)
+      snowPositions.push(rng() * 64, rng() * 32, rng() * 64)
+    const drops = precipitationLayout.drops
+    const rainPositions = new Float32Array(drops * 12)
+    const corners = new Float32Array(drops * 12)
+    const indices = new Uint32Array(drops * 6)
+    for (let i = 0; i < drops; i++) {
       const position = [rng() * 64, rng() * 32, rng() * 64]
-      rainPositions.push(...position, ...position)
-      tips.push(0, 1)
-      snowPositions.push(...position)
+      const seed = rng()
+      for (const [corner, [across, along]] of [
+        [-1, 0],
+        [1, 0],
+        [-1, 1],
+        [1, 1],
+      ].entries()) {
+        rainPositions.set(position, (i * 4 + corner) * 3)
+        corners.set([across ?? 0, along ?? 0, seed], (i * 4 + corner) * 3)
+      }
+      indices.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 1, i * 4 + 3, i * 4 + 2], i * 6)
     }
     const rainGeometry = new THREE.BufferGeometry()
-    rainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(rainPositions, 3))
-    rainGeometry.setAttribute('fallTip', new THREE.Float32BufferAttribute(tips, 1))
+    rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3))
+    rainGeometry.setAttribute('fallCorner', new THREE.BufferAttribute(corners, 3))
+    rainGeometry.setIndex(new THREE.BufferAttribute(indices, 1))
     const snowGeometry = new THREE.BufferGeometry()
     snowGeometry.setAttribute('position', new THREE.Float32BufferAttribute(snowPositions, 3))
-    const rainMaterial = new THREE.LineBasicMaterial({
+    const rainMaterial = new THREE.MeshBasicMaterial({
       color: '#c2d5df',
       transparent: true,
-      opacity: 0.38,
+      opacity: 0.5,
       depthWrite: false,
+      side: THREE.DoubleSide,
       fog: true,
     })
     const snowMaterial = new THREE.PointsMaterial({
@@ -40,6 +62,8 @@ export class Precipitation {
       depthWrite: false,
       fog: true,
     })
+    const [fallX, fallY, fallZ] = precipitationLayout.fall
+    const fall = `vec3(${fallX.toFixed(1)}, ${fallY.toFixed(1)}, ${fallZ.toFixed(1)})`
     for (const [material, snow] of [
       [rainMaterial, false],
       [snowMaterial, true],
@@ -47,18 +71,29 @@ export class Precipitation {
       material.onBeforeCompile = (shader) => {
         shader.uniforms.weatherOrigin = this.origin
         shader.uniforms.weatherTime = this.time
+        shader.uniforms.rainStreak = this.streak
+        shader.uniforms.rainPixel = this.pixel
         shader.vertexShader = shader.vertexShader.replace(
           '#include <common>',
           `#include <common>
 uniform vec3 weatherOrigin;
 uniform float weatherTime;
-${snow ? '' : 'attribute float fallTip;'} `,
+${snow ? '' : 'uniform vec3 rainStreak;\nuniform float rainPixel;\nattribute vec3 fallCorner;\nvarying vec3 rainShape;'} `,
         )
         shader.vertexShader = shader.vertexShader.replace(
           '#include <begin_vertex>',
-          `#include <begin_vertex>
-transformed = mod(position + vec3(${snow ? '1.0, -1.6, 0.3' : '1.5, -18.0, 0.5'}) * weatherTime - weatherOrigin, vec3(64.0, 32.0, 64.0)) + weatherOrigin - vec3(32.0, 16.0, 32.0);
-${snow ? 'transformed.x += sin(position.x + weatherTime * 0.8) * 0.5;' : 'transformed += vec3(-0.1, 1.2, -0.03) * fallTip;'} `,
+          snow
+            ? `#include <begin_vertex>
+transformed = mod(position + vec3(1.0, -1.6, 0.3) * weatherTime - weatherOrigin, vec3(64.0, 32.0, 64.0)) + weatherOrigin - vec3(32.0, 16.0, 32.0);
+transformed.x += sin(position.x + weatherTime * 0.8) * 0.5;`
+            : `vec3 rainCentre = mod(position + ${fall} * weatherTime - weatherOrigin, vec3(64.0, 32.0, 64.0)) + weatherOrigin - vec3(32.0, 16.0, 32.0);
+vec3 rainTail = rainStreak * (0.7 + fallCorner.z * 0.6);
+vec3 rainToward = cameraPosition - rainCentre;
+float rainReach = length(rainToward);
+vec3 rainAcross = normalize(cross(rainTail, rainToward));
+float rainWidth = max(0.0045, rainReach * rainPixel);
+vec3 transformed = rainCentre - rainTail * fallCorner.y + rainAcross * fallCorner.x * rainWidth;
+rainShape = vec3(fallCorner.xy, (0.45 + fallCorner.z * 0.55) * min(1.0, 0.0045 / (rainReach * rainPixel) + 0.35) * smoothstep(0.4, 1.6, rainReach));`,
         )
         if (snow)
           shader.fragmentShader = shader.fragmentShader.replace(
@@ -67,10 +102,18 @@ ${snow ? 'transformed.x += sin(position.x + weatherTime * 0.8) * 0.5;' : 'transf
 float flakeRadius = length(gl_PointCoord - vec2(0.5));
 diffuseColor.a *= 1.0 - smoothstep(0.2, 0.5, flakeRadius);`,
           )
+        else
+          shader.fragmentShader = shader.fragmentShader
+            .replace('#include <common>', '#include <common>\nvarying vec3 rainShape;')
+            .replace(
+              '#include <color_fragment>',
+              `#include <color_fragment>
+diffuseColor.a *= (1.0 - rainShape.x * rainShape.x) * (1.0 - rainShape.y) * (0.35 + rainShape.y * 2.6) * rainShape.z;`,
+            )
       }
-      material.customProgramCacheKey = () => (snow ? 'world-snowfall' : 'world-rainfall')
+      material.customProgramCacheKey = () => (snow ? 'world-snowfall' : 'world-rain-streaks')
     }
-    this.rain = new THREE.LineSegments(rainGeometry, rainMaterial)
+    this.rain = new THREE.Mesh(rainGeometry, rainMaterial)
     this.snow = new THREE.Points(snowGeometry, snowMaterial)
     this.rain.frustumCulled = this.snow.frustumCulled = false
     this.rain.visible = this.snow.visible = false
@@ -80,14 +123,20 @@ diffuseColor.a *= 1.0 - smoothstep(0.2, 0.5, flakeRadius);`,
     this.rain.visible = profile.wet
     this.snow.visible = profile.snow
     this.rain.material.color.set(profile.night > 0.5 ? '#839aaa' : '#c2d5df')
-    const base = precipitationLayout.particles / (settings.quality === 'low' ? 3 : 1)
-    const count = Math.round(base * (profile.downpour > 0.5 ? 1 : precipitationLayout.calm))
-    this.rain.geometry.setDrawRange(0, count * 2)
-    this.snow.geometry.setDrawRange(0, count)
+    const share =
+      (profile.downpour > 0.5 ? 1 : precipitationLayout.calm) / (settings.quality === 'low' ? 3 : 1)
+    this.rain.geometry.setDrawRange(0, Math.round(precipitationLayout.drops * share) * 6)
+    this.snow.geometry.setDrawRange(0, Math.round(precipitationLayout.particles * share))
   }
-  update(x: number, y: number, s: number, time: number) {
-    this.origin.value.set(x, y + 8, -s)
+  update(camera: THREE.PerspectiveCamera, height: number, time: number, drift: THREE.Vector3) {
+    const [fallX, fallY, fallZ] = precipitationLayout.fall
+    this.origin.value.copy(camera.position)
+    this.origin.value.y += 5
     this.time.value = time
+    this.streak.value
+      .set(fallX - drift.x, fallY - drift.y, fallZ - drift.z)
+      .multiplyScalar(precipitationLayout.exposure)
+    this.pixel.value = (Math.tan((camera.fov * Math.PI) / 360) * 2 * 0.8) / Math.max(1, height)
   }
   dispose() {
     for (const mesh of [this.rain, this.snow]) {

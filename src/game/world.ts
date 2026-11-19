@@ -3,6 +3,7 @@ import { roadCurve, smoothStep, terrainField, worldLoop, wrapOffset } from './fi
 import { groundSurface } from './ground-grid'
 import { type Landscape, landscapeProfiles, passEasing, terraced } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
+import { potholeDepth, type RoadWear } from './road-condition'
 
 export type { Landscape } from './landscapes'
 export type Season = 'summer' | 'autumn' | 'winter'
@@ -26,6 +27,7 @@ export interface Settings {
   season: Season
   daylight: Daylight
   weather: Weather
+  roadWear: RoadWear
   vehicle: Vehicle
   camera: CameraMode
   color: string
@@ -50,6 +52,7 @@ export const defaults: Settings = {
   season: 'summer',
   daylight: 'day',
   weather: 'clear',
+  roadWear: 'worn',
   vehicle: 'touring',
   camera: 'chase',
   color: '#f8f8f8',
@@ -161,14 +164,16 @@ export class World {
 
   surface(position: number, s: number) {
     const x = this.canonical(position, s)
-    const { road, distance } = roadCoordinates(this, x, s)
+    const { road, distance, s: along } = roadCoordinates(this, x, s)
     const onRoad = Math.abs(distance) <= roadLayout.halfWidth
     const grade = road.dy / (1 + road.dx * road.dx)
     if (!onRoad) {
       const ground = groundSurface(this, x, s)
       if (ground) return { ...ground, onRoad, sand: this.sandy(ground.height, distance) }
     }
-    const height = onRoad ? road.y : this.height(x, s)
+    const height = onRoad
+      ? road.y - potholeDepth(this.settings.roadWear, along, distance)
+      : this.height(x, s)
     return {
       height,
       onRoad,

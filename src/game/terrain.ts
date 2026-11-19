@@ -12,6 +12,7 @@ import { landmarkFootprints, landmarkGeometry, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
+import { RoadSurface } from './road-surface'
 import { bannerTexture, chevrons, chevronTexture, delineators, startGantry } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
 import { receiveUnbiasedShadows } from './shadow-receiver'
@@ -161,7 +162,8 @@ export class Terrain {
   rebuilding = false
   private current = 0
   windTime = { value: 0 }
-  roadWetness = { value: 0 }
+  roadWetness: { value: number }
+  roadSurface: RoadSurface
   constructor(
     public scene: THREE.Scene,
     public world: World,
@@ -261,38 +263,14 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }
     this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-meadow'
     this.asphalt = asphaltTexture()
-    this.roadMaterial = new THREE.MeshStandardMaterial({
-      map: this.asphalt,
-      bumpMap: this.asphalt,
-      bumpScale: 0.0015,
-      color: '#c4ccd1',
-      roughness: 0.98,
-    })
-    this.roadMaterial.onBeforeCompile = (shader) => {
-      shader.uniforms.roadWetness = this.roadWetness
-      shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <common>',
-        '#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;',
-      )
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\nroadPosition = (modelMatrix * vec4(position, 1.0)).xz;\nroadLane = abs(uv.x - 0.5) * 2.0;',
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <common>',
-        `#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;\nuniform float roadWetness;\n${meadowNoise}`,
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <roughnessmap_fragment>',
-        '#include <roughnessmap_fragment>\nroughnessFactor *= 0.94 + roadVariation * 0.06;\nfloat surfaceWetness = smoothstep(0.25, 0.75, roadSurfaceNoise);\nroughnessFactor = mix(roughnessFactor, mix(0.1, 0.46, surfaceWetness), roadWetness);',
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <color_fragment>',
-        '#include <color_fragment>\nfloat roadVariation = fieldVariationAt(roadPosition * 25.0);\nfloat roadSurfaceNoise = fieldVariationAt(roadPosition * 45.0);\ndiffuseColor.rgb *= (0.92 + roadVariation * 0.16) * mix(1.0, 0.68 + roadSurfaceNoise * 0.3, roadWetness);\nfloat roadTracks = (1.0 - smoothstep(0.0, 0.1, abs(roadLane - 0.27))) + (1.0 - smoothstep(0.0, 0.1, abs(roadLane - 0.73)));\nfloat roadPatchy = fieldVariationAt(roadPosition * 1.7 + vec2(5.0, 11.0));\ndiffuseColor.rgb *= 1.0 - roadTracks * (0.5 + roadPatchy * 0.5) * 0.11;\ndiffuseColor.rgb *= mix(1.0, 1.09, smoothstep(0.84, 1.0, roadLane));\ndiffuseColor.rgb *= 1.0 - smoothstep(0.69, 0.72, fieldVariationAt(roadPosition * 0.9 + vec2(31.0, 7.0))) * 0.1;',
-      )
-    }
-    this.roadMaterial.customProgramCacheKey = () => 'aggregate-asphalt-worn'
+    this.roadSurface = new RoadSurface(
+      this.asphalt,
+      this.grassMaterial.fieldUniforms.fieldNoiseMap,
+      this.windTime,
+      software,
+    )
+    this.roadMaterial = this.roadSurface.material
+    this.roadWetness = this.roadSurface.uniforms.roadWetness
     this.blade = grassGeometry()
     const bounds = this.blade.boundingBox
     if (!bounds) throw new Error('Grass bounds are unavailable')
@@ -889,6 +867,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.bladeTexture.dispose()
     this.foliage.dispose()
     this.asphalt.dispose()
+    this.roadSurface.dispose()
     this.groundTexture.dispose()
   }
 }

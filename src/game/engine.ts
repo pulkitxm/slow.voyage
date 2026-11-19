@@ -28,6 +28,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
+import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
@@ -106,6 +107,8 @@ export class RoadEngine {
   skids = new SkidMarks()
   wetRoad = false
   private dustTone = new THREE.Color()
+  private travel = new THREE.Vector3()
+  private skyTone = new THREE.Color()
   private cloudTone = new THREE.Color()
   private cloudPlace = new THREE.Vector3()
   private cloudDrift = new THREE.Vector3()
@@ -429,7 +432,7 @@ export class RoadEngine {
     this.camera.lookAt(p.x, p.y + 1, -p.s)
     this.sky.position.copy(this.camera.position)
     this.water.update(p.x, p.s, 0)
-    this.precipitation.update(p.x, p.y, p.s, 0)
+    this.precipitation.update(this.camera, this.canvas.height, 0, this.travel)
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.precipitation.rain.visible = this.precipitation.snow.visible = true
@@ -689,6 +692,13 @@ export class RoadEngine {
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0
+    this.terrain.roadSurface.setCondition(
+      this.settings.roadWear,
+      profile.wet ? puddleLevel(this.settings.weather) : 2,
+      profile.wet,
+      this.dustTone,
+      this.skyTone.set(profile.horizon).multiplyScalar(clamp(profile.ambient / 2.6, 0.12, 1) * 0.9),
+    )
     this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
     this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
     for (const [index, light] of this.headlights.entries())
@@ -747,9 +757,9 @@ export class RoadEngine {
         rate = 26 * wheel.slip
         this.cloudTone.set('#dfe3e3')
       } else if (this.wetRoad && speed > 10) {
-        rate = speed * 0.6
-        opacity = 0.22
-        size = 1.1
+        rate = speed * 2.4
+        opacity = 0.085
+        size = 1.9
         this.cloudTone.set('#c9d6dc')
       }
       if (Math.random() >= rate * dt) continue
@@ -876,7 +886,6 @@ export class RoadEngine {
     if (this.started && !this.paused && !this.photo && !document.hidden) this.advanceSky(dt)
     const p = this.physics
     this.water.update(p.x, p.s, time / 1000)
-    this.precipitation.update(p.x, p.y, p.s, time / 1000)
     positionVehicle(this.car, p, this.settings.vehicle, dt)
     this.trailTyres(dt, time / 1000)
     const footprint = footprints[this.settings.vehicle]
@@ -914,6 +923,8 @@ export class RoadEngine {
       this.camera.rotateX(Math.sin(seconds * 41 + 1.3) * p.impact * impactShake.pitch)
       this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
     }
+    this.travel.set(-Math.sin(p.yaw) * p.speed, 0, -Math.cos(p.yaw) * p.speed)
+    this.precipitation.update(this.camera, this.canvas.height, time / 1000, this.travel)
     this.terrain.update(p.s, time / 1000, -this.camera.position.z, p.x)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
@@ -941,6 +952,8 @@ export class RoadEngine {
       this.cinema.rush = this.started
         ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
         : 0
+      this.cinema.lensRain = this.wetRoad ? (this.settings.camera === 'bonnet' ? 1 : 0.55) : 0
+      this.cinema.lensTime = this.dayClock
       this.cinema.render(this.scene, this.camera)
     } else this.renderer.render(this.scene, this.camera)
     this.antialiasing?.render(this.renderer)

@@ -7,7 +7,16 @@ import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
 import { ControllerMapping } from './ControllerMapping'
 import { IconButton } from './IconButton'
-import { cameras, colors, daylight, landscapes, seasons, vehicles, weather } from './options'
+import {
+  cameras,
+  colors,
+  daylight,
+  landscapes,
+  roadWear,
+  seasons,
+  vehicles,
+  weather,
+} from './options'
 
 export type SettingsTab = 'journey' | 'vehicle' | 'controls' | 'display'
 interface Props {
@@ -154,6 +163,23 @@ export function SettingsPanel({
                 ))}
               </div>
               <p>Q and E cycle scenery and weather. V changes your vehicle.</p>
+            </section>
+            <section className="setting-section">
+              <h3>Road surface</h3>
+              <div className="segmented">
+                {roadWear.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={settings.roadWear === item.id ? 'selected' : ''}
+                    aria-pressed={settings.roadWear === item.id}
+                    onClick={() => update('roadWear', item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p>Dirt, repairs and puddles gather on older roads. Potholes jolt the suspension.</p>
             </section>
             <section className="setting-section">
               <h3>A new road</h3>
