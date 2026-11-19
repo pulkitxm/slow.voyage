@@ -1302,6 +1302,10 @@ input[type="range"] {
 .toast:empty {
   transition: none;
 }
+.is-driving .toast {
+  top: calc(104px + env(safe-area-inset-top));
+  bottom: auto;
+}
 .is-driving[data-camera="bonnet"] .toast {
   top: calc(145px + env(safe-area-inset-top));
   bottom: auto;

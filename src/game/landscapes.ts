@@ -91,7 +91,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#b39a75',
     },
     reflection: '#8d7554',
-    foliage: '#c9c088',
+    foliage: '#ffc266',
     map: { low: [196, 168, 120], high: [226, 201, 152] },
   },
   forest: {
@@ -136,7 +136,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#b98866',
     },
     reflection: '#8a5236',
-    foliage: '#c4b77e',
+    foliage: '#ffbf66',
     map: { low: [176, 104, 68], high: [222, 158, 108] },
   },
   fjord: {
@@ -162,7 +162,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#a3a6a4',
     },
     reflection: '#59663f',
-    foliage: '#d2d6a6',
+    foliage: '#f2e6a0',
     map: { low: [132, 140, 92], high: [186, 186, 138] },
   },
 }
@@ -173,8 +173,8 @@ export function terraced(value: number, step: number, smooth: (t: number) => num
   if (!step) return value
   const scaled = value / step
   const level = Math.floor(scaled)
-  const rise = smooth(Math.max(0, Math.min(1, (scaled - level - 0.36) / 0.28)))
-  return value + ((level + rise) * step - value) * 0.82
+  const rise = smooth(Math.max(0, Math.min(1, (scaled - level - 0.3) / 0.4)))
+  return value + ((level + rise) * step - value) * 0.68
 }
 
 export const passLayout = { floor: 0.13, core: 110, shoulder: 560 } as const
