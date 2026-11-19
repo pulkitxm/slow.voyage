@@ -273,6 +273,9 @@ export function Drive() {
               <div className="speed-track">
                 <span style={{ width: `${Math.min(speed / 2, 100)}%` }} />
               </div>
+              <div className="nitro-track" data-firing={state.boost} title="Boost charge">
+                <span style={{ width: `${Math.round(state.nitro * 100)}%` }} />
+              </div>
             </div>
             <div className="drive-toolbar">
               <IconButton label={state.paused ? 'Resume driving' : 'Pause driving'} onClick={pause}>

@@ -14,6 +14,7 @@ export const cinemaLook = {
   contrast: 0.2,
   saturation: 1.1,
   vignette: 0.26,
+  rushReach: 0.05,
 } as const
 
 const quadVertex = `
@@ -57,6 +58,7 @@ export class CinematicPipeline {
   )
   private occlusion = [buffer(THREE.UnsignedByteType), buffer(THREE.UnsignedByteType)]
   private size = new THREE.Vector2()
+  rush = 0
   private bright = pass(
     `
 uniform sampler2D source;
@@ -216,6 +218,8 @@ uniform float contrast;
 uniform float saturation;
 uniform float vignette;
 uniform float aspect;
+uniform float rush;
+uniform float rushReach;
 varying vec2 vUv;
 float grain(vec2 pixel) {
   return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
@@ -224,6 +228,15 @@ void main() {
   vec4 scene = texture2D(source, vUv);
   float solid = clamp(scene.a, 0.0, 1.0);
   vec3 color = scene.rgb;
+  if (rush > 0.002) {
+    vec2 toward = vec2(0.5, 0.44) - vUv;
+    float edge = smoothstep(0.16, 0.7, length(toward * vec2(aspect, 1.0)));
+    vec2 stride = toward * rush * rushReach * edge / 5.0;
+    float jitter = grain(gl_FragCoord.xy);
+    for (int index = 1; index <= 5; index++)
+      color += texture2D(source, vUv + stride * (float(index) - jitter)).rgb;
+    color /= 6.0;
+  }
   float open = texture2D(shade, vUv).r;
   color *= mix(1.0, pow(open, shadeStrength), solid);
   color += texture2D(glow, vUv).rgb * glowStrength;
@@ -252,6 +265,8 @@ void main() {
       saturation: { value: cinemaLook.saturation },
       vignette: { value: cinemaLook.vignette },
       aspect: { value: 1 },
+      rush: { value: 0 },
+      rushReach: { value: cinemaLook.rushReach },
     },
     true,
   )
@@ -340,6 +355,7 @@ void main() {
       this.bind(this.develop, 'glow', glow.texture)
       this.bind(this.develop, 'shade', rough.texture)
       if (develop.aspect) develop.aspect.value = this.scene.width / this.scene.height
+      if (develop.rush) develop.rush.value = this.rush
       this.draw(this.develop, null)
     } finally {
       renderer.setRenderTarget(null)

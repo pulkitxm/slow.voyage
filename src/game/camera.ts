@@ -10,12 +10,17 @@ interface CameraSubject {
   s: number
   yaw: number
   speed: number
+  boosting?: boolean
 }
+
+export const cameraRush = { fov: 9, distance: 0.9, rate: 3.5 }
 
 export class DrivingCamera {
   yaw = 0
   pitch = 0
   zoom = 1
+  rush = 0
+  rear = false
   private heading = 0
   private grade = 0
   private ready = false
@@ -131,6 +136,7 @@ export class DrivingCamera {
         : aheadSurface.height
     const grade = clamp((ahead - subject.y) / lookahead, -0.7, 0.7)
     this.grade = this.ready ? damp(this.grade, grade, 4, dt) : grade
+    this.rush = damp(this.rush, subject.boosting ? 1 : 0, cameraRush.rate, dt)
     forward.set(-Math.sin(heading), 0, -Math.cos(heading))
     side.set(Math.cos(heading), 0, -Math.sin(heading))
     position.set(subject.x, subject.y, -subject.s)
@@ -157,7 +163,8 @@ export class DrivingCamera {
         : bike
           ? 3.5 + clamp(Math.abs(subject.speed) / 50, 0, 1)
           : 4.2 + Math.abs(subject.speed) * 0.01
-      const distance = baseDistance * Math.max(1, 0.9 / camera.aspect)
+      const distance =
+        (baseDistance + cameraRush.distance * this.rush) * Math.max(1, 0.9 / camera.aspect)
       const height = bus ? 4.7 : bike ? 1.8 : 2
       const pitch = 0.3 - clamp(Math.abs(subject.speed) / metrics.maxSpeed, 0, 1) * 0.1
       const slope = (this.grade * 2) / 3
@@ -167,7 +174,7 @@ export class DrivingCamera {
       const vertical = subject.y + height - target.y
       const radius = Math.hypot(distance, vertical) * this.zoom
       const elevation = clamp(Math.atan2(vertical, distance) + this.pitch, 0.025, 1.25)
-      const yaw = heading + this.yaw
+      const yaw = heading + this.yaw + (this.rear ? Math.PI : 0)
       position.set(
         target.x + Math.sin(yaw) * radius * Math.cos(elevation),
         target.y + radius * Math.sin(elevation),
@@ -195,7 +202,11 @@ export class DrivingCamera {
       )
     camera.lookAt(target)
     const fraction = clamp(Math.abs(subject.speed) / metrics.maxSpeed, 0, 1)
-    const fov = 68 + (mode === 'cinematic' ? 0 : 8 * fraction * fraction * (3 - 2 * fraction))
+    const fov =
+      68 +
+      (mode === 'cinematic'
+        ? 0
+        : 8 * fraction * fraction * (3 - 2 * fraction) + cameraRush.fov * this.rush)
     camera.fov = damp(camera.fov, fov, 4, dt)
     camera.updateProjectionMatrix()
     this.ready = true
