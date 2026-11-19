@@ -18,6 +18,7 @@ import {
   Sun,
   Sunrise,
   Sunset,
+  TreePalm,
   TreePine,
   Trees,
   Truck,
@@ -57,6 +58,12 @@ export const landscapes = [
     title: 'Northern Lakes',
     subtitle: 'Still water. Snowy tops.',
     icon: Waves,
+  },
+  {
+    id: 'jungle',
+    title: 'Monsoon Jungle',
+    subtitle: 'Thick canopy. Falling water.',
+    icon: TreePalm,
   },
 ] as const
 export const seasons = [

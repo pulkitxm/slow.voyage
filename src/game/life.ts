@@ -34,6 +34,7 @@ const herds: Record<Landscape, readonly Species[]> = {
   forest: ['deer', 'deer', 'horse'],
   canyon: ['horse', 'goat'],
   fjord: ['sheep', 'deer', 'cow'],
+  jungle: ['elephant', 'deer', 'elephant', 'goat'],
 }
 
 const herdSize: Record<Species, [fewest: number, most: number]> = {
@@ -43,6 +44,7 @@ const herdSize: Record<Species, [fewest: number, most: number]> = {
   horse: [2, 5],
   goat: [3, 6],
   camel: [2, 4],
+  elephant: [2, 4],
 }
 
 interface Member {
@@ -182,7 +184,7 @@ export function planSlot(world: World, slot: number, level: LifeLevel): Plan | n
           heading: rng() * Math.PI * 2,
           scale: 0.88 + rng() * 0.22,
           roam: 1.5 + rng() * 2.5,
-          grazer: rng() < 0.78 ? 1 : 0.15,
+          grazer: kind === 'elephant' ? 0.12 : rng() < 0.78 ? 1 : 0.15,
           tints: [new THREE.Color(coat), new THREE.Color(patch), new THREE.Color(coat)],
         })
       }

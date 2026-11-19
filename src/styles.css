@@ -369,6 +369,9 @@ svg {
 .landscape-preview.fjord {
   background: linear-gradient(180deg, #c9d8dd 0 40%, #e4e9e6 41% 50%, #6f8fa3 51% 72%, #8c9160 73%);
 }
+.landscape-preview.jungle {
+  background: linear-gradient(180deg, #bcd3c4 0 36%, #3f7a3a 37% 70%, #2c5a2c 71%);
+}
 .mini-mountain {
   position: absolute;
   bottom: 0;
@@ -402,6 +405,9 @@ svg {
   clip-path: polygon(0 100%, 26% 18%, 46% 58%, 70% 6%, 100% 100%);
   height: 50px;
   border-radius: 0;
+}
+.jungle .mini-mountain {
+  background: #2f6a31;
 }
 .mini-road {
   position: absolute;

@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { random } from './world'
 
-export const species = ['cow', 'sheep', 'deer', 'horse', 'goat', 'camel'] as const
+export const species = ['cow', 'sheep', 'deer', 'horse', 'goat', 'camel', 'elephant'] as const
 export type Species = (typeof species)[number]
 export type Creature = Species | 'person'
 
@@ -148,6 +148,7 @@ interface Build {
   face: THREE.ColorRepresentation
   blotch?: number
   hump?: number
+  trunk?: number
   horns?: number
   wool?: number
   tail: number
@@ -238,6 +239,20 @@ const builds: Record<Species, Build> = {
     hump: 0.34,
     tail: 0.5,
   },
+  elephant: {
+    length: 3,
+    back: 2.55,
+    girth: 0.72,
+    leg: 1.3,
+    legWidth: 0.125,
+    neck: 0.42,
+    neckLift: 0.3,
+    head: 0.4,
+    coat: '#ffffff',
+    face: '#ffffff',
+    trunk: 1.35,
+    tail: 0.95,
+  },
 }
 
 export const creatureHeights: Record<Creature, number> = {
@@ -248,6 +263,7 @@ export const creatureHeights: Record<Creature, number> = {
   horse: builds.horse.back,
   goat: builds.goat.back,
   camel: builds.camel.back,
+  elephant: builds.elephant.back,
 }
 
 export const creatureRadius: Record<Creature, number> = {
@@ -258,6 +274,7 @@ export const creatureRadius: Record<Creature, number> = {
   horse: 0.75,
   goat: 0.4,
   camel: 0.8,
+  elephant: 1.2,
 }
 
 type Ring = [y: number, z: number, wide: number, tall: number]
@@ -440,7 +457,46 @@ export function animalGeometry(kind: Species) {
     dye: faceDye,
     rig: neck,
   })
+  if (build.trunk) {
+    const tipY = headY - size * 0.9
+    const tipZ = headZ + size * 1.95
+    parts.push({
+      geometry: tube(
+        [
+          [tipY + size * 0.25, tipZ - size * 0.2, size * 0.36, size * 0.36],
+          [tipY - build.trunk * 0.35, tipZ + size * 0.12, size * 0.27, size * 0.27],
+          [tipY - build.trunk * 0.75, tipZ + size * 0.05, size * 0.19, size * 0.19],
+          [tipY - build.trunk, tipZ + size * 0.3, size * 0.13, size * 0.13],
+        ],
+        8,
+        0,
+        3,
+      ),
+      color: build.coat,
+      dye: 1,
+      rig: neck,
+    })
+    for (const side of [-1, 1]) {
+      parts.push({
+        geometry: new THREE.SphereGeometry(size * 1.05, 10, 8)
+          .scale(0.1, 1.15, 0.85)
+          .rotateY(side * 0.5)
+          .translate(side * size * 0.7, headY - size * 0.1, headZ - size * 0.25),
+        color: build.coat,
+        dye: 2,
+        rig: neck,
+      })
+      parts.push({
+        geometry: new THREE.ConeGeometry(0.045, size * 1.3, 6)
+          .rotateX(Math.PI * 0.62)
+          .translate(side * size * 0.32, tipY + size * 0.1, tipZ + size * 0.25),
+        color: '#e8e2d0',
+        rig: neck,
+      })
+    }
+  }
   for (const side of [-1, 1]) {
+    if (build.trunk) continue
     parts.push({
       geometry: new THREE.ConeGeometry(size * 0.2, size * 0.7, 6)
         .scale(1, 1, 0.45)
@@ -511,6 +567,10 @@ export const coats: Record<Species, [coat: string, patch: string][]> = {
   camel: [
     ['#c49a64', '#a9824f'],
     ['#b88d5a', '#9a7446'],
+  ],
+  elephant: [
+    ['#7f7a74', '#6b6661'],
+    ['#8a847c', '#726d66'],
   ],
 }
 

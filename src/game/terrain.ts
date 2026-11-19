@@ -16,6 +16,14 @@ import { RoadSurface } from './road-surface'
 import { bannerTexture, chevrons, chevronTexture, delineators, startGantry } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
 import { receiveUnbiasedShadows } from './shadow-receiver'
+import {
+  cragFootprint,
+  cragGeometry,
+  lapWaterfalls,
+  waterfallClearing,
+  waterfallGeometry,
+  waterfallMaterial,
+} from './waterfalls'
 import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
@@ -147,6 +155,7 @@ export class Terrain {
     roughness: 0.9,
   })
   glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true })
+  fallMaterial: THREE.MeshStandardMaterial
   shadeMaterial: THREE.MeshBasicMaterial | null = null
   shadeDisc = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2)
   chevronMaterial: THREE.MeshStandardMaterial
@@ -263,6 +272,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }
     this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-meadow'
     this.asphalt = asphaltTexture()
+    this.fallMaterial = waterfallMaterial(
+      this.grassMaterial.fieldUniforms.fieldNoiseMap,
+      this.windTime,
+    )
     this.roadSurface = new RoadSurface(
       this.asphalt,
       this.grassMaterial.fieldUniforms.fieldNoiseMap,
@@ -288,6 +301,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       this.furnitureMaterial,
       this.reflectorMaterial,
       this.landmarkMaterial,
+      this.fallMaterial,
       this.chevronMaterial,
       this.bannerMaterial,
       this.bladeMaterial,
@@ -471,6 +485,18 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.addBatch(group, posts.reflectors, this.reflectorMaterial)
     this.addBatch(group, signs.panels, this.chevronMaterial)
     const lap = Math.floor(start / worldLoop.length) * worldLoop.length
+    for (const fall of lapWaterfalls(this.world)) {
+      const s = fall.s + lap
+      if (s < start || s >= start + groundLayout.tileLength) continue
+      const water = this.addMesh(group, waterfallGeometry(this.world, fall, lap), this.fallMaterial)
+      water.renderOrder = 2
+      this.addMesh(
+        group,
+        cragGeometry(this.world, fall, lap, profile.field?.rock ?? '#807d74'),
+        this.landmarkMaterial,
+      ).castShadow = true
+      trunks.push(...cragFootprint(fall, lap))
+    }
     for (const landmark of lapLandmarks(this.world)) {
       const s = landmark.s + lap
       if (s < start || s >= start + groundLayout.tileLength) continue
@@ -480,7 +506,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       trunks.push({ x: landmark.x, s, radius: landmarkFootprints[landmark.kind] })
     }
     yield
-    const woodland = createWoodland(this.world, id, this.quality)
+    const falls = lapWaterfalls(this.world)
+    const woodland = createWoodland(this.world, id, this.quality).filter(
+      (tree) => !waterfallClearing(falls, lap, tree.x, tree.s),
+    )
     yield
     const conifers = Math.round(treeCount * profile.roadside.conifers)
     const narrow = Math.round(treeCount * profile.roadside.narrow)

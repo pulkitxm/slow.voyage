@@ -52,7 +52,7 @@ test.each(landscapeIds)('%s is a saved choice and carries a complete profile', (
   if (profile.woodland) expect(profile.woodland.start).toBeLessThan(profile.woodland.reach)
 })
 
-test.each(['forest', 'canyon', 'fjord'] as const)(
+test.each(['forest', 'canyon', 'fjord', 'jungle'] as const)(
   '%s autodrive holds the pavement for two minutes without touching a barrier',
   (landscape) => {
     const settings = { ...defaults, landscape }
