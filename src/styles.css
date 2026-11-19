@@ -522,6 +522,22 @@ svg {
   background: #ffffff30;
   width: 116px;
 }
+.nitro-track {
+  margin-top: 5px;
+  height: 2px;
+  background: #ffffff1f;
+  overflow: hidden;
+}
+.nitro-track > span {
+  display: block;
+  height: 100%;
+  background: #ffd98a;
+  transition: width 0.12s linear;
+}
+.nitro-track[data-firing="true"] > span {
+  background: #ffb347;
+  box-shadow: 0 0 8px #ffb347;
+}
 .speed-track > span {
   height: 100%;
   background: #ecedd3;

@@ -28,6 +28,7 @@ import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
+import { vehicleMetrics } from './vehicles'
 import { Water } from './water'
 import { type AssistanceMode, clamp, defaults, type Settings, World } from './world'
 
@@ -145,9 +146,13 @@ export class RoadEngine {
     if (event.code === 'KeyC') this.onAction?.('camera')
     if (event.code === 'KeyH') this.onAction?.('help')
     if (event.code === 'KeyR') this.reset()
+    if (event.code === 'KeyB') this.audio.hornHeld = this.started
+    if (event.code === 'KeyX') this.view.rear = this.started
   }
   keyUp = (event: KeyboardEvent) => {
     this.keys.delete(event.code)
+    if (event.code === 'KeyB') this.audio.hornHeld = false
+    if (event.code === 'KeyX') this.view.rear = false
   }
   blur = () => {
     this.keys.clear()
@@ -155,6 +160,8 @@ export class RoadEngine {
     this.controllerInput = { ...neutralInput }
     this.controllerLook = { x: 0, y: 0, zoom: 0 }
     this.physics.boosting = false
+    this.audio.hornHeld = false
+    this.view.rear = false
     this.controller.suspend()
     this.mouse.reset()
     this.physics.steeringControl.releaseInput()
@@ -676,8 +683,13 @@ export class RoadEngine {
     }
   }
   drawScene() {
-    if (this.cinema) this.cinema.render(this.scene, this.camera)
-    else this.renderer.render(this.scene, this.camera)
+    if (this.cinema) {
+      const pace = Math.abs(this.physics.speed) / vehicleMetrics[this.settings.vehicle].maxSpeed
+      this.cinema.rush = this.started
+        ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
+        : 0
+      this.cinema.render(this.scene, this.camera)
+    } else this.renderer.render(this.scene, this.camera)
     this.antialiasing?.render(this.renderer)
   }
   screenshot() {

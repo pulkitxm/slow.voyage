@@ -14,7 +14,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         <div className="key-list">
           {[
             ['W / ↑', 'Accelerate'],
-            ['Shift + W / ↑', 'Boost while accelerating'],
+            ['Shift + W / ↑', 'Boost while the charge lasts'],
             ['S / ↓', 'Brake, then reverse'],
             ['A D / ← →', 'Steer'],
             ['Space', 'Handbrake'],
@@ -22,6 +22,8 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['G', 'Choose assistance mode'],
             ['+ / -', 'Adjust cruise speed'],
             ['C', 'Change camera'],
+            ['X', 'Look behind'],
+            ['B', 'Horn'],
             ['Q / E', 'Previous / next scenery'],
             ['V / Shift V', 'Next / previous vehicle'],
             ['M', 'Toggle mouse driving'],

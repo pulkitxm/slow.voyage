@@ -11,6 +11,7 @@ import { defaults, type Settings } from './game/world'
 const initial: DriveState = {
   speed: 0,
   boost: false,
+  nitro: 1,
   distance: 0,
   altitude: 0,
   steering: 0,
