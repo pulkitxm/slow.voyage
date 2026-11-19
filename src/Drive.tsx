@@ -252,8 +252,15 @@ export function Drive() {
               </span>
               {state.lapTime !== null && <span>{formatLap(state.lapTime)}</span>}
             </div>
-            {state.bestLap !== null && (
-              <div className="minimap-best">BEST {formatLap(state.bestLap)}</div>
+            {(state.landmarks > 0 || state.bestLap !== null) && (
+              <div className="minimap-best">
+                {state.landmarks > 0 && (
+                  <span>
+                    FOUND {state.found}/{state.landmarks}
+                  </span>
+                )}
+                {state.bestLap !== null && <span>BEST {formatLap(state.bestLap)}</span>}
+              </div>
             )}
             {state.roadDistance > minimapLayout.guideDistance && (
               <div className="road-finder">

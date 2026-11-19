@@ -13,6 +13,7 @@ import {
 import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { createGraphicsRenderer, graphicsBudget } from './graphics'
+import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { LapClock } from './laps'
 import { lapState, Minimap, roadGuide } from './minimap'
 import {
@@ -51,6 +52,8 @@ export interface DriveState extends Telemetry {
   lastLap: number | null
   bestLap: number | null
   photo: boolean
+  found: number
+  landmarks: number
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
@@ -61,6 +64,7 @@ export class RoadEngine {
   laps = new LapClock()
   photo = false
   onLap?: (time: number, record: boolean) => void
+  onDiscover?: (kind: LandmarkKind, found: number, total: number) => void
   lightingAt = 0
   reflectionAt = Number.NEGATIVE_INFINITY
   dark = false
@@ -421,6 +425,16 @@ export class RoadEngine {
   emitState() {
     if (!this.rendered) return
     const lap = lapState(this.physics.s)
+    const landmarks = lapLandmarks(this.world)
+    const found = this.minimap.found
+    if (this.started)
+      for (const landmark of landmarks) {
+        if (found.has(landmark.id)) continue
+        const offset = landmarkOffset(landmark, this.physics.x, this.physics.s)
+        if (Math.hypot(offset.x, offset.s) > landmarkLayout.found) continue
+        found.add(landmark.id)
+        this.onDiscover?.(landmark.kind, found.size, landmarks.length)
+      }
     this.onState?.({
       ...this.physics.telemetry(),
       lap: lap.lap,
@@ -430,6 +444,8 @@ export class RoadEngine {
       lastLap: this.laps.last,
       bestLap: this.laps.best,
       photo: this.photo,
+      found: found.size,
+      landmarks: landmarks.length,
       assistance: this.assistance,
       paused: this.paused,
       fps: this.frameRate,
@@ -477,6 +493,7 @@ export class RoadEngine {
     this.settings = { ...settings }
     this.world.settings = this.settings
     if (roadChange || vehicleChange) this.laps.reset(this.physics.s)
+    if (roadChange) this.minimap.found.clear()
     if (roadChange) {
       const speed = this.physics.speed
       this.physics.reset()
@@ -567,6 +584,7 @@ export class RoadEngine {
     this.precipitation.setAppearance(this.settings, profile)
     const night = profile.night > 0.5
     this.dark = night
+    this.terrain.setNight(night)
     this.minimap.dim = clamp(0.3 + (profile.ambient / 2.6) * 0.7, 0.5, 1)
     this.lightning.base = profile.ambient * 0.3
     this.sky.setAppearance(profile)
