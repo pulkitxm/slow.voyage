@@ -488,6 +488,49 @@ svg {
   color: #ffd98a;
   font-variant-numeric: tabular-nums;
 }
+.minimap-best {
+  font-size: 8px;
+  letter-spacing: 1.4px;
+  opacity: 0.78;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 6px #0f1a1480;
+}
+.is-photo .minimap,
+.is-photo .telemetry,
+.is-photo .topbar,
+.is-photo .touch-controls,
+.is-photo .mouse-steering {
+  display: none;
+}
+.photo-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 9px 16px;
+  border-radius: 999px;
+  background: #1d2822b8;
+  color: #f6f7ea;
+  font-size: 10px;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+}
+.photo-hint kbd {
+  font: inherit;
+  padding: 1px 5px;
+  border: 1px solid #f0f4e95c;
+  border-radius: 3px;
+  margin-right: 4px;
+}
+.photo-hint button {
+  all: unset;
+  cursor: pointer;
+  color: #ffd98a;
+}
 .panel-open .minimap {
   opacity: 0.25;
 }

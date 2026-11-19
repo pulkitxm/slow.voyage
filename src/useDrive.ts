@@ -4,7 +4,9 @@ import { assistanceLabels } from './game/controls'
 import { adjustCruiseSpeed } from './game/cruise'
 import { type DriveState, RoadEngine } from './game/engine'
 import { nextJourney } from './game/journeys'
+import { formatLap } from './game/laps'
 import { cameras, loadSettings } from './game/settings'
+import { decodeSpot, encodeSpot } from './game/share'
 import { vehicleNames } from './game/vehicles'
 import { defaults, type Settings } from './game/world'
 
@@ -27,6 +29,10 @@ const initial: DriveState = {
   lap: 1,
   lapDistance: 0,
   roadDistance: 0,
+  lapTime: null,
+  lastLap: null,
+  bestLap: null,
+  photo: false,
 }
 export function useDrive() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -139,7 +145,31 @@ export function useDrive() {
       enabled ? 'Mouse driving on. Move to steer; click to accelerate.' : 'Mouse driving off.',
     )
   }
+  const togglePhoto = () => {
+    const instance = engine.current
+    if (!instance) return
+    instance.setPhoto(!instance.photo)
+    if (instance.photo) {
+      setPanel(false)
+      setHelp(false)
+    }
+  }
+  const copyLink = () => {
+    const instance = engine.current
+    if (!instance) return
+    const hash = encodeSpot({
+      landscape: settingsRef.current.landscape,
+      seed: settingsRef.current.seed,
+      distance: instance.physics.s,
+    })
+    history.replaceState(null, '', hash)
+    void navigator.clipboard
+      ?.writeText(location.href)
+      .then(() => announce('Link to this spot copied.'))
+      .catch(() => announce('The link is in your address bar.'))
+  }
   const handlers = useRef({
+    togglePhoto,
     pause,
     toggleAuto,
     cycleCamera,
@@ -150,6 +180,7 @@ export function useDrive() {
     cycleVehicle,
   })
   handlers.current = {
+    togglePhoto,
     pause,
     toggleAuto,
     cycleCamera,
@@ -163,13 +194,20 @@ export function useDrive() {
     if (!canvas.current) return
     let rendered = false
     setReady(false)
-    const loaded = loadSettings()
+    const spot = decodeSpot(location.hash)
+    const loaded = {
+      ...loadSettings(),
+      ...(spot && { landscape: spot.landscape, seed: spot.seed }),
+    }
     setSettings(loaded)
     settingsRef.current = loaded
     try {
       const instance = new RoadEngine(canvas.current, loaded)
       engine.current = instance
       if (import.meta.env.DEV) Reflect.set(window, 'voyage', instance)
+      if (spot) instance.travelTo(spot.distance)
+      instance.onLap = (time, record) =>
+        announce(`Lap in ${formatLap(time)}${record ? ', your best yet.' : '.'}`)
       instance.onError = () =>
         setError('The renderer could not prepare the road. Reload to try again.')
       instance.onState = (state) => {
@@ -193,6 +231,7 @@ export function useDrive() {
         if (action === 'vehicleNext') handlers.current.cycleVehicle(1)
         if (action === 'vehiclePrevious') handlers.current.cycleVehicle(-1)
         if (action === 'help') setHelp((current) => !current)
+        if (action === 'photo') handlers.current.togglePhoto()
       }
     } catch {
       setError(
@@ -271,6 +310,8 @@ export function useDrive() {
     toggleAuto,
     cycleCamera,
     cycleVehicle,
+    togglePhoto,
+    copyLink,
     fullscreen,
     touch,
   }
