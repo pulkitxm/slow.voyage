@@ -1,4 +1,5 @@
 import { loopIndex, worldLoop } from './field'
+import { landmarkOffset, lapLandmarks } from './landmarks'
 import { type LandscapeProfile, landscapeProfiles } from './landscapes'
 import { roadCoordinates } from './road'
 import { woodlandCoverage } from './woodland'
@@ -113,6 +114,7 @@ export class Minimap {
   private build: RasterBuild | null = null
   private frame = 0
   dim = 1
+  found = new Set<number>()
   private scale = 1
 
   constructor(private world: World) {}
@@ -259,6 +261,24 @@ export class Minimap {
       context.fillStyle = '#fbf8ec'
       for (let index = 0; index < 4; index++)
         context.fillRect(-7 + index * 3.5, index % 2 ? 0 : -2, 3.5, 2)
+      context.restore()
+    }
+    for (const landmark of lapLandmarks(this.world)) {
+      const offset = landmarkOffset(landmark, pose.x, pose.s)
+      if (Math.hypot(offset.x, offset.s) > range * 1.5) continue
+      const known = this.found.has(landmark.id)
+      context.save()
+      context.translate(offset.x * zoom, -offset.s * zoom)
+      context.rotate(-pose.yaw + Math.PI / 4)
+      context.fillStyle = known ? '#ffd98a' : '#fbf8ec'
+      context.strokeStyle = '#1d2822'
+      context.lineWidth = 1.3
+      context.fillRect(-3.4, -3.4, 6.8, 6.8)
+      context.strokeRect(-3.4, -3.4, 6.8, 6.8)
+      if (!known) {
+        context.fillStyle = '#1d2822'
+        context.fillRect(-1.1, -1.1, 2.2, 2.2)
+      }
       context.restore()
     }
     context.restore()

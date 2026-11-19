@@ -489,6 +489,8 @@ svg {
   font-variant-numeric: tabular-nums;
 }
 .minimap-best {
+  display: flex;
+  gap: 10px;
   font-size: 8px;
   letter-spacing: 1.4px;
   opacity: 0.78;

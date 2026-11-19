@@ -8,9 +8,11 @@ import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
+import { landmarkFootprints, landmarkGeometry, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
+import { bannerTexture, chevrons, chevronTexture, delineators, startGantry } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
 import { receiveUnbiasedShadows } from './shadow-receiver'
 import { createWoodland, roadsidePlantHeight } from './woodland'
@@ -115,6 +117,21 @@ export class Terrain {
     roughness: 0.45,
     side: THREE.DoubleSide,
   })
+  furnitureMaterial = new THREE.MeshStandardMaterial({ color: '#e9e9e2', roughness: 0.7 })
+  reflectorMaterial = new THREE.MeshStandardMaterial({
+    color: '#ffd27a',
+    emissive: '#ffb84d',
+    emissiveIntensity: 0.25,
+    roughness: 0.4,
+  })
+  landmarkMaterial = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    flatShading: true,
+    roughness: 0.9,
+  })
+  glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true })
+  chevronMaterial: THREE.MeshStandardMaterial
+  bannerMaterial: THREE.MeshStandardMaterial
   foliage: Foliage
   bladeMaterial: THREE.MeshStandardMaterial
   blade: THREE.BufferGeometry
@@ -135,6 +152,16 @@ export class Terrain {
     multisampling: boolean,
   ) {
     this.groundTexture = groundTexture()
+    this.chevronMaterial = new THREE.MeshStandardMaterial({
+      map: chevronTexture(),
+      side: THREE.DoubleSide,
+      roughness: 0.6,
+    })
+    this.bannerMaterial = new THREE.MeshStandardMaterial({
+      map: bannerTexture(),
+      side: THREE.DoubleSide,
+      roughness: 0.8,
+    })
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings, software)
     this.foliage = new Foliage(world.settings.season)
     this.bladeTexture = grassTexture()
@@ -250,6 +277,11 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       this.roadMaterial,
       this.edgeMaterial,
       this.railMaterial,
+      this.furnitureMaterial,
+      this.reflectorMaterial,
+      this.landmarkMaterial,
+      this.chevronMaterial,
+      this.bannerMaterial,
       this.bladeMaterial,
     ]
     for (const material of this.materials) receiveUnbiasedShadows(material)
@@ -417,6 +449,28 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }))
     const matrix = new THREE.Object3D()
     const trunks: Trunk[] = []
+    const posts = delineators(this.world, start, groundLayout.tileLength)
+    const signs = chevrons(this.world, start, groundLayout.tileLength)
+    const frame = [...posts.posts, ...signs.posts]
+    if (loopIndex(id, loopCells(groundLayout.tileLength)) === 0) {
+      const gantry = startGantry(this.world, start)
+      frame.push(...gantry.frame)
+      this.addMesh(group, gantry.banner, this.bannerMaterial)
+      for (const foot of gantry.feet) trunks.push({ ...foot, radius: 0.2 })
+    }
+    this.addBatch(group, frame, this.furnitureMaterial)
+    this.addBatch(group, posts.reflectors, this.reflectorMaterial)
+    this.addBatch(group, signs.panels, this.chevronMaterial)
+    const lap = Math.floor(start / worldLoop.length) * worldLoop.length
+    for (const landmark of lapLandmarks(this.world)) {
+      const s = landmark.s + lap
+      if (s < start || s >= start + groundLayout.tileLength) continue
+      const built = landmarkGeometry({ ...landmark, s })
+      if (built.body) this.addMesh(group, built.body, this.landmarkMaterial).castShadow = true
+      if (built.glow) this.addMesh(group, built.glow, this.glowMaterial)
+      trunks.push({ x: landmark.x, s, radius: landmarkFootprints[landmark.kind] })
+    }
+    yield
     const woodland = createWoodland(this.world, id, this.quality)
     yield
     const conifers = Math.round(treeCount * profile.roadside.conifers)
@@ -638,6 +692,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.lastX = x
     this.meadow?.update(x, s, wrapped)
   }
+  setNight(dark: boolean) {
+    this.glowMaterial.color.setScalar(dark ? 3.2 : 1.1)
+    this.reflectorMaterial.emissiveIntensity = dark ? 1.8 : 0.25
+  }
   syncTwins() {
     for (const [id, twin] of this.twins) {
       if (this.tiles.get(id) === twin.userData.source) continue
@@ -733,6 +791,9 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       this.meadow.dispose()
     }
     for (const material of this.materials) material.dispose()
+    this.glowMaterial.dispose()
+    this.chevronMaterial.map?.dispose()
+    this.bannerMaterial.map?.dispose()
     this.blade.dispose()
     this.bladeTexture.dispose()
     this.foliage.dispose()
