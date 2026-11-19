@@ -778,7 +778,7 @@ export class RoadEngine {
           roadCoordinates(this.world, wheel.x, wheel.s).distance,
         )
         rate = speed * (2.6 + pooled * 3.4)
-        opacity = 0.15 + pooled * 0.1
+        opacity = 0.2 + pooled * 0.1
         size = 2.1 + pooled * 1.3
         this.cloudTone.set('#c9d6dc')
       }
@@ -984,7 +984,7 @@ export class RoadEngine {
           ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
           : 0
       this.cinema.lensRain =
-        this.wetRoad && this.view.motion ? (this.settings.camera === 'bonnet' ? 1 : 0.55) : 0
+        this.wetRoad && this.view.motion ? (this.settings.camera === 'bonnet' ? 1 : 0.8) : 0
       this.cinema.lensTime = this.dayClock
       this.cinema.render(this.scene, this.camera)
     } else this.renderer.render(this.scene, this.camera)

@@ -4,8 +4,8 @@ import { random, type Settings } from './world'
 
 export const precipitationLayout = {
   particles: 3600,
-  drops: 13000,
-  calm: 0.55,
+  drops: 20000,
+  calm: 0.6,
   fall: [1.5, -18, 0.5],
   exposure: 1 / 42,
 } as const

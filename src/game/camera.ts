@@ -11,6 +11,7 @@ interface CameraSubject {
   s: number
   yaw: number
   speed: number
+  roll?: number
   boosting?: boolean
 }
 
@@ -18,8 +19,9 @@ export const cameraRush = { fov: 9, distance: 0.9, rate: 3.5 }
 export const cameraFeel = {
   lean: 0.0032,
   leanLimit: 0.04,
-  dive: 0.0022,
-  diveLimit: 0.028,
+  dive: 0.004,
+  diveLimit: 0.05,
+  cabinRoll: 0.85,
   tremor: 0.0013,
   settle: 5,
 }
@@ -179,7 +181,7 @@ export class DrivingCamera {
         ? 9 + 2 * clamp(Math.abs(subject.speed) / 32, 0, 1)
         : bike
           ? 3.5 + clamp(Math.abs(subject.speed) / 50, 0, 1)
-          : (loft?.chase.distance ?? 4.2) + Math.abs(subject.speed) * 0.01
+          : (loft?.chase.distance ?? 4.2) + Math.abs(subject.speed) * (0.01 + 0.02 * this.motion)
       const distance =
         (baseDistance + cameraRush.distance * this.rush) * Math.max(1, 0.9 / camera.aspect)
       const height = bus ? 4.7 : bike ? 1.8 : (loft?.chase.height ?? 2)
@@ -238,7 +240,8 @@ export class DrivingCamera {
       dt,
     )
     if (riding) {
-      const cabin = mode === 'bonnet' ? 1 : 0.55
+      const cabin = mode === 'bonnet' ? 1 : 0.7
+      if (mode === 'bonnet') camera.rotateZ((subject.roll ?? 0) * cameraFeel.cabinRoll * riding)
       const tremor = fraction * fraction * fraction * cameraFeel.tremor * cabin * riding
       camera.rotateZ(-this.lean * cabin * riding)
       camera.rotateX(-this.dive * cabin * riding + Math.sin(this.clock * 37) * tremor)
@@ -249,7 +252,7 @@ export class DrivingCamera {
       (mode === 'cinematic'
         ? 0
         : (8 * fraction * fraction * (3 - 2 * fraction) + cameraRush.fov * this.rush) *
-          (0.35 + 0.65 * this.motion))
+          (0.26 + 0.74 * this.motion))
     camera.fov = damp(camera.fov, fov, 4, dt)
     camera.updateProjectionMatrix()
     this.ready = true

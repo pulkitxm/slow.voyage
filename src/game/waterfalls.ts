@@ -58,7 +58,7 @@ function trace(world: World, x: number, s: number) {
     const slope = slopeAt(world, headX, headS)
     const grade = Math.hypot(slope.x, slope.s)
     const offset = Math.abs(roadCoordinates(world, headX, headS).distance)
-    if (y < shoreHeight + 0.2 || offset < roadLayout.halfWidth + 9) break
+    if (y < shoreHeight + 0.2 || offset < roadLayout.halfWidth + 10) break
     path.push({ x: headX, y, s: headS, steep: grade })
     gentle = grade < 0.16 ? gentle + 1 : 0
     if (gentle > 3 || grade < 0.02) break
@@ -120,6 +120,7 @@ export function lapWaterfalls(world: World): Waterfall[] {
       (facing.x * Math.cos(seen.road.yaw) + facing.s * Math.sin(seen.road.yaw))
     if (toward < 0.72) continue
     if (seen.road.y > foot.y + 9) continue
+    if (Math.abs(seen.distance) < 24) continue
     list.push({
       id: list.length,
       s: foot.s,
@@ -245,26 +246,30 @@ export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
   const sideX = -facing.s
   const sideS = facing.x
   const sheet = 9
-  for (let row = 0; row <= sheet; row++) {
-    const fallen = row / sheet
-    const forward = 1.5 + fallen * fallen * 1.6
-    const y = foot.y + height * 0.88 - fallen * (height * 0.88 + 0.3)
-    const spread = fall.width * (0.8 + fallen * 0.5)
-    for (let column = 0; column < across; column++) {
-      const u = column / (across - 1)
-      positions.push(
-        foot.x + sideX * (u - 0.5) * spread + facing.x * forward,
-        y,
-        -(foot.s + lap + sideS * (u - 0.5) * spread + facing.s * forward),
-      )
-      uvs.push(u, fallen * height * 0.9)
-      flow.push(1, Math.min(1, row / 1.2), 0)
-    }
-    if (row < sheet)
-      for (let column = 0; column < across - 1; column++) {
-        const a = row * across + column
-        indices.push(a, a + across, a + 1, a + 1, a + across, a + across + 1)
+  for (const layer of [0, 1]) {
+    const first = positions.length / 3
+    for (let row = 0; row <= sheet; row++) {
+      const fallen = row / sheet
+      const forward = 1.5 + layer * 0.45 + fallen * fallen * (1.6 + layer * 0.9)
+      const y = foot.y + height * 0.88 - fallen * (height * 0.88 + 0.3)
+      const spread = fall.width * (0.8 + fallen * 0.5) * (1 - layer * 0.35)
+      const drift = layer * fall.width * 0.12
+      for (let column = 0; column < across; column++) {
+        const u = column / (across - 1)
+        positions.push(
+          foot.x + sideX * ((u - 0.5) * spread + drift) + facing.x * forward,
+          y,
+          -(foot.s + lap + sideS * ((u - 0.5) * spread + drift) + facing.s * forward),
+        )
+        uvs.push(u, fallen * height * (0.9 + layer * 0.35) + layer * 17)
+        flow.push(1, Math.min(1, row / 1.2), 0)
       }
+      if (row < sheet)
+        for (let column = 0; column < across - 1; column++) {
+          const a = first + row * across + column
+          indices.push(a, a + across, a + 1, a + 1, a + across, a + across + 1)
+        }
+    }
   }
   const pool = positions.length / 3
   const ring = 14
@@ -309,7 +314,7 @@ export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
       }
   }
   const base = positions.length / 3
-  const size = Math.max(fall.width * 2.4, height * 0.7)
+  const size = Math.min(8, Math.max(fall.width * 2, height * 0.5))
   for (let blade = 0; blade < 3; blade++) {
     const angle = (blade / 3) * Math.PI + fall.id
     const dx = Math.cos(angle) * size
@@ -383,7 +388,7 @@ if (fallShape.z > 1.5) {
   vec2 centred = (fallUv - vec2(0.5, 0.32)) * vec2(2.0, 1.5);
   float body = 1.0 - smoothstep(0.15, 1.0, length(centred));
   diffuseColor.rgb = vec3(0.96, 0.98, 1.0);
-  diffuseColor.a = body * smoothstep(0.25, 0.8, puff * 0.6 + haze * 0.5) * 0.55;
+  diffuseColor.a = body * smoothstep(0.25, 0.8, puff * 0.6 + haze * 0.5) * 0.42;
 } else {
   float streak = texture2D(fieldNoiseMap, vec2(fallUv.x * 0.1 + 0.31, fallUv.y * 0.0045 - fallTime * 0.03)).r * 0.6
     + texture2D(fieldNoiseMap, vec2(fallUv.x * 0.27 + 0.7, fallUv.y * 0.012 - fallTime * 0.075)).r * 0.4;
