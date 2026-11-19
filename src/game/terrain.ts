@@ -52,6 +52,7 @@ function geometry(positions: number[], indices: number[], colors?: number[]) {
   g.computeVertexNormals()
   return g
 }
+export const foliageWarmth = 1.5
 export const seamTwins = { show: 150, hide: 100 }
 
 function twinMesh(source: THREE.Mesh) {
@@ -695,7 +696,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
   }
   tintFoliage(settings: Settings) {
     const material = this.foliage.treeMaterial
-    material.color.set(landscapeProfiles[settings.landscape].foliage ?? '#ffffff')
+    const tint = landscapeProfiles[settings.landscape].foliage
+    material.color.set(tint ?? '#ffffff').multiplyScalar(tint ? foliageWarmth : 1)
     material.emissive.set(palettes[settings.season].tree).multiplyScalar(0.09)
   }
   setNight(dark: boolean) {

@@ -91,7 +91,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#b39a75',
     },
     reflection: '#8d7554',
-    foliage: '#c9c088',
+    foliage: '#ffc266',
     map: { low: [196, 168, 120], high: [226, 201, 152] },
   },
   forest: {
@@ -136,7 +136,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#b98866',
     },
     reflection: '#8a5236',
-    foliage: '#c4b77e',
+    foliage: '#ffbf66',
     map: { low: [176, 104, 68], high: [222, 158, 108] },
   },
   fjord: {
@@ -162,7 +162,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#a3a6a4',
     },
     reflection: '#59663f',
-    foliage: '#d2d6a6',
+    foliage: '#f2e6a0',
     map: { low: [132, 140, 92], high: [186, 186, 138] },
   },
 }
