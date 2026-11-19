@@ -145,7 +145,7 @@ export function planSlot(world: World, slot: number, level: LifeLevel): Plan | n
     const pool = herds[landscape]
     const kind = pool[Math.floor(rng() * pool.length)] ?? 'cow'
     for (const side of [firstSide, -firstSide]) {
-      const across = 13 + rng() * 34
+      const across = 17 + rng() * 16
       const centre = base + lifeLayout.slot / 2
       const road = world.road(centre)
       const home = roadPoint(road, centre, side * across)
@@ -173,7 +173,7 @@ export function planSlot(world: World, slot: number, level: LifeLevel): Plan | n
       const members: Member[] = []
       for (let index = 0; index < count; index++) {
         const angle = rng() * Math.PI * 2
-        const spread = 2 + Math.sqrt(rng()) * 8
+        const spread = 2 + Math.sqrt(rng()) * 6
         const [coat, patch] = palette[Math.floor(rng() * palette.length)] ?? ['#ffffff', '#ffffff']
         members.push({
           kind,
@@ -218,7 +218,7 @@ export function placeMember(
     return {
       kind: 'person',
       x: point.x,
-      y: world.surface(point.x, point.s).height,
+      y: world.surface(point.x, point.s).height + Math.abs(Math.sin(travelled * 2.6)) * 0.022,
       s: point.s,
       yaw: Math.atan2(-Math.sin(road.yaw) * direction, -Math.cos(road.yaw) * direction),
       step: travelled * 2.6,
@@ -334,8 +334,41 @@ class Troupe {
   }
 }
 
+function contactShade() {
+  const canvas = document.createElement('canvas')
+  canvas.width = canvas.height = 64
+  const context = canvas.getContext('2d')
+  if (context) {
+    const fade = context.createRadialGradient(32, 32, 4, 32, 32, 32)
+    fade.addColorStop(0, 'rgba(255, 255, 255, 1)')
+    fade.addColorStop(0.6, 'rgba(255, 255, 255, 0.5)')
+    fade.addColorStop(1, 'rgba(255, 255, 255, 0)')
+    context.fillStyle = fade
+    context.fillRect(0, 0, 64, 64)
+  }
+  const mesh = new THREE.InstancedMesh(
+    new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({
+      color: '#0a100a',
+      alphaMap: new THREE.CanvasTexture(canvas),
+      transparent: true,
+      opacity: 0.42,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    }),
+    lifeLayout.capacity * 4,
+  )
+  mesh.count = 0
+  mesh.frustumCulled = false
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+  return mesh
+}
+
 export class Life {
   group = new THREE.Group()
+  private shade = contactShade()
   placed: Placed[] = []
   private material = lifeMaterial()
   private troupes = new Map<Creature, Troupe>()
@@ -349,6 +382,7 @@ export class Life {
         new Troupe(kind === 'person' ? personGeometry() : animalGeometry(kind), this.material),
       )
     for (const troupe of this.troupes.values()) this.group.add(troupe.mesh)
+    this.group.add(this.shade)
   }
   update(
     settings: Settings,
@@ -389,12 +423,25 @@ export class Life {
           this.pose.scale.setScalar(member.scale)
           this.pose.updateMatrix()
           troupe.mesh.setMatrixAt(index, this.pose.matrix)
+          if (this.placed.length <= this.shade.instanceMatrix.count) {
+            const reach = creatureRadius[member.kind] * member.scale
+            this.pose.position.y = spot.y + 0.06
+            this.pose.scale.set(
+              reach * (member.kind === 'person' ? 2.6 : 1.9),
+              1,
+              reach * (member.kind === 'person' ? 2.6 : 3.6),
+            )
+            this.pose.updateMatrix()
+            this.shade.setMatrixAt(this.placed.length - 1, this.pose.matrix)
+          }
           troupe.gait.setXYZW(index, spot.step, spot.stride, spot.graze * 0.95, 0)
           for (const [slotIndex, tint] of member.tints.entries())
             troupe.tints[slotIndex]?.setXYZ(index, tint.r, tint.g, tint.b)
         }
       }
     }
+    this.shade.count = Math.min(this.placed.length, this.shade.instanceMatrix.count)
+    this.shade.instanceMatrix.needsUpdate = true
     for (const [kind, troupe] of this.troupes) {
       troupe.mesh.count = counts.get(kind) ?? 0
       if (!troupe.mesh.count) continue
@@ -415,5 +462,9 @@ export class Life {
       troupe.mesh.dispose()
     }
     this.material.dispose()
+    this.shade.geometry.dispose()
+    this.shade.material.alphaMap?.dispose()
+    this.shade.material.dispose()
+    this.shade.dispose()
   }
 }

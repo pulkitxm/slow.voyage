@@ -29,8 +29,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
-import { roadCoordinates } from './road'
-import { puddleDepth, puddleLevel } from './road-condition'
+import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
@@ -772,11 +771,7 @@ export class RoadEngine {
         rate = 26 * wheel.slip
         this.cloudTone.set('#dfe3e3')
       } else if (this.wetRoad && speed > 10) {
-        const pooled = puddleDepth(
-          this.settings.weather,
-          wheel.s,
-          roadCoordinates(this.world, wheel.x, wheel.s).distance,
-        )
+        const pooled = wheel.puddle
         rate = speed * (2.6 + pooled * 3.4)
         opacity = 0.2 + pooled * 0.1
         size = 2.1 + pooled * 1.3

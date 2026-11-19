@@ -183,8 +183,8 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     snowLine: null,
     treeLine: null,
     woodland: { threshold: -0.6, evergreen: 0.04, start: 16, reach: 520 },
-    roadside: { trees: 52, shrubs: 280, conifers: 0, narrow: 0.3 },
-    grass: 12000,
+    roadside: { trees: 56, shrubs: 400, conifers: 0, narrow: 0.3 },
+    grass: 14000,
     ground: { base: '#4c7a33', light: '#7aa646' },
     field: {
       dry: '#8ba24c',

@@ -68,3 +68,23 @@ test('autodrive holds a potholed road for a minute and feels the holes', () => {
   expect(car.distance).toBeGreaterThan(900)
   expect(deepest).toBeGreaterThan(0.02)
 })
+
+test('standing water drags a wheel and takes grip only in the wet', () => {
+  const soaked = new CarPhysics(new World({ ...defaults, weather: 'storm' }))
+  const dry = new CarPhysics(new World({ ...defaults }))
+  let wettest = 0
+  for (const car of [soaked, dry]) {
+    car.reset(0)
+    for (let step = 0; step < 40 * 120; step++) {
+      car.update(1 / 120, car.autoInput(22), car.world.settings)
+      for (const wheel of car.suspension.wheels) {
+        if (car === dry) expect(wheel.puddle).toBe(0)
+        else wettest = Math.max(wettest, wheel.puddle)
+      }
+    }
+    expect(car.hits).toBe(0)
+    expect(car.offroad).toBe(false)
+  }
+  expect(wettest).toBeGreaterThan(0.5)
+  expect(soaked.distance).toBeGreaterThan(500)
+})

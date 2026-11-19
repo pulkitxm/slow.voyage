@@ -1,3 +1,5 @@
+import { roadCoordinates } from './road'
+import { puddleDepth } from './road-condition'
 import { tireDimensions } from './tire-dimensions'
 import { vehicleMetrics } from './vehicles'
 import { clamp, type Vehicle, type World } from './world'
@@ -38,6 +40,7 @@ export interface WheelState {
   slopeS: number
   onRoad: boolean
   sand: boolean
+  puddle: number
   contact: boolean
   compression: number
   offset: number
@@ -80,6 +83,7 @@ export class Suspension {
           slopeS: 0,
           onRoad: true,
           sand: false,
+          puddle: 0,
           contact: true,
           compression: 0.5,
           offset: 0,
@@ -192,6 +196,11 @@ export class Suspension {
       wheel.s = contactS
       wheel.onRoad = governing.onRoad
       wheel.sand = governing.sand
+      const { weather, season } = this.world.settings
+      wheel.puddle =
+        governing.onRoad && season !== 'winter' && (weather === 'rain' || weather === 'storm')
+          ? puddleDepth(weather, contactS, roadCoordinates(this.world, contactX, contactS).distance)
+          : 0
       wheel.slopeX = governing.slopeX
       wheel.slopeS = governing.slopeS
     }

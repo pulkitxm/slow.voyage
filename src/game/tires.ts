@@ -3,6 +3,7 @@ import type { ChassisPose, WheelState } from './suspension'
 import { vehicleMetrics, yawInertia } from './vehicles'
 import { clamp, type Settings } from './world'
 
+export const standingWater = { grip: 0.12, planing: 36, drag: 0.5, surge: 0.0035 }
 export const groundDrag = {
   grass: { base: 1.4, linear: 0.04, quadratic: 0.004 },
   sand: { base: 2, linear: 0.06, quadratic: 0.008 },
@@ -126,7 +127,10 @@ export function solveTires(
     lateralBefore = pose.lateralSpeed
   const capacities: number[] = []
   for (const wheel of wheels) {
-    const friction = surfaceGrip(settings, wheel.onRoad, wheel.sand)
+    const planing = clamp(Math.abs(pose.speed) / standingWater.planing, 0, 1)
+    const friction =
+      surfaceGrip(settings, wheel.onRoad, wheel.sand) *
+      (1 - standingWater.grip * wheel.puddle * planing)
     const capacity = wheel.contact ? friction * wheel.load * dt : 0
     capacities.push(capacity)
     wheel.longitudinalImpulse = wheel.lateralImpulse = wheel.slip = 0
@@ -173,7 +177,10 @@ export function solveTires(
     const motion = velocity(pose, wheel)
     const brakeLimit =
       Math.abs(motion.longitudinal) < longitudinalShare.holdSpeed ? capacity : share
-    const rolling = 0.1 + metrics.rollingResistance * Math.abs(motion.longitudinal)
+    const rolling =
+      0.1 +
+      metrics.rollingResistance * Math.abs(motion.longitudinal) +
+      wheel.puddle * (standingWater.drag + standingWater.surge * motion.longitudinal ** 2)
     const brakeDemand = (brake * metrics.mass * wheel.load * dt) / Math.max(groundedLoad, 1)
     const resistance = Math.min(quarterMass * rolling * dt + brakeDemand, brakeLimit)
     wheel.locked ||=

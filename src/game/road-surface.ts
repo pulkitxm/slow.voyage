@@ -133,7 +133,7 @@ diffuseColor.rgb *= 1.0 + roadRim * (1.0 - roadPit) * (roadGrit - 0.3) * 0.7;
 float roadDirt = smoothstep(0.3, 0.9, roadState.g * (0.5 + roadVariation * 1.0)) * roadWear.x;
 diffuseColor.rgb = mix(diffuseColor.rgb, mix(roadDirtColor, vec3(0.42, 0.4, 0.37), 0.35) * (0.6 + roadSurfaceNoise * 0.5) * mix(1.0, 0.5, roadWetness), roadDirt * 0.7);
 float roadPuddle = smoothstep(roadPuddleLevel - 0.06, roadPuddleLevel + 0.1, roadState.r + roadHole * 0.3 + (roadVariation - 0.5) * 0.05);
-diffuseColor.rgb *= mix(1.0, 0.42, roadPuddle);`,
+diffuseColor.rgb *= mix(1.0, 0.3, roadPuddle);`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <roughnessmap_fragment>',
