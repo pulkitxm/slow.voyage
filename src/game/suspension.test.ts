@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { type ChassisPose, Suspension } from './suspension'
 import { vehicleMetrics } from './vehicles'
-import { defaults, type Vehicle, World } from './world'
+import { defaults, type Vehicle, vehicles, World } from './world'
 
 class TestWorld extends World {
   elevation = (_x: number, _s: number) => 0
@@ -38,17 +38,14 @@ function fixture(vehicle: Vehicle = 'touring') {
   return { world, suspension, pose }
 }
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-  '%s suspension supports its weight without resting drift',
-  (vehicle) => {
-    const { suspension, pose } = fixture(vehicle)
-    for (let i = 0; i < 120 * 6; i++) suspension.update(1 / 120, pose, 0, 0, false)
-    expect(Math.abs(pose.y) + Math.abs(pose.pitch) + Math.abs(pose.roll)).toBeLessThan(1e-8)
-    expect(suspension.wheels.every((wheel) => wheel.contact)).toBe(true)
-    const totalLoad = suspension.wheels.reduce((sum, wheel) => sum + wheel.load, 0)
-    expect(totalLoad).toBeCloseTo(vehicleMetrics[vehicle].mass * 9.81, 4)
-  },
-)
+test.each(vehicles)('%s suspension supports its weight without resting drift', (vehicle) => {
+  const { suspension, pose } = fixture(vehicle)
+  for (let i = 0; i < 120 * 6; i++) suspension.update(1 / 120, pose, 0, 0, false)
+  expect(Math.abs(pose.y) + Math.abs(pose.pitch) + Math.abs(pose.roll)).toBeLessThan(1e-8)
+  expect(suspension.wheels.every((wheel) => wheel.contact)).toBe(true)
+  const totalLoad = suspension.wheels.reduce((sum, wheel) => sum + wheel.load, 0)
+  expect(totalLoad).toBeCloseTo(vehicleMetrics[vehicle].mass * 9.81, 4)
+})
 
 test('a bump under one front wheel compresses that corner and tilts the chassis', () => {
   const { world, suspension, pose } = fixture()

@@ -21,6 +21,9 @@ export const tireDimensions: Record<Vehicle, TireDimensions> = {
   touring: passenger,
   roadster: passenger,
   motorcycle: { tube: 0.0385, width: 0.077, inset: 0, radialSegments: 10, tubularSegments: 32 },
+  pickup: { tube: 0.085, width: 0.27, inset: 0, radialSegments: 12, tubularSegments: 32 },
+  hatchback: { tube: 0.05, width: 0.17, inset: 0, radialSegments: 12, tubularSegments: 32 },
+  supercar: { tube: 0.041, width: 0.27, inset: 0, radialSegments: 12, tubularSegments: 32 },
   bus: {
     tube: 0.065,
     width: busLayout.wheelWidth,

@@ -2,8 +2,7 @@ import { expect, test } from 'bun:test'
 import { digitalResponse, Steering, steeringLimit } from './steering'
 import { vehicleMetrics } from './vehicles'
 import type { SteeringSource, Vehicle } from './world'
-
-const vehicles = ['touring', 'roadster', 'motorcycle', 'bus'] as const
+import { vehicles } from './world'
 
 function advance(
   rack: Steering,

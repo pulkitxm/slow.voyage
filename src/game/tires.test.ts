@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { CarPhysics, type Input } from './physics'
 import { solveTires } from './tires'
 import { vehicleMetrics, yawInertia } from './vehicles'
-import { defaults, random, type Settings, World } from './world'
+import { defaults, random, type Settings, vehicles, World } from './world'
 
 class FlatWorld extends World {
   override road(_s: number) {
@@ -29,14 +29,15 @@ function car(settings: Settings = defaults) {
   return new CarPhysics(new FlatWorld(settings))
 }
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s boosted high-power acceleration stays inside each contact friction budget with a cornering reserve',
   (vehicle) => {
     const settings = { ...defaults, vehicle, power: 20, grip: 0.2 }
+    const grip = settings.grip * vehicleMetrics[vehicle].roadGrip
     const body = car(settings)
     let saturated = false
     for (let frame = 0; frame < 240; frame++) {
-      const budgets = body.suspension.wheels.map((wheel) => settings.grip * wheel.load * step)
+      const budgets = body.suspension.wheels.map((wheel) => grip * wheel.load * step)
       body.update(step, { ...coast, throttle: 1, boost: true, steer: 0.2 }, settings)
       for (const [index, wheel] of body.suspension.wheels.entries()) {
         const budget = budgets[index] ?? 0
@@ -48,18 +49,18 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
     }
     expect(saturated).toBe(true)
     expect(body.speed).toBeGreaterThan(0)
-    expect(body.speed).toBeLessThan(settings.grip * 9.81 * 2)
+    expect(body.speed).toBeLessThan(grip * 9.81 * 2)
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s straight locked braking uses available friction without sideways impulses',
   (vehicle) => {
     const settings = { ...defaults, vehicle, grip: 0.2 }
     const body = car(settings)
     body.speed = 20
     solveTires(step, body, body.suspension.wheels, settings, 0, 100, false)
-    const beforeDrag = 20 - settings.grip * 9.81 * step
+    const beforeDrag = 20 - settings.grip * vehicleMetrics[vehicle].roadGrip * 9.81 * step
     const expected = beforeDrag * (1 - vehicleMetrics[vehicle].drag * beforeDrag * step)
     expect(body.speed).toBeCloseTo(expected, 7)
     expect(Math.abs(body.lateralSpeed)).toBeLessThan(0.0000001)
@@ -69,7 +70,7 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s locked contacts dissipate planar energy within each friction budget',
   (vehicle) => {
     const rng = random(921)
@@ -90,7 +91,7 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
       expect(energy()).toBeLessThanOrEqual(before + 0.00000001)
       for (const wheel of body.suspension.wheels)
         expect(Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)).toBeLessThanOrEqual(
-          settings.grip * wheel.load * step + 0.00000001,
+          settings.grip * metrics.roadGrip * wheel.load * step + 0.00000001,
         )
     }
   },
@@ -271,7 +272,7 @@ function offroad(vehicle: Settings['vehicle'], sand: boolean) {
   return { settings, body }
 }
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s bogs down in sand far more than on grass whatever the tire grip',
   (vehicle) => {
     const top = (sand: boolean) => {

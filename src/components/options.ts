@@ -1,6 +1,7 @@
 import {
   BusFront,
   CarFront,
+  CarTaxiFront,
   Cloud,
   CloudFog,
   CloudLightning,
@@ -19,7 +20,9 @@ import {
   Sunset,
   TreePine,
   Trees,
+  Truck,
   Waves,
+  Zap,
 } from 'lucide-react'
 
 export { cameras } from '../game/settings'
@@ -79,6 +82,9 @@ export const daylight = [
 export const vehicles = [
   { id: 'touring', icon: CarFront },
   { id: 'roadster', icon: Gauge },
+  { id: 'hatchback', icon: CarTaxiFront },
+  { id: 'supercar', icon: Zap },
+  { id: 'pickup', icon: Truck },
   { id: 'motorcycle', icon: Motorbike },
   { id: 'bus', icon: BusFront },
 ] as const

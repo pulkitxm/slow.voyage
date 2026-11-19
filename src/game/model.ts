@@ -1,5 +1,7 @@
 import type * as THREE from 'three'
 import { CarModel } from './car'
+import { LoftCarModel } from './loft-car'
+import { isLoftVehicle } from './loft-vehicles'
 import { MotorcycleModel } from './motorcycle'
 import type { ChassisPose, WheelState } from './suspension'
 import { clamp, damp, type Settings, type Vehicle } from './world'
@@ -16,9 +18,9 @@ export interface VehicleModel {
 }
 
 export function createVehicleModel(settings: Settings, software = false): VehicleModel {
-  return settings.vehicle === 'motorcycle'
-    ? new MotorcycleModel(settings, software)
-    : new CarModel(settings, software)
+  if (settings.vehicle === 'motorcycle') return new MotorcycleModel(settings, software)
+  if (isLoftVehicle(settings.vehicle)) return new LoftCarModel(settings, software)
+  return new CarModel(settings, software)
 }
 
 export const vehicleArrival = { duration: 0.75, lift: 0.5, shrink: 0.06 }

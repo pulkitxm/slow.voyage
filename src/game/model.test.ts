@@ -5,7 +5,7 @@ import { CarModel } from './car'
 import { arrivalPose, createVehicleModel, vehicleArrival } from './model'
 import { Suspension } from './suspension'
 import { vehicleMetrics } from './vehicles'
-import { defaults, World } from './world'
+import { defaults, vehicles, World } from './world'
 
 function visible(object: THREE.Object3D) {
   let current: THREE.Object3D | null = object
@@ -148,7 +148,7 @@ test.each(['touring', 'roadster'] as const)(
   },
 )
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
+test.each(vehicles)(
   '%s model has valid geometry, preserves lights in bonnet view, and releases its resources',
   (vehicle) => {
     const model = createVehicleModel({ ...defaults, vehicle })
@@ -174,7 +174,7 @@ test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
     const bounds = new THREE.Box3().setFromObject(model.group).getSize(new THREE.Vector3())
     expect(bounds.x).toBeGreaterThan(0.7)
     expect(bounds.x).toBeLessThan(2.5)
-    expect(bounds.y).toBeGreaterThan(1.2)
+    expect(bounds.y).toBeGreaterThan(vehicle === 'supercar' ? 1.1 : 1.2)
     if (vehicle === 'bus') {
       expect(bounds.z).toBeGreaterThan(9.25)
       expect(bounds.z).toBeLessThan(9.5)
@@ -325,7 +325,7 @@ test('the bus steering rim stays in front of the dashboard in the seated driving
   model.dispose()
 })
 
-test.each(['motorcycle', 'bus'] as const)(
+test.each(['motorcycle', 'bus', 'pickup', 'hatchback', 'supercar'] as const)(
   '%s instrument contrast is independent of exterior paint and responds to night lighting',
   (vehicle) => {
     const colors = []
@@ -351,7 +351,7 @@ test.each(['motorcycle', 'bus'] as const)(
   },
 )
 
-test.each(['motorcycle', 'bus'] as const)(
+test.each(['motorcycle', 'bus', 'pickup', 'hatchback'] as const)(
   '%s instruments follow speed magnitude and steering without changing the chassis',
   (vehicle) => {
     const world = new World({ ...defaults, vehicle })
@@ -492,38 +492,35 @@ test('coach wheel openings clear full suspension travel and Ackermann steering',
   model.dispose()
 })
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-  '%s bonnet view shows a vehicle anchor below the road sightline',
-  (vehicle) => {
-    const world = new World({ ...defaults, vehicle })
-    const road = world.road(0)
-    const subject = { x: road.x, y: road.y, s: 0, yaw: road.yaw, speed: 0 }
-    const camera = new THREE.PerspectiveCamera(68, 16 / 9, 0.1, 3600)
-    new DrivingCamera(camera).update(subject, world, 'bonnet', 1 / 60)
-    camera.updateMatrixWorld()
-    const model = createVehicleModel(world.settings)
-    model.group.position.set(subject.x, subject.y, -subject.s)
-    model.group.rotation.y = subject.yaw
-    model.setExteriorVisible(false)
-    model.group.updateMatrixWorld(true)
-    const points: THREE.Vector3[] = []
-    model.firstPerson.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return
-      const position = object.geometry.getAttribute('position')
-      for (let i = 0; i < position.count; i++) {
-        const point = new THREE.Vector3()
-          .fromBufferAttribute(position, i)
-          .applyMatrix4(object.matrixWorld)
-          .project(camera)
-        if (Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && Math.abs(point.z) <= 1)
-          points.push(point)
-      }
-    })
-    expect(points.length).toBeGreaterThan(0)
-    expect(points.every((point) => point.y < -0.25)).toBe(true)
-    model.dispose()
-  },
-)
+test.each(vehicles)('%s bonnet view shows a vehicle anchor below the road sightline', (vehicle) => {
+  const world = new World({ ...defaults, vehicle })
+  const road = world.road(0)
+  const subject = { x: road.x, y: road.y, s: 0, yaw: road.yaw, speed: 0 }
+  const camera = new THREE.PerspectiveCamera(68, 16 / 9, 0.1, 3600)
+  new DrivingCamera(camera).update(subject, world, 'bonnet', 1 / 60)
+  camera.updateMatrixWorld()
+  const model = createVehicleModel(world.settings)
+  model.group.position.set(subject.x, subject.y, -subject.s)
+  model.group.rotation.y = subject.yaw
+  model.setExteriorVisible(false)
+  model.group.updateMatrixWorld(true)
+  const points: THREE.Vector3[] = []
+  model.firstPerson.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return
+    const position = object.geometry.getAttribute('position')
+    for (let i = 0; i < position.count; i++) {
+      const point = new THREE.Vector3()
+        .fromBufferAttribute(position, i)
+        .applyMatrix4(object.matrixWorld)
+        .project(camera)
+      if (Math.abs(point.x) <= 1 && Math.abs(point.y) <= 1 && Math.abs(point.z) <= 1)
+        points.push(point)
+    }
+  })
+  expect(points.length).toBeGreaterThan(0)
+  expect(points.every((point) => point.y < -0.25)).toBe(true)
+  model.dispose()
+})
 
 test('a switched vehicle drops onto the road with one soft bounce and settles exactly', () => {
   const start = arrivalPose(0)

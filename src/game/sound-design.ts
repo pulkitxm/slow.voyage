@@ -70,6 +70,45 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     pops: 0,
     volume: 1,
   },
+  pickup: {
+    cylinders: 8,
+    rolloff: 1.25,
+    unevenness: 0.3,
+    brightness: 3.8,
+    resonance: 1.8,
+    grit: 0.4,
+    rumble: 0.8,
+    clatter: 0,
+    turbo: 0.1,
+    pops: 0,
+    volume: 1,
+  },
+  hatchback: {
+    cylinders: 4,
+    rolloff: 1.2,
+    unevenness: 0.1,
+    brightness: 5,
+    resonance: 1.6,
+    grit: 0.2,
+    rumble: 0.25,
+    clatter: 0,
+    turbo: 0.08,
+    pops: 0,
+    volume: 0.8,
+  },
+  supercar: {
+    cylinders: 12,
+    rolloff: 0.8,
+    unevenness: 0.08,
+    brightness: 7.5,
+    resonance: 4,
+    grit: 0.5,
+    rumble: 0.45,
+    clatter: 0,
+    turbo: 0,
+    pops: 0.6,
+    volume: 1,
+  },
 }
 
 export function engineSpectrum(voice: EngineVoice) {
@@ -120,6 +159,9 @@ export const tirePitch: Record<Vehicle, number> = {
   roadster: 1060,
   motorcycle: 1380,
   bus: 700,
+  pickup: 840,
+  hatchback: 1100,
+  supercar: 1000,
 }
 
 export function squealLevel(slip: number, speed: number, offroad: boolean) {
@@ -171,6 +213,9 @@ const vehicleWeight: Record<Vehicle, number> = {
   roadster: 0.95,
   motorcycle: 0.6,
   bus: 1.7,
+  pickup: 1.3,
+  hatchback: 0.85,
+  supercar: 1,
 }
 
 export function impactVoice(material: ObstacleMaterial, strength: number, vehicle: Vehicle) {

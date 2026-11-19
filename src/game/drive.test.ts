@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { forwardDriveForce } from './drive'
 import { vehicleMetrics } from './vehicles'
+import { vehicles } from './world'
 
 test.each([
   { vehicle: 'touring', speed: 0, normal: 6.75, boosted: 9 },
@@ -13,29 +14,26 @@ test.each([
   expect(forwardDriveForce(speed, 1, true, vehicleMetrics[vehicle], 1)).toBeCloseTo(boosted, 8)
 })
 
-test.each(['touring', 'roadster', 'motorcycle', 'bus'] as const)(
-  '%s boost preserves linear pedal and power response',
-  (vehicle) => {
-    const metrics = vehicleMetrics[vehicle]
-    for (const speed of [0, 10, 27, metrics.maxSpeed, metrics.maxSpeed * 1.5]) {
-      for (const boost of [false, true]) {
-        const full = forwardDriveForce(speed, 1, boost, metrics, 1)
-        for (const throttle of [0, 0.1, 0.25, 0.5, 1]) {
-          for (const power of [0.4, 1, 2]) {
-            expect(forwardDriveForce(speed, throttle, boost, metrics, power)).toBeCloseTo(
-              full * throttle * power,
-              8,
-            )
-          }
+test.each(vehicles)('%s boost preserves linear pedal and power response', (vehicle) => {
+  const metrics = vehicleMetrics[vehicle]
+  for (const speed of [0, 10, 27, metrics.maxSpeed, metrics.maxSpeed * 1.5]) {
+    for (const boost of [false, true]) {
+      const full = forwardDriveForce(speed, 1, boost, metrics, 1)
+      for (const throttle of [0, 0.1, 0.25, 0.5, 1]) {
+        for (const power of [0.4, 1, 2]) {
+          expect(forwardDriveForce(speed, throttle, boost, metrics, power)).toBeCloseTo(
+            full * throttle * power,
+            8,
+          )
         }
       }
-      expect(forwardDriveForce(speed, 1, true, metrics, 1)).toBeGreaterThanOrEqual(
-        forwardDriveForce(speed, 1, false, metrics, 1),
-      )
     }
-    expect(forwardDriveForce(metrics.maxSpeed * 2, 1, true, metrics, 1)).toBeCloseTo(
-      metrics.acceleration * 0.5,
-      8,
+    expect(forwardDriveForce(speed, 1, true, metrics, 1)).toBeGreaterThanOrEqual(
+      forwardDriveForce(speed, 1, false, metrics, 1),
     )
-  },
-)
+  }
+  expect(forwardDriveForce(metrics.maxSpeed * 2, 1, true, metrics, 1)).toBeCloseTo(
+    metrics.acceleration * 0.5,
+    8,
+  )
+})

@@ -15,9 +15,7 @@ import { worldLoop } from './field'
 import { createVehicleModel } from './model'
 import { CarPhysics, type Input } from './physics'
 import { roadCoordinates } from './road'
-import { defaults, type Settings, type Vehicle, World } from './world'
-
-const vehicles = ['touring', 'roadster', 'motorcycle', 'bus'] as const
+import { defaults, type Settings, type Vehicle, vehicles, World } from './world'
 
 class OpenWorld extends World {
   constructor(

@@ -8,7 +8,7 @@ import { formatLap } from './game/laps'
 import { cameras, loadSettings } from './game/settings'
 import { decodeSpot, encodeSpot } from './game/share'
 import { vehicleNames } from './game/vehicles'
-import { defaults, type Settings } from './game/world'
+import { defaults, type Settings, vehicles } from './game/world'
 
 const initial: DriveState = {
   speed: 0,
@@ -80,7 +80,6 @@ export function useDrive() {
     announce(next.name)
   }
   const cycleVehicle = (direction: number) => {
-    const vehicles = ['touring', 'roadster', 'motorcycle', 'bus'] as const
     const next =
       vehicles[
         (vehicles.indexOf(settingsRef.current.vehicle) + direction + vehicles.length) %

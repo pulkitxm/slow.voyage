@@ -1052,8 +1052,8 @@ input[type="range"] {
   cursor: pointer;
 }
 .vehicle-options {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 7px;
 }
 .vehicle-options > button {
@@ -1062,8 +1062,9 @@ input[type="range"] {
   border-radius: 5px;
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 14px;
+  gap: 10px;
+  padding: 12px;
+  text-align: left;
   color: #87937a;
   font-size: 10px;
 }

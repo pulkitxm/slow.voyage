@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { createVehicleModel, positionVehicle } from './model'
 import { CarPhysics } from './physics'
 import { roadStrip } from './road-mesh'
-import { defaults, World } from './world'
+import { defaults, vehicles, World } from './world'
 
 function supportPoint(tire: THREE.Mesh, normal: THREE.Vector3) {
   const positions = tire.geometry.getAttribute('position')
@@ -71,7 +71,7 @@ for (const vehicle of ['touring', 'roadster', 'bus'] as const)
     },
   )
 
-for (const vehicle of ['touring', 'roadster', 'motorcycle', 'bus'] as const) {
+for (const vehicle of vehicles) {
   test.each([42, 43, 99])(
     `${vehicle} rendered tires contact the pavement through curves and grades with seed %i`,
     (seed) => {
