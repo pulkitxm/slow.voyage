@@ -38,7 +38,12 @@ export class TyreParticles {
       fog: true,
       uniforms: THREE.UniformsUtils.merge([
         THREE.UniformsLib.fog ?? {},
-        { time: { value: 0 }, life: { value: trailLayout.life }, lift: { value: 320 } },
+        {
+          time: { value: 0 },
+          life: { value: trailLayout.life },
+          lift: { value: 320 },
+          light: { value: 1 },
+        },
       ]),
       vertexShader: `
 #include <fog_pars_vertex>
@@ -62,12 +67,15 @@ void main() {
 }`,
       fragmentShader: `
 #include <fog_pars_fragment>
+uniform float light;
 varying vec4 cloud;
 void main() {
   float radius = length(gl_PointCoord - 0.5) * 2.0;
   float soft = 1.0 - smoothstep(0.25, 1.0, radius);
   if (cloud.a * soft < 0.004) discard;
-  gl_FragColor = vec4(cloud.rgb, cloud.a * soft);
+  gl_FragColor = vec4(cloud.rgb * light, cloud.a * soft);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
   #include <fog_fragment>
 }`,
     })
@@ -93,6 +101,11 @@ void main() {
     for (const attribute of [this.origin, this.drift, this.tone, this.born])
       attribute.needsUpdate = true
     return slot
+  }
+
+  setLight(light: number) {
+    const uniform = this.points.material.uniforms.light
+    if (uniform) uniform.value = light
   }
 
   update(time: number, viewportHeight: number) {

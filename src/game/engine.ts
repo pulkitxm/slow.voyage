@@ -658,6 +658,9 @@ export class RoadEngine {
     const night = profile.night > 0.5
     this.dark = night
     this.wetRoad = profile.wet
+    this.tyreClouds.setLight(
+      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1),
+    )
     this.dustTone.set(
       this.settings.season === 'winter'
         ? '#eef1f0'
@@ -722,7 +725,12 @@ export class RoadEngine {
       let rate = 0
       let opacity = 0.3
       let size = 1.3
-      if (!wheel.onRoad) {
+      if (p.wading > 0) {
+        rate = Math.min(speed, 20) * 2.2
+        opacity = 0.36
+        size = 1.7
+        this.cloudTone.set('#e4eef2')
+      } else if (!wheel.onRoad) {
         rate = Math.min(speed, 30) * 1.3
         opacity = 0.44
         size = 2

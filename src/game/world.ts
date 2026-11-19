@@ -1,7 +1,7 @@
 import type { ControllerBindings, ControllerMode } from './controller-bindings'
-import { roadCurve, smoothStep, terrainField, wrapOffset } from './field'
+import { roadCurve, smoothStep, terrainField, worldLoop, wrapOffset } from './field'
 import { groundSurface } from './ground-grid'
-import { type Landscape, landscapeProfiles, terraced } from './landscapes'
+import { type Landscape, landscapeProfiles, passEasing, terraced } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
 
 export type { Landscape } from './landscapes'
@@ -70,6 +70,13 @@ export const defaults: Settings = {
   mouseSensitivity: 1,
 }
 export const shoreHeight = 1.2
+export const fordDepth = -0.3
+export const fordShelf = 2
+
+export function shelved(height: number) {
+  const above = (height - fordDepth) / fordShelf
+  return above >= 1 ? height : fordDepth + fordShelf * Math.exp(above - 1)
+}
 export const coastBasin = { start: 700, fade: 600 }
 export const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n))
 export const damp = (a: number, b: number, rate: number, dt: number) =>
@@ -129,12 +136,13 @@ export class World {
     const basin = 1 - smoothStep(clamp((distance - coastBasin.start) / coastBasin.fade, 0, 1))
     const coast =
       Math.min(110, Math.max(0, distance - roadLayout.halfWidth) * 0.26) * coastFactor * basin
-    const relief = terraced(hills * profile.relief, profile.terrace, smoothStep) - coast
+    const easing = passEasing(s, worldLoop.length, profile.passes, this.settings.seed, smoothStep)
+    const relief = terraced(hills * profile.relief * easing, profile.terrace, smoothStep) - coast
     const cut = smoothStep(clamp((relief - 0.6) / 3, 0, 1))
     const blend = smoothStep(
       clamp((distance - roadLayout.halfWidth - roadLayout.verge) / (13.2 - cut * 6.5), 0, 1),
     )
-    return level - roadLayout.surfaceRecess + blend * relief
+    return shelved(level - roadLayout.surfaceRecess + blend * relief)
   }
 
   guardrail(s: number, side: number) {
