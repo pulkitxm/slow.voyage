@@ -20,7 +20,11 @@ const sources: { kind: Creature; url: string; height: number }[] = [
 ]
 
 const dyes: Record<string, number> = { Shirt: 0, Pants: 1, Skin: 2 }
-export const castPace = { walker: 1.25, grazer: 0.55, blend: 0.35 }
+export const castPace = { walker: 1.25, grazer: 0.55, runner: 4.6, gallop: 6.5, blend: 0.35 }
+
+function clampPace(value: number) {
+  return Math.max(0.5, Math.min(1.6, value))
+}
 
 interface Template {
   scene: THREE.Object3D
@@ -119,8 +123,11 @@ export class Cast implements Stage {
     this.used.set(template, index + 1)
     const actor = this.actor(template, index)
     actor.root.visible = true
-    actor.root.position.set(spot.x, spot.y, -spot.s)
-    actor.root.rotation.set(0, spot.yaw, 0)
+    const felled = spot.mood === 2
+    const lying = felled && !actor.actions.has('Death') ? spot.tip : 0
+    actor.root.rotation.order = 'YXZ'
+    actor.root.position.set(spot.x, spot.y + lying * 0.2, -spot.s)
+    actor.root.rotation.set((-Math.PI / 2) * lying, spot.yaw, 0)
     actor.root.scale.setScalar(template.scale * spot.member.scale)
     const fresh = actor.member !== spot.member
     if (fresh) {
@@ -129,25 +136,41 @@ export class Cast implements Stage {
         for (const [slot, tint] of spot.member.tints.entries()) actor.dyed[slot]?.color.copy(tint)
     }
     const walker = spot.kind === 'person'
-    const want =
-      walker || spot.stride > 0.08
-        ? 'Walk'
-        : spot.graze > 0.35 && actor.actions.has('Eating')
-          ? 'Eating'
-          : 'Idle'
+    const want = felled
+      ? actor.actions.has('Death')
+        ? 'Death'
+        : 'Idle'
+      : spot.mood === 1 && actor.actions.has('Run')
+        ? 'Run'
+        : walker || spot.stride > 0.08
+          ? 'Walk'
+          : spot.graze > 0.35 && actor.actions.has('Eating')
+            ? 'Eating'
+            : 'Idle'
     const next = actor.actions.get(want)
     if (next && actor.playing !== want) {
       const previous = actor.actions.get(actor.playing)
-      next.reset().play()
-      if (fresh) next.time = (spot.member.phase * 1.7) % Math.max(0.1, next.getClip().duration)
+      next.reset()
+      if (want === 'Death') {
+        next.setLoop(THREE.LoopOnce, 1)
+        next.clampWhenFinished = true
+      }
+      next.play()
+      if (want === 'Death') next.time = Math.min(spot.age, next.getClip().duration)
+      else if (fresh) next.time = (spot.member.phase * 1.7) % Math.max(0.1, next.getClip().duration)
       if (previous && !fresh) next.crossFadeFrom(previous, castPace.blend, false)
       else previous?.stop()
       actor.playing = want
     }
     if (next && want === 'Walk')
-      next.timeScale = walker
-        ? spot.member.pace / castPace.walker
-        : Math.max(0.4, spot.member.pace / castPace.grazer)
+      next.timeScale =
+        spot.mood === 1
+          ? 2.3
+          : walker
+            ? spot.member.pace / castPace.walker
+            : Math.max(0.4, spot.member.pace / castPace.grazer)
+    if (next && want === 'Run')
+      next.timeScale = clampPace(spot.pace / (walker ? castPace.runner : castPace.gallop))
     actor.mixer.update(dt)
   }
   end() {
