@@ -1,8 +1,11 @@
 import * as THREE from 'three'
+import asphaltAlbedoUrl from '../assets/asphalt-albedo.webp'
+import asphaltNormalUrl from '../assets/asphalt-normal.webp'
+import groundDetailUrl from '../assets/ground-detail.webp'
 import albedoUrl from '../assets/rock-albedo.jpg'
 import normalUrl from '../assets/rock-normal.png'
 
-function loadSurfaceTexture(url: string, colorSpace: THREE.ColorSpace) {
+export function loadSurfaceTexture(url: string, colorSpace: THREE.ColorSpace) {
   const texture = new THREE.Texture()
   texture.colorSpace = colorSpace
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping
@@ -14,6 +17,17 @@ function loadSurfaceTexture(url: string, colorSpace: THREE.ColorSpace) {
     texture.needsUpdate = true
   })
   return { texture, ready }
+}
+
+export function loadRoadSurface() {
+  const albedo = loadSurfaceTexture(asphaltAlbedoUrl, THREE.SRGBColorSpace)
+  const normal = loadSurfaceTexture(asphaltNormalUrl, THREE.NoColorSpace)
+  for (const texture of [albedo.texture, normal.texture]) texture.repeat.set(3, 40)
+  return { albedo: albedo.texture, normal: normal.texture }
+}
+
+export function loadGroundDetail() {
+  return loadSurfaceTexture(groundDetailUrl, THREE.NoColorSpace).texture
 }
 
 export function loadRockSurface() {

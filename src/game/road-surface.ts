@@ -60,14 +60,17 @@ export class RoadSurface {
   material: THREE.MeshStandardMaterial
   constructor(
     asphalt: THREE.Texture,
+    photo: { albedo: THREE.Texture; normal: THREE.Texture } | null,
     noise: THREE.IUniform,
     time: THREE.IUniform,
     software: boolean,
   ) {
     this.material = new THREE.MeshStandardMaterial({
-      map: asphalt,
+      map: photo?.albedo ?? asphalt,
+      normalMap: photo?.normal ?? null,
+      normalScale: new THREE.Vector2(0.6, 0.6),
       bumpMap: asphalt,
-      bumpScale: 0.0015,
+      bumpScale: photo ? 0.0006 : 0.0015,
       color: '#c4ccd1',
       roughness: 0.98,
     })

@@ -17,6 +17,7 @@ import { roadStrip } from './road-mesh'
 import { RoadSurface } from './road-surface'
 import { bannerTexture, chevrons, chevronTexture, delineators, startGantry } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
+import { loadRoadSurface } from './rock'
 import { receiveUnbiasedShadows } from './shadow-receiver'
 import {
   cragFootprint,
@@ -203,6 +204,7 @@ export class Terrain {
   bladeTexture: THREE.DataTexture
   bladeFootprint: number
   asphalt: THREE.CanvasTexture
+  roadPhoto: ReturnType<typeof loadRoadSurface> | null = null
   groundTexture: THREE.CanvasTexture
   meadow: RoamingMeadow | null = null
   rebuilding = false
@@ -315,8 +317,10 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
     this.fallWarmUp = new THREE.Mesh(warmUp, this.fallMaterial)
     this.fallWarmUp.frustumCulled = false
     scene.add(this.fallWarmUp)
+    this.roadPhoto = software ? null : loadRoadSurface()
     this.roadSurface = new RoadSurface(
       this.asphalt,
+      this.roadPhoto,
       this.grassMaterial.fieldUniforms.fieldNoiseMap,
       this.windTime,
       software,
@@ -1031,6 +1035,8 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
     this.bladeTexture.dispose()
     this.foliage.dispose()
     this.asphalt.dispose()
+    this.roadPhoto?.albedo.dispose()
+    this.roadPhoto?.normal.dispose()
     this.roadSurface.dispose()
     this.fallWarmUp.removeFromParent()
     this.fallWarmUp.geometry.dispose()
