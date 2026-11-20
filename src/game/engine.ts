@@ -465,6 +465,7 @@ export class RoadEngine {
     this.canvas.style.visibility = 'hidden'
     this.onProgress?.(0.04, 'stone')
     await this.terrain.grassMaterial.rock.ready
+    await this.terrain.boulders?.ready
     if (this.disposed) return
     const p = this.physics
     await this.paint()

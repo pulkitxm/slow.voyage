@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
+import { Boulders, planBoulders } from './boulders'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { Foliage } from './foliage'
@@ -205,6 +206,7 @@ export class Terrain {
   bladeFootprint: number
   asphalt: THREE.CanvasTexture
   roadPhoto: ReturnType<typeof loadRoadSurface> | null = null
+  boulders: Boulders | null = null
   groundTexture: THREE.CanvasTexture
   meadow: RoamingMeadow | null = null
   rebuilding = false
@@ -318,6 +320,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
     this.fallWarmUp.frustumCulled = false
     scene.add(this.fallWarmUp)
     this.roadPhoto = software ? null : loadRoadSurface()
+    this.boulders = software ? null : new Boulders()
     this.roadSurface = new RoadSurface(
       this.asphalt,
       this.roadPhoto,
@@ -605,6 +608,19 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
       if (built.body) this.addMesh(group, built.body, this.landmarkMaterial).castShadow = true
       if (built.glow) this.addMesh(group, built.glow, this.glowMaterial)
       trunks.push({ x: landmark.x, s, radius: landmarkFootprints[landmark.kind] })
+    }
+    if (this.boulders?.loaded) {
+      const scattered = planBoulders(
+        this.world,
+        start,
+        groundLayout.tileLength,
+        random(loopIndex(id, loopCells(groundLayout.tileLength)) * 613 + settings.seed * 211 + 5),
+      ).filter(
+        (boulder) => !waterfallClearing(lapWaterfalls(this.world), lap, boulder.x, boulder.s),
+      )
+      this.boulders.add(group, scattered, (x, s) => groundSurface.sample(x, s))
+      for (const boulder of scattered)
+        trunks.push({ x: boulder.x, s: boulder.s, radius: boulder.radius })
     }
     yield
     const falls = lapWaterfalls(this.world)
@@ -987,7 +1003,11 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
   disposeGroup(group: THREE.Group) {
     group.traverse((o) => {
       if (o instanceof THREE.InstancedMesh) o.dispose()
-      if (o instanceof THREE.Mesh && !this.sharedGeometries.includes(o.geometry))
+      if (
+        o instanceof THREE.Mesh &&
+        !this.sharedGeometries.includes(o.geometry) &&
+        !this.boulders?.owns(o.geometry)
+      )
         o.geometry.dispose()
     })
   }
@@ -1035,6 +1055,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
     this.bladeTexture.dispose()
     this.foliage.dispose()
     this.asphalt.dispose()
+    this.boulders?.dispose()
     this.roadPhoto?.albedo.dispose()
     this.roadPhoto?.normal.dispose()
     this.roadSurface.dispose()
