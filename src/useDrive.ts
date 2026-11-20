@@ -152,6 +152,15 @@ export function useDrive() {
       enabled ? 'Mouse driving on. Move to steer; click to accelerate.' : 'Mouse driving off.',
     )
   }
+  const loudness = useRef(defaults.volume)
+  const toggleMute = () => {
+    const current = settingsRef.current.volume
+    if (current) loudness.current = current
+    const next = current ? 0 : loudness.current || defaults.volume
+    update('volume', next)
+    engine.current?.audio.start(next)
+    announce(next ? 'Sound on.' : 'Sound muted.')
+  }
   const togglePhoto = () => {
     const instance = engine.current
     if (!instance) return
@@ -183,6 +192,7 @@ export function useDrive() {
     cycleAssistance,
     adjustCruise,
     toggleMouse,
+    toggleMute,
     cycleJourney,
     cycleVehicle,
   })
@@ -194,6 +204,7 @@ export function useDrive() {
     cycleAssistance,
     adjustCruise,
     toggleMouse,
+    toggleMute,
     cycleJourney,
     cycleVehicle,
   }
@@ -236,6 +247,7 @@ export function useDrive() {
         if (action === 'cruiseDown') handlers.current.adjustCruise(-1)
         if (action === 'camera') handlers.current.cycleCamera()
         if (action === 'mouse') handlers.current.toggleMouse()
+        if (action === 'mute') handlers.current.toggleMute()
         if (action === 'journeyNext') handlers.current.cycleJourney(1)
         if (action === 'journeyPrevious') handlers.current.cycleJourney(-1)
         if (action === 'vehicleNext') handlers.current.cycleVehicle(1)
@@ -323,6 +335,7 @@ export function useDrive() {
     cycleCamera,
     cycleVehicle,
     togglePhoto,
+    toggleMute,
     copyLink,
     atlas,
     setAtlas,
