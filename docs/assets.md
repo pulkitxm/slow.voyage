@@ -18,3 +18,25 @@ Seasonal rock and soil colors tint the photographic surface.
 
 The files are served from the application and included in its offline cache.
 The running game makes no requests to Poly Haven.
+
+## People and animals
+
+Walkers and four of the grazing animals are rigged models by
+[Quaternius](https://quaternius.com/), published under
+[CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+- `src/assets/models/man.glb` and `woman.glb` derive from the Man and Woman Casual
+  models, downloaded from [Poly Pizza](https://poly.pizza/m/HMnuH5geEG).
+- `src/assets/models/sheep.glb` derives from the Sheep model on
+  [Poly Pizza](https://poly.pizza/m/rgJXF570ZK).
+- `src/assets/models/cow.glb`, `horse.glb`, and `deer.glb` derive from the
+  [Ultimate Animated Animals](https://quaternius.com/packs/ultimateanimatedanimals.html)
+  pack.
+
+Each file keeps only its walk, idle, and eating clips. Meshes are welded and
+quantized with glTF Transform, which brings the six files to about 2 MB together.
+Shirt, trouser, and skin materials are recoloured per walker. Goats, camels, and
+elephants have no suitable public-domain rigged model and remain generated in code,
+as does every figure on software rendering or if a model fails to load.
+
+The files are served from the application and included in its offline cache.
