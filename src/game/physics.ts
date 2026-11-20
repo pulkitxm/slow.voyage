@@ -36,6 +36,8 @@ export interface Input {
   steeringSource: SteeringSource | null
   handbrake: boolean
   regenBrake: number
+  manual?: boolean
+  shift?: number
 }
 export interface Telemetry {
   speed: number
@@ -47,6 +49,8 @@ export interface Telemetry {
   slip: number
   offroad: boolean
   gear: string
+  revs: number
+  limited: boolean
   impact: number
 }
 function tractionAcceleration(settings: Settings, onRoad: boolean, sand = false) {
@@ -205,7 +209,14 @@ export class CarPhysics {
       this.gearbox.reset(engineProfiles[settings.vehicle])
     const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
     const v = Math.abs(this.speed)
-    const reverseCommand = input.brake > 0 && input.throttle === 0
+    const stick = this.gearbox
+    const manual = input.manual === true
+    if (manual) stick.request(input.shift ?? 0, this.speed)
+    const backing = manual && stick.gear < 0
+    if (backing) input = { ...input, throttle: input.brake, brake: input.throttle }
+    const pull = manual ? (backing ? 0 : stick.pull(this.speed)) : 1
+    const reverseCommand =
+      input.brake > 0 && input.throttle === 0 && (!manual || backing || this.speed < -0.5)
     const reversing = reverseCommand && this.speed < directionChangeSpeed
     const forwardBraking =
       input.throttle > 0 && input.brake === 0 && this.speed < -directionChangeSpeed
@@ -221,8 +232,9 @@ export class CarPhysics {
     )
     const targetForce = reverseCommand
       ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
-      : forwardDriveForce(v, input.throttle, this.boosting, vehicle, settings.power) +
-        (this.boosting ? input.throttle * nitroForce(v, vehicle, settings.power) : 0)
+      : (forwardDriveForce(v, input.throttle, this.boosting, vehicle, settings.power) +
+          (this.boosting ? input.throttle * nitroForce(v, vehicle, settings.power) : 0)) *
+        pull
     this.driveForce += clamp(
       targetForce - this.driveForce,
       -vehicle.jerk * dt * 0.5,
@@ -233,7 +245,9 @@ export class CarPhysics {
           vehicle.brake * brake,
           this.brakeForce + (vehicle.brake * dt) / brakeResponseSeconds,
         )
-      : 0
+      : manual && !backing && input.throttle < 0.05 && this.speed > 1
+        ? stick.engineBraking(this.speed)
+        : 0
     const gripSteering = Math.atan(
       (vehicle.wheelbase * surfaceGrip(settings, !this.offroad, this.sand) * 9.81) /
         Math.max(v * v, 1),
@@ -323,7 +337,12 @@ export class CarPhysics {
     this.slip =
       this.suspension.wheels.reduce((sum, wheel) => sum + wheel.slip, 0) /
       this.suspension.wheels.length
-    this.gearbox.update(this.speed, this.speed < -0.1 ? input.brake : input.throttle, dt)
+    this.gearbox.update(
+      this.speed,
+      this.speed < -0.1 || backing ? input.brake : input.throttle,
+      dt,
+      manual,
+    )
   }
   telemetry(): Telemetry {
     return {
@@ -337,6 +356,8 @@ export class CarPhysics {
       offroad: this.offroad,
       impact: this.impact,
       gear: this.gearbox.label(this.speed),
+      revs: clamp(this.gearbox.rpm / this.gearbox.profile.redline, 0, 1),
+      limited: this.gearbox.limited,
     }
   }
 }

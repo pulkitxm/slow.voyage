@@ -37,27 +37,27 @@ Local pre-commit checks remain mandatory.
 
 ## Controls
 
-| Key              | Action                  |
-| ---------------- | ----------------------- |
-| W / Up           | Accelerate              |
-| Shift            | Boost while charged     |
-| S / Down         | Brake, then reverse     |
-| A D / Left Right | Steer                   |
-| Space            | Handbrake               |
-| F                | Autodrive               |
-| G                | Assistance mode         |
-| + / -            | Cruise speed            |
-| C                | Cycle camera            |
-| X                | Look behind             |
-| T                | Photo mode              |
-| B                | Horn                    |
-| Q / E            | Previous / next scenery |
-| V / Shift V      | Next / previous vehicle |
-| M                | Mute / unmute sound     |
-| U                | Toggle mouse driving    |
-| R                | Reset to the road       |
-| P / Escape       | Pause                   |
-| H                | Help                    |
+| Key              | Action                                                           |
+| ---------------- | ---------------------------------------------------------------- |
+| W / Up           | Accelerate                                                       |
+| Shift            | Boost while charged                                              |
+| S / Down         | Brake, then reverse                                              |
+| A D / Left Right | Steer                                                            |
+| Space            | Handbrake                                                        |
+| F                | Autodrive                                                        |
+| G                | Assistance mode                                                  |
+| + / -            | Cruise speed                                                     |
+| C                | Cycle camera                                                     |
+| X                | Look behind                                                      |
+| T                | Photo mode                                                       |
+| B                | Horn                                                             |
+| Q / E            | Previous / next scenery; shift down / up with the manual gearbox |
+| V / Shift V      | Next / previous vehicle                                          |
+| M                | Mute / unmute sound                                              |
+| U                | Toggle mouse driving                                             |
+| R                | Reset to the road                                                |
+| P / Escape       | Pause                                                            |
+| H                | Help                                                             |
 
 Touch devices have steering and pedal buttons. Settings include seven vehicles,
 seven landscapes, three seasons, six skies including a live day cycle, five kinds

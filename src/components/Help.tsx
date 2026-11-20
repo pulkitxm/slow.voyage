@@ -26,7 +26,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['T', 'Photo mode'],
             ['N', 'World map'],
             ['B', 'Horn'],
-            ['Q / E', 'Previous / next scenery'],
+            ['Q / E', 'Previous / next scenery, or shift down / up with the manual gearbox'],
             ['V / Shift V', 'Next / previous vehicle'],
             ['M', 'Mute / unmute sound'],
             ['U', 'Toggle mouse driving'],

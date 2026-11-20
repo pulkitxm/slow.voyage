@@ -372,6 +372,28 @@ export function SettingsPanel({
               <p>Use + and - while driving. Decrease through Stop to select reverse.</p>
             </section>
             <section className="setting-section">
+              <h3>Gearbox</h3>
+              <div className="segmented">
+                {(['automatic', 'manual'] as const).map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    className={settings.transmission === item ? 'selected' : ''}
+                    aria-pressed={settings.transmission === item}
+                    onClick={() => update('transmission', item)}
+                  >
+                    {item === 'automatic' ? 'Automatic' : 'Manual'}
+                  </button>
+                ))}
+              </div>
+              <p>
+                Manual puts the gears on E (up) and Q (down), or the scenery buttons on a
+                controller. Each gear pulls hardest in the upper half of its revs and stops at the
+                limiter, lifting off slows the car on the engine, and reverse sits one click below
+                first at a standstill. Autodrive shifts for you.
+              </p>
+            </section>
+            <section className="setting-section">
               <label className="check-option">
                 <input
                   type="checkbox"
