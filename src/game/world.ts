@@ -10,6 +10,8 @@ export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'dawn' | 'day' | 'sunset' | 'dusk' | 'night' | 'cycle'
 export const lifeLevels = ['none', 'quiet', 'lively'] as const
 export type LifeLevel = (typeof lifeLevels)[number]
+export const transmissions = ['automatic', 'manual'] as const
+export type Transmission = (typeof transmissions)[number]
 export const cameraMotions = ['full', 'calm'] as const
 export type CameraMotion = (typeof cameraMotions)[number]
 export type Weather = 'clear' | 'overcast' | 'rain' | 'storm' | 'fog'
@@ -37,6 +39,7 @@ export interface Settings {
   vehicle: Vehicle
   camera: CameraMode
   motion: CameraMotion
+  transmission: Transmission
   color: string
   volume: number
   quality: 'high' | 'low'
@@ -65,6 +68,7 @@ export const defaults: Settings = {
   vehicle: 'touring',
   camera: 'chase',
   motion: 'full',
+  transmission: 'automatic',
   color: '#a3211b',
   volume: 0.25,
   quality: 'high',

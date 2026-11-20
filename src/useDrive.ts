@@ -6,6 +6,7 @@ import { type DriveState, RoadEngine } from './game/engine'
 import { nextJourney } from './game/journeys'
 import { landmarkNames } from './game/landmarks'
 import { formatLap } from './game/laps'
+import { Odometer } from './game/odometer'
 import { cameras, loadSettings } from './game/settings'
 import { decodeSpot, encodeSpot } from './game/share'
 import { vehicleNames } from './game/vehicles'
@@ -21,6 +22,8 @@ const initial: DriveState = {
   slip: 0,
   offroad: false,
   gear: 'N',
+  revs: 0,
+  limited: false,
   impact: 0,
   assistance: 'off',
   paused: false,
@@ -55,6 +58,7 @@ export function useDrive() {
     engine.current?.atlas.attach(node)
   }, [])
   const [tab, setTab] = useState<SettingsTab>('journey')
+  const [lifetime, setLifetime] = useState(0)
   const [offline, setOffline] = useState(false)
   const [online, setOnline] = useState(true)
   const [error, setError] = useState('')
@@ -212,6 +216,11 @@ export function useDrive() {
     if (!canvas.current) return
     let rendered = false
     setReady(false)
+    const odometer = new Odometer(window.localStorage)
+    setLifetime(odometer.shown)
+    const keepOdometer = () => odometer.keep()
+    window.addEventListener('pagehide', keepOdometer)
+    document.addEventListener('visibilitychange', keepOdometer)
     const spot = decodeSpot(location.hash)
     const loaded = {
       ...loadSettings(),
@@ -237,6 +246,7 @@ export function useDrive() {
           setReady(true)
         }
         setState(state)
+        if (instance.started && odometer.record(state.distance)) setLifetime(odometer.shown)
         if (instance.started) setStarted(true)
       }
       instance.onAction = (action) => {
@@ -280,6 +290,9 @@ export function useDrive() {
         .catch(() => announce('Offline download unavailable. You can still drive online.'))
     }
     return () => {
+      odometer.keep()
+      window.removeEventListener('pagehide', keepOdometer)
+      document.removeEventListener('visibilitychange', keepOdometer)
       engine.current?.dispose()
       engine.current = null
       window.removeEventListener('online', connection)
@@ -313,6 +326,7 @@ export function useDrive() {
     engine,
     settings,
     state,
+    lifetime,
     started,
     ready,
     loading,
