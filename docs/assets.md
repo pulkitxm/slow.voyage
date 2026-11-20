@@ -79,3 +79,20 @@ Changes made: each map was resized to 1024 pixels and converted to WebP. The asp
 colour was desaturated and levelled so the road keeps its tint from the weather, and
 the ground map is used as brightness only, layered over the procedural field colours
 near the camera. Software rendering keeps the generated asphalt.
+
+## Rocks
+
+The boulders scattered through each landscape are photoscanned rocks from Poly
+Haven, released under
+[Creative Commons CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+| File                                 | Source asset           |
+| ------------------------------------ | ---------------------- |
+| `src/assets/models/rocks/rock-a.glb` | Rock 07                |
+| `src/assets/models/rocks/rock-b.glb` | Rock 09                |
+| `src/assets/models/rocks/rock-c.glb` | Namaqualand Boulder 04 |
+
+Changes made: each scan was simplified to about 1,500 triangles, its textures were
+resized to 512 pixels and converted to WebP, and the mesh was compressed with
+meshopt. In the game they are scaled, turned and sunk slightly into the ground, and
+are solid to drive into. Software rendering leaves them out.
