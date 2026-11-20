@@ -172,7 +172,8 @@ normal = perturbNormalArb(-vViewPosition, normal, vec2(dFdx(roadRelief), dFdy(ro
 float roadGlance = 0.05 + 0.95 * pow(1.0 - clamp(dot(normal, normalize(vViewPosition)), 0.0, 1.0), 4.0);
 float roadSheen = roadPuddle + roadWetness * (1.0 - roadPuddle) * (1.0 - roadDirt) * 0.22 * (1.0 - surfaceWetness * 0.6);
 gl_FragColor.rgb += roadSky * roadGlance * roadSheen * 0.6;
-gl_FragColor.a = 1.0 + clamp(roadGlance * 1.5 * roadSheen, 0.0, 1.0);`,
+float roadFilm = roadPuddle + roadWetness * (1.0 - roadPuddle) * (1.0 - roadDirt) * 0.5;
+gl_FragColor.a = 1.0 + clamp((roadGlance * 1.5 + 0.3) * roadFilm, 0.0, 1.0);`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <lights_physical_fragment>',

@@ -53,7 +53,7 @@ import { WorldMap } from './world-map'
 
 const impactShake = { pitch: 0.025, roll: 0.035 }
 const paintBudget = 11
-const paintDepth = 0.86
+const paintDepth = 0.7
 export const idlePace = 46
 export const contactShade = { opacity: 0.72, margin: 1.25, lift: 0.045 }
 
@@ -159,7 +159,7 @@ export class RoadEngine {
   ambient = new THREE.HemisphereLight('#dae9ec', '#9ba47c', 1.9)
   headlights: THREE.SpotLight[] = []
   spill = new THREE.PointLight('#ffe6c2', 0, 22, 1.5)
-  tailGlow = new THREE.PointLight('#ff2812', 0, 10, 1.7)
+  tailGlow = new THREE.PointLight('#ff2812', 0, 7, 1.7)
   sky: ScenicSky
   frame = 0
   arrival = vehicleArrival.duration
@@ -744,7 +744,7 @@ export class RoadEngine {
         : (landscapeProfiles[this.settings.landscape].field?.soil ?? '#7d6a4f'),
       this.skyTone.set(profile.horizon).multiplyScalar(clamp(profile.ambient / 2.6, 0.12, 1) * 0.9),
     )
-    this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
+    this.terrain.roadMaterial.color.set(profile.wet ? '#a9b1b6' : '#cbc9c4')
     this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
     for (const [index, light] of this.headlights.entries())
       light.intensity =
@@ -988,10 +988,10 @@ export class RoadEngine {
     )
     const beams = (this.headlights[0]?.intensity ?? 0) / 210
     this.spill.intensity = beams * 48
-    this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 7 : 2.4)
+    this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 4 : 1.1)
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
-    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.4 : 0.8
+    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.32
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)

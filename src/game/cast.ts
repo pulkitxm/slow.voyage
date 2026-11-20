@@ -184,7 +184,10 @@ export class Cast implements Stage {
       }
       next.play()
       if (want === 'Death') next.time = Math.min(spot.age, next.getClip().duration)
-      else if (fresh) next.time = (spot.member.phase * 1.7) % Math.max(0.1, next.getClip().duration)
+      else
+        next.time =
+          ((spot.member.phase + spot.member.scale * 91.7 + spot.member.along * 13.1) * 1.7) %
+          Math.max(0.1, next.getClip().duration)
       if (previous && !fresh) next.crossFadeFrom(previous, castPace.blend, false)
       else previous?.stop()
       actor.playing = want
