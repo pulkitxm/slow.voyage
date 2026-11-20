@@ -90,6 +90,13 @@ function ease(value: number) {
   return bounded * bounded * (3 - 2 * bounded)
 }
 
+export interface Stage {
+  has(kind: Creature): boolean
+  begin(): void
+  place(spot: Placed, dt: number): void
+  end(): void
+}
+
 export function planSlot(world: World, slot: number, level: LifeLevel): Plan | null {
   if (level === 'none') return null
   const { landscape, seed, season } = world.settings
@@ -369,6 +376,8 @@ function contactShade() {
 export class Life {
   group = new THREE.Group()
   private shade = contactShade()
+  stage: Stage | null = null
+  private clock = 0
   placed: Placed[] = []
   private material = lifeMaterial()
   private troupes = new Map<Creature, Troupe>()
@@ -397,6 +406,9 @@ export class Life {
       this.plans.clear()
     }
     this.placed.length = 0
+    const dt = Math.max(0, Math.min(0.1, time - this.clock))
+    this.clock = time
+    this.stage?.begin()
     const counts = new Map<Creature, number>()
     if (settings.life !== 'none') {
       const cells = loopCells(lifeLayout.slot)
@@ -416,13 +428,15 @@ export class Life {
           const index = counts.get(member.kind) ?? 0
           if (!troupe || index >= lifeLayout.capacity) continue
           const spot = placeMember(this.world, plan, member, lap, time, car)
-          counts.set(member.kind, index + 1)
           this.placed.push(spot)
+          const staged = this.stage?.has(member.kind) ?? false
+          if (staged) this.stage?.place(spot, dt)
+          else counts.set(member.kind, index + 1)
           this.pose.position.set(spot.x, spot.y, -spot.s)
           this.pose.rotation.set(0, spot.yaw, 0)
           this.pose.scale.setScalar(member.scale)
           this.pose.updateMatrix()
-          troupe.mesh.setMatrixAt(index, this.pose.matrix)
+          if (!staged) troupe.mesh.setMatrixAt(index, this.pose.matrix)
           if (this.placed.length <= this.shade.instanceMatrix.count) {
             const reach = creatureRadius[member.kind] * member.scale
             this.pose.position.y = spot.y + 0.06
@@ -440,6 +454,7 @@ export class Life {
         }
       }
     }
+    this.stage?.end()
     this.shade.count = Math.min(this.placed.length, this.shade.instanceMatrix.count)
     this.shade.instanceMatrix.needsUpdate = true
     for (const [kind, troupe] of this.troupes) {

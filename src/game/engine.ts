@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { Atmosphere, atmosphereProfile, sunOffset } from './atmosphere'
 import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
+import { Cast } from './cast'
 import { CinematicPipeline } from './cinema'
 import { footprints } from './collision'
 import {
@@ -105,6 +106,7 @@ export class RoadEngine {
   dayClock = 0
   lifeClock = 0
   life: Life | null = null
+  cast: Cast | null = null
   contact = contactShadow()
   tyreClouds = new TyreParticles()
   skids = new SkidMarks()
@@ -394,7 +396,9 @@ export class RoadEngine {
     )
     if (!budget.software) {
       this.life = new Life(this.world)
-      this.scene.add(this.life.group)
+      this.cast = new Cast()
+      this.life.stage = this.cast
+      this.scene.add(this.life.group, this.cast.group)
     }
     const terrain = this.terrain
     const life = this.life
@@ -1012,6 +1016,7 @@ export class RoadEngine {
     this.water.dispose()
     this.precipitation.dispose()
     this.life?.dispose()
+    this.cast?.dispose()
     this.atmosphere.dispose()
     this.car.dispose()
     this.tyreClouds.dispose()
