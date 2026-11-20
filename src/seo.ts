@@ -4,7 +4,7 @@ export const site = {
   name: 'slow.voyage',
   title: 'slow.voyage | Endless Scenic Driving Game',
   description:
-    'Explore an endless road in your browser. Drive seven vehicles around a looping world of six landscapes, with seasons, weather and a live sky, with offline play after the first complete load.',
+    'Explore an endless road in your browser. Drive seven vehicles around a looping world of seven landscapes, with seasons, weather and a live sky, with offline play after the first complete load.',
   image: '/og-image.jpg',
   imageAlt:
     'Gameplay capture of a red roadster driving through an autumn alpine valley, with the slow.voyage title and the line Take the long way home.',

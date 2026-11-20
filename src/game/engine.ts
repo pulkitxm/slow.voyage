@@ -17,6 +17,7 @@ import { cinemaRelief, createGraphicsRenderer, frameStrained, graphicsBudget } f
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { LapClock } from './laps'
+import { Life } from './life'
 import { lapState, Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
@@ -28,6 +29,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
+import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
 import { SoftwareAntialias } from './software-antialias'
@@ -101,11 +103,15 @@ export class RoadEngine {
   framePace = 1 / 60
   frameJitter = 0
   dayClock = 0
+  lifeClock = 0
+  life: Life | null = null
   contact = contactShadow()
   tyreClouds = new TyreParticles()
   skids = new SkidMarks()
   wetRoad = false
   private dustTone = new THREE.Color()
+  private travel = new THREE.Vector3()
+  private skyTone = new THREE.Color()
   private cloudTone = new THREE.Color()
   private cloudPlace = new THREE.Vector3()
   private cloudDrift = new THREE.Vector3()
@@ -386,7 +392,16 @@ export class RoadEngine {
       budget.software,
       this.renderer.getContext().getContextAttributes()?.antialias ?? false,
     )
-    this.physics.trunks = (s) => this.terrain.trunksNear(s)
+    if (!budget.software) {
+      this.life = new Life(this.world)
+      this.scene.add(this.life.group)
+    }
+    const terrain = this.terrain
+    const life = this.life
+    this.physics.trunks = function* (s) {
+      yield* terrain.trunksNear(s)
+      if (life) yield* life.obstacles(s)
+    }
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
@@ -429,7 +444,7 @@ export class RoadEngine {
     this.camera.lookAt(p.x, p.y + 1, -p.s)
     this.sky.position.copy(this.camera.position)
     this.water.update(p.x, p.s, 0)
-    this.precipitation.update(p.x, p.y, p.s, 0)
+    this.precipitation.update(this.camera, this.canvas.height, 0, this.travel)
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.precipitation.rain.visible = this.precipitation.snow.visible = true
@@ -666,7 +681,7 @@ export class RoadEngine {
     this.dark = night
     this.wetRoad = profile.wet
     this.tyreClouds.setLight(
-      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1),
+      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1) ** 1.7,
     )
     this.dustTone.set(
       this.settings.season === 'winter'
@@ -689,13 +704,22 @@ export class RoadEngine {
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0
+    this.terrain.roadSurface.setCondition(
+      this.settings.roadWear,
+      profile.wet ? puddleLevel(this.settings.weather) : 2,
+      profile.wet,
+      this.settings.season === 'winter'
+        ? '#b9bcb8'
+        : (landscapeProfiles[this.settings.landscape].field?.soil ?? '#7d6a4f'),
+      this.skyTone.set(profile.horizon).multiplyScalar(clamp(profile.ambient / 2.6, 0.12, 1) * 0.9),
+    )
     this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
     this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
     for (const [index, light] of this.headlights.entries())
       light.intensity =
         index < this.car.headlightPositions.length &&
         (night || profile.wet || profile.snow || this.settings.weather === 'fog')
-          ? 210
+          ? 210 * (night ? 1 : clamp(1 - profile.sunlight * 0.6 - profile.ambient * 0.25, 0.08, 1))
           : 0
   }
   advanceSky(dt: number) {
@@ -747,9 +771,10 @@ export class RoadEngine {
         rate = 26 * wheel.slip
         this.cloudTone.set('#dfe3e3')
       } else if (this.wetRoad && speed > 10) {
-        rate = speed * 0.6
-        opacity = 0.22
-        size = 1.1
+        const pooled = wheel.puddle
+        rate = speed * (2.6 + pooled * 3.4)
+        opacity = 0.2 + pooled * 0.1
+        size = 2.1 + pooled * 1.3
         this.cloudTone.set('#c9d6dc')
       }
       if (Math.random() >= rate * dt) continue
@@ -876,7 +901,6 @@ export class RoadEngine {
     if (this.started && !this.paused && !this.photo && !document.hidden) this.advanceSky(dt)
     const p = this.physics
     this.water.update(p.x, p.s, time / 1000)
-    this.precipitation.update(p.x, p.y, p.s, time / 1000)
     positionVehicle(this.car, p, this.settings.vehicle, dt)
     this.trailTyres(dt, time / 1000)
     const footprint = footprints[this.settings.vehicle]
@@ -907,13 +931,25 @@ export class RoadEngine {
     )
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
+    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.55
+    this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
-    if (p.impact > 0.005) {
+    if (p.impact > 0.005 && this.view.motion) {
       const seconds = time / 1000
       this.camera.rotateX(Math.sin(seconds * 41 + 1.3) * p.impact * impactShake.pitch)
       this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
     }
+    if (!this.paused && !this.photo) this.lifeClock += dt
+    this.life?.update(
+      this.settings,
+      p,
+      this.lifeClock,
+      !this.dark,
+      this.settings.weather !== 'storm',
+    )
+    this.travel.set(-Math.sin(p.yaw) * p.speed, 0, -Math.cos(p.yaw) * p.speed)
+    this.precipitation.update(this.camera, this.canvas.height, time / 1000, this.travel)
     this.terrain.update(p.s, time / 1000, -this.camera.position.z, p.x)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
@@ -938,9 +974,13 @@ export class RoadEngine {
       air.sunColor.copy(this.sun.color).multiplyScalar(this.sun.intensity * 0.22)
       if (this.scene.fog) air.hazeColor.copy(this.scene.fog.color)
       const pace = Math.abs(this.physics.speed) / vehicleMetrics[this.settings.vehicle].maxSpeed
-      this.cinema.rush = this.started
-        ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
-        : 0
+      this.cinema.rush =
+        this.started && this.view.motion
+          ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
+          : 0
+      this.cinema.lensRain =
+        this.wetRoad && this.view.motion ? (this.settings.camera === 'bonnet' ? 1 : 0.8) : 0
+      this.cinema.lensTime = this.dayClock
       this.cinema.render(this.scene, this.camera)
     } else this.renderer.render(this.scene, this.camera)
     this.antialiasing?.render(this.renderer)
@@ -971,6 +1011,7 @@ export class RoadEngine {
     this.terrain.dispose()
     this.water.dispose()
     this.precipitation.dispose()
+    this.life?.dispose()
     this.atmosphere.dispose()
     this.car.dispose()
     this.tyreClouds.dispose()

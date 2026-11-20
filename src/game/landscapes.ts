@@ -1,4 +1,4 @@
-export type Landscape = 'highlands' | 'alpine' | 'desert' | 'forest' | 'canyon' | 'fjord'
+export type Landscape = 'highlands' | 'alpine' | 'desert' | 'forest' | 'canyon' | 'fjord' | 'jungle'
 
 type Tone = [number, number, number]
 
@@ -27,6 +27,7 @@ export interface LandscapeProfile {
   reflection: string | null
   foliage: string | null
   map: { low: Tone; high: Tone } | null
+  falls: number
 }
 
 export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
@@ -48,6 +49,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     reflection: null,
     foliage: null,
     map: null,
+    falls: 3,
   },
   alpine: {
     road: [100, 28, 8],
@@ -67,6 +69,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     reflection: null,
     foliage: null,
     map: null,
+    falls: 7,
   },
   desert: {
     road: [18, 4, 1],
@@ -93,6 +96,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     reflection: '#8d7554',
     foliage: '#ffc266',
     map: { low: [196, 168, 120], high: [226, 201, 152] },
+    falls: 0,
   },
   forest: {
     road: [34, 14, 4],
@@ -112,6 +116,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     reflection: '#3f5536',
     foliage: null,
     map: null,
+    falls: 4,
   },
   canyon: {
     road: [46, 16, 4],
@@ -138,6 +143,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     reflection: '#8a5236',
     foliage: '#ffbf66',
     map: { low: [176, 104, 68], high: [222, 158, 108] },
+    falls: 2,
   },
   fjord: {
     road: [9, 5, 1.6],
@@ -164,6 +170,34 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     reflection: '#59663f',
     foliage: '#f2e6a0',
     map: { low: [132, 140, 92], high: [186, 186, 138] },
+    falls: 6,
+  },
+  jungle: {
+    road: [30, 12, 4],
+    relief: 1.35,
+    terrace: 0,
+    passes: 0,
+    coast: 'none',
+    sand: false,
+    shore: true,
+    snowLine: null,
+    treeLine: null,
+    woodland: { threshold: -0.6, evergreen: 0.04, start: 16, reach: 520 },
+    roadside: { trees: 56, shrubs: 400, conifers: 0, narrow: 0.3 },
+    grass: 14000,
+    ground: { base: '#4c7a33', light: '#7aa646' },
+    field: {
+      dry: '#8ba24c',
+      dryness: 0.08,
+      shade: [0.68, 0.82, 0.58],
+      rock: '#5f5c4d',
+      soil: '#5b4630',
+      gravel: '#7a735e',
+    },
+    reflection: '#2f4a26',
+    foliage: '#c4ffa0',
+    map: { low: [66, 108, 52], high: [118, 158, 76] },
+    falls: 8,
   },
 }
 

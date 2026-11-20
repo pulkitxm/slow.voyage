@@ -7,7 +7,17 @@ import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
 import { ControllerMapping } from './ControllerMapping'
 import { IconButton } from './IconButton'
-import { cameras, colors, daylight, landscapes, seasons, vehicles, weather } from './options'
+import {
+  cameras,
+  colors,
+  daylight,
+  landscapes,
+  life,
+  roadWear,
+  seasons,
+  vehicles,
+  weather,
+} from './options'
 
 export type SettingsTab = 'journey' | 'vehicle' | 'controls' | 'display'
 interface Props {
@@ -154,6 +164,40 @@ export function SettingsPanel({
                 ))}
               </div>
               <p>Q and E cycle scenery and weather. V changes your vehicle.</p>
+            </section>
+            <section className="setting-section">
+              <h3>Roadside life</h3>
+              <div className="segmented">
+                {life.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={settings.life === item.id ? 'selected' : ''}
+                    aria-pressed={settings.life === item.id}
+                    onClick={() => update('life', item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p>Walkers on the verge and herds grazing in the fields.</p>
+            </section>
+            <section className="setting-section">
+              <h3>Road surface</h3>
+              <div className="segmented">
+                {roadWear.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={settings.roadWear === item.id ? 'selected' : ''}
+                    aria-pressed={settings.roadWear === item.id}
+                    onClick={() => update('roadWear', item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p>Dirt, repairs and puddles gather on older roads. Potholes jolt the suspension.</p>
             </section>
             <section className="setting-section">
               <h3>A new road</h3>
@@ -422,6 +466,26 @@ export function SettingsPanel({
                   </button>
                 ))}
               </div>
+            </section>
+            <section className="setting-section">
+              <h3>Camera motion</h3>
+              <div className="segmented">
+                {(['full', 'calm'] as const).map((item) => (
+                  <button
+                    type="button"
+                    key={item}
+                    className={settings.motion === item ? 'selected' : ''}
+                    aria-pressed={settings.motion === item}
+                    onClick={() => update('motion', item)}
+                  >
+                    {item === 'full' ? 'Feel the road' : 'Keep it steady'}
+                  </button>
+                ))}
+              </div>
+              <p>
+                The view leans into bends, dips under braking and trembles at speed. Steady turns
+                that off, along with speed blur and drops on the lens.
+              </p>
             </section>
             <section className="setting-section">
               <h3>Scenery detail</h3>
