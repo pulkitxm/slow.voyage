@@ -289,13 +289,14 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
-        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));\ndiffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldGrassPosition * 0.13 + vec2(17.3, 61.9))) * 1.5;',
+        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));\ndiffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldGrassPosition * 0.13 + vec2(17.3, 61.9))) * 1.25;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
         `#if NUM_DIR_LIGHTS > 0
 float grassBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
 outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBacklight * 0.1);
+outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDiffuse * 0.3;
 #endif
 #include <opaque_fragment>`,
       )
