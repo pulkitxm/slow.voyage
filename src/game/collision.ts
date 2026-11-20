@@ -142,7 +142,13 @@ export function trunkObstacle(pose: Pose, footprint: Footprint, trunk: Trunk): O
   }
 }
 
-export const terrainBounds = { waterLevel: 0, wadeDepth: 0.6, step: 0.25 }
+export const terrainBounds = {
+  waterLevel: 0,
+  wadeDepth: 0.6,
+  step: 0.25,
+  steep: 1.05,
+  slide: 0.02,
+}
 
 export function boundaryObstacle(world: World, pose: Pose, footprint: Footprint): Obstacle | null {
   const contacts: BarrierContact[] = []
@@ -150,19 +156,24 @@ export function boundaryObstacle(world: World, pose: Pose, footprint: Footprint)
   for (const point of outline(footprint)) {
     const position = toWorld(pose, point.localX, point.localS)
     const ground = world.surface(position.x, position.s)
+    if (ground.onRoad) continue
     const depth = terrainBounds.waterLevel - terrainBounds.wadeDepth - ground.height
-    if (ground.onRoad || depth <= 0) continue
     const gradient = Math.hypot(ground.slopeX, ground.slopeS)
+    const sheer = gradient - terrainBounds.steep
+    if (depth <= 0 && sheer <= 0) continue
+    const wall = depth <= 0
     let normalX = Math.sign(position.x - world.road(position.s).x) || 1
     let normalS = 0
     if (gradient > 1e-3) {
-      normalX = -ground.slopeX / gradient
-      normalS = -ground.slopeS / gradient
+      normalX = ((wall ? 1 : -1) * ground.slopeX) / gradient
+      normalS = ((wall ? 1 : -1) * ground.slopeS) / gradient
     }
-    const penetration = Math.min(depth / Math.max(gradient, 0.05), terrainBounds.step)
+    const penetration = wall
+      ? Math.min(sheer * 0.05, terrainBounds.slide)
+      : Math.min(depth / Math.max(gradient, 0.05), terrainBounds.step)
     contacts.push({ localX: point.localX, localS: point.localS, normalX, normalS })
     if (!deepest || penetration > deepest.penetration)
-      deepest = { material: 'water', contacts, penetration, normalX, normalS }
+      deepest = { material: wall ? 'trunk' : 'water', contacts, penetration, normalX, normalS }
   }
   return deepest
 }

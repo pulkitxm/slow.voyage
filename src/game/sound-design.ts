@@ -284,3 +284,53 @@ export function wadeLevel(depth: number, speed: number) {
   if (depth <= 0) return 0
   return clamp(depth / 0.4, 0, 1) * clamp(Math.abs(speed) / 6, 0, 1)
 }
+
+export const boostSound = { rise: 3.2, pitch: [190, 470], band: [900, 2600] } as const
+
+export function boostVoice(held: number, tank: number) {
+  const build = clamp(held / boostSound.rise, 0, 1)
+  const swell = build * (2 - build)
+  const fading = clamp(tank / 0.12, 0, 1)
+  return {
+    hiss: (0.45 + 0.55 * swell) * fading,
+    band: boostSound.band[0] + (boostSound.band[1] - boostSound.band[0]) * swell,
+    whine: (0.25 + 0.75 * swell) * fading,
+    pitch: boostSound.pitch[0] + (boostSound.pitch[1] - boostSound.pitch[0]) * swell,
+  }
+}
+
+export type CryVoice = 'man' | 'woman'
+
+export function cryVoice(voice: CryVoice, scream: boolean, variation: number) {
+  const base = (voice === 'man' ? 250 : 430) * (0.9 + 0.2 * clamp(variation, 0, 1))
+  return scream
+    ? {
+        pitch: base * 1.55,
+        leap: 1.5,
+        fall: 1.05,
+        length: 0.75 + 0.35 * clamp(variation, 0, 1),
+        peak: 1,
+        formants: [
+          { frequency: 950, q: 4, gain: 1 },
+          { frequency: 1650, q: 6, gain: 0.7 },
+          { frequency: 3100, q: 7, gain: 0.35 },
+        ],
+      }
+    : {
+        pitch: base,
+        leap: 1.28,
+        fall: 0.8,
+        length: 0.3 + 0.12 * clamp(variation, 0, 1),
+        peak: 0.7,
+        formants: [
+          { frequency: 620, q: 4, gain: 1 },
+          { frequency: 1900, q: 6, gain: 0.55 },
+          { frequency: 2700, q: 7, gain: 0.25 },
+        ],
+      }
+}
+
+export function earshot(distance: number) {
+  const reach = Math.max(0, distance) / 16
+  return 1 / (1 + reach * reach)
+}

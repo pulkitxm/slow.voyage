@@ -69,11 +69,22 @@ of the whole loop.
 - Rain falls as streaks that lean with the car's speed. On capable hardware the
   wet road mirrors the scene in screen space, puddles reflect the sky and carry
   rain rings, and drops gather on the lens.
-- Walkers follow the verge by day and step aside for a passing car. Herds chosen
-  for each landscape graze in the fields: cows, sheep, horses, deer, goats, camels,
-  and elephants. They are solid to drive into and never placed on the carriageway. People, cows,
-  horses, deer, and sheep are rigged public-domain models with walk, idle, and
-  eating cycles; the rest are generated in code.
+- Walkers follow the verge by day, alone or in groups of up to seven, and step
+  aside for a passing car. Herds chosen for each landscape graze in the fields:
+  cows, sheep, horses, deer, goats, camels, and elephants. None are placed on the
+  carriageway. People, cows, horses, deer, and sheep are rigged public-domain
+  models with walk, run, idle, eating, and falling cycles; the rest are generated
+  in code.
+- Anyone in the path of a moving car bolts after a short reaction time, so a slow
+  car is dodged and a fast one is not. The horn sends everyone within earshot
+  running with a shout. A car above walking pace knocks down whoever it reaches
+  instead of bouncing off them: they are thrown ahead, stay where they land, and
+  bleed, the car loses speed in proportion to their weight, and everyone nearby
+  screams and flees before wandering back. Elephants, and anything met at a
+  crawl, stay solid.
+- Off the road, slopes steeper than about 45 degrees act as walls instead of
+  ramps, and foliage closer than the chase camera is cut away so the view never
+  fills with leaves.
   The roadside life setting chooses empty, quiet, or lively (the default).
 - Waterfalls pour over rock ledges set into steep hillsides that face the road.
   Monsoon Jungle is a seventh landscape of dense broadleaf canopy, leaning palms,

@@ -22,7 +22,7 @@ export const cameraFeel = {
   dive: 0.007,
   diveLimit: 0.075,
   cabinRoll: 0.85,
-  tremor: 0.0013,
+  tremor: 0.0005,
   settle: 5,
 }
 

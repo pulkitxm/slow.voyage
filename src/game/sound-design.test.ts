@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'bun:test'
+import { describe, expect, it, test } from 'bun:test'
 import { engineProfiles } from './powertrain'
 import {
+  boostSound,
+  boostVoice,
   brakeSquealLevel,
+  cryVoice,
+  earshot,
   engineSpectrum,
   engineTone,
   engineVoices,
@@ -227,4 +231,30 @@ describe('impact voices', () => {
     expect(bike.thumpPitch).toBeGreaterThan(car.thumpPitch)
     expect(bus.thump).toBeGreaterThan(bike.thump)
   })
+})
+
+test('the boost voice swells while held and dies away as the tank empties', () => {
+  const start = boostVoice(0, 1)
+  const held = boostVoice(boostSound.rise, 1)
+  const spent = boostVoice(boostSound.rise, 0)
+  expect(held.hiss).toBeGreaterThan(start.hiss)
+  expect(held.pitch).toBeGreaterThan(start.pitch * 2)
+  expect(held.band).toBeCloseTo(boostSound.band[1], 6)
+  expect(boostVoice(boostSound.rise * 4, 1)).toEqual(held)
+  expect(spent.hiss).toBe(0)
+  expect(spent.whine).toBe(0)
+})
+
+test('screams are higher and longer than shouts and fade with distance', () => {
+  for (const voice of ['man', 'woman'] as const) {
+    const scream = cryVoice(voice, true, 0.5)
+    const shout = cryVoice(voice, false, 0.5)
+    expect(scream.pitch).toBeGreaterThan(shout.pitch * 1.3)
+    expect(scream.length).toBeGreaterThan(shout.length * 1.8)
+    expect(scream.peak).toBeGreaterThan(shout.peak)
+  }
+  expect(cryVoice('woman', true, 0.5).pitch).toBeGreaterThan(cryVoice('man', true, 0.5).pitch)
+  expect(earshot(0)).toBe(1)
+  expect(earshot(16)).toBeCloseTo(0.5, 6)
+  expect(earshot(80)).toBeLessThan(0.05)
 })

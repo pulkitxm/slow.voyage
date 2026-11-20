@@ -1,7 +1,16 @@
 import { vehicleMetrics } from './vehicles'
 import { clamp, type SteeringSource, type Vehicle } from './world'
 
-const keyboardSoftening = { startSpeed: 20, span: 12, gripShare: 2 }
+export const keyboardSoftening = {
+  startSpeed: 12,
+  span: 10,
+  tapShare: 0.7,
+  heldShare: 1,
+  calmFrom: 12,
+  calmSpan: 18,
+  holdFrom: 0.1,
+  holdSpan: 0.4,
+}
 export const digitalResponse = { settle: 0.45, speedDelay: 0.25, centering: 0.5 }
 
 export function steeringLimit(speed: number, vehicle: Vehicle) {
@@ -14,9 +23,11 @@ export class Steering {
   rate = 0
   source: SteeringSource = 'digital'
   mouseCommand = 0
+  held = 0
+  private heldSide = 0
 
   reset() {
-    this.angle = this.rate = 0
+    this.angle = this.rate = this.held = this.heldSide = 0
     this.releaseInput()
   }
 
@@ -52,8 +63,25 @@ export class Steering {
       0,
       1,
     )
-    const keyboardLimit =
-      limit + (Math.min(limit, gripLimit * keyboardSoftening.gripShare) - limit) * highway
+    const side = Math.sign(command)
+    this.held = side && side === this.heldSide ? this.held + dt : 0
+    this.heldSide = side
+    const leaning = clamp(
+      (this.held - keyboardSoftening.holdFrom) / keyboardSoftening.holdSpan,
+      0,
+      1,
+    )
+    const calm = clamp(
+      (Math.abs(speed) - keyboardSoftening.calmFrom) / keyboardSoftening.calmSpan,
+      0,
+      1,
+    )
+    const tapShare =
+      keyboardSoftening.heldShare +
+      (keyboardSoftening.tapShare - keyboardSoftening.heldShare) * calm
+    const gripShare =
+      tapShare + (keyboardSoftening.heldShare - tapShare) * leaning * leaning * (3 - 2 * leaning)
+    const keyboardLimit = limit + (Math.min(limit, gripLimit * gripShare) - limit) * highway
     const ratio = clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1)
     const mouseLimit = limit * (1 - 0.4 * ratio)
     if (source && source !== this.source) {

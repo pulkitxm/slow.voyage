@@ -2,7 +2,11 @@ import type { ObstacleMaterial } from './collision'
 import type { CarPhysics, Input } from './physics'
 import { engineProfiles } from './powertrain'
 import {
+  boostVoice,
   brakeSquealLevel,
+  type CryVoice,
+  cryVoice,
+  earshot,
   engineSpectrum,
   engineTone,
   engineVoices,
@@ -35,6 +39,9 @@ export const mixLevels = {
   wade: 0.35,
   rain: 0.07,
   impact: 0.55,
+  boost: 0.2,
+  boostWhine: 0.045,
+  voice: 0.34,
 }
 
 interface NoiseLoop {
@@ -68,6 +75,9 @@ interface Loops {
   squeal: GainNode
   brakeTone: OscillatorNode
   brake: GainNode
+  boost: NoiseLoop
+  boostTone: OscillatorNode
+  boostWhine: GainNode
 }
 
 function saturation(amount: number) {
@@ -92,6 +102,7 @@ export class DriveAudio {
   private lastHitAt = 0
   private lastThrottle = 0
   private brakeHeld = 0
+  private boostHeld = 0
   private hornGain?: GainNode
   hornHeld = false
 
@@ -133,6 +144,55 @@ export class DriveAudio {
     const t = context.currentTime + delay
     this.burst(t, 140, 0.7, mixLevels.thunder, 0.5, 'lowpass')
     this.burst(t + 0.3, 90, 0.6, mixLevels.thunder * 0.7, 0.9, 'lowpass')
+  }
+
+  cry(voice: CryVoice, scream: boolean, distance: number, delay = 0) {
+    const { context, mix } = this
+    if (!context || !mix) return
+    const shape = cryVoice(voice, scream, Math.random())
+    const level = mixLevels.voice * earshot(distance) * shape.peak
+    if (level < 0.004) return
+    const t = context.currentTime + delay
+    const source = context.createOscillator()
+    source.type = 'sawtooth'
+    source.frequency.setValueAtTime(shape.pitch * 0.82, t)
+    source.frequency.linearRampToValueAtTime(shape.pitch * shape.leap, t + shape.length * 0.22)
+    source.frequency.linearRampToValueAtTime(shape.pitch * shape.fall, t + shape.length)
+    const waver = context.createOscillator()
+    waver.frequency.value = 6.3
+    const depth = context.createGain()
+    depth.gain.value = shape.pitch * 0.035
+    waver.connect(depth).connect(source.frequency)
+    const output = context.createGain()
+    output.gain.setValueAtTime(0, t)
+    output.gain.linearRampToValueAtTime(level, t + 0.035)
+    output.gain.setValueAtTime(level, t + shape.length * 0.6)
+    output.gain.linearRampToValueAtTime(0, t + shape.length)
+    output.connect(mix)
+    for (const formant of shape.formants) {
+      const band = context.createBiquadFilter()
+      band.type = 'bandpass'
+      band.frequency.value = formant.frequency
+      band.Q.value = formant.q
+      const share = context.createGain()
+      share.gain.value = formant.gain * 2.4
+      source.connect(band).connect(share).connect(output)
+    }
+    source.start(t)
+    waver.start(t)
+    source.stop(t + shape.length + 0.05)
+    waver.stop(t + shape.length + 0.05)
+    this.burst(t, 2400, 0.7, level * 0.3, shape.length * 0.3)
+  }
+
+  thud(distance: number, heavy: number) {
+    const { context } = this
+    if (!context) return
+    const t = context.currentTime
+    const level = mixLevels.impact * earshot(distance) * (0.5 + 0.5 * heavy)
+    this.tone(t, 150, 58, level, 0.09)
+    this.burst(t, 420, 0.8, level * 0.8, 0.06, 'lowpass')
+    this.burst(t + 0.015, 1900, 0.9, level * 0.3, 0.035)
   }
 
   private createHorn(context: AudioContext, output: AudioNode) {
@@ -184,6 +244,22 @@ export class DriveAudio {
     set(loops.gravel.gain, gravel * mixLevels.gravel * (0.55 + Math.random() * 0.9), 0.025)
     set(loops.rumble.gain, gravel * mixLevels.rumble, 0.1)
     const surge = car.boosting ? 1 : 0
+    const boosted = surge && !paused
+    if (boosted && !this.boostHeld) {
+      this.burst(t, 1500, 0.7, mixLevels.boost * 1.5, 0.16)
+      this.burst(t + 0.02, 4200, 0.6, mixLevels.boost * 0.7, 0.09, 'highpass')
+      this.tone(t, 120, 52, mixLevels.boost * 1.6, 0.14)
+    }
+    if (!boosted && this.boostHeld > 0.25) {
+      this.burst(t, 3400, 0.5, mixLevels.boost * 1.1, 0.2, 'highpass')
+      this.tone(t, 420, 140, mixLevels.boostWhine * 2.2, 0.16)
+    }
+    this.boostHeld = boosted ? this.boostHeld + dt : 0
+    const jet = boostVoice(this.boostHeld, car.nitro.level)
+    set(loops.boost.gain, boosted ? jet.hiss * mixLevels.boost : 0, boosted ? 0.07 : 0.12)
+    loops.boost.filter.frequency.setTargetAtTime(jet.band, t, 0.2)
+    set(loops.boostWhine, boosted ? jet.whine * mixLevels.boostWhine : 0, boosted ? 0.1 : 0.08)
+    loops.boostTone.frequency.setTargetAtTime(boosted ? jet.pitch : 150, t, 0.25)
     set(loops.wind.gain, windLevel(speed) * mixLevels.wind * (1 + surge * 1.6), 0.25)
     loops.wind.filter.frequency.setTargetAtTime(280 + speed * 30 + surge * 900, t, 0.3)
     this.hornGain?.gain.setTargetAtTime(this.hornHeld && !paused ? mixLevels.horn : 0, t, 0.02)
@@ -366,7 +442,21 @@ export class DriveAudio {
     rainTop.frequency.value = 7500
     rain.filter.disconnect()
     rain.filter.connect(rainTop).connect(rain.gain)
+    const boost = this.noiseLoop(context, output, 'bandpass', 1200, 0.9)
+    const boostWhine = context.createGain()
+    boostWhine.gain.value = 0
+    const boostFilter = context.createBiquadFilter()
+    boostFilter.type = 'lowpass'
+    boostFilter.frequency.value = 1800
+    const boostTone = context.createOscillator()
+    boostTone.type = 'sawtooth'
+    boostTone.frequency.value = 150
+    boostTone.connect(boostFilter).connect(boostWhine).connect(output)
+    boostTone.start()
     return {
+      boost,
+      boostTone,
+      boostWhine,
       road: this.noiseLoop(context, output, 'lowpass', 300, 0.7),
       gravel: this.noiseLoop(context, output, 'bandpass', 1700, 0.9),
       rumble: this.noiseLoop(context, output, 'lowpass', 140, 1),

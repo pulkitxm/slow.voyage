@@ -301,7 +301,15 @@ void main() {
       if (gap > 0.0 && gap < 1.2 + travelled * 0.3) {
         vec2 border = smoothstep(vec2(0.0), vec2(0.08), spot) * (1.0 - smoothstep(vec2(0.92), vec2(1.0), spot));
         vec4 seen = texture2D(source, spot);
-        color = mix(color, min(seen.rgb, vec3(12.0)), mirror * border.x * border.y * step(seen.a, 1.01));
+        vec2 smear = vec2(0.0025, 0.004) * (1.0 + travelled * 0.12);
+        vec3 glint = min(seen.rgb, vec3(12.0)) * 2.0;
+        glint += min(texture2D(source, spot + smear * vec2(1.0, 0.6)).rgb, vec3(12.0));
+        glint += min(texture2D(source, spot + smear * vec2(-1.0, 0.4)).rgb, vec3(12.0));
+        glint += min(texture2D(source, spot + smear * vec2(0.5, -1.0)).rgb, vec3(12.0));
+        glint += min(texture2D(source, spot + smear * vec2(-0.6, -0.8)).rgb, vec3(12.0));
+        glint += min(texture2D(source, spot + smear * vec2(0.0, 1.6)).rgb, vec3(12.0));
+        glint += min(texture2D(source, spot + smear * vec2(0.0, -1.7)).rgb, vec3(12.0));
+        color = mix(color, glint / 8.0, mirror * border.x * border.y * step(seen.a, 1.01));
         break;
       }
     }
