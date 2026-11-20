@@ -11,6 +11,7 @@ import { GroundSampler } from './ground-sample'
 import { landmarkFootprints, landmarkGeometry, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
+import { carFrame, type Driver } from './reactions'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
 import { RoadSurface } from './road-surface'
@@ -124,12 +125,43 @@ interface TileBuild {
   steps: Generator<undefined, void, undefined>
 }
 
+interface Soft {
+  kind: 'post' | 'bush'
+  x: number
+  s: number
+  radius: number
+  down: boolean
+  flatten(dirX: number, dirS: number): void
+}
+
+function bush(mesh: THREE.InstancedMesh, index: number, x: number, s: number, width: number): Soft {
+  return {
+    kind: 'bush',
+    x,
+    s,
+    radius: Math.max(0.35, width * 0.32),
+    down: false,
+    flatten: () => {
+      const matrix = new THREE.Matrix4()
+      const position = new THREE.Vector3()
+      const turn = new THREE.Quaternion()
+      const scale = new THREE.Vector3()
+      mesh.getMatrixAt(index, matrix)
+      matrix.decompose(position, turn, scale)
+      scale.set(scale.x * 1.2, scale.y * 0.16, scale.z * 1.2)
+      mesh.setMatrixAt(index, matrix.compose(position, turn, scale))
+      mesh.instanceMatrix.needsUpdate = true
+    },
+  }
+}
+
 export class Terrain {
   tiles = new Map<number, THREE.Group>()
   twins = new Map<number, THREE.Group>()
   seamSide = 0
   private lastX = 0
   trunks = new Map<number, Trunk[]>()
+  private softs = new Map<number, Soft[]>()
   builds = new Map<number, TileBuild>()
   retired: THREE.Group[] = []
   materials: THREE.Material[] = []
@@ -358,7 +390,30 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBa
     const merged = mergeGeometries(parts)
     if (!merged) throw new Error('Road geometry could not be batched')
     for (const part of parts) part.dispose()
-    this.addMesh(group, merged, material)
+    return this.addMesh(group, merged, material)
+  }
+  brush(car: Driver) {
+    const struck: Soft['kind'][] = []
+    if (Math.abs(car.speed) < 1) return struck
+    const tile = Math.floor(car.s / groundLayout.tileLength)
+    const facing = Math.sign(car.speed) || 1
+    const dirX = -Math.sin(car.yaw) * facing
+    const dirS = Math.cos(car.yaw) * facing
+    for (let id = tile - 1; id <= tile + 1; id++)
+      for (const soft of this.softs.get(id) ?? []) {
+        if (soft.down || Math.abs(soft.s - car.s) > 8) continue
+        const { ahead, aside } = carFrame(car, soft.x, soft.s)
+        if (
+          ahead > car.front + soft.radius ||
+          ahead < -car.rear - soft.radius ||
+          Math.abs(aside) > car.halfWidth + soft.radius
+        )
+          continue
+        soft.down = true
+        soft.flatten(dirX, dirS)
+        struck.push(soft.kind)
+      }
+    return struck
   }
   *buildTile(id: number, rows: number, group: THREE.Group): Generator<undefined, void, undefined> {
     const start = id * groundLayout.tileLength,
@@ -484,14 +539,46 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBa
     const posts = delineators(this.world, start, groundLayout.tileLength)
     const signs = chevrons(this.world, start, groundLayout.tileLength)
     const frame = [...posts.posts, ...signs.posts]
+    for (const foot of signs.feet) trunks.push({ ...foot, radius: 0.09 })
     if (loopIndex(id, loopCells(groundLayout.tileLength)) === 0) {
       const gantry = startGantry(this.world, start)
       frame.push(...gantry.frame)
       this.addMesh(group, gantry.banner, this.bannerMaterial)
       for (const foot of gantry.feet) trunks.push({ ...foot, radius: 0.2 })
     }
-    this.addBatch(group, frame, this.furnitureMaterial)
-    this.addBatch(group, posts.reflectors, this.reflectorMaterial)
+    const softs: Soft[] = []
+    const stakes = this.addBatch(group, frame, this.furnitureMaterial)
+    const studs = this.addBatch(group, posts.reflectors, this.reflectorMaterial)
+    if (stakes && studs)
+      for (const [index, spot] of posts.spots.entries())
+        softs.push({
+          kind: 'post',
+          x: spot.x,
+          s: spot.s,
+          radius: 0.08,
+          down: false,
+          flatten: (dirX, dirS) => {
+            for (const mesh of [stakes, studs]) {
+              const position = mesh.geometry.getAttribute('position')
+              for (let vertex = index * 24; vertex < index * 24 + 24; vertex++) {
+                const dx = position.getX(vertex) - spot.x
+                const dy = position.getY(vertex) - spot.y
+                const dz = position.getZ(vertex) + spot.s
+                const along = dx * dirX - dz * dirS
+                const laid = along * Math.cos(1.46) + dy * Math.sin(1.46)
+                const height = dy * Math.cos(1.46) - along * Math.sin(1.46)
+                position.setXYZ(
+                  vertex,
+                  spot.x + dx + (laid - along) * dirX,
+                  spot.y + Math.max(0.03, height + 0.06),
+                  -spot.s + dz - (laid - along) * dirS,
+                )
+              }
+              position.needsUpdate = true
+            }
+          },
+        })
+    this.softs.set(id, softs)
     this.addBatch(group, signs.panels, this.chevronMaterial)
     const lap = Math.floor(start / worldLoop.length) * worldLoop.length
     for (const fall of lapWaterfalls(this.world)) {
@@ -611,6 +698,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBa
                 : 0.9 + rng() * 0.2)
         matrix.scale.set(width, h, width)
         if (!shrub) trunks.push({ x, s, radius: trunkRadius(width) })
+        else softs.push(bush(trees, placed, x, s, width))
         shades.push(x, s, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
@@ -621,6 +709,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBa
         matrix.rotation.set(0, tree.yaw, 0)
         matrix.scale.set(tree.width, tree.height, tree.width)
         if (!shrub) trunks.push({ x: tree.x, s: tree.s, radius: trunkRadius(tree.width) })
+        else softs.push(bush(trees, placed, tree.x, tree.s, tree.width))
         shades.push(tree.x, tree.s, tree.width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
@@ -902,6 +991,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBa
     this.retired.push(group)
     this.tiles.delete(id)
     this.trunks.delete(id)
+    this.softs.delete(id)
   }
   clear() {
     for (const twin of this.twins.values()) this.scene.remove(twin)

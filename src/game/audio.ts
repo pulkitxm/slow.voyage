@@ -187,6 +187,19 @@ export class DriveAudio {
     this.burst(t, 2400, 0.7, level * 0.3, shape.length * 0.3)
   }
 
+  brushed(hard: boolean) {
+    const { context } = this
+    if (!context) return
+    const t = context.currentTime
+    if (hard) {
+      this.tone(t, 420, 180, mixLevels.impact * 0.5, 0.03)
+      this.burst(t, 2600, 1.2, mixLevels.impact * 0.45, 0.025)
+    } else {
+      this.burst(t, 3200, 0.5, mixLevels.impact * 0.5, 0.16, 'highpass')
+      this.burst(t + 0.04, 900, 0.7, mixLevels.impact * 0.3, 0.1)
+    }
+  }
+
   thud(distance: number, heavy: number) {
     const { context } = this
     if (!context) return

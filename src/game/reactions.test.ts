@@ -34,8 +34,8 @@ test('a fast car knocks down whoever is under it and a crawling one does not', (
 
 test('people in the path of a moving car see it coming from further away at speed', () => {
   expect(threatened(driver(8), walker(0.5, 8))).toBe(true)
-  expect(threatened(driver(8), walker(0.5, 14))).toBe(false)
-  expect(threatened(driver(30), walker(0.5, 14))).toBe(true)
+  expect(threatened(driver(8), walker(0.5, 18))).toBe(false)
+  expect(threatened(driver(30), walker(0.5, 18))).toBe(true)
   expect(threatened(driver(30), walker(5, 10))).toBe(false)
   expect(threatened(driver(30), walker(0.5, -6))).toBe(false)
   expect(threatened(driver(0.5), walker(0.5, 4))).toBe(false)
@@ -90,4 +90,24 @@ test('a struck walker is thrown ahead of the car, comes to rest and then bleeds'
   const behind = fall(driver(-12), 0, -2, 0, 0)
   expect(behind.dirS).toBeLessThan(-0.9)
   expect(alarm(Object.assign(freshFate(), { fallen: down }), 200, 5, 0)).toBe(false)
+})
+
+test('a struck walker is swept clear of the bodywork before the car passes', () => {
+  for (const offset of [-0.6, 0, 0.3]) {
+    const car = driver(25)
+    const down = fall(car, offset, 2, 0, 0)
+    const soon = fallenPose(down, reactionLayout.sweep)
+    expect(Math.abs(soon.x)).toBeGreaterThanOrEqual(car.halfWidth + reactionLayout.berth - 0.001)
+    if (offset !== 0) expect(Math.sign(soon.x)).toBe(Math.sign(offset))
+  }
+})
+
+test('large animals topple where they stand and only at a real impact speed', () => {
+  const cow = { kind: 'cow' as const, x: 0, s: 2.9, radius: 0.75 }
+  expect(struck(driver(reactionLayout.topple - 0.5), cow)).toBe(false)
+  expect(struck(driver(20), cow)).toBe(true)
+  const down = fall(driver(20), cow.x, cow.s, 0, 0, true)
+  const rest = fallenPose(down, 5)
+  expect(rest.x).toBe(cow.x)
+  expect(rest.s).toBe(cow.s)
 })

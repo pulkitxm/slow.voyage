@@ -146,7 +146,7 @@ export const terrainBounds = {
   waterLevel: 0,
   wadeDepth: 0.6,
   step: 0.25,
-  steep: 1.05,
+  steep: 0.95,
   slide: 0.02,
 }
 

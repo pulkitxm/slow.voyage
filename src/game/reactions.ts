@@ -4,9 +4,11 @@ export const reactionLayout = {
   horn: 36,
   alarm: 32,
   notice: 0.28,
-  lookAhead: 4,
-  lookTime: 0.36,
-  lane: 2.7,
+  lookAhead: 6,
+  lookTime: 0.75,
+  lane: 4.4,
+  bulk: 0.25,
+  topple: 6,
   fleeTime: 5.5,
   alarmTime: 8,
   dodgeTime: 2.6,
@@ -18,6 +20,8 @@ export const reactionLayout = {
   throwLimit: 7,
   stain: 2.4,
   stains: 28,
+  berth: 1.1,
+  sweep: 0.22,
   mourn: 120,
   apart: 120,
 } as const
@@ -59,6 +63,9 @@ export interface Fall {
   s: number
   dirX: number
   dirS: number
+  sideX: number
+  sideS: number
+  clear: number
   reach: number
   yaw: number
   at: number
@@ -108,13 +115,21 @@ export function threatened(driver: Driver, who: Bystander) {
   )
 }
 
+export function bulky(kind: Creature) {
+  return heft[kind] >= reactionLayout.bulk
+}
+
 export function struck(driver: Driver, who: Bystander) {
-  if (Math.abs(driver.speed) < reactionLayout.knock || heft[who.kind] >= 1) return false
+  const weight = heft[who.kind]
+  if (weight >= 1) return false
+  const heavy = bulky(who.kind)
+  if (Math.abs(driver.speed) < (heavy ? reactionLayout.topple : reactionLayout.knock)) return false
+  const reach = who.radius * (heavy ? 1.2 : 0.6)
   const { ahead, aside } = carFrame(driver, who.x, who.s)
   return (
-    ahead < driver.front + who.radius * 0.6 &&
-    ahead > -driver.rear - who.radius * 0.6 &&
-    Math.abs(aside) < driver.halfWidth + who.radius * 0.6
+    ahead < driver.front + reach &&
+    ahead > -driver.rear - reach &&
+    Math.abs(aside) < driver.halfWidth + reach
   )
 }
 
@@ -168,21 +183,31 @@ export function flee(
   return 0
 }
 
-export function fall(driver: Driver, x: number, s: number, yaw: number, time: number): Fall {
+export function fall(
+  driver: Driver,
+  x: number,
+  s: number,
+  yaw: number,
+  time: number,
+  rooted = false,
+): Fall {
   const facing = Math.sign(driver.speed) || 1
   const { aside } = carFrame(driver, x, s)
   const sin = Math.sin(driver.yaw)
   const cos = Math.cos(driver.yaw)
-  const glance = Math.max(-0.5, Math.min(0.5, aside * 0.35))
-  const dirX = -sin * facing + cos * glance
-  const dirS = cos * facing + sin * glance
-  const length = Math.hypot(dirX, dirS) || 1
+  const side =
+    Math.abs(aside) > 0.05 ? Math.sign(aside) : Math.sin(x * 12.9898 + s * 78.233) > 0 ? 1 : -1
   return {
     x,
     s,
-    dirX: dirX / length,
-    dirS: dirS / length,
-    reach: Math.min(reactionLayout.throwLimit, Math.abs(driver.speed) * reactionLayout.throwReach),
+    dirX: -sin * facing,
+    dirS: cos * facing,
+    sideX: cos * side,
+    sideS: sin * side,
+    clear: rooted ? 0 : Math.max(0, driver.halfWidth + reactionLayout.berth - Math.abs(aside)),
+    reach: rooted
+      ? 0
+      : Math.min(reactionLayout.throwLimit, Math.abs(driver.speed) * reactionLayout.throwReach),
     yaw,
     at: time,
   }
@@ -192,10 +217,11 @@ export function fallenPose(down: Fall, time: number) {
   const age = Math.max(0, time - down.at)
   const part = Math.min(1, age / reactionLayout.throwTime)
   const slid = 1 - (1 - part) * (1 - part)
+  const swept = 1 - (1 - Math.min(1, age / reactionLayout.sweep)) ** 3
   return {
-    x: down.x + down.dirX * down.reach * slid,
-    s: down.s + down.dirS * down.reach * slid,
-    lift: Math.sin(Math.PI * part) * Math.min(1.1, down.reach * 0.16),
+    x: down.x + down.dirX * down.reach * slid + down.sideX * down.clear * swept,
+    s: down.s + down.dirS * down.reach * slid + down.sideS * down.clear * swept,
+    lift: Math.sin(Math.PI * part) * Math.min(1.5, 0.35 + down.reach * 0.2),
     tip: Math.min(1, age / (reactionLayout.throwTime * 0.55)),
     pool: Math.max(0, Math.min(1, (age - reactionLayout.throwTime) / reactionLayout.stain)),
     age,
