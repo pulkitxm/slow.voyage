@@ -31,7 +31,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
-import { bulky, heft } from './reactions'
+import { bulky, heft, reactionLayout } from './reactions'
 import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
@@ -1044,6 +1044,11 @@ export class RoadEngine {
       for (const knock of this.life.knocks) {
         const weight = heft[knock.kind]
         if (!bulky(knock.kind)) this.physics.speed *= 1 - weight * 0.6
+        else {
+          const kept = Math.abs(driver.speed) * Math.max(0.2, 1 - weight * reactionLayout.carry)
+          if (Math.abs(this.physics.speed) < kept)
+            this.physics.speed = kept * (Math.sign(driver.speed) || 1)
+        }
         this.physics.impact = Math.max(this.physics.impact, Math.min(1, 0.3 + weight * 1.6))
         this.audio.thud(knock.distance, Math.min(1, weight * 3))
         if (knock.kind === 'person')

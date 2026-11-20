@@ -21,6 +21,8 @@ export const reactionLayout = {
   stain: 2.4,
   stains: 28,
   berth: 1.1,
+  settle: 0.6,
+  carry: 1.3,
   sweep: 0.22,
   mourn: 120,
   apart: 120,
@@ -204,10 +206,13 @@ export function fall(
     dirS: cos * facing,
     sideX: cos * side,
     sideS: sin * side,
-    clear: rooted ? 0 : Math.max(0, driver.halfWidth + reactionLayout.berth - Math.abs(aside)),
-    reach: rooted
-      ? 0
-      : Math.min(reactionLayout.throwLimit, Math.abs(driver.speed) * reactionLayout.throwReach),
+    clear: Math.max(
+      0,
+      driver.halfWidth + reactionLayout.berth * (rooted ? 1.6 : 1) - Math.abs(aside),
+    ),
+    reach:
+      Math.min(reactionLayout.throwLimit, Math.abs(driver.speed) * reactionLayout.throwReach) *
+      (rooted ? 0.35 : 1),
     yaw,
     at: time,
   }
@@ -221,7 +226,7 @@ export function fallenPose(down: Fall, time: number) {
   return {
     x: down.x + down.dirX * down.reach * slid + down.sideX * down.clear * swept,
     s: down.s + down.dirS * down.reach * slid + down.sideS * down.clear * swept,
-    lift: Math.sin(Math.PI * part) * Math.min(1.5, 0.35 + down.reach * 0.2),
+    lift: Math.sin(Math.PI * part) * Math.min(0.3, down.reach * 0.05),
     tip: Math.min(1, age / (reactionLayout.throwTime * 0.55)),
     pool: Math.max(0, Math.min(1, (age - reactionLayout.throwTime) / reactionLayout.stain)),
     age,
