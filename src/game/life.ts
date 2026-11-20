@@ -118,7 +118,7 @@ function ease(value: number) {
 export interface Stage {
   has(kind: Creature): boolean
   begin(): void
-  place(spot: Placed, dt: number): void
+  place(spot: Placed, dt: number, near: number): void
   end(): void
 }
 
@@ -630,7 +630,7 @@ export class Life {
           }
           this.placed.push(spot)
           const staged = this.stage?.has(member.kind) ?? false
-          if (staged) this.stage?.place(spot, dt)
+          if (staged) this.stage?.place(spot, dt, near)
           else counts.set(member.kind, index + 1)
           this.pose.rotation.order = 'YXZ'
           this.pose.position.set(spot.x, spot.y + spot.tip * reach * 0.5, -spot.s)
