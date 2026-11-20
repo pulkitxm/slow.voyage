@@ -96,3 +96,20 @@ Changes made: each scan was simplified to about 1,500 triangles, its textures we
 resized to 512 pixels and converted to WebP, and the mesh was compressed with
 meshopt. In the game they are scaled, turned and sunk slightly into the ground, and
 are solid to drive into. Software rendering leaves them out.
+
+## Plants
+
+Three more photoscanned models from Poly Haven, also
+[Creative Commons CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/),
+are planted beside the road where they belong.
+
+| File                                  | Source asset   | Planted in               |
+| ------------------------------------- | -------------- | ------------------------ |
+| `src/assets/models/plants/quiver.glb` | Quiver Tree 02 | desert and canyon        |
+| `src/assets/models/plants/stump.glb`  | Tree Stump 01  | every landscape          |
+| `src/assets/models/plants/fern.glb`   | Fern 02        | forest, fjord and jungle |
+
+Changes made: the tree and the stump were simplified to about 5,000 and 2,000
+triangles, textures were resized to 512 pixels and converted to WebP, and all three
+were compressed with meshopt. In the game they are scaled, turned and brightened to
+sit in the scene's lighting. The tree and the stump are solid; ferns are not.

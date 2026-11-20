@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
-import { Boulders, planBoulders } from './boulders'
+import { Boulders, planBoulders, planPlants } from './boulders'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { Foliage } from './foliage'
@@ -660,6 +660,21 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
       this.boulders.add(group, scattered, (x, s) => groundSurface.sample(x, s))
       for (const boulder of scattered)
         trunks.push({ x: boulder.x, s: boulder.s, radius: boulder.radius })
+      const planted = planPlants(
+        this.world,
+        start,
+        groundLayout.tileLength,
+        random(loopIndex(id, loopCells(groundLayout.tileLength)) * 389 + settings.seed * 97 + 11),
+      ).filter(
+        (plant) =>
+          !waterfallClearing(lapWaterfalls(this.world), lap, plant.x, plant.s) &&
+          !scattered.some(
+            (rock) => Math.hypot(rock.x - plant.x, rock.s - plant.s) < rock.radius + 0.8,
+          ),
+      )
+      this.boulders.add(group, planted, (x, s) => groundSurface.sample(x, s))
+      for (const plant of planted)
+        if (plant.radius > 0) trunks.push({ x: plant.x, s: plant.s, radius: plant.radius })
     }
     yield
     const falls = lapWaterfalls(this.world)
