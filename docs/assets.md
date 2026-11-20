@@ -64,3 +64,18 @@ appears in the game's help dialog.
 
 The roadster, coach, and motorcycle remain generated in code, as do all vehicles on
 software rendering, in the bonnet view, and if a model fails to load.
+
+## Surface textures
+
+Road and ground surfaces use photographed materials from ambientCG, released under
+[Creative Commons CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+| Surface       | Files                                                   | Source material |
+| ------------- | ------------------------------------------------------- | --------------- |
+| Asphalt       | `src/assets/asphalt-albedo.webp`, `asphalt-normal.webp` | Asphalt015      |
+| Ground detail | `src/assets/ground-detail.webp`                         | Grass004        |
+
+Changes made: each map was resized to 1024 pixels and converted to WebP. The asphalt
+colour was desaturated and levelled so the road keeps its tint from the weather, and
+the ground map is used as brightness only, layered over the procedural field colours
+near the camera. Software rendering keeps the generated asphalt.
