@@ -183,7 +183,6 @@ export class Terrain {
     public world: World,
     public quality: Settings['quality'],
     public software: boolean,
-    multisampling: boolean,
   ) {
     this.groundTexture = groundTexture()
     if (!software)
@@ -213,13 +212,7 @@ export class Terrain {
     this.bladeTexture = grassTexture()
     this.bladeMaterial = new THREE.MeshStandardMaterial({
       map: this.bladeTexture,
-      alphaTest: 0.25,
-      alphaToCoverage: multisampling,
-      blending: multisampling ? THREE.CustomBlending : THREE.NormalBlending,
-      blendSrc: THREE.OneFactor,
-      blendDst: THREE.ZeroFactor,
-      blendSrcAlpha: THREE.ZeroFactor,
-      blendDstAlpha: THREE.OneFactor,
+      alphaTest: 0.4,
       color: '#ffffff',
       vertexColors: true,
       side: THREE.DoubleSide,
