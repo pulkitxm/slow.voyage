@@ -671,7 +671,12 @@ export class Life {
   *obstacles(s: number): Generator<Trunk> {
     const solid = Math.abs(this.pace) < reactionLayout.knock
     for (const spot of this.placed)
-      if (Math.abs(spot.s - s) < 12 && (bulky(spot.kind) || (spot.mood < 2 && solid)))
+      if (
+        Math.abs(spot.s - s) < 12 &&
+        (spot.mood < 2
+          ? solid || bulky(spot.kind)
+          : bulky(spot.kind) && spot.age > reactionLayout.settle)
+      )
         yield { x: spot.x, s: spot.s, radius: creatureRadius[spot.kind] * spot.member.scale }
   }
   dispose() {

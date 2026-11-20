@@ -102,12 +102,16 @@ test('a struck walker is swept clear of the bodywork before the car passes', () 
   }
 })
 
-test('large animals topple where they stand and only at a real impact speed', () => {
-  const cow = { kind: 'cow' as const, x: 0, s: 2.9, radius: 0.75 }
+test('large animals topple only at a real impact speed and slide clear of the car', () => {
+  const cow = { kind: 'cow' as const, x: 0.2, s: 2.9, radius: 0.75 }
+  const car = driver(20)
   expect(struck(driver(reactionLayout.topple - 0.5), cow)).toBe(false)
-  expect(struck(driver(20), cow)).toBe(true)
-  const down = fall(driver(20), cow.x, cow.s, 0, 0, true)
-  const rest = fallenPose(down, 5)
-  expect(rest.x).toBe(cow.x)
-  expect(rest.s).toBe(cow.s)
+  expect(struck(car, cow)).toBe(true)
+  const light = fall(car, cow.x, cow.s, 0, 0)
+  const heavy = fall(car, cow.x, cow.s, 0, 0, true)
+  expect(heavy.reach).toBeLessThan(light.reach * 0.5)
+  const rest = fallenPose(heavy, 5)
+  expect(rest.x).toBeGreaterThan(car.halfWidth + reactionLayout.berth)
+  expect(rest.lift).toBeCloseTo(0, 6)
+  expect(fallenPose(light, reactionLayout.throwTime / 2).lift).toBeLessThanOrEqual(0.3)
 })
