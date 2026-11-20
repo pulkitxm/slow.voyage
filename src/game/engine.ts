@@ -183,6 +183,7 @@ export class RoadEngine {
   shown: CarPhysics | null = null
   driver = { x: 0, s: 0, yaw: 0, speed: 0, halfWidth: 1, front: 2, rear: 2 }
   lifeAlarm = -10
+  shiftQueue = 0
   sunReach = new THREE.Vector3()
   sunToward = new THREE.Vector3()
   sunAcross = new THREE.Vector3()
@@ -249,8 +250,8 @@ export class RoadEngine {
     if (event.code === 'KeyG') this.onAction?.('autoMode')
     if (event.code === 'KeyM') this.onAction?.('mute')
     if (event.code === 'KeyU') this.onAction?.('mouse')
-    if (event.code === 'KeyQ') this.onAction?.('journeyPrevious')
-    if (event.code === 'KeyE') this.onAction?.('journeyNext')
+    if (event.code === 'KeyQ' && !this.shiftBy(-1)) this.onAction?.('journeyPrevious')
+    if (event.code === 'KeyE' && !this.shiftBy(1)) this.onAction?.('journeyNext')
     if (event.code === 'KeyV') this.onAction?.(event.shiftKey ? 'vehiclePrevious' : 'vehicleNext')
     if (['Equal', 'NumpadAdd'].includes(event.code)) this.onAction?.('cruiseUp')
     if (['Minus', 'NumpadSubtract'].includes(event.code)) this.onAction?.('cruiseDown')
@@ -836,6 +837,19 @@ export class RoadEngine {
       this.wake.place(0, x, ground + 0.02, -s, p.yaw, level, seconds, dt)
     }
   }
+  stickDriven() {
+    return (
+      this.started &&
+      this.settings.transmission === 'manual' &&
+      this.assistance !== 'full' &&
+      this.assistance !== 'speed'
+    )
+  }
+  shiftBy(direction: number) {
+    if (!this.stickDriven() || this.paused || this.photo) return false
+    this.shiftQueue = clamp(this.shiftQueue + direction, -3, 3)
+    return true
+  }
   manualInput(): Input {
     if (this.controlsBlocked) return { ...neutralInput }
     const has = (...codes: string[]) => codes.some((c) => this.keys.has(c))
@@ -889,6 +903,8 @@ export class RoadEngine {
           else if (this.paused) this.onAction?.('pause')
         } else if (action === 'reset') this.reset()
         else if (action === 'cameraCenter') this.view.center()
+        else if (action === 'journeyNext' && this.shiftBy(1)) continue
+        else if (action === 'journeyPrevious' && this.shiftBy(-1)) continue
         else this.onAction?.(action)
       }
       if (!this.started && frame.pedalsActive && !this.settings.mouseEnabled) this.start()
@@ -950,6 +966,10 @@ export class RoadEngine {
         input = !this.started
           ? automatic
           : resolveInput(this.manualInput(), automatic, this.assistance, this.settings.onePedal)
+        if (this.stickDriven()) {
+          input = { ...input, manual: true, shift: Math.sign(this.shiftQueue) }
+          this.shiftQueue -= Math.sign(this.shiftQueue)
+        } else this.shiftQueue = 0
         this.physics.update(step, input, this.settings)
         const lap = this.started ? this.laps.step(this.physics.s, step) : null
         if (lap) this.onLap?.(lap.time, lap.record)

@@ -103,6 +103,8 @@ export class DriveAudio {
   private lastThrottle = 0
   private brakeHeld = 0
   private boostHeld = 0
+  private shifts = -1
+  private lastLimitAt = 0
   private hornGain?: GainNode
   hornHeld = false
 
@@ -300,6 +302,20 @@ export class DriveAudio {
       }
     }
     const revs = clamp((rpm - profile.idle) / (profile.redline - profile.idle), 0, 1)
+    const box = car.gearbox
+    if (this.shifts < 0) this.shifts = box.shifts
+    if (box.shifts !== this.shifts) {
+      this.shifts = box.shifts
+      if (box.manual && !paused) {
+        this.tone(t, 150, 70, mixLevels.engine * 0.5, 0.035)
+        this.burst(t, 1900, 1.4, mixLevels.engine * 0.35, 0.02)
+        if (revs > 0.7 && input.throttle > 0.5) this.pops(0.35 + revs * 0.4)
+      }
+    }
+    if (box.limited && !paused && t - this.lastLimitAt > 0.11) {
+      this.lastLimitAt = t
+      this.burst(t, 1100 + Math.random() * 500, 1.3, mixLevels.engine * 0.5, 0.014)
+    }
     const pop = liftOffPop(voice, revs, this.lastThrottle, input.throttle)
     if (pop > 0 && !paused) this.pops(pop)
     this.lastThrottle = input.throttle

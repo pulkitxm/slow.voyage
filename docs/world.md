@@ -43,6 +43,18 @@ of the whole loop.
 
 ## Beyond the reference
 
+- The gearbox is automatic by default. The manual setting puts the gears on E
+  (up) and Q (down), or the scenery buttons on a controller. Each gear pulls
+  hardest in the upper half of its revs and stops at a rev limiter, so first
+  tops out near its own speed until the driver shifts; a tall gear from rest is
+  sluggish; lifting off slows the car on the engine, more in low gears; a
+  downshift that would over-rev is refused; reverse sits one click below first at
+  a standstill, and the brake holds the car instead of reversing. Shifts cut
+  drive for a moment and make a clunk, with exhaust pops on hard upshifts and a
+  stutter on the limiter. The gear readout turns amber near the redline and red
+  on the limiter. Autodrive always shifts for itself.
+- The distance driven adds up across visits in the browser's local storage and
+  shows under the trip distance as an all-time total.
 - Boost draws from a charge that burns for 7 seconds and refills in 22. While it
   fires it adds drive past the nominal top speed, widens the view, and streaks
   the edges of the frame.

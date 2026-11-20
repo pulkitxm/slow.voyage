@@ -658,6 +658,16 @@ svg {
   color: #f4f5e5ba;
   letter-spacing: 0.7px;
 }
+.gear-shift {
+  color: #1c1a12;
+  background: #f2c14e;
+  border-color: #f2c14e;
+}
+.gear-limit {
+  color: #fff;
+  background: #d8402f;
+  border-color: #d8402f;
+}
 .gear {
   position: absolute;
   right: 5px;
@@ -777,6 +787,12 @@ kbd {
   flex-direction: column;
   gap: 10px;
   min-width: 116px;
+}
+.distance-lifetime {
+  font-size: 9px;
+  letter-spacing: 0.7px;
+  color: #f4f5e5d0;
+  white-space: nowrap;
 }
 .distance-value {
   font:

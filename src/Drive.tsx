@@ -62,6 +62,7 @@ export function Drive() {
     engine,
     settings,
     state,
+    lifetime,
     started,
     ready,
     loading,
@@ -300,7 +301,17 @@ export function Drive() {
               <span className="speed-value">{speed.toFixed(0).padStart(2, '0')}</span>
               <span className="speed-unit">
                 {settings.units === 'km' ? 'km/h' : 'mph'}
-                <span className="gear">{state.gear}</span>
+                <span
+                  className={
+                    settings.transmission === 'manual' && state.revs > 0.9
+                      ? state.limited
+                        ? 'gear gear-limit'
+                        : 'gear gear-shift'
+                      : 'gear'
+                  }
+                >
+                  {state.gear}
+                </span>
               </span>
               <div className="speed-track">
                 <span style={{ width: `${Math.min(speed / 2, 100)}%` }} />
@@ -364,6 +375,12 @@ export function Drive() {
             <div className="distance">
               <span className="distance-value">{distance.toFixed(1)}</span>
               <span>{settings.units === 'km' ? 'km' : 'mi'}</span>
+              <span className="distance-lifetime">
+                {Math.round(
+                  lifetime / (settings.units === 'km' ? 1000 : 1609.344),
+                ).toLocaleString()}{' '}
+                {settings.units === 'km' ? 'km' : 'mi'} all time
+              </span>
             </div>
           </section>
           <div className="touch-controls">
