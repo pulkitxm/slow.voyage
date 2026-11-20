@@ -37,6 +37,7 @@ import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
 import { vehicleMetrics } from './vehicles'
+import { Wake, wakeStrength } from './wake'
 import { Water } from './water'
 import { type AssistanceMode, clamp, defaults, type Settings, World } from './world'
 import { WorldMap } from './world-map'
@@ -110,6 +111,7 @@ export class RoadEngine {
   contact = contactShadow()
   tyreClouds = new TyreParticles()
   skids = new SkidMarks()
+  wake: Wake | null = null
   wetRoad = false
   private dustTone = new THREE.Color()
   private travel = new THREE.Vector3()
@@ -389,13 +391,7 @@ export class RoadEngine {
     this.sky = new ScenicSky()
     this.scene.add(this.sky)
     this.water = new Water(this.scene)
-    this.terrain = new Terrain(
-      this.scene,
-      this.world,
-      budget.detail,
-      budget.software,
-      this.renderer.getContext().getContextAttributes()?.antialias ?? false,
-    )
+    this.terrain = new Terrain(this.scene, this.world, budget.detail, budget.software)
     if (!budget.software) {
       this.life = new Life(this.world)
       this.cast = new Cast()
@@ -413,7 +409,10 @@ export class RoadEngine {
     this.car = createVehicleModel(this.settings, budget.software)
     this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
     this.scene.add(this.car.group, this.contact)
-    if (!budget.software) this.scene.add(this.tyreClouds.points, this.skids.mesh)
+    if (!budget.software) {
+      this.wake = new Wake(this.terrain.grassMaterial.fieldUniforms.fieldNoiseMap)
+      this.scene.add(this.tyreClouds.points, this.skids.mesh, this.wake.group)
+    }
     this.configureHeadlights()
     this.applyLighting()
     this.configureCinema(budget)
@@ -634,12 +633,6 @@ export class RoadEngine {
     }
     const solid = this.sky.material.uniforms.solid
     if (solid) solid.value = this.cinema ? 0 : 1
-    const blade = this.terrain.bladeMaterial
-    const alpha = this.cinema ? THREE.OneFactor : THREE.ZeroFactor
-    if (blade.blendSrcAlpha !== alpha) {
-      blade.blendSrcAlpha = alpha
-      blade.needsUpdate = true
-    }
   }
   configureShadows(budget: ReturnType<typeof graphicsBudget>) {
     const shadow = this.sun.shadow
@@ -688,6 +681,9 @@ export class RoadEngine {
     this.wetRoad = profile.wet
     this.tyreClouds.setLight(
       clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1) ** 1.7,
+    )
+    this.wake?.setLight(
+      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1) ** 1.4,
     )
     this.dustTone.set(
       this.settings.season === 'winter'
@@ -778,9 +774,9 @@ export class RoadEngine {
         this.cloudTone.set('#dfe3e3')
       } else if (this.wetRoad && speed > 10) {
         const pooled = wheel.puddle
-        rate = speed * (2.6 + pooled * 3.4)
-        opacity = 0.2 + pooled * 0.1
-        size = 2.1 + pooled * 1.3
+        rate = speed * (1.6 + pooled * 2.4)
+        opacity = 0.09 + pooled * 0.06
+        size = 2.6 + pooled * 1.4
         this.cloudTone.set('#c9d6dc')
       }
       if (Math.random() >= rate * dt) continue
@@ -793,6 +789,23 @@ export class RoadEngine {
       this.tyreClouds.emit(this.cloudPlace, this.cloudDrift, this.cloudTone, opacity, size, seconds)
     }
     this.tyreClouds.update(seconds, this.canvas.height)
+    if (this.wake) {
+      const rear = p.suspension.wheels.filter(
+        (wheel) => !wheel.front || p.suspension.wheels.length <= 2,
+      )
+      let x = 0
+      let ground = 0
+      let s = 0
+      let level = 0
+      for (const wheel of rear) {
+        x += wheel.x / rear.length
+        ground += wheel.ground / rear.length
+        s += wheel.s / rear.length
+        if (active && wheel.contact)
+          level += wakeStrength(p.speed, this.wetRoad, wheel.onRoad, wheel.puddle) / rear.length
+      }
+      this.wake.place(0, x, ground + 0.02, -s, p.yaw, level, seconds, dt)
+    }
   }
   manualInput(): Input {
     if (this.controlsBlocked) return { ...neutralInput }
@@ -1022,6 +1035,7 @@ export class RoadEngine {
     this.atmosphere.dispose()
     this.car.dispose()
     this.tyreClouds.dispose()
+    this.wake?.dispose()
     this.skids.dispose()
     this.contact.geometry.dispose()
     this.contact.material.map?.dispose()
