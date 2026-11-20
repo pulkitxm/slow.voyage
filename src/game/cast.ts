@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
 import cowUrl from '../assets/models/cow.glb?url'
@@ -20,7 +21,15 @@ const sources: { kind: Creature; url: string; height: number }[] = [
 ]
 
 const dyes: Record<string, number> = { Shirt: 0, Pants: 1, Skin: 2 }
-export const castPace = { walker: 1.25, grazer: 0.55, runner: 4.6, gallop: 6.5, blend: 0.35 }
+export const castPace = {
+  walker: 1.25,
+  grazer: 0.55,
+  runner: 4.6,
+  gallop: 6.5,
+  blend: 0.35,
+  shadows: 90,
+  detail: 60,
+}
 
 function clampPace(value: number) {
   return Math.max(0.5, Math.min(1.6, value))
@@ -40,6 +49,9 @@ interface Actor {
   member: unknown
   dyed: (THREE.MeshStandardMaterial | undefined)[]
   owned: THREE.Material[]
+  meshes: THREE.Mesh[]
+  shaded: boolean
+  owed: number
 }
 
 export class Cast implements Stage {
@@ -48,8 +60,9 @@ export class Cast implements Stage {
   private actors = new Map<Template, Actor[]>()
   private used = new Map<Template, number>()
   private disposed = false
+  private beat = 0
   constructor() {
-    const loader = new GLTFLoader()
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
     for (const source of sources)
       loader.load(source.url, (file) => {
         if (this.disposed) return
@@ -79,6 +92,7 @@ export class Cast implements Stage {
     return this.templates.has(kind)
   }
   begin() {
+    this.beat++
     this.used.clear()
   }
   private actor(template: Template, index: number) {
@@ -90,8 +104,10 @@ export class Cast implements Stage {
     const owned: THREE.Material[] = []
     const dyed: Actor['dyed'] = []
     const copies = new Map<THREE.Material, THREE.Material>()
+    const meshes: THREE.Mesh[] = []
     root.traverse((part) => {
       if (!(part instanceof THREE.Mesh)) return
+      meshes.push(part)
       const swap = (material: THREE.Material) => {
         const slot = dyes[material.name]
         if (slot === undefined || !(material instanceof THREE.MeshStandardMaterial)) return material
@@ -109,12 +125,23 @@ export class Cast implements Stage {
     const mixer = new THREE.AnimationMixer(root)
     const actions = new Map<string, THREE.AnimationAction>()
     for (const clip of template.clips) actions.set(clip.name, mixer.clipAction(clip))
-    actor = { root, mixer, actions, playing: '', member: null, dyed, owned }
+    actor = {
+      root,
+      mixer,
+      actions,
+      playing: '',
+      member: null,
+      dyed,
+      owned,
+      meshes,
+      shaded: true,
+      owed: 0,
+    }
     pool[index] = actor
     this.group.add(root)
     return actor
   }
-  place(spot: Placed, dt: number) {
+  place(spot: Placed, dt: number, near: number) {
     const options = this.templates.get(spot.kind)
     if (!options?.length) return
     const template = options[Math.floor(spot.member.phase * 7.3) % options.length] ?? options[0]
@@ -171,7 +198,17 @@ export class Cast implements Stage {
             : Math.max(0.4, spot.member.pace / castPace.grazer)
     if (next && want === 'Run')
       next.timeScale = clampPace(spot.pace / (walker ? castPace.runner : castPace.gallop))
-    actor.mixer.update(dt)
+    const shaded = near < castPace.shadows
+    if (shaded !== actor.shaded) {
+      actor.shaded = shaded
+      for (const mesh of actor.meshes) mesh.castShadow = shaded
+    }
+    actor.owed += dt
+    const turn = near < castPace.detail ? 1 : near < castPace.detail * 2.5 ? 2 : 4
+    if (fresh || (this.beat + index) % turn === 0) {
+      actor.mixer.update(actor.owed)
+      actor.owed = 0
+    }
   }
   end() {
     for (const [template, pool] of this.actors) {
