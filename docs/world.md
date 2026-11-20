@@ -101,6 +101,8 @@ of the whole loop.
   ramps, and foliage closer than the chase camera is cut away so the view never
   fills with leaves.
   The roadside life setting chooses empty, quiet, or lively (the default).
+- Generated boulders are scattered beside the road in every landscape, most
+  thickly in the canyon, alpine and fjord country. They are solid.
 - Waterfalls pour over rock ledges set into steep hillsides that face the road.
   Monsoon Jungle is a seventh landscape of dense broadleaf canopy, leaning palms,
   and ferns.
