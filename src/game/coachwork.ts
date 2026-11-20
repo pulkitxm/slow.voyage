@@ -59,6 +59,15 @@ export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: ()
     shell.updateMatrixWorld(true)
     const wheels: { node: THREE.Object3D; centre: THREE.Vector3; hub: number }[] = []
     shell.traverse((part) => {
+      if (!spec.wheel.test(part.name) || !spec.front.test(part.name)) return
+      const partner = shell.getObjectByName(part.name.replace(/F(?=[LR]$)/, 'R'))
+      if (!partner || !part.parent) return
+      const facing = partner.getWorldQuaternion(new THREE.Quaternion())
+      const frame = part.parent.getWorldQuaternion(new THREE.Quaternion()).invert()
+      part.quaternion.copy(frame.multiply(facing))
+    })
+    shell.updateMatrixWorld(true)
+    shell.traverse((part) => {
       if (!spec.wheel.test(part.name)) return
       const box = new THREE.Box3().setFromObject(part)
       const hub = box.getCenter(new THREE.Vector3())
