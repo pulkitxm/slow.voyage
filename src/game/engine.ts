@@ -31,6 +31,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
+import { heft } from './reactions'
 import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
@@ -40,7 +41,14 @@ import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
 import { vehicleMetrics } from './vehicles'
 import { Wake, wakeStrength } from './wake'
 import { Water } from './water'
-import { type AssistanceMode, clamp, defaults, type Settings, World } from './world'
+import {
+  type AssistanceMode,
+  angleDifference,
+  clamp,
+  defaults,
+  type Settings,
+  World,
+} from './world'
 import { WorldMap } from './world-map'
 
 const impactShake = { pitch: 0.025, roll: 0.035 }
@@ -115,6 +123,7 @@ export class RoadEngine {
   wake: Wake | null = null
   wetRoad = false
   private dustTone = new THREE.Color()
+  private paleDust = new THREE.Color('#d9cfb8')
   private travel = new THREE.Vector3()
   private skyTone = new THREE.Color()
   private cloudTone = new THREE.Color()
@@ -167,6 +176,14 @@ export class RoadEngine {
   lookButton = 0
   lastTime = 0
   simulation = new SimulationClock()
+  held = { x: 0, y: 0, s: 0, yaw: 0, pitch: 0, roll: 0 }
+  shown: CarPhysics | null = null
+  driver = { x: 0, s: 0, yaw: 0, speed: 0, halfWidth: 1, front: 2, rear: 2 }
+  lifeAlarm = -10
+  sunReach = new THREE.Vector3()
+  sunToward = new THREE.Vector3()
+  sunAcross = new THREE.Vector3()
+  sunUpward = new THREE.Vector3()
   lastTelemetry = 0
   view = new DrivingCamera(this.camera)
   disposed = false
@@ -769,10 +786,10 @@ export class RoadEngine {
         size = 1.7
         this.cloudTone.set('#e4eef2')
       } else if (!wheel.onRoad) {
-        rate = Math.min(speed, 30) * 1.3
-        opacity = 0.44
-        size = 2
-        this.cloudTone.copy(this.dustTone)
+        rate = Math.min(speed, 30) * 1.1
+        opacity = 0.2
+        size = 2.7
+        this.cloudTone.copy(this.dustTone).lerp(this.paleDust, 0.62).multiplyScalar(2.3)
       } else if (wheel.slip > trailLayout.smokeSlip) {
         rate = 26 * wheel.slip
         this.cloudTone.set('#dfe3e3')
@@ -908,6 +925,14 @@ export class RoadEngine {
       (!this.controlsBlocked || !this.started || this.assistance === 'full')
     ) {
       this.simulation.advance(elapsed, (step) => {
+        const body = this.physics
+        const held = this.held
+        held.x = body.x
+        held.y = body.y
+        held.s = body.s
+        held.yaw = body.yaw
+        held.pitch = body.pitch
+        held.roll = body.roll
         const automatic = this.physics.autoInput(
           this.started
             ? automaticTarget(this.assistance, this.settings.cruiseSpeed, this.settings.vehicle)
@@ -922,7 +947,7 @@ export class RoadEngine {
       })
     }
     if (this.started && !this.paused && !this.photo && !document.hidden) this.advanceSky(dt)
-    const p = this.physics
+    const p = this.present()
     this.water.update(p.x, p.s, time / 1000)
     positionVehicle(this.car, p, this.settings.vehicle, dt)
     this.trailTyres(dt, time / 1000)
@@ -964,20 +989,47 @@ export class RoadEngine {
       this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
     }
     if (!this.paused && !this.photo) this.lifeClock += dt
-    this.life?.update(
-      this.settings,
-      p,
-      this.lifeClock,
-      !this.dark,
-      this.settings.weather !== 'storm',
-    )
+    if (this.life) {
+      const driver = this.driver
+      driver.x = p.x
+      driver.s = p.s
+      driver.yaw = p.yaw
+      driver.speed = p.speed
+      driver.halfWidth = footprint.halfWidth
+      driver.front = footprint.front
+      driver.rear = footprint.rear
+      this.life.update(
+        this.settings,
+        driver,
+        this.lifeClock,
+        !this.dark,
+        this.settings.weather !== 'storm',
+        this.audio.hornHeld && this.started && !this.paused,
+      )
+      for (const knock of this.life.knocks) {
+        const weight = heft[knock.kind]
+        this.physics.speed *= 1 - weight * 0.6
+        this.physics.impact = Math.max(this.physics.impact, Math.min(1, 0.3 + weight * 1.6))
+        this.audio.thud(knock.distance, Math.min(1, weight * 3))
+        if (knock.kind === 'person')
+          this.audio.cry(knock.voice ? 'woman' : 'man', true, knock.distance)
+        this.lifeAlarm = this.lifeClock
+      }
+      const panicked = this.lifeClock - this.lifeAlarm < 0.6
+      for (let voice = 0; voice < Math.min(4, this.life.startled); voice++)
+        this.audio.cry(
+          Math.random() > 0.5 ? 'woman' : 'man',
+          panicked,
+          12 + Math.random() * 10,
+          0.12 + voice * (0.14 + Math.random() * 0.2),
+        )
+    }
     this.travel.set(-Math.sin(p.yaw) * p.speed, 0, -Math.cos(p.yaw) * p.speed)
     this.precipitation.update(this.camera, this.canvas.height, time / 1000, this.travel)
     this.terrain.update(p.s, time / 1000, -this.camera.position.z, p.x)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
-    this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
-    this.sun.target.position.set(p.x, p.y, -p.s - 15)
+    this.aimSun(p.x, p.y, -p.s - 15)
     this.audio.update(p, input, this.settings, this.paused || this.photo || !this.started, dt)
     if (this.started) this.minimap.update(p)
     if (this.started) this.atlas.update(p)
@@ -989,6 +1041,40 @@ export class RoadEngine {
       this.emitState()
       this.lastTelemetry = time
     }
+  }
+  aimSun(x: number, y: number, z: number) {
+    const reach = this.sunReach.set(sunOffset.x, this.sunHeight, sunOffset.z + 15)
+    const toward = this.sunToward.copy(reach).normalize()
+    const across = this.sunAcross.set(toward.z, 0, -toward.x).normalize()
+    const upward = this.sunUpward.crossVectors(toward, across)
+    const shadow = this.sun.shadow
+    const texel = (shadow.camera.right - shadow.camera.left) / shadow.mapSize.x
+    const centre = this.sun.target.position.set(x, y, z)
+    const along = centre.dot(toward)
+    const sideways = Math.round(centre.dot(across) / texel) * texel
+    const raised = Math.round(centre.dot(upward) / texel) * texel
+    centre
+      .copy(toward)
+      .multiplyScalar(along)
+      .addScaledVector(across, sideways)
+      .addScaledVector(upward, raised)
+    this.sun.position.copy(centre).add(reach)
+  }
+  present() {
+    const body = this.physics
+    const held = this.held
+    this.shown ??= Object.create(body) as CarPhysics
+    const shown = this.shown
+    if (Object.getPrototypeOf(shown) !== body) Object.setPrototypeOf(shown, body)
+    const jumped = Math.abs(body.s - held.s) > 4 || Math.abs(body.x - held.x) > 4
+    const blend = jumped ? 1 : clamp(this.simulation.accumulator / this.simulation.step, 0, 1)
+    shown.x = held.x + (body.x - held.x) * blend
+    shown.y = held.y + (body.y - held.y) * blend
+    shown.s = held.s + (body.s - held.s) * blend
+    shown.yaw = held.yaw + angleDifference(body.yaw, held.yaw) * blend
+    shown.pitch = held.pitch + (body.pitch - held.pitch) * blend
+    shown.roll = held.roll + (body.roll - held.roll) * blend
+    return shown
   }
   drawScene() {
     if (this.cinema) {

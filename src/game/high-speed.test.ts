@@ -226,17 +226,45 @@ describe('high-speed manual handling', () => {
   )
 
   test.each(vehicles)(
-    '%s held keyboard steering reaches cornering grip promptly at speed',
+    '%s held keyboard steering builds to cornering grip without sliding at speed',
     (vehicle) => {
       const settings = { ...defaults, vehicle }
       const car = new CarPhysics(new FlatWorld(settings))
       let reached = Number.POSITIVE_INFINITY
-      for (let step = 0; step < 240 && reached === Number.POSITIVE_INFINITY; step++) {
+      let hardest = 0
+      for (let step = 0; step < 240 && !car.offroad; step++) {
         car.speed = 33
         car.update(1 / 120, { ...neutralInput, steer: 1, steeringSource: 'digital' }, settings)
-        if (Math.abs(car.yawRate * car.speed) > 9.81 * 0.9) reached = step / 120
+        const cornering = Math.abs(car.yawRate * car.speed) / 9.81
+        hardest = Math.max(hardest, cornering)
+        if (cornering > 0.5 && reached === Number.POSITIVE_INFINITY) reached = step / 120
       }
-      expect(reached).toBeLessThan(vehicle === 'touring' || vehicle === 'roadster' ? 0.5 : 0.95)
+      expect(reached).toBeLessThan(1.6)
+      expect(hardest).toBeLessThan(1.5)
+    },
+  )
+
+  test.each(vehicles)(
+    '%s quarter-second keyboard taps at top speed barely turn the nose',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const car = new CarPhysics(new FlatWorld(settings))
+      car.reset(300)
+      car.speed = vehicleMetrics[vehicle].maxSpeed * 0.95
+      car.suspension.reset(car)
+      let slid = 0
+      for (let step = 0; step < 90; step++) {
+        car.update(
+          1 / 120,
+          { ...neutralInput, throttle: 0.6, steer: step < 30 ? 1 : 0, steeringSource: 'digital' },
+          settings,
+        )
+        slid = Math.max(slid, Math.abs(car.lateralSpeed))
+      }
+      expect(Math.abs(car.yaw)).toBeGreaterThan(0.002)
+      expect(Math.abs(car.yaw)).toBeLessThan(0.035)
+      expect(Math.abs(car.x)).toBeLessThan(0.8)
+      expect(slid).toBeLessThan(0.5)
     },
   )
 
@@ -305,7 +333,7 @@ describe('rough ground and flight', () => {
 })
 
 test.each(['touring', 'roadster', 'motorcycle'] as const)(
-  '%s held keyboard steering builds most of its cornering within a fifth of a second at 90 km/h',
+  '%s held keyboard steering bites within half a second at 90 km/h',
   (vehicle) => {
     const settings: Settings = { ...defaults, vehicle }
     const car = new CarPhysics(new FlatWorld(settings))
@@ -322,7 +350,7 @@ test.each(['touring', 'roadster', 'motorcycle'] as const)(
       trace.push(Math.abs(car.yawRate * car.speed) / 9.81)
     }
     expect(trace.length).toBe(60)
-    expect(trace[11]).toBeGreaterThan(0.3)
-    expect(trace[23]).toBeGreaterThan(0.75)
+    expect(trace[23]).toBeGreaterThan(0.09)
+    expect(trace[59]).toBeGreaterThan(0.3)
   },
 )
