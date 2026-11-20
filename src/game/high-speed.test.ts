@@ -240,7 +240,7 @@ describe('high-speed manual handling', () => {
         if (cornering > 0.5 && reached === Number.POSITIVE_INFINITY) reached = step / 120
       }
       expect(reached).toBeLessThan(1.6)
-      expect(hardest).toBeLessThan(1.1)
+      expect(hardest).toBeLessThan(1.5)
     },
   )
 

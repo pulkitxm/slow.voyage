@@ -142,7 +142,7 @@ export class Cast implements Stage {
         : 'Idle'
       : spot.mood === 1 && actor.actions.has('Run')
         ? 'Run'
-        : walker || spot.stride > 0.08
+        : spot.stride > 0.08
           ? 'Walk'
           : spot.graze > 0.35 && actor.actions.has('Eating')
             ? 'Eating'

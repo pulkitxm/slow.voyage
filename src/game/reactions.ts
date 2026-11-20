@@ -18,6 +18,8 @@ export const reactionLayout = {
   throwLimit: 7,
   stain: 2.4,
   stains: 28,
+  mourn: 120,
+  apart: 120,
 } as const
 
 export const fleePace: Record<Creature, number> = {
@@ -139,8 +141,9 @@ export function flee(
     const awayX = x - driver.x
     const awayS = s - driver.s
     const gap = Math.hypot(awayX, awayS) || 1
-    let headX = awayX / gap + outward.x * 0.9
-    let headS = awayS / gap + outward.s * 0.9
+    const aside = awayX * outward.x + awayS * outward.s < 0 ? 0 : 0.9
+    let headX = awayX / gap + outward.x * aside
+    let headS = awayS / gap + outward.s * aside
     const length = Math.hypot(headX, headS) || 1
     headX /= length
     headS /= length

@@ -523,6 +523,14 @@ export class Life {
           const reach = creatureRadius[member.kind] * member.scale
           let fate = this.fates.get(member)
           const near = Math.hypot(spot.x - car.x, spot.s - car.s)
+          if (
+            fate?.fallen &&
+            time - fate.fallen.at > reactionLayout.mourn &&
+            near > reactionLayout.apart
+          ) {
+            this.fates.delete(member)
+            fate = undefined
+          }
           if (fate && !fate.fallen) {
             spot.x += fate.dx
             spot.s += fate.ds
@@ -607,13 +615,16 @@ export class Life {
               spot.s = along
             }
             if (fate.dx !== 0 || fate.ds !== 0) spot.y = this.world.surface(spot.x, spot.s).height
-            if (pace !== 0) {
+            const alert = time < fate.until + 2
+            if (pace !== 0 || alert) {
+              const moving = Math.abs(pace) > 0.6
               fate.stride += Math.abs(pace) * dt * 2.4
-              spot.yaw = Math.atan2(fate.headX, -fate.headS)
+              if (fate.headX !== 0 || fate.headS !== 0)
+                spot.yaw = Math.atan2(fate.headX, -fate.headS)
               spot.step = fate.stride
-              spot.stride = pace > 0 ? 0.95 : 0.6
+              spot.stride = moving ? (pace > 0 ? 0.95 : 0.6) : 0
               spot.graze = 0
-              spot.mood = pace > 0 ? 1 : 0
+              spot.mood = pace > 1.5 ? 1 : 0
               spot.pace = Math.abs(pace)
             }
           }

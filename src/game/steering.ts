@@ -4,14 +4,14 @@ import { clamp, type SteeringSource, type Vehicle } from './world'
 export const keyboardSoftening = {
   startSpeed: 12,
   span: 10,
-  tapShare: 0.4,
-  heldShare: 0.95,
+  tapShare: 0.7,
+  heldShare: 1,
   calmFrom: 12,
   calmSpan: 18,
-  holdFrom: 0.2,
-  holdSpan: 0.9,
+  holdFrom: 0.1,
+  holdSpan: 0.4,
 }
-export const digitalResponse = { settle: 0.45, speedDelay: 0.35, centering: 0.5 }
+export const digitalResponse = { settle: 0.45, speedDelay: 0.25, centering: 0.5 }
 
 export function steeringLimit(speed: number, vehicle: Vehicle) {
   const metrics = vehicleMetrics[vehicle]
