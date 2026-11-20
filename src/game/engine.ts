@@ -159,7 +159,7 @@ export class RoadEngine {
   sun = new THREE.DirectionalLight('#fff3d5', 2.5)
   ambient = new THREE.HemisphereLight('#dae9ec', '#9ba47c', 1.9)
   headlights: THREE.SpotLight[] = []
-  spill = new THREE.PointLight('#ffe6c2', 0, 22, 1.5)
+  spill = new THREE.SpotLight('#ffe6c2', 0, 36, 1.05, 0.85, 1.3)
   tailGlow = new THREE.PointLight('#ff2812', 0, 7, 1.7)
   sky: ScenicSky
   frame = 0
@@ -687,9 +687,10 @@ export class RoadEngine {
     }
     const nose = this.car.headlightPositions[0] ?? [0, 0.6, -2]
     const reach = footprints[this.settings.vehicle]
-    this.spill.position.set(0, 0.32, nose[2] - 3.2)
+    this.spill.position.set(0, 1.05, nose[2] - 0.4)
+    this.spill.target.position.set(0, -0.6, nose[2] - 9)
     this.tailGlow.position.set(0, 0.14, reach.rear - 0.15)
-    this.car.group.add(this.spill, this.tailGlow)
+    this.car.group.add(this.spill, this.spill.target, this.tailGlow)
   }
   applyLighting(drifting = false) {
     const profile = atmosphereProfile(this.settings, this.dayClock)
@@ -1009,7 +1010,7 @@ export class RoadEngine {
       p.speed,
     )
     const beams = (this.headlights[0]?.intensity ?? 0) / 210
-    this.spill.intensity = beams * 48
+    this.spill.intensity = beams * 130
     this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 4 : 1.1)
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
