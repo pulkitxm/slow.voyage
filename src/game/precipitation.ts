@@ -5,7 +5,8 @@ import { random, type Settings } from './world'
 export const precipitationLayout = {
   particles: 3600,
   drops: 20000,
-  calm: 0.6,
+  calm: 0.85,
+  longest: 0.95,
   fall: [1.5, -18, 0.5],
   exposure: 1 / 42,
 } as const
@@ -49,7 +50,7 @@ export class Precipitation {
     const rainMaterial = new THREE.MeshBasicMaterial({
       color: '#c2d5df',
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.4,
       depthWrite: false,
       side: THREE.DoubleSide,
       fog: true,
@@ -91,7 +92,7 @@ vec3 rainTail = rainStreak * (0.7 + fallCorner.z * 0.6);
 vec3 rainToward = cameraPosition - rainCentre;
 float rainReach = length(rainToward);
 vec3 rainAcross = normalize(cross(rainTail, rainToward));
-float rainWidth = max(0.0045, rainReach * rainPixel);
+float rainWidth = max(0.003, rainReach * rainPixel * 0.8);
 vec3 transformed = rainCentre - rainTail * fallCorner.y + rainAcross * fallCorner.x * rainWidth;
 rainShape = vec3(fallCorner.xy, (0.45 + fallCorner.z * 0.55) * min(1.0, 0.0045 / (rainReach * rainPixel) + 0.35) * smoothstep(1.2, 4.0, rainReach));`,
         )
@@ -138,6 +139,7 @@ diffuseColor.a *= (1.0 - rainShape.x * rainShape.x) * (1.0 - rainShape.y) * (0.3
     this.streak.value
       .set(fallX - drift.x, fallY - drift.y, fallZ - drift.z)
       .multiplyScalar(precipitationLayout.exposure)
+      .clampLength(0, precipitationLayout.longest)
     this.pixel.value = (Math.tan((camera.fov * Math.PI) / 360) * 2 * 0.8) / Math.max(1, height)
   }
   dispose() {

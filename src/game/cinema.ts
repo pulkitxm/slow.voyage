@@ -288,7 +288,7 @@ void main() {
     vec3 origin = start.xyz / start.w;
     vec3 bounce = reflect(normalize(origin), viewUp);
     float stride = 0.3;
-    float travelled = stride * grain(gl_FragCoord.xy);
+    float travelled = stride * (0.35 + 0.3 * grain(gl_FragCoord.xy));
     for (int index = 0; index < 30; index++) {
       travelled += stride;
       stride *= 1.2;
