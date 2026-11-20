@@ -78,5 +78,8 @@ of the whole loop.
 - Waterfalls pour over rock ledges set into steep hillsides that face the road.
   Monsoon Jungle is a seventh landscape of dense broadleaf canopy, leaning palms,
   and ferns.
+- The touring car, hatchback, supercar, and pickup wear modelled bodies over the
+  generated ones, with the same suspension, steering, and wheel spin driving the
+  modelled wheels. See `assets.md` for credits.
 - The camera leans into bends, dips under braking, and trembles at speed. The
   camera motion setting turns that off together with speed blur and lens drops.

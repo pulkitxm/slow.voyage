@@ -71,6 +71,27 @@ export function Help({ onClose }: { onClose: () => void }) {
             preferences stay on this device.
           </p>
         </div>
+        <div className="help-note">
+          <p>
+            Car models by{' '}
+            <a
+              href="https://sketchfab.com/Daniel.Zhabotinsky"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Daniel Zhabotinsky
+            </a>{' '}
+            (Fairheaven LT '80, Milano '95, Saba V12 '95, Conquer '89 Pickup), used under{' '}
+            <a
+              href="https://creativecommons.org/licenses/by/4.0/"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              CC BY 4.0
+            </a>{' '}
+            and reduced in detail. People and animals by Quaternius, CC0.
+          </p>
+        </div>
       </section>
     </Modal>
   )

@@ -8,6 +8,7 @@ import { clamp, damp, type Settings, type Vehicle } from './world'
 
 export interface VehicleModel {
   group: THREE.Group
+  exterior?: THREE.Group
   firstPerson: THREE.Group
   wheels: readonly THREE.Group[]
   body: THREE.MeshStandardMaterial

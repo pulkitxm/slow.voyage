@@ -4,6 +4,7 @@ import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
 import { Cast } from './cast'
 import { CinematicPipeline } from './cinema'
+import { dressVehicle } from './coachwork'
 import { footprints } from './collision'
 import {
   automaticTarget,
@@ -407,6 +408,7 @@ export class RoadEngine {
     this.atmosphere = new Atmosphere(this.renderer)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
+    if (!budget.software) dressVehicle(this.car, this.settings.vehicle, () => this.applyLighting())
     this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
     this.scene.add(this.car.group, this.contact)
     if (!budget.software) {
@@ -607,6 +609,8 @@ export class RoadEngine {
       this.scene.remove(this.car.group)
       this.car.dispose()
       this.car = createVehicleModel(this.settings, budget.software)
+      if (!budget.software)
+        dressVehicle(this.car, this.settings.vehicle, () => this.applyLighting())
       this.scene.add(this.car.group)
       this.configureHeadlights()
       this.arrival = 0
