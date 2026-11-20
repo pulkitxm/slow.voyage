@@ -250,6 +250,15 @@ export function impactVoice(material: ObstacleMaterial, strength: number, vehicl
       thumpPitch: 58 * pitch,
       crunch,
     },
+    rock: {
+      partials: [{ frequency: 96, decay: 0.1, gain: 0.4 }],
+      noiseBand: 1500,
+      noiseDecay: 0.14,
+      noiseGain: 0.85,
+      thump: 0.9,
+      thumpPitch: 50 * pitch,
+      crunch,
+    },
     water: {
       partials: [],
       noiseBand: 900,
@@ -277,7 +286,7 @@ export function impactVoice(material: ObstacleMaterial, strength: number, vehicl
 export function scrapeLevel(material: ObstacleMaterial, scrapeSpeed: number) {
   const speed = clamp(Math.abs(scrapeSpeed) / 15, 0, 1)
   if (material === 'water') return 0
-  return material === 'rail' ? speed : speed * 0.5
+  return material === 'rail' ? speed : material === 'rock' ? speed * 0.3 : speed * 0.5
 }
 
 export function wadeLevel(depth: number, speed: number) {
