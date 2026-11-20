@@ -14,13 +14,13 @@ import { loopCells, loopIndex } from './field'
 import { type Landscape, landscapeIds } from './landscapes'
 import {
   alarm,
+  bulky,
   type Driver,
   type Fate,
   fall,
   fallenPose,
   flee,
   freshFate,
-  heft,
   reactionLayout,
   struck,
   threatened,
@@ -546,7 +546,7 @@ export class Life {
             }
             const wits = reactionLayout.notice * (0.5 + hashed(Math.floor(member.phase * 53), 5))
             if (struck(car, who)) {
-              ensure().fallen = fall(car, spot.x, spot.s, spot.yaw, time)
+              ensure().fallen = fall(car, spot.x, spot.s, spot.yaw, time, bulky(member.kind))
               this.knocks.push({
                 kind: member.kind,
                 x: spot.x,
@@ -671,7 +671,7 @@ export class Life {
   *obstacles(s: number): Generator<Trunk> {
     const solid = Math.abs(this.pace) < reactionLayout.knock
     for (const spot of this.placed)
-      if (Math.abs(spot.s - s) < 12 && spot.mood < 2 && (solid || heft[spot.kind] >= 1))
+      if (Math.abs(spot.s - s) < 12 && (bulky(spot.kind) || (spot.mood < 2 && solid)))
         yield { x: spot.x, s: spot.s, radius: creatureRadius[spot.kind] * spot.member.scale }
   }
   dispose() {

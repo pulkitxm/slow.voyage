@@ -31,7 +31,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
-import { heft } from './reactions'
+import { bulky, heft } from './reactions'
 import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
@@ -125,6 +125,7 @@ export class RoadEngine {
   wetRoad = false
   private dustTone = new THREE.Color()
   private paleDust = new THREE.Color('#d9cfb8')
+  private neutralFill = new THREE.Color('#efe9e1')
   private travel = new THREE.Vector3()
   private skyTone = new THREE.Color()
   private cloudTone = new THREE.Color()
@@ -184,6 +185,7 @@ export class RoadEngine {
   driver = { x: 0, s: 0, yaw: 0, speed: 0, halfWidth: 1, front: 2, rear: 2 }
   lifeAlarm = -10
   shiftQueue = 0
+  lastPace = 0
   sunReach = new THREE.Vector3()
   sunToward = new THREE.Vector3()
   sunAcross = new THREE.Vector3()
@@ -732,7 +734,7 @@ export class RoadEngine {
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight
     this.ambient.intensity = profile.ambient * 0.3
-    this.ambient.color.set(profile.horizon)
+    this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.45)
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0
@@ -795,8 +797,8 @@ export class RoadEngine {
         size = 1.7
         this.cloudTone.set('#e4eef2')
       } else if (!wheel.onRoad) {
-        rate = Math.min(speed, 30) * 1.1
-        opacity = 0.13
+        rate = Math.min(speed, 30) * 0.8
+        opacity = 0.05 + Math.min(speed, 30) * 0.0022
         size = 2.7
         this.cloudTone.copy(this.dustTone).lerp(this.paleDust, 0.62).multiplyScalar(2.3)
       } else if (wheel.slip > trailLayout.smokeSlip) {
@@ -1026,7 +1028,8 @@ export class RoadEngine {
       driver.x = p.x
       driver.s = p.s
       driver.yaw = p.yaw
-      driver.speed = p.speed
+      driver.speed = Math.abs(this.lastPace) > Math.abs(p.speed) ? this.lastPace : p.speed
+      this.lastPace = p.speed
       driver.halfWidth = footprint.halfWidth
       driver.front = footprint.front
       driver.rear = footprint.rear
@@ -1040,12 +1043,17 @@ export class RoadEngine {
       )
       for (const knock of this.life.knocks) {
         const weight = heft[knock.kind]
-        this.physics.speed *= 1 - weight * 0.6
+        if (!bulky(knock.kind)) this.physics.speed *= 1 - weight * 0.6
         this.physics.impact = Math.max(this.physics.impact, Math.min(1, 0.3 + weight * 1.6))
         this.audio.thud(knock.distance, Math.min(1, weight * 3))
         if (knock.kind === 'person')
           this.audio.cry(knock.voice ? 'woman' : 'man', true, knock.distance)
         this.lifeAlarm = this.lifeClock
+      }
+      for (const kind of this.terrain.brush(driver)) {
+        this.physics.speed *= kind === 'post' ? 0.985 : 0.95
+        this.physics.impact = Math.max(this.physics.impact, kind === 'post' ? 0.25 : 0.18)
+        this.audio.brushed(kind === 'post')
       }
       const panicked = this.lifeClock - this.lifeAlarm < 0.6
       for (let voice = 0; voice < Math.min(4, this.life.startled); voice++)
