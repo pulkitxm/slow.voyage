@@ -778,9 +778,9 @@ export class RoadEngine {
         this.cloudTone.set('#dfe3e3')
       } else if (this.wetRoad && speed > 10) {
         const pooled = wheel.puddle
-        rate = speed * (1.6 + pooled * 2.4)
-        opacity = 0.09 + pooled * 0.06
-        size = 2.6 + pooled * 1.4
+        rate = speed * (3.4 + pooled * 3)
+        opacity = 0.06 + pooled * 0.05
+        size = 1.5 + pooled * 0.9
         this.cloudTone.set('#c9d6dc')
       }
       if (Math.random() >= rate * dt) continue
@@ -954,7 +954,7 @@ export class RoadEngine {
     )
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
-    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.55
+    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.68
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
