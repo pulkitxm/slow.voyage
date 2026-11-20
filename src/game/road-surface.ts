@@ -75,13 +75,14 @@ export class RoadSurface {
       Object.assign(shader.uniforms, this.uniforms, { fieldNoiseMap: noise, roadTime: time })
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;\nvarying vec2 roadGrid;',
+        '#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;\nvarying vec2 roadGrid;\nvarying float roadLevel;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <begin_vertex>',
         `#include <begin_vertex>
 roadPosition = (modelMatrix * vec4(position, 1.0)).xz;
 roadLane = abs(uv.x - 0.5) * 2.0;
+roadLevel = (modelMatrix * vec4(position, 1.0)).y;
 roadGrid = vec2(uv.x, -roadPosition.y / ${roadConditionLayout.period.toFixed(1)});`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
@@ -90,6 +91,7 @@ roadGrid = vec2(uv.x, -roadPosition.y / ${roadConditionLayout.period.toFixed(1)}
 varying vec2 roadPosition;
 varying float roadLane;
 varying vec2 roadGrid;
+varying float roadLevel;
 uniform float roadWetness;
 uniform sampler2D roadConditionMap;
 uniform vec3 roadWear;
@@ -127,8 +129,15 @@ float roadHole = smoothstep(${(roadConditionLayout.potholeEdge - 0.14).toFixed(2
 float roadRim = smoothstep(0.26, 0.44, roadBroken) * (1.0 - roadHole) * roadWear.y;
 float roadPit = smoothstep(0.47, 0.53, roadBroken) * roadWear.y;
 float roadGrit = fieldVariationAt(roadPosition * 140.0 + vec2(9.0, 4.0));
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.15, 0.14, 0.13) * (0.45 + roadGrit * 1.2), roadPit * 0.95);
-diffuseColor.rgb *= 1.0 - roadPit * (1.0 - roadHole) * 0.55;
+vec3 roadEye = normalize(cameraPosition - vec3(roadPosition.x, roadLevel, roadPosition.y));
+vec2 roadSink = -roadEye.xz / max(roadEye.y, 0.12) * 0.11;
+vec2 roadBelow = roadPosition + roadSink;
+float roadDeep = texture2D(roadConditionMap, roadGrid + vec2(roadSink.x / 6.0, -roadSink.y / ${roadConditionLayout.period.toFixed(1)})).b + (fieldVariationAt(roadBelow * 45.0) - 0.5) * 0.16 + (fieldVariationAt(roadBelow * 25.0) - 0.5) * 0.1;
+float roadFloor = roadPit * smoothstep(0.47, 0.53, roadDeep);
+float roadWall = roadPit - roadFloor;
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.15, 0.14, 0.13) * (0.45 + fieldVariationAt(roadBelow * 140.0) * 1.2), roadFloor * 0.95);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.34, 0.33, 0.31) * (0.55 + roadGrit * 0.7), roadWall * 0.9);
+diffuseColor.rgb *= 1.0 - roadFloor * (1.0 - roadHole) * 0.4;
 diffuseColor.rgb *= 1.0 + roadRim * (1.0 - roadPit) * (roadGrit - 0.3) * 0.7;
 float roadDirt = smoothstep(0.3, 0.9, roadState.g * (0.5 + roadVariation * 1.0)) * roadWear.x;
 diffuseColor.rgb = mix(diffuseColor.rgb, mix(roadDirtColor, vec3(0.42, 0.4, 0.37), 0.35) * (0.6 + roadSurfaceNoise * 0.5) * mix(1.0, 0.5, roadWetness), roadDirt * 0.7);

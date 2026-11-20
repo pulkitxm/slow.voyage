@@ -10,6 +10,7 @@ import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { landmarkFootprints, landmarkGeometry, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
+import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
 import { RoadSurface } from './road-surface'
@@ -157,6 +158,9 @@ export class Terrain {
   glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true })
   fallMaterial: THREE.MeshStandardMaterial
   fallWarmUp: THREE.Mesh
+  palmMaterial = palmMaterial()
+  palms = [palmGeometry(1), palmGeometry(2), palmGeometry(3)]
+  fern = fernGeometry(1)
   shadeMaterial: THREE.MeshBasicMaterial | null = null
   shadeDisc = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2)
   chevronMaterial: THREE.MeshStandardMaterial
@@ -311,6 +315,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       this.reflectorMaterial,
       this.landmarkMaterial,
       this.fallMaterial,
+      this.palmMaterial,
       this.chevronMaterial,
       this.bannerMaterial,
       this.bladeMaterial,
@@ -321,6 +326,8 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       ...this.foliage.winterShrubGeometries,
       this.blade,
       this.shadeDisc,
+      ...this.palms,
+      this.fern,
     ]
     if (!software) {
       this.meadow = new RoamingMeadow(
@@ -519,6 +526,41 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     const woodland = createWoodland(this.world, id, this.quality).filter(
       (tree) => !waterfallClearing(falls, lap, tree.x, tree.s),
     )
+    if (profile.palms && settings.season !== 'winter') {
+      const palmCount = low ? Math.round(profile.palms / 2) : profile.palms
+      const fernCount = Math.round(palmCount * palmLayout.ferns)
+      const pose = new THREE.Object3D()
+      const plant = (geometry: THREE.BufferGeometry, count: number, palm: boolean) => {
+        const mesh = new THREE.InstancedMesh(geometry, this.palmMaterial, count)
+        let placed = 0
+        for (let index = 0; index < count; index++) {
+          const s = start + rng() * groundLayout.tileLength
+          const side = rng() > 0.5 ? 1 : -1
+          const reach =
+            palmLayout.nearest + rng() ** 1.4 * (palmLayout.farthest - palmLayout.nearest)
+          const size = palm ? 0.8 + rng() * 0.5 : 0.7 + rng() * 0.7
+          const yaw = rng() * Math.PI * 2
+          const point = roadPoint(this.world.road(s), s, side * (palm ? reach : reach * 0.6))
+          const ground = roadsidePlantHeight(this.world, point.x, point.s)
+          if (ground === null || waterfallClearing(falls, lap, point.x, point.s)) continue
+          pose.position.set(point.x, ground - 0.05, -point.s)
+          pose.rotation.set(0, yaw, 0)
+          pose.scale.setScalar(size)
+          pose.updateMatrix()
+          mesh.setMatrixAt(placed++, pose.matrix)
+          if (palm) trunks.push({ x: point.x, s: point.s, radius: palmLayout.trunk * size * 1.4 })
+        }
+        mesh.count = placed
+        mesh.castShadow = palm
+        mesh.receiveShadow = true
+        mesh.instanceMatrix.needsUpdate = true
+        if (placed) group.add(mesh)
+        else mesh.dispose()
+      }
+      for (const [index, geometry] of this.palms.entries())
+        plant(geometry, Math.ceil(palmCount / this.palms.length) + (index ? 0 : 1), true)
+      plant(this.fern, fernCount, false)
+    }
     yield
     const conifers = Math.round(treeCount * profile.roadside.conifers)
     const narrow = Math.round(treeCount * profile.roadside.narrow)
