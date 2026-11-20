@@ -28,6 +28,7 @@ export const castPace = {
   gallop: 6.5,
   blend: 0.35,
   shadows: 90,
+  collapse: 1.7,
   detail: 60,
 }
 
@@ -183,8 +184,10 @@ export class Cast implements Stage {
         next.clampWhenFinished = true
       }
       next.play()
-      if (want === 'Death') next.time = Math.min(spot.age, next.getClip().duration)
-      else
+      if (want === 'Death') {
+        next.timeScale = castPace.collapse
+        next.time = Math.min(spot.age * castPace.collapse, next.getClip().duration)
+      } else
         next.time =
           ((spot.member.phase + spot.member.scale * 91.7 + spot.member.along * 13.1) * 1.7) %
           Math.max(0.1, next.getClip().duration)
