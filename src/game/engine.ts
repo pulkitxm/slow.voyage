@@ -123,6 +123,7 @@ export class RoadEngine {
   wake: Wake | null = null
   wetRoad = false
   private dustTone = new THREE.Color()
+  private paleDust = new THREE.Color('#d9cfb8')
   private travel = new THREE.Vector3()
   private skyTone = new THREE.Color()
   private cloudTone = new THREE.Color()
@@ -785,10 +786,10 @@ export class RoadEngine {
         size = 1.7
         this.cloudTone.set('#e4eef2')
       } else if (!wheel.onRoad) {
-        rate = Math.min(speed, 30) * 1.3
-        opacity = 0.44
-        size = 2
-        this.cloudTone.copy(this.dustTone)
+        rate = Math.min(speed, 30) * 1.1
+        opacity = 0.2
+        size = 2.7
+        this.cloudTone.copy(this.dustTone).lerp(this.paleDust, 0.62).multiplyScalar(2.3)
       } else if (wheel.slip > trailLayout.smokeSlip) {
         rate = 26 * wheel.slip
         this.cloudTone.set('#dfe3e3')

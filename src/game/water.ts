@@ -43,16 +43,24 @@ void main() {
   float swell = 1.0 / (1.0 + reach * 0.004);
   float chop = 1.0 / (1.0 + reach * 0.02);
   p += vec2(sin(p.y * 0.047 + time * 0.2), cos(p.x * 0.039 - time * 0.17)) * 4.0;
-  float a = sin(p.x * 0.32 + p.y * 0.26 + time * 0.9);
-  float b = sin(p.x * 1.2 - p.y * 0.8 + time * 0.6);
-  float c = sin(p.x * 3.1 + p.y * 2.3 - time * 1.4);
+  float phaseA = p.x * 0.32 + p.y * 0.26;
+  float phaseB = p.x * 1.2 - p.y * 0.8;
+  float phaseC = p.x * 3.1 + p.y * 2.3;
+  float phaseD = p.y * 0.22;
+  float clearA = 1.0 - smoothstep(0.5, 1.6, fwidth(phaseA));
+  float clearB = 1.0 - smoothstep(0.5, 1.6, fwidth(phaseB));
+  float clearC = 1.0 - smoothstep(0.5, 1.6, fwidth(phaseC));
+  float clearD = 1.0 - smoothstep(0.5, 1.6, fwidth(phaseD));
+  float a = sin(phaseA + time * 0.9) * clearA;
+  float b = sin(phaseB + time * 0.6) * clearB;
+  float c = sin(phaseC - time * 1.4) * clearC;
   float liquid = 1.0 - frozen;
-  vec3 normal = normalize(vec3((a * 0.08 * swell + b * 0.035 * chop + c * 0.012 * chop) * liquid, 1.0, (cos(p.y * 0.22 + time) * 0.06 * swell + b * 0.025 * chop + c * 0.012 * chop) * liquid));
+  vec3 normal = normalize(vec3((a * 0.08 * swell + b * 0.035 * chop + c * 0.012 * chop) * liquid, 1.0, (cos(phaseD + time) * clearD * 0.06 * swell + b * 0.025 * chop + c * 0.012 * chop) * liquid));
   vec3 viewDirection = normalize(cameraPosition - waterPosition);
   float fresnel = 0.03 + 0.97 * pow(1.0 - max(0.0, dot(normal, viewDirection)), 5.0);
   vec3 color = mix(deepColor, skyColor, fresnel * mix(0.72, 0.86, frozen));
   float sparkle = pow(max(0.0, dot(reflect(-sunDirection, normal), viewDirection)), 220.0);
-  color += sunColor * sparkle * glitter * liquid;
+  color += sunColor * sparkle * glitter * liquid * clearB;
   gl_FragColor = vec4(color, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
