@@ -35,6 +35,7 @@ import { bulky, heft, reactionLayout } from './reactions'
 import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
+import { skyline } from './skyline'
 import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
@@ -736,6 +737,10 @@ export class RoadEngine {
     this.sun.intensity = profile.sunlight
     this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.38)
     this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.45)
+    const glow = clamp(profile.ambient / 2.6, 0.06, 1) * (profile.night ? 0.5 : 1)
+    skyline.horizon.value.set(profile.horizon).multiplyScalar(glow * 0.9)
+    skyline.zenith.value.set(profile.sky).multiplyScalar(glow * 0.8)
+    skyline.ground.value.set('#3b4034').multiplyScalar(glow)
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0
@@ -1014,7 +1019,8 @@ export class RoadEngine {
     this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 4 : 1.1)
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
-    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.32
+    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.16
+    skyline.strength.value = cameraMode === 'bonnet' ? 0.3 : 0.7
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
