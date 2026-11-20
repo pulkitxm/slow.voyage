@@ -4,9 +4,11 @@ export const reactionLayout = {
   horn: 36,
   alarm: 32,
   notice: 0.28,
-  lookAhead: 4,
-  lookTime: 0.36,
-  lane: 2.7,
+  lookAhead: 6,
+  lookTime: 0.75,
+  lane: 4.4,
+  bulk: 0.25,
+  topple: 6,
   fleeTime: 5.5,
   alarmTime: 8,
   dodgeTime: 2.6,
@@ -113,13 +115,21 @@ export function threatened(driver: Driver, who: Bystander) {
   )
 }
 
+export function bulky(kind: Creature) {
+  return heft[kind] >= reactionLayout.bulk
+}
+
 export function struck(driver: Driver, who: Bystander) {
-  if (Math.abs(driver.speed) < reactionLayout.knock || heft[who.kind] >= 1) return false
+  const weight = heft[who.kind]
+  if (weight >= 1) return false
+  const heavy = bulky(who.kind)
+  if (Math.abs(driver.speed) < (heavy ? reactionLayout.topple : reactionLayout.knock)) return false
+  const reach = who.radius * (heavy ? 1.2 : 0.6)
   const { ahead, aside } = carFrame(driver, who.x, who.s)
   return (
-    ahead < driver.front + who.radius * 0.6 &&
-    ahead > -driver.rear - who.radius * 0.6 &&
-    Math.abs(aside) < driver.halfWidth + who.radius * 0.6
+    ahead < driver.front + reach &&
+    ahead > -driver.rear - reach &&
+    Math.abs(aside) < driver.halfWidth + reach
   )
 }
 
@@ -173,7 +183,14 @@ export function flee(
   return 0
 }
 
-export function fall(driver: Driver, x: number, s: number, yaw: number, time: number): Fall {
+export function fall(
+  driver: Driver,
+  x: number,
+  s: number,
+  yaw: number,
+  time: number,
+  rooted = false,
+): Fall {
   const facing = Math.sign(driver.speed) || 1
   const { aside } = carFrame(driver, x, s)
   const sin = Math.sin(driver.yaw)
@@ -187,8 +204,10 @@ export function fall(driver: Driver, x: number, s: number, yaw: number, time: nu
     dirS: cos * facing,
     sideX: cos * side,
     sideS: sin * side,
-    clear: Math.max(0, driver.halfWidth + reactionLayout.berth - Math.abs(aside)),
-    reach: Math.min(reactionLayout.throwLimit, Math.abs(driver.speed) * reactionLayout.throwReach),
+    clear: rooted ? 0 : Math.max(0, driver.halfWidth + reactionLayout.berth - Math.abs(aside)),
+    reach: rooted
+      ? 0
+      : Math.min(reactionLayout.throwLimit, Math.abs(driver.speed) * reactionLayout.throwReach),
     yaw,
     at: time,
   }

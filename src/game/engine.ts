@@ -31,7 +31,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
-import { heft } from './reactions'
+import { bulky, heft } from './reactions'
 import { puddleLevel } from './road-condition'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
@@ -185,6 +185,7 @@ export class RoadEngine {
   driver = { x: 0, s: 0, yaw: 0, speed: 0, halfWidth: 1, front: 2, rear: 2 }
   lifeAlarm = -10
   shiftQueue = 0
+  lastPace = 0
   sunReach = new THREE.Vector3()
   sunToward = new THREE.Vector3()
   sunAcross = new THREE.Vector3()
@@ -796,8 +797,8 @@ export class RoadEngine {
         size = 1.7
         this.cloudTone.set('#e4eef2')
       } else if (!wheel.onRoad) {
-        rate = Math.min(speed, 30) * 1.1
-        opacity = 0.13
+        rate = Math.min(speed, 30) * 0.8
+        opacity = 0.05 + Math.min(speed, 30) * 0.0022
         size = 2.7
         this.cloudTone.copy(this.dustTone).lerp(this.paleDust, 0.62).multiplyScalar(2.3)
       } else if (wheel.slip > trailLayout.smokeSlip) {
@@ -1027,7 +1028,8 @@ export class RoadEngine {
       driver.x = p.x
       driver.s = p.s
       driver.yaw = p.yaw
-      driver.speed = p.speed
+      driver.speed = Math.abs(this.lastPace) > Math.abs(p.speed) ? this.lastPace : p.speed
+      this.lastPace = p.speed
       driver.halfWidth = footprint.halfWidth
       driver.front = footprint.front
       driver.rear = footprint.rear
@@ -1041,7 +1043,7 @@ export class RoadEngine {
       )
       for (const knock of this.life.knocks) {
         const weight = heft[knock.kind]
-        this.physics.speed *= 1 - weight * 0.6
+        if (!bulky(knock.kind)) this.physics.speed *= 1 - weight * 0.6
         this.physics.impact = Math.max(this.physics.impact, Math.min(1, 0.3 + weight * 1.6))
         this.audio.thud(knock.distance, Math.min(1, weight * 3))
         if (knock.kind === 'person')
