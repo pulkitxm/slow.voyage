@@ -734,7 +734,7 @@ export class RoadEngine {
     }
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight
-    this.ambient.intensity = profile.ambient * 0.3
+    this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.3)
     this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.45)
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
