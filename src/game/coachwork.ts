@@ -139,6 +139,27 @@ export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: ()
         part.castShadow = true
         if (!Array.isArray(part.material)) owned.add(part.material)
       })
+    const tails: THREE.MeshStandardMaterial[] = []
+    const heads: THREE.MeshStandardMaterial[] = []
+    shell.traverse((part) => {
+      if (!(part instanceof THREE.Mesh) || Array.isArray(part.material)) return
+      const rear = /tail|stop|brake/i.test(part.name)
+      const lamp = /headlight/i.test(part.name)
+      if ((!rear && !lamp) || !(part.material instanceof THREE.MeshStandardMaterial)) return
+      const glow = part.material.clone()
+      owned.add(glow)
+      glow.emissive.set(rear ? '#ff2a1a' : '#fff1d6')
+      glow.emissiveMap = glow.map
+      glow.emissiveIntensity = 0
+      part.material = glow
+      ;(rear ? tails : heads).push(glow)
+    })
+    const drive = model.update.bind(model)
+    model.update = (wheelStates, braking, night, speed) => {
+      drive(wheelStates, braking, night, speed)
+      for (const glow of tails) glow.emissiveIntensity = braking ? 3.2 : night ? 0.9 : 0
+      for (const glow of heads) glow.emissiveIntensity = night ? 2.4 : 0
+    }
     for (const mesh of generated) mesh.visible = false
     onReady?.()
   })
