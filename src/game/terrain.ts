@@ -172,9 +172,9 @@ export class Terrain {
   roadMaterial: THREE.MeshStandardMaterial
   edgeMaterial = new THREE.MeshStandardMaterial({ color: '#eeeedd', roughness: 1 })
   railMaterial = new THREE.MeshStandardMaterial({
-    color: '#aeb6b6',
-    metalness: 0.55,
-    roughness: 0.45,
+    color: '#b6b8b4',
+    metalness: 0.22,
+    roughness: 0.58,
     side: THREE.DoubleSide,
   })
   furnitureMaterial = new THREE.MeshStandardMaterial({ color: '#e9e9e2', roughness: 0.7 })
@@ -517,6 +517,45 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDif
               side < 0 ? [0, 2, 1, 1, 2, 3] : [0, 1, 2, 1, 3, 2],
             ),
           )
+        }
+        const span = roadLayout.railSegmentLength
+        for (const [open, anchor, along] of [
+          [!guardrailAt(this.world, s - span, side), r1, s],
+          [!guardrailAt(this.world, s + span, side), r2, s + span],
+        ] as const) {
+          if (!open) continue
+          const reach = along === s ? -2.6 : 2.6
+          const foot = this.world.road(along + reach)
+          for (let i = 0; i < profile.length - 1; i++) {
+            const lower = profile[i],
+              upper = profile[i + 1]
+            if (!lower || !upper) continue
+            const a = roadPoint(anchor, along, d + side * lower[1])
+            const b = roadPoint(anchor, along, d + side * upper[1])
+            const c = roadPoint(foot, along + reach, d + side * (lower[1] + 0.25))
+            const e = roadPoint(foot, along + reach, d + side * (upper[1] + 0.25))
+            const sunk = 0.47
+            const forward = reach > 0 === side > 0
+            rails.push(
+              geometry(
+                [
+                  a.x,
+                  anchor.y + lower[0],
+                  -a.s,
+                  b.x,
+                  anchor.y + upper[0],
+                  -b.s,
+                  c.x,
+                  foot.y + lower[0] - sunk,
+                  -c.s,
+                  e.x,
+                  foot.y + upper[0] - sunk,
+                  -e.s,
+                ],
+                forward ? [0, 1, 2, 1, 3, 2] : [0, 2, 1, 1, 2, 3],
+              ),
+            )
+          }
         }
         const post = new THREE.BoxGeometry(0.13, 0.8, 0.12)
         post.deleteAttribute('uv')

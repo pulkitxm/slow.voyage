@@ -5,13 +5,14 @@ import stoneUrl from '../assets/models/rocks/rock-a.glb?url'
 import slabUrl from '../assets/models/rocks/rock-b.glb?url'
 import boulderUrl from '../assets/models/rocks/rock-c.glb?url'
 import { landscapeProfiles } from './landscapes'
-import { roadPoint } from './road'
+import { roadCoordinates, roadPoint } from './road'
 import { shoreHeight, type World } from './world'
 
 export const boulderLayout = {
-  nearest: 8,
-  farthest: 75,
-  sink: 0.18,
+  nearest: 7.5,
+  farthest: 46,
+  sink: 0.3,
+  cluster: 3.2,
   kinds: [
     { url: stoneUrl, size: [0.5, 1.3] },
     { url: slabUrl, size: [0.6, 1.5] },
@@ -44,6 +45,19 @@ export function planBoulders(world: World, start: number, length: number, rng: (
     if (world.height(point.x, point.s) < shoreHeight + 0.3) continue
     if (world.surface(point.x, point.s).onRoad) continue
     list.push({ kind, x: point.x, s: point.s, yaw, size, radius: size * 0.42 })
+    const companions = Math.floor(rng() * 3)
+    for (let extra = 0; extra < companions; extra++) {
+      const angle = rng() * Math.PI * 2
+      const apart = size * 0.7 + rng() * boulderLayout.cluster
+      const small = Math.floor(rng() * 2)
+      const [low, high] = kinds[small]?.size ?? [1, 1]
+      const girth = low + rng() ** 2 * (high - low)
+      const x = point.x + Math.cos(angle) * apart
+      const along = point.s + Math.sin(angle) * apart
+      if (world.height(x, along) < shoreHeight + 0.3 || world.surface(x, along).onRoad) continue
+      if (Math.abs(roadCoordinates(world, x, along).distance) < nearest - 1) continue
+      list.push({ kind: small, x, s: along, yaw: rng() * 6.283, size: girth, radius: girth * 0.42 })
+    }
   }
   return list
 }
@@ -58,6 +72,7 @@ interface PlantModel {
 export class Boulders {
   private models: (PlantModel | null)[] = boulderLayout.kinds.map(() => null)
   private pose = new THREE.Object3D()
+  private plain = new THREE.Color('#ffffff')
   loaded = false
   ready: Promise<void>
   constructor() {
@@ -104,6 +119,11 @@ export class Boulders {
         this.loaded = false
       },
     )
+  }
+  tint(rock: THREE.ColorRepresentation) {
+    for (const model of this.models)
+      if (model?.material instanceof THREE.MeshStandardMaterial)
+        model.material.color.set(rock).lerp(this.plain, 0.35).multiplyScalar(1.9)
   }
   add(group: THREE.Group, list: Boulder[], ground: (x: number, s: number) => number) {
     if (!this.loaded) return
