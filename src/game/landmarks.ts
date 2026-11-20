@@ -54,6 +54,7 @@ const pools: Record<Landscape, readonly LandmarkKind[]> = {
   forest: ['lookout', 'cabin', 'cairn', 'mast'],
   canyon: ['tower', 'cairn', 'mast', 'cabin'],
   fjord: ['lighthouse', 'cabin', 'cairn', 'turbine'],
+  jungle: ['lookout', 'cabin', 'cairn', 'tower'],
 }
 
 let cached: { key: string; list: Landmark[] } | null = null

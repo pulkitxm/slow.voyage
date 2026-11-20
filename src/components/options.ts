@@ -18,6 +18,7 @@ import {
   Sun,
   Sunrise,
   Sunset,
+  TreePalm,
   TreePine,
   Trees,
   Truck,
@@ -58,6 +59,12 @@ export const landscapes = [
     subtitle: 'Still water. Snowy tops.',
     icon: Waves,
   },
+  {
+    id: 'jungle',
+    title: 'Monsoon Jungle',
+    subtitle: 'Thick canopy. Falling water.',
+    icon: TreePalm,
+  },
 ] as const
 export const seasons = [
   { id: 'summer', label: 'Summer', icon: Sun },
@@ -70,6 +77,16 @@ export const weather = [
   { id: 'rain', label: 'Rain', icon: CloudRain },
   { id: 'storm', label: 'Storm', icon: CloudLightning },
   { id: 'fog', label: 'Fog', icon: CloudFog },
+] as const
+export const roadWear = [
+  { id: 'fresh', label: 'Freshly laid' },
+  { id: 'worn', label: 'Well travelled' },
+  { id: 'broken', label: 'Potholed' },
+] as const
+export const life = [
+  { id: 'none', label: 'Empty' },
+  { id: 'quiet', label: 'Quiet' },
+  { id: 'lively', label: 'Lively' },
 ] as const
 export const daylight = [
   { id: 'dawn', label: 'Dawn', icon: Sunrise, mood: 'First light' },
@@ -88,4 +105,13 @@ export const vehicles = [
   { id: 'motorcycle', icon: Motorbike },
   { id: 'bus', icon: BusFront },
 ] as const
-export const colors = ['#f8f8f8', '#6f8a77', '#b65a44', '#3b515c', '#c8aa66', '#343b39']
+export const colors = [
+  '#a3211b',
+  '#f8f8f8',
+  '#1f4f8f',
+  '#6f8a77',
+  '#b65a44',
+  '#3b515c',
+  '#c8aa66',
+  '#343b39',
+]

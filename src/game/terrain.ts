@@ -12,9 +12,18 @@ import { landmarkFootprints, landmarkGeometry, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
+import { RoadSurface } from './road-surface'
 import { bannerTexture, chevrons, chevronTexture, delineators, startGantry } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
 import { receiveUnbiasedShadows } from './shadow-receiver'
+import {
+  cragFootprint,
+  cragGeometry,
+  lapWaterfalls,
+  waterfallClearing,
+  waterfallGeometry,
+  waterfallMaterial,
+} from './waterfalls'
 import { createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
@@ -146,6 +155,8 @@ export class Terrain {
     roughness: 0.9,
   })
   glowMaterial = new THREE.MeshBasicMaterial({ vertexColors: true })
+  fallMaterial: THREE.MeshStandardMaterial
+  fallWarmUp: THREE.Mesh
   shadeMaterial: THREE.MeshBasicMaterial | null = null
   shadeDisc = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2)
   chevronMaterial: THREE.MeshStandardMaterial
@@ -161,7 +172,8 @@ export class Terrain {
   rebuilding = false
   private current = 0
   windTime = { value: 0 }
-  roadWetness = { value: 0 }
+  roadWetness: { value: number }
+  roadSurface: RoadSurface
   constructor(
     public scene: THREE.Scene,
     public world: World,
@@ -261,38 +273,26 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     }
     this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-meadow'
     this.asphalt = asphaltTexture()
-    this.roadMaterial = new THREE.MeshStandardMaterial({
-      map: this.asphalt,
-      bumpMap: this.asphalt,
-      bumpScale: 0.0015,
-      color: '#c4ccd1',
-      roughness: 0.98,
-    })
-    this.roadMaterial.onBeforeCompile = (shader) => {
-      shader.uniforms.roadWetness = this.roadWetness
-      shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <common>',
-        '#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;',
-      )
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <begin_vertex>',
-        '#include <begin_vertex>\nroadPosition = (modelMatrix * vec4(position, 1.0)).xz;\nroadLane = abs(uv.x - 0.5) * 2.0;',
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <common>',
-        `#include <common>\nvarying vec2 roadPosition;\nvarying float roadLane;\nuniform float roadWetness;\n${meadowNoise}`,
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <roughnessmap_fragment>',
-        '#include <roughnessmap_fragment>\nroughnessFactor *= 0.94 + roadVariation * 0.06;\nfloat surfaceWetness = smoothstep(0.25, 0.75, roadSurfaceNoise);\nroughnessFactor = mix(roughnessFactor, mix(0.1, 0.46, surfaceWetness), roadWetness);',
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <color_fragment>',
-        '#include <color_fragment>\nfloat roadVariation = fieldVariationAt(roadPosition * 25.0);\nfloat roadSurfaceNoise = fieldVariationAt(roadPosition * 45.0);\ndiffuseColor.rgb *= (0.92 + roadVariation * 0.16) * mix(1.0, 0.68 + roadSurfaceNoise * 0.3, roadWetness);\nfloat roadTracks = (1.0 - smoothstep(0.0, 0.1, abs(roadLane - 0.27))) + (1.0 - smoothstep(0.0, 0.1, abs(roadLane - 0.73)));\nfloat roadPatchy = fieldVariationAt(roadPosition * 1.7 + vec2(5.0, 11.0));\ndiffuseColor.rgb *= 1.0 - roadTracks * (0.5 + roadPatchy * 0.5) * 0.11;\ndiffuseColor.rgb *= mix(1.0, 1.09, smoothstep(0.84, 1.0, roadLane));\ndiffuseColor.rgb *= 1.0 - smoothstep(0.69, 0.72, fieldVariationAt(roadPosition * 0.9 + vec2(31.0, 7.0))) * 0.1;',
-      )
-    }
-    this.roadMaterial.customProgramCacheKey = () => 'aggregate-asphalt-worn'
+    this.fallMaterial = waterfallMaterial(
+      this.grassMaterial.fieldUniforms.fieldNoiseMap,
+      this.windTime,
+    )
+    const warmUp = new THREE.BufferGeometry()
+    warmUp.setAttribute('position', new THREE.Float32BufferAttribute(new Array(9).fill(0), 3))
+    warmUp.setAttribute('normal', new THREE.Float32BufferAttribute(new Array(9).fill(0), 3))
+    warmUp.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(6).fill(0), 2))
+    warmUp.setAttribute('fallFlow', new THREE.Float32BufferAttribute(new Array(9).fill(0), 3))
+    this.fallWarmUp = new THREE.Mesh(warmUp, this.fallMaterial)
+    this.fallWarmUp.frustumCulled = false
+    scene.add(this.fallWarmUp)
+    this.roadSurface = new RoadSurface(
+      this.asphalt,
+      this.grassMaterial.fieldUniforms.fieldNoiseMap,
+      this.windTime,
+      software,
+    )
+    this.roadMaterial = this.roadSurface.material
+    this.roadWetness = this.roadSurface.uniforms.roadWetness
     this.blade = grassGeometry()
     const bounds = this.blade.boundingBox
     if (!bounds) throw new Error('Grass bounds are unavailable')
@@ -310,6 +310,7 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       this.furnitureMaterial,
       this.reflectorMaterial,
       this.landmarkMaterial,
+      this.fallMaterial,
       this.chevronMaterial,
       this.bannerMaterial,
       this.bladeMaterial,
@@ -493,6 +494,18 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.addBatch(group, posts.reflectors, this.reflectorMaterial)
     this.addBatch(group, signs.panels, this.chevronMaterial)
     const lap = Math.floor(start / worldLoop.length) * worldLoop.length
+    for (const fall of lapWaterfalls(this.world)) {
+      const s = fall.s + lap
+      if (s < start || s >= start + groundLayout.tileLength) continue
+      const water = this.addMesh(group, waterfallGeometry(this.world, fall, lap), this.fallMaterial)
+      water.renderOrder = 2
+      this.addMesh(
+        group,
+        cragGeometry(this.world, fall, lap, profile.field?.rock ?? '#807d74'),
+        this.landmarkMaterial,
+      ).castShadow = true
+      trunks.push(...cragFootprint(fall, lap))
+    }
     for (const landmark of lapLandmarks(this.world)) {
       const s = landmark.s + lap
       if (s < start || s >= start + groundLayout.tileLength) continue
@@ -502,7 +515,10 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
       trunks.push({ x: landmark.x, s, radius: landmarkFootprints[landmark.kind] })
     }
     yield
-    const woodland = createWoodland(this.world, id, this.quality)
+    const falls = lapWaterfalls(this.world)
+    const woodland = createWoodland(this.world, id, this.quality).filter(
+      (tree) => !waterfallClearing(falls, lap, tree.x, tree.s),
+    )
     yield
     const conifers = Math.round(treeCount * profile.roadside.conifers)
     const narrow = Math.round(treeCount * profile.roadside.narrow)
@@ -889,6 +905,9 @@ outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.025 + grassB
     this.bladeTexture.dispose()
     this.foliage.dispose()
     this.asphalt.dispose()
+    this.roadSurface.dispose()
+    this.fallWarmUp.removeFromParent()
+    this.fallWarmUp.geometry.dispose()
     this.groundTexture.dispose()
   }
 }

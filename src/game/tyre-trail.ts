@@ -71,7 +71,7 @@ uniform float light;
 varying vec4 cloud;
 void main() {
   float radius = length(gl_PointCoord - 0.5) * 2.0;
-  float soft = 1.0 - smoothstep(0.25, 1.0, radius);
+  float soft = (1.0 - smoothstep(0.0, 1.0, radius)) * 1.35;
   if (cloud.a * soft < 0.004) discard;
   gl_FragColor = vec4(cloud.rgb * light, cloud.a * soft);
   #include <tonemapping_fragment>

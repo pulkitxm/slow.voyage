@@ -59,6 +59,8 @@ export class CinematicPipeline {
   private occlusion = [buffer(THREE.UnsignedByteType), buffer(THREE.UnsignedByteType)]
   private size = new THREE.Vector2()
   rush = 0
+  lensRain = 0
+  lensTime = 0
   air = {
     sunDirection: new THREE.Vector3(0, 1, 0),
     sunColor: new THREE.Color(),
@@ -232,12 +234,42 @@ uniform vec3 sunDirection;
 uniform vec3 sunColor;
 uniform vec3 hazeColor;
 uniform float haze;
+uniform mat4 projection;
+uniform vec3 viewUp;
+uniform float lensRain;
+uniform float lensTime;
 varying vec2 vUv;
 float grain(vec2 pixel) {
   return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
 }
+float viewDepth(float value) {
+  float clip = value * 2.0 - 1.0;
+  return (unprojection[2][2] * clip + unprojection[3][2]) / (unprojection[2][3] * clip + unprojection[3][3]);
+}
+vec3 lensDrops(vec2 uv) {
+  vec3 bend = vec3(0.0);
+  for (int layer = 0; layer < 2; layer++) {
+    float scale = layer == 0 ? 7.0 : 13.0;
+    vec2 grid = uv * vec2(aspect, 1.0) * scale + float(layer) * 19.7;
+    vec2 id = floor(grid);
+    vec3 seed = fract(sin(vec3(dot(id, vec2(127.1, 311.7)), dot(id, vec2(269.5, 183.3)), dot(id, vec2(419.2, 371.9)))) * 43758.5453);
+    float life = fract(lensTime * (0.05 + seed.z * 0.09) + seed.x * 13.0);
+    float present = step(seed.y, 0.22 * lensRain);
+    vec2 centre = (seed.xy - 0.5) * 0.5;
+    centre.y -= life * life * life * 0.35;
+    float radius = (0.045 + seed.z * 0.075) * smoothstep(0.0, 0.03, life) * (1.0 - smoothstep(0.7, 1.0, life));
+    vec2 delta = fract(grid) - 0.5 - centre;
+    delta.y *= 0.82;
+    float drop = (1.0 - smoothstep(radius * 0.2, radius, length(delta))) * present;
+    bend.xy -= delta / scale * drop * 1.5 / vec2(aspect, 1.0);
+    bend.z += drop;
+  }
+  return bend;
+}
 void main() {
-  vec4 scene = texture2D(source, vUv);
+  vec3 drops = lensRain > 0.0 ? lensDrops(vUv) : vec3(0.0);
+  vec2 sight = vUv + drops.xy;
+  vec4 scene = texture2D(source, sight);
   float solid = clamp(scene.a, 0.0, 1.0);
   vec3 color = scene.rgb;
   if (rush > 0.002) {
@@ -246,14 +278,38 @@ void main() {
     vec2 stride = toward * rush * rushReach * edge / 5.0;
     float jitter = grain(gl_FragCoord.xy);
     for (int index = 1; index <= 8; index++)
-      color += texture2D(source, vUv + stride * (float(index) - jitter) * 0.625).rgb;
+      color += texture2D(source, sight + stride * (float(index) - jitter) * 0.625).rgb;
     color /= 9.0;
   }
-  float open = texture2D(shade, vUv).r;
+  float depthValue = texture2D(depth, sight).x;
+  float mirror = clamp(scene.a - 1.0, 0.0, 1.0);
+  if (mirror > 0.01 && depthValue < 1.0) {
+    vec4 start = unprojection * vec4(sight * 2.0 - 1.0, depthValue * 2.0 - 1.0, 1.0);
+    vec3 origin = start.xyz / start.w;
+    vec3 bounce = reflect(normalize(origin), viewUp);
+    float stride = 0.3;
+    float travelled = stride * grain(gl_FragCoord.xy);
+    for (int index = 0; index < 30; index++) {
+      travelled += stride;
+      stride *= 1.2;
+      vec3 point = origin + bounce * travelled;
+      vec4 clip = projection * vec4(point, 1.0);
+      if (clip.w <= 0.0) break;
+      vec2 spot = clip.xy / clip.w * 0.5 + 0.5;
+      if (spot.x < 0.0 || spot.x > 1.0 || spot.y < 0.0 || spot.y > 1.0) break;
+      float gap = viewDepth(texture2D(depth, spot).x) - point.z;
+      if (gap > 0.0 && gap < 1.2 + travelled * 0.3) {
+        vec2 border = smoothstep(vec2(0.0), vec2(0.08), spot) * (1.0 - smoothstep(vec2(0.92), vec2(1.0), spot));
+        vec4 seen = texture2D(source, spot);
+        color = mix(color, min(seen.rgb, vec3(12.0)), mirror * border.x * border.y * step(seen.a, 1.01));
+        break;
+      }
+    }
+  }
+  float open = texture2D(shade, sight).r;
   color *= mix(1.0, pow(open, shadeStrength), solid);
-  float depthValue = texture2D(depth, vUv).x;
   if (depthValue < 1.0 && haze > 0.0) {
-    vec4 view = unprojection * vec4(vUv * 2.0 - 1.0, depthValue * 2.0 - 1.0, 1.0);
+    vec4 view = unprojection * vec4(sight * 2.0 - 1.0, depthValue * 2.0 - 1.0, 1.0);
     view /= view.w;
     float reach = length(view.xyz);
     vec3 ray = normalize((cameraWorld * vec4(view.xyz, 0.0)).xyz);
@@ -264,7 +320,8 @@ void main() {
     vec3 air = hazeColor + sunColor * toward * 0.45;
     color = mix(color, air, clamp(thick * (0.22 + 0.42 * low) * haze, 0.0, 1.0) * solid);
   }
-  color += texture2D(glow, vUv).rgb * glowStrength;
+  color += texture2D(glow, sight).rgb * glowStrength;
+  color *= 1.0 + drops.z * 0.06;
   vec3 mapped = color;
   #ifdef TONE_MAPPING
   mapped = toneMapping(color);
@@ -299,6 +356,10 @@ void main() {
       hazeColor: { value: new THREE.Color() },
       haze: { value: 1 },
       rushReach: { value: cinemaLook.rushReach },
+      projection: { value: new THREE.Matrix4() },
+      viewUp: { value: new THREE.Vector3(0, 1, 0) },
+      lensRain: { value: 0 },
+      lensTime: { value: 0 },
     },
     true,
   )
@@ -390,6 +451,10 @@ void main() {
       if (develop.rush) develop.rush.value = this.rush
       this.bind(this.develop, 'depth', this.scene.depthTexture)
       develop.unprojection?.value.copy(camera.projectionMatrixInverse)
+      develop.projection?.value.copy(camera.projectionMatrix)
+      develop.viewUp?.value.set(0, 1, 0).transformDirection(camera.matrixWorldInverse)
+      if (develop.lensRain) develop.lensRain.value = this.lensRain
+      if (develop.lensTime) develop.lensTime.value = this.lensTime
       develop.cameraWorld?.value.copy(camera.matrixWorld)
       develop.sunDirection?.value.copy(this.air.sunDirection)
       develop.sunColor?.value.copy(this.air.sunColor)
