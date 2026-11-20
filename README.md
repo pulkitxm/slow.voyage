@@ -54,7 +54,7 @@ Local pre-commit checks remain mandatory.
 | Q / E            | Previous / next scenery |
 | V / Shift V      | Next / previous vehicle |
 | M                | Mute / unmute sound     |
-| K                | Toggle mouse driving    |
+| U                | Toggle mouse driving    |
 | R                | Reset to the road       |
 | P / Escape       | Pause                   |
 | H                | Help                    |

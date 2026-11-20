@@ -29,7 +29,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['Q / E', 'Previous / next scenery'],
             ['V / Shift V', 'Next / previous vehicle'],
             ['M', 'Mute / unmute sound'],
-            ['K', 'Toggle mouse driving'],
+            ['U', 'Toggle mouse driving'],
             ['R', 'Return to the road'],
             ['P / Esc', 'Pause the drive'],
           ].map(([key, label]) => (
