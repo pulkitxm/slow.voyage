@@ -54,7 +54,7 @@ import { WorldMap } from './world-map'
 const impactShake = { pitch: 0.025, roll: 0.035 }
 const paintBudget = 11
 const paintDepth = 0.86
-export const contactShade = { opacity: 0.5, margin: 1.25, lift: 0.045 }
+export const contactShade = { opacity: 0.72, margin: 1.25, lift: 0.045 }
 
 function contactShadow() {
   const canvas = document.createElement('canvas')
@@ -157,6 +157,8 @@ export class RoadEngine {
   sun = new THREE.DirectionalLight('#fff3d5', 2.5)
   ambient = new THREE.HemisphereLight('#dae9ec', '#9ba47c', 1.9)
   headlights: THREE.SpotLight[] = []
+  spill = new THREE.PointLight('#ffe6c2', 0, 22, 1.5)
+  tailGlow = new THREE.PointLight('#ff2812', 0, 10, 1.7)
   sky: ScenicSky
   frame = 0
   arrival = vehicleArrival.duration
@@ -679,6 +681,11 @@ export class RoadEngine {
       light.target.position.set(position[0] * 1.3, -0.9, position[2] - 34)
       this.car.group.add(light, light.target)
     }
+    const nose = this.car.headlightPositions[0] ?? [0, 0.6, -2]
+    const reach = footprints[this.settings.vehicle]
+    this.spill.position.set(0, 0.32, nose[2] - 3.2)
+    this.tailGlow.position.set(0, 0.14, reach.rear - 0.15)
+    this.car.group.add(this.spill, this.tailGlow)
   }
   applyLighting(drifting = false) {
     const profile = atmosphereProfile(this.settings, this.dayClock)
@@ -787,7 +794,7 @@ export class RoadEngine {
         this.cloudTone.set('#e4eef2')
       } else if (!wheel.onRoad) {
         rate = Math.min(speed, 30) * 1.1
-        opacity = 0.2
+        opacity = 0.13
         size = 2.7
         this.cloudTone.copy(this.dustTone).lerp(this.paleDust, 0.62).multiplyScalar(2.3)
       } else if (wheel.slip > trailLayout.smokeSlip) {
@@ -977,9 +984,12 @@ export class RoadEngine {
       this.dark,
       p.speed,
     )
+    const beams = (this.headlights[0]?.intensity ?? 0) / 210
+    this.spill.intensity = beams * 48
+    this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 7 : 2.4)
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
-    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.68
+    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.4 : 0.8
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.update(p, this.world, cameraMode, dt)
@@ -1088,7 +1098,7 @@ export class RoadEngine {
           ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
           : 0
       this.cinema.lensRain =
-        this.wetRoad && this.view.motion ? (this.settings.camera === 'bonnet' ? 1 : 0.8) : 0
+        this.wetRoad && this.view.motion ? (this.settings.camera === 'bonnet' ? 1 : 0.35) : 0
       this.cinema.lensTime = this.dayClock
       this.cinema.render(this.scene, this.camera)
     } else this.renderer.render(this.scene, this.camera)
@@ -1131,6 +1141,8 @@ export class RoadEngine {
     this.contact.material.map?.dispose()
     this.contact.material.dispose()
     for (const light of this.headlights) light.dispose()
+    this.spill.dispose()
+    this.tailGlow.dispose()
     this.sky.geometry.dispose()
     this.sky.material.dispose()
     this.sun.shadow.dispose()

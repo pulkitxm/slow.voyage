@@ -396,8 +396,8 @@ function stains() {
   const mesh = new THREE.InstancedMesh(
     new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2),
     new THREE.MeshStandardMaterial({
-      color: '#4a0705',
-      roughness: 0.3,
+      color: '#3a0504',
+      roughness: 0.7,
       alphaMap: new THREE.CanvasTexture(canvas),
       transparent: true,
       opacity: 0.92,
@@ -575,7 +575,7 @@ export class Life {
             spot.tip = down.tip
             spot.age = down.age
             spot.stride = spot.graze = 0
-            if (down.pool > 0 && stained < reactionLayout.stains) {
+            if (settings.blood && down.pool > 0 && stained < reactionLayout.stains) {
               const size = (0.9 + reach * 2.2) * Math.sqrt(down.pool)
               const lie = reach * 2.6
               this.pose.position.set(

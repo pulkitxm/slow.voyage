@@ -180,7 +180,18 @@ export function SettingsPanel({
                   </button>
                 ))}
               </div>
-              <p>Walkers on the verge and herds grazing in the fields.</p>
+              <p>
+                Walkers on the verge and herds grazing in the fields. They run from the horn and
+                from a car heading their way, and fall if it reaches them.
+              </p>
+              <label className="check-option">
+                <input
+                  type="checkbox"
+                  checked={settings.blood}
+                  onChange={(event) => update('blood', event.target.checked)}
+                />
+                Show blood
+              </label>
             </section>
             <section className="setting-section">
               <h3>Road surface</h3>
