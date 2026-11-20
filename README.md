@@ -53,7 +53,8 @@ Local pre-commit checks remain mandatory.
 | B                | Horn                    |
 | Q / E            | Previous / next scenery |
 | V / Shift V      | Next / previous vehicle |
-| M                | Toggle mouse driving    |
+| M                | Mute / unmute sound     |
+| U                | Toggle mouse driving    |
 | R                | Reset to the road       |
 | P / Escape       | Pause                   |
 | H                | Help                    |
