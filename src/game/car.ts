@@ -7,6 +7,7 @@ import { carEndNormal, carFrontDepth, carRearDepth, carSurface, createCarBody } 
 import { createCarCabin } from './car-cabin'
 import { createCarWheel } from './car-wheel'
 import { batchUntexturedMeshes } from './mesh-batch'
+import { reflectSkyline } from './skyline'
 import { subdividePlanarSurface } from './surface-subdivide'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
@@ -48,6 +49,7 @@ export class CarModel {
       clearcoatRoughness: 0.03,
       envMapIntensity: 0.8,
     })
+    reflectSkyline(this.body)
     const glass = new THREE.MeshPhysicalMaterial({
       color: '#3a3f44',
       metalness: 0.2,

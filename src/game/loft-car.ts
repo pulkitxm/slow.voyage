@@ -5,6 +5,7 @@ import { createLoftBody, type LoftMaterial, projectOntoHull } from './loft-body'
 import { createLoftCabin } from './loft-cabin'
 import { type DetailMaterial, isLoftVehicle, loftVehicles } from './loft-vehicles'
 import { batchUntexturedMeshes } from './mesh-batch'
+import { reflectSkyline } from './skyline'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
 import type { Settings } from './world'
@@ -45,6 +46,7 @@ export class LoftCarModel {
       clearcoatRoughness: 0.03,
       envMapIntensity: 0.8,
     })
+    reflectSkyline(this.body)
     const glass = new THREE.MeshPhysicalMaterial({
       color: '#33383d',
       metalness: 0.2,
