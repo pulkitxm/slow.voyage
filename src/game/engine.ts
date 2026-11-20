@@ -182,6 +182,7 @@ export class RoadEngine {
       | 'cruiseUp'
       | 'cruiseDown'
       | 'mouse'
+      | 'mute'
       | 'journeyNext'
       | 'journeyPrevious'
       | 'vehicleNext'
@@ -223,7 +224,8 @@ export class RoadEngine {
     if (event.code === 'Space') this.manualOverride('all')
     if (event.code === 'KeyF') this.onAction?.('auto')
     if (event.code === 'KeyG') this.onAction?.('autoMode')
-    if (event.code === 'KeyM') this.onAction?.('mouse')
+    if (event.code === 'KeyM') this.onAction?.('mute')
+    if (event.code === 'KeyK') this.onAction?.('mouse')
     if (event.code === 'KeyQ') this.onAction?.('journeyPrevious')
     if (event.code === 'KeyE') this.onAction?.('journeyNext')
     if (event.code === 'KeyV') this.onAction?.(event.shiftKey ? 'vehiclePrevious' : 'vehicleNext')

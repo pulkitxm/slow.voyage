@@ -84,6 +84,7 @@ export function Drive() {
     cycleCamera,
     cycleVehicle,
     togglePhoto,
+    toggleMute,
     copyLink,
     atlas,
     setAtlas,
@@ -161,13 +162,7 @@ export function Drive() {
               <CircleHelp />
             </IconButton>
           )}
-          <IconButton
-            label={settings.volume ? 'Mute sound' : 'Unmute sound'}
-            onClick={() => {
-              update('volume', settings.volume ? 0 : 0.25)
-              engine.current?.audio.start(settings.volume ? 0 : 0.25)
-            }}
-          >
+          <IconButton label={settings.volume ? 'Mute sound' : 'Unmute sound'} onClick={toggleMute}>
             {settings.volume ? <Volume2 /> : <VolumeX />}
           </IconButton>
           <IconButton label="Fullscreen" onClick={fullscreen}>

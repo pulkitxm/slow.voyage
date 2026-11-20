@@ -362,7 +362,7 @@ test(
       [
         start,
         wait('autodrive', '[data-assistance="full"]'),
-        press('enable-mouse', 'm'),
+        press('enable-mouse', 'k'),
         wait('mouse-enabled', '[data-mouse-steer="0.00"]'),
         press('controller-trigger', '1'),
         { step_id: 'controller-sampled', action: 'wait_for_timeout', duration_ms: 400 },
@@ -380,7 +380,7 @@ test(
         press('mouse-sensitivity', 'End', '#mouse-sensitivity'),
         wait('sensitivity-updated', 'label[for="mouse-sensitivity"] span:has-text("2.0")'),
         click('close', '[aria-label="Close settings"]'),
-        press('disable-mouse', 'm'),
+        press('disable-mouse', 'k'),
         press('re-enable-auto', 'f'),
         wait('autodrive-restored', '[data-assistance="full"]'),
         press('release-controller', '0'),
