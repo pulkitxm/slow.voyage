@@ -160,7 +160,7 @@ export class RoadEngine {
   sun = new THREE.DirectionalLight('#fff3d5', 2.5)
   ambient = new THREE.HemisphereLight('#dae9ec', '#9ba47c', 1.9)
   headlights: THREE.SpotLight[] = []
-  spill = new THREE.SpotLight('#ffe6c2', 0, 40, 0.62, 1, 1.2)
+  spill = new THREE.SpotLight('#ffe6c2', 0, 60, 0.4, 1, 0)
   tailGlow = new THREE.PointLight('#ff2812', 0, 7, 1.7)
   sky: ScenicSky
   frame = 0
@@ -689,8 +689,8 @@ export class RoadEngine {
     }
     const nose = this.car.headlightPositions[0] ?? [0, 0.6, -2]
     const reach = footprints[this.settings.vehicle]
-    this.spill.position.set(0, 1.25, nose[2] + 0.6)
-    this.spill.target.position.set(0, -1.1, nose[2] - 10)
+    this.spill.position.set(0, 1.5, nose[2] + 1)
+    this.spill.target.position.set(0, -1.2, nose[2] - 24)
     this.tailGlow.position.set(0, 0.14, reach.rear - 0.15)
     this.car.group.add(this.spill, this.spill.target, this.tailGlow)
   }
@@ -702,7 +702,7 @@ export class RoadEngine {
       this.reflectionAt = this.dayClock
       const environment = this.atmosphere.setAppearance(this.settings, profile)
       this.scene.environment = environment
-      this.scene.environmentIntensity = 0.24
+      this.scene.environmentIntensity = 0.13
       this.car.group.traverse((object) => {
         if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial) {
           object.material.envMap = environment
@@ -736,10 +736,13 @@ export class RoadEngine {
     }
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight
-    this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.38)
+    this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.34)
     this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.8)
     this.terrain.boulders?.tint(landscapeProfiles[this.settings.landscape].field?.rock ?? '#8c877a')
-    const glow = Math.max(0.2, clamp(profile.ambient / 2.6, 0.06, 1) * (profile.night ? 0.5 : 1))
+    const glow = Math.max(
+      profile.night ? 0.38 : 0.2,
+      clamp(profile.ambient / 2.6, 0.06, 1) * (profile.night ? 0.5 : 1),
+    )
     skyline.horizon.value.set(profile.horizon).multiplyScalar(glow * 0.9)
     skyline.zenith.value.set(profile.sky).multiplyScalar(glow * 0.8)
     skyline.ground.value.set('#3b4034').multiplyScalar(glow)
@@ -761,7 +764,7 @@ export class RoadEngine {
       light.intensity =
         index < this.car.headlightPositions.length &&
         (night || profile.wet || profile.snow || this.settings.weather === 'fog')
-          ? 210 * (night ? 1 : clamp(1 - profile.sunlight * 0.6 - profile.ambient * 0.25, 0.08, 1))
+          ? 150 * (night ? 1 : clamp(1 - profile.sunlight * 0.6 - profile.ambient * 0.25, 0.08, 1))
           : 0
   }
   advanceSky(dt: number) {
@@ -1017,7 +1020,7 @@ export class RoadEngine {
       p.speed,
     )
     const beams = (this.headlights[0]?.intensity ?? 0) / 210
-    this.spill.intensity = beams * 300
+    this.spill.intensity = beams * 2.4
     this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 4 : 1.1)
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')

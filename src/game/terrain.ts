@@ -300,7 +300,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         `#if NUM_DIR_LIGHTS > 0
 float grassBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
 outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBacklight * 0.1);
-outgoingLight += reflectedLight.indirectDiffuse * 0.9 + reflectedLight.directDiffuse * 0.12;
+outgoingLight += reflectedLight.indirectDiffuse * 0.9;
 #endif
 #include <opaque_fragment>`,
       )

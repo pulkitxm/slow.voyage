@@ -88,7 +88,8 @@ ${snow ? '' : 'uniform vec3 rainStreak;\nuniform float rainPixel;\nattribute vec
 transformed = mod(position + vec3(1.0, -1.6, 0.3) * weatherTime - weatherOrigin, vec3(64.0, 32.0, 64.0)) + weatherOrigin - vec3(32.0, 16.0, 32.0);
 transformed.x += sin(position.x + weatherTime * 0.8) * 0.5;`
             : `vec3 rainCentre = mod(position + ${fall} * weatherTime - weatherOrigin, vec3(64.0, 32.0, 64.0)) + weatherOrigin - vec3(32.0, 16.0, 32.0);
-vec3 rainTail = rainStreak * (0.7 + fallCorner.z * 0.6);
+vec3 rainTail = rainStreak * (0.55 + fallCorner.z * 0.9);
+rainTail.xz += vec2(sin(fallCorner.z * 91.7), cos(fallCorner.z * 57.3)) * length(rainStreak) * 0.16;
 vec3 rainToward = cameraPosition - rainCentre;
 float rainReach = length(rainToward);
 vec3 rainAcross = normalize(cross(rainTail, rainToward));
