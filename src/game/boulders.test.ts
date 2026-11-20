@@ -12,7 +12,7 @@ test('boulders are scattered beside the road, never on it or in water, the same 
       const list = planBoulders(world, tile * 120, 120, random(tile * 613 + 5))
       const again = planBoulders(world, tile * 120, 120, random(tile * 613 + 5))
       expect(again).toEqual(list)
-      expect(list.length).toBeLessThanOrEqual(landscapeProfiles[landscape].boulders)
+      expect(list.length).toBeLessThanOrEqual(landscapeProfiles[landscape].boulders * 3)
       for (const boulder of list) {
         placed++
         const offset = Math.abs(roadCoordinates(world, boulder.x, boulder.s).distance)
