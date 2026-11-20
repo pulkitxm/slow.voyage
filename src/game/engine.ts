@@ -744,7 +744,7 @@ export class RoadEngine {
         : (landscapeProfiles[this.settings.landscape].field?.soil ?? '#7d6a4f'),
       this.skyTone.set(profile.horizon).multiplyScalar(clamp(profile.ambient / 2.6, 0.12, 1) * 0.9),
     )
-    this.terrain.roadMaterial.color.set(profile.wet ? '#a8b4bd' : '#c4ccd1')
+    this.terrain.roadMaterial.color.set(profile.wet ? '#a9b1b6' : '#cbc9c4')
     this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
     for (const [index, light] of this.headlights.entries())
       light.intensity =
