@@ -94,6 +94,10 @@ of the whole loop.
   bleed, the car loses speed in proportion to their weight, and everyone nearby
   screams and flees before wandering back. Elephants, and anything met at a
   crawl, stay solid.
+- Roadside marker posts fold flat and bushes are squashed when the car runs over
+  them, each with a small loss of speed and its own sound. Trees, sign posts,
+  rails, rock outcrops and landmarks are solid. A struck walker or animal is
+  swept clear of the bodywork to the nearer side instead of passing through it.
 - Off the road, slopes steeper than about 45 degrees act as walls instead of
   ramps, and foliage closer than the chase camera is cut away so the view never
   fills with leaves.
