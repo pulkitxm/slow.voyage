@@ -75,6 +75,7 @@ of the whole loop.
   eating cycles; the rest are generated in code.
   The roadside life setting chooses empty, quiet, or lively (the default).
 - Waterfalls pour over rock ledges set into steep hillsides that face the road.
-  Monsoon Jungle is a seventh landscape of dense broadleaf canopy.
+  Monsoon Jungle is a seventh landscape of dense broadleaf canopy, leaning palms,
+  and ferns.
 - The camera leans into bends, dips under braking, and trembles at speed. The
   camera motion setting turns that off together with speed blur and lens drops.
