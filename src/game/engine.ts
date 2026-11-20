@@ -54,6 +54,7 @@ import { WorldMap } from './world-map'
 const impactShake = { pitch: 0.025, roll: 0.035 }
 const paintBudget = 11
 const paintDepth = 0.86
+export const idlePace = 46
 export const contactShade = { opacity: 0.72, margin: 1.25, lift: 0.045 }
 
 function contactShadow() {
@@ -898,6 +899,7 @@ export class RoadEngine {
   render = (time: number) => {
     if (this.disposed) return
     this.frame = requestAnimationFrame(this.render)
+    if (this.paused && !this.photo && this.rendered && time - this.lastTime < idlePace) return
     const elapsed = this.lastTime ? (time - this.lastTime) / 1000 : 1 / 60
     const dt = Math.min(elapsed, 0.05)
     this.frameRate = Math.round(1 / Math.max(elapsed, 0.001))
