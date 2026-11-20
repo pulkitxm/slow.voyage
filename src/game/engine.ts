@@ -700,7 +700,7 @@ export class RoadEngine {
       this.reflectionAt = this.dayClock
       const environment = this.atmosphere.setAppearance(this.settings, profile)
       this.scene.environment = environment
-      this.scene.environmentIntensity = 0.35
+      this.scene.environmentIntensity = 0.24
       this.car.group.traverse((object) => {
         if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial) {
           object.material.envMap = environment
@@ -734,7 +734,7 @@ export class RoadEngine {
     }
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight
-    this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.3)
+    this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.38)
     this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.45)
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
