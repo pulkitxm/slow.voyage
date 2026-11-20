@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { groundLayout, groundOffsets } from './ground-grid'
 import { landscapeProfiles } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
-import { loadRockSurface } from './rock'
+import { loadGroundDetail, loadRockSurface } from './rock'
 import { woodlandCoverage } from './woodland'
 import { clamp, random, type Settings, shoreHeight, type World } from './world'
 
@@ -144,6 +144,8 @@ export function groundTexture() {
 }
 export const meadowNoise = `
 uniform sampler2D fieldNoiseMap;
+uniform sampler2D fieldDetailMap;
+uniform float fieldDetail;
 float fieldVariationAt(vec2 p) {
   return texture2D(fieldNoiseMap, (p * 0.007 + 0.5) / 128.0).r * 0.6
     + texture2D(fieldNoiseMap, (p * 0.037 + 0.5) / 128.0).r * 0.28
@@ -169,6 +171,8 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
   rock = loadRockSurface()
   fieldUniforms = {
     fieldNoiseMap: { value: meadowNoiseTexture() },
+    fieldDetailMap: { value: loadGroundDetail() },
+    fieldDetail: { value: 1 },
     fieldDryGrass: { value: new THREE.Color() },
     fieldDryness: { value: 0 },
     fieldMeadowShade: { value: new THREE.Color() },
@@ -183,6 +187,7 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
     super({ map: texture, bumpMap: texture, bumpScale: 0.02, vertexColors: true, roughness: 1 })
     this.normalMap = software ? null : this.fieldUniforms.fieldRockMap.value
     this.fieldUniforms.fieldRockLayers.value = software ? 1 : 2
+    this.fieldUniforms.fieldDetail.value = software ? 0 : 1
     this.setAppearance(settings)
     this.onBeforeCompile = (shader) => {
       Object.assign(shader.uniforms, this.fieldUniforms)
@@ -247,6 +252,9 @@ float dryBlend = smoothstep(0.35, 0.7, fieldVariation) * fieldDryness;
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb, dryBlend);
 diffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldPosition));
 diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
+float fieldClose = (1.0 - smoothstep(18.0, 80.0, length(vViewPosition))) * fieldDetail;
+float fieldGrain = texture2D(fieldDetailMap, fieldPosition * 0.42).g * 0.6 + texture2D(fieldDetailMap, fieldPosition * 0.11 + vec2(0.37, 0.61)).g * 0.4;
+diffuseColor.rgb *= mix(1.0, 0.45 + fieldGrain * 1.1, fieldClose * 0.75);
 diffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldPosition * 0.13 + vec2(17.3, 61.9)));
 diffuseColor.rgb *= 0.93 + fieldVariationAt(fieldPosition * 11.0 + vec2(3.1, 8.7)) * 0.14;
 float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fieldVariation);
@@ -312,6 +320,7 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
+    this.fieldUniforms.fieldDetailMap.value.dispose()
     this.fieldUniforms.fieldRockMap.value.dispose()
     this.fieldUniforms.fieldRockColorMap.value.dispose()
     super.dispose()
