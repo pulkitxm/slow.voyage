@@ -93,7 +93,7 @@ function phaseProfile(phase: DayPhase, weather: Weather, season: Settings['seaso
       : clearSkies[phase],
     horizon: covered
       ? shaded(
-          weather === 'fog' ? '#c3cecb' : storm ? '#7d8d93' : raining ? '#9dafb4' : '#c4cfce',
+          weather === 'fog' ? '#c3cecb' : storm ? '#5f6e76' : raining ? '#7b8d95' : '#c4cfce',
           clearHorizons.night,
         )
       : clearHorizons[phase],
@@ -115,8 +115,10 @@ function phaseProfile(phase: DayPhase, weather: Weather, season: Settings['seaso
     snow: raining && season === 'winter',
     downpour: storm ? 1 : 0,
     night: dim > 0.5 ? 1 : 0,
-    water: waters[phase][0],
-    waterSky: waters[phase][1],
+    water: raining ? mixColor(waters[phase][0], '#27333a', 0.55) : waters[phase][0],
+    waterSky: raining
+      ? mixColor(waters[phase][1], storm ? '#4c5a62' : '#66767e', 0.8)
+      : waters[phase][1],
     frozenWater: night ? '#4e647c' : shaded('#b7c8cd', '#4e647c'),
   }
 }

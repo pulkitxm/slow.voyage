@@ -33,6 +33,7 @@ export interface Settings {
   weather: Weather
   roadWear: RoadWear
   life: LifeLevel
+  blood: boolean
   vehicle: Vehicle
   camera: CameraMode
   motion: CameraMotion
@@ -60,6 +61,7 @@ export const defaults: Settings = {
   weather: 'clear',
   roadWear: 'worn',
   life: 'lively',
+  blood: true,
   vehicle: 'touring',
   camera: 'chase',
   motion: 'full',

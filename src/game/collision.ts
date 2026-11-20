@@ -14,7 +14,7 @@ export interface Trunk {
   radius: number
 }
 
-export type ObstacleMaterial = 'rail' | 'trunk' | 'water'
+export type ObstacleMaterial = 'rail' | 'trunk' | 'water' | 'rock'
 
 export interface Obstacle {
   material: ObstacleMaterial
@@ -173,7 +173,7 @@ export function boundaryObstacle(world: World, pose: Pose, footprint: Footprint)
       : Math.min(depth / Math.max(gradient, 0.05), terrainBounds.step)
     contacts.push({ localX: point.localX, localS: point.localS, normalX, normalS })
     if (!deepest || penetration > deepest.penetration)
-      deepest = { material: wall ? 'trunk' : 'water', contacts, penetration, normalX, normalS }
+      deepest = { material: wall ? 'rock' : 'water', contacts, penetration, normalX, normalS }
   }
   return deepest
 }
