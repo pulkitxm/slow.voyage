@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 export const trailLayout = {
-  particles: 900,
+  particles: 1800,
   life: 1.5,
   marks: 2400,
   markWidth: 0.2,
@@ -36,6 +36,11 @@ export class TyreParticles {
       transparent: true,
       depthWrite: false,
       fog: true,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.SrcAlphaFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.ZeroFactor,
+      blendDstAlpha: THREE.OneFactor,
       uniforms: THREE.UniformsUtils.merge([
         THREE.UniformsLib.fog ?? {},
         {

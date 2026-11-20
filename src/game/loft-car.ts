@@ -42,8 +42,8 @@ export class LoftCarModel {
       metalness: 0.3,
       roughness: 0.34,
       clearcoat: 1,
-      clearcoatRoughness: 0.06,
-      envMapIntensity: 0.55,
+      clearcoatRoughness: 0.1,
+      envMapIntensity: 0.68,
     })
     const glass = new THREE.MeshPhysicalMaterial({
       color: '#33383d',

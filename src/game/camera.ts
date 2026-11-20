@@ -19,8 +19,8 @@ export const cameraRush = { fov: 9, distance: 0.9, rate: 3.5 }
 export const cameraFeel = {
   lean: 0.0032,
   leanLimit: 0.04,
-  dive: 0.004,
-  diveLimit: 0.05,
+  dive: 0.007,
+  diveLimit: 0.075,
   cabinRoll: 0.85,
   tremor: 0.0013,
   settle: 5,
