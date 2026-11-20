@@ -125,6 +125,7 @@ export class RoadEngine {
   wetRoad = false
   private dustTone = new THREE.Color()
   private paleDust = new THREE.Color('#d9cfb8')
+  private neutralFill = new THREE.Color('#efe9e1')
   private travel = new THREE.Vector3()
   private skyTone = new THREE.Color()
   private cloudTone = new THREE.Color()
@@ -732,7 +733,7 @@ export class RoadEngine {
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight
     this.ambient.intensity = profile.ambient * 0.3
-    this.ambient.color.set(profile.horizon)
+    this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.45)
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0
@@ -1046,6 +1047,11 @@ export class RoadEngine {
         if (knock.kind === 'person')
           this.audio.cry(knock.voice ? 'woman' : 'man', true, knock.distance)
         this.lifeAlarm = this.lifeClock
+      }
+      for (const kind of this.terrain.brush(driver)) {
+        this.physics.speed *= kind === 'post' ? 0.985 : 0.95
+        this.physics.impact = Math.max(this.physics.impact, kind === 'post' ? 0.25 : 0.18)
+        this.audio.brushed(kind === 'post')
       }
       const panicked = this.lifeClock - this.lifeAlarm < 0.6
       for (let voice = 0; voice < Math.min(4, this.life.startled); voice++)

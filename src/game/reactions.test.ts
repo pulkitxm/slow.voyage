@@ -91,3 +91,13 @@ test('a struck walker is thrown ahead of the car, comes to rest and then bleeds'
   expect(behind.dirS).toBeLessThan(-0.9)
   expect(alarm(Object.assign(freshFate(), { fallen: down }), 200, 5, 0)).toBe(false)
 })
+
+test('a struck walker is swept clear of the bodywork before the car passes', () => {
+  for (const offset of [-0.6, 0, 0.3]) {
+    const car = driver(25)
+    const down = fall(car, offset, 2, 0, 0)
+    const soon = fallenPose(down, reactionLayout.sweep)
+    expect(Math.abs(soon.x)).toBeGreaterThanOrEqual(car.halfWidth + reactionLayout.berth - 0.001)
+    if (offset !== 0) expect(Math.sign(soon.x)).toBe(Math.sign(offset))
+  }
+})

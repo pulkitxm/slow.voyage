@@ -27,6 +27,7 @@ export function roadCurvature(world: World, s: number) {
 export function delineators(world: World, start: number, length: number) {
   const posts: THREE.BufferGeometry[] = []
   const reflectors: THREE.BufferGeometry[] = []
+  const spots: { x: number; y: number; s: number }[] = []
   const { postSpacing, postOffset, postHeight } = roadsideLayout
   const first = Math.ceil(start / postSpacing) * postSpacing
   for (let s = first; s < start + length; s += postSpacing) {
@@ -36,6 +37,7 @@ export function delineators(world: World, start: number, length: number) {
       const point = roadPoint(road, s, side * postOffset)
       const ground = world.height(point.x, point.s)
       if (ground < road.y - 1.2) continue
+      spots.push({ x: point.x, y: ground, s: point.s })
       posts.push(
         placed(
           new THREE.BoxGeometry(0.1, postHeight, 0.05),
@@ -56,12 +58,13 @@ export function delineators(world: World, start: number, length: number) {
       )
     }
   }
-  return { posts, reflectors }
+  return { posts, reflectors, spots }
 }
 
 export function chevrons(world: World, start: number, length: number) {
   const posts: THREE.BufferGeometry[] = []
   const panels: THREE.BufferGeometry[] = []
+  const feet: { x: number; s: number }[] = []
   const { chevronSpacing, chevronCurve, chevronOffset } = roadsideLayout
   const first = Math.ceil(start / chevronSpacing) * chevronSpacing
   for (let s = first; s < start + length; s += chevronSpacing) {
@@ -73,6 +76,7 @@ export function chevrons(world: World, start: number, length: number) {
     const point = roadPoint(road, s, side * chevronOffset)
     const ground = world.height(point.x, point.s)
     if (ground < road.y - 1.5) continue
+    feet.push({ x: point.x, s: point.s })
     posts.push(
       placed(new THREE.BoxGeometry(0.07, 1.5, 0.07), road.yaw, point.x, ground + 0.75, point.s),
     )
@@ -82,7 +86,7 @@ export function chevrons(world: World, start: number, length: number) {
     panel.translate(point.x, ground + 1.35, -point.s)
     panels.push(panel)
   }
-  return { posts, panels }
+  return { posts, panels, feet }
 }
 
 export function startGantry(world: World, s: number) {

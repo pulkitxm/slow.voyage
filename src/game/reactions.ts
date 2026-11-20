@@ -18,6 +18,8 @@ export const reactionLayout = {
   throwLimit: 7,
   stain: 2.4,
   stains: 28,
+  berth: 1.1,
+  sweep: 0.22,
   mourn: 120,
   apart: 120,
 } as const
@@ -59,6 +61,9 @@ export interface Fall {
   s: number
   dirX: number
   dirS: number
+  sideX: number
+  sideS: number
+  clear: number
   reach: number
   yaw: number
   at: number
@@ -173,15 +178,16 @@ export function fall(driver: Driver, x: number, s: number, yaw: number, time: nu
   const { aside } = carFrame(driver, x, s)
   const sin = Math.sin(driver.yaw)
   const cos = Math.cos(driver.yaw)
-  const glance = Math.max(-0.5, Math.min(0.5, aside * 0.35))
-  const dirX = -sin * facing + cos * glance
-  const dirS = cos * facing + sin * glance
-  const length = Math.hypot(dirX, dirS) || 1
+  const side =
+    Math.abs(aside) > 0.05 ? Math.sign(aside) : Math.sin(x * 12.9898 + s * 78.233) > 0 ? 1 : -1
   return {
     x,
     s,
-    dirX: dirX / length,
-    dirS: dirS / length,
+    dirX: -sin * facing,
+    dirS: cos * facing,
+    sideX: cos * side,
+    sideS: sin * side,
+    clear: Math.max(0, driver.halfWidth + reactionLayout.berth - Math.abs(aside)),
     reach: Math.min(reactionLayout.throwLimit, Math.abs(driver.speed) * reactionLayout.throwReach),
     yaw,
     at: time,
@@ -192,10 +198,11 @@ export function fallenPose(down: Fall, time: number) {
   const age = Math.max(0, time - down.at)
   const part = Math.min(1, age / reactionLayout.throwTime)
   const slid = 1 - (1 - part) * (1 - part)
+  const swept = 1 - (1 - Math.min(1, age / reactionLayout.sweep)) ** 3
   return {
-    x: down.x + down.dirX * down.reach * slid,
-    s: down.s + down.dirS * down.reach * slid,
-    lift: Math.sin(Math.PI * part) * Math.min(1.1, down.reach * 0.16),
+    x: down.x + down.dirX * down.reach * slid + down.sideX * down.clear * swept,
+    s: down.s + down.dirS * down.reach * slid + down.sideS * down.clear * swept,
+    lift: Math.sin(Math.PI * part) * Math.min(1.5, 0.35 + down.reach * 0.2),
     tip: Math.min(1, age / (reactionLayout.throwTime * 0.55)),
     pool: Math.max(0, Math.min(1, (age - reactionLayout.throwTime) / reactionLayout.stain)),
     age,
