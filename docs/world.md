@@ -71,7 +71,9 @@ of the whole loop.
   rain rings, and drops gather on the lens.
 - Walkers follow the verge by day and step aside for a passing car. Herds chosen
   for each landscape graze in the fields: cows, sheep, horses, deer, goats, camels,
-  and elephants. They are solid to drive into and never placed on the carriageway.
+  and elephants. They are solid to drive into and never placed on the carriageway. People, cows,
+  horses, deer, and sheep are rigged public-domain models with walk, idle, and
+  eating cycles; the rest are generated in code.
   The roadside life setting chooses empty, quiet, or lively (the default).
 - Waterfalls pour over rock ledges set into steep hillsides that face the road.
   Monsoon Jungle is a seventh landscape of dense broadleaf canopy.
