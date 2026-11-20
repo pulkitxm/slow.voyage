@@ -40,22 +40,23 @@ function plumeGeometry() {
     )
   }
   const steps = 6
-  for (let index = 0; index < steps; index++) {
-    const from = index / steps
-    const to = (index + 1) / steps
-    const lift = (along: number) => height[0] + (height[1] - height[0]) * along ** 0.7
-    const base = positions.length / 3
-    for (const [along, top] of [
-      [from, 0],
-      [from, 1],
-      [to, 0],
-      [to, 1],
-    ] as const) {
-      positions.push(0, top ? lift(along) : 0, along * reach)
-      shape.push(0.5, top, along, 1)
+  for (const offset of [-0.8, 0, 0.8])
+    for (let index = 0; index < steps; index++) {
+      const from = index / steps
+      const to = (index + 1) / steps
+      const lift = (along: number) => height[0] + (height[1] - height[0]) * along ** 0.7
+      const base = positions.length / 3
+      for (const [along, top] of [
+        [from, 0],
+        [from, 1],
+        [to, 0],
+        [to, 1],
+      ] as const) {
+        positions.push(offset * (1 + along * 1.6), top ? lift(along) : 0, along * reach)
+        shape.push(0.5 + offset * 0.3, top, along, 1)
+      }
+      indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3)
     }
-    indices.push(base, base + 2, base + 1, base + 1, base + 2, base + 3)
-  }
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geometry.setAttribute('plume', new THREE.Float32BufferAttribute(shape, 4))
@@ -82,6 +83,11 @@ export class Wake {
       depthWrite: false,
       side: THREE.DoubleSide,
       fog: true,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.SrcAlphaFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.ZeroFactor,
+      blendDstAlpha: THREE.OneFactor,
       uniforms: THREE.UniformsUtils.merge([
         THREE.UniformsLib.fog ?? {},
         { wakeTime: { value: 0 }, wakeLight: { value: 1 }, wakeLevel: { value: 0 } },
@@ -90,8 +96,12 @@ export class Wake {
 #include <fog_pars_vertex>
 attribute vec4 plume;
 varying vec4 wakeShape;
+varying float wakeFacing;
 void main() {
   wakeShape = plume;
+  vec3 wakePlace = (modelMatrix * vec4(position, 1.0)).xyz;
+  vec3 wakeFace = normalize(mat3(modelMatrix) * (plume.w < 0.5 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0)));
+  wakeFacing = abs(dot(normalize(cameraPosition - wakePlace), wakeFace));
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
@@ -103,6 +113,7 @@ uniform float wakeTime;
 uniform float wakeLight;
 uniform float wakeLevel;
 varying vec4 wakeShape;
+varying float wakeFacing;
 void main() {
   float along = wakeShape.z;
   float rise = wakeShape.y;
@@ -113,7 +124,7 @@ void main() {
   float dome = wakeShape.w < 0.5
     ? (1.0 - smoothstep(0.3, 1.0, across)) * (1.0 - smoothstep(0.08, 1.0, rise)) * smoothstep(0.0, 0.06, rise)
     : (1.0 - smoothstep(0.1, 1.0, rise)) * 0.9;
-  float alpha = fade * dome * smoothstep(0.25, 0.8, churn + wakeLevel * 0.2) * wakeLevel * 0.48;
+  float alpha = smoothstep(0.12, 0.55, wakeFacing) * fade * dome * smoothstep(0.25, 0.8, churn + wakeLevel * 0.2) * wakeLevel * 0.62;
   if (alpha < 0.004) discard;
   gl_FragColor = vec4(vec3(0.82, 0.87, 0.9) * wakeLight, alpha);
   #include <tonemapping_fragment>
