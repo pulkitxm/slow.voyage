@@ -267,7 +267,9 @@ nonPerturbedNormal = normal;`,
         '#include <opaque_fragment>',
         `#if NUM_DIR_LIGHTS > 0
 float foliageBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
-outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.04 + foliageBacklight * 0.12) * crownWeight;
+float foliageFacing = max(dot(normal, directionalLights[0].direction), 0.0);
+outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.1 + foliageBacklight * 0.34 + foliageFacing * 0.22) * crownWeight;
+outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
 #endif
 #include <opaque_fragment>`,
       )
