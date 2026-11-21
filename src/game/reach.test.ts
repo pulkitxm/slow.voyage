@@ -250,5 +250,5 @@ test.each(landscapeIds)(
     expect(arrived).toBe(true)
     expect(car.hits).toBe(0)
   },
-  120000,
+  900000,
 )

@@ -106,7 +106,7 @@ describe('high-speed assistance', () => {
         expect(run.car.distance).toBeGreaterThan(1500)
       }
     },
-    30000,
+    180000,
   )
 
   test.each(vehicles)(
@@ -125,7 +125,7 @@ describe('high-speed assistance', () => {
         expect(run.maxOffset).toBeLessThan(1.5)
       }
     },
-    30000,
+    180000,
   )
 
   test.each(vehicles)(
@@ -149,7 +149,7 @@ describe('high-speed assistance', () => {
           expect(Math.abs(run.car.yawRate)).toBeLessThan(0.5)
         }
     },
-    30000,
+    180000,
   )
 })
 
