@@ -1,4 +1,4 @@
-import { resolveBarrierImpulse } from './barrier'
+import { glance, resolveBarrierImpulse, wallGlance } from './barrier'
 import {
   boundaryObstacle,
   footprints,
@@ -92,6 +92,7 @@ export class CarPhysics {
   offroad = false
   sand = false
   stability = 0
+  deflection = 0
   tireSteeringLimit = Number.POSITIVE_INFINITY
   trunks: (s: number) => Iterable<Trunk> = () => []
   suspension: Suspension
@@ -114,7 +115,7 @@ export class CarPhysics {
     this.speed = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
     this.steeringControl.reset()
     this.tireSteeringLimit = Number.POSITIVE_INFINITY
-    this.scrape = this.wading = 0
+    this.scrape = this.wading = this.deflection = 0
     this.gearbox.reset()
     this.suspension.reset(this)
   }
@@ -286,6 +287,9 @@ export class CarPhysics {
     this.x += (-Math.sin(this.yaw) * this.speed + Math.cos(this.yaw) * this.lateralSpeed) * dt
     this.s += (Math.cos(this.yaw) * this.speed + Math.sin(this.yaw) * this.lateralSpeed) * dt
     this.distance += Math.hypot(this.speed, this.lateralSpeed) * dt
+    const swerve = this.deflection * (1 - Math.exp(-dt / wallGlance.settle))
+    this.deflection -= swerve
+    this.yaw += swerve
     const turn = this.yawRate * dt
     const forwardSpeed = this.speed * Math.cos(turn) - this.lateralSpeed * Math.sin(turn)
     this.lateralSpeed = this.lateralSpeed * Math.cos(turn) + this.speed * Math.sin(turn)
@@ -312,6 +316,14 @@ export class CarPhysics {
       )
       this.impact = Math.max(this.impact, clamp(approach / 8, 0, 1))
       const deepest = obstacles.reduce((a, b) => (b.penetration > a.penetration ? b : a))
+      if (deepest.material !== 'trunk') {
+        const aim = glance(
+          { yaw: this.yaw + this.deflection, speed: this.speed },
+          deepest.normalX,
+          deepest.normalS,
+        )
+        this.deflection = aim - this.yaw
+      }
       this.scrape = Math.abs(this.speed)
       this.scrapeMaterial = deepest.material
       if (approach > collisionSound.minimumApproach) {

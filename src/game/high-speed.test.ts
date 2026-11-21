@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { footprints } from './collision'
 import { automaticTarget, neutralInput, resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
 import { roadCoordinates, roadLayout } from './road'
@@ -22,6 +23,12 @@ const routes = [
 class FlatWorld extends World {
   override road(_s: number) {
     return { x: 0, y: 0, dx: 0, dy: 0, yaw: 0 }
+  }
+}
+
+class RailedWorld extends FlatWorld {
+  override guardrail() {
+    return true
   }
 }
 
@@ -354,3 +361,34 @@ test.each(['touring', 'roadster', 'motorcycle'] as const)(
     expect(trace[59]).toBeGreaterThan(0.3)
   },
 )
+
+describe('guardrail glances at speed', () => {
+  test.each(vehicles.filter((vehicle) => vehicle !== 'motorcycle'))(
+    '%s glances off a rail and leaves it instead of riding along it',
+    (vehicle) => {
+      for (const speed of [25, 45])
+        for (const angle of [0.03, 0.1, 0.25]) {
+          const settings: Settings = { ...defaults, vehicle }
+          const car = new CarPhysics(new RailedWorld(settings))
+          car.reset(300)
+          car.x = 1.2
+          car.yaw = -angle
+          car.speed = speed
+          car.suspension.reset(car)
+          let touching = 0
+          let touched = false
+          for (let step = 0; step < 240; step++) {
+            car.update(1 / 120, { ...neutralInput, throttle: 0.5 }, settings)
+            if (car.scrape > 0) {
+              touched = true
+              touching += 1 / 120
+            }
+          }
+          expect(touched).toBe(true)
+          expect(touching).toBeLessThan(0.15)
+          expect(car.speed).toBeGreaterThan(speed * 0.7)
+          expect(car.x).toBeLessThan(roadLayout.railOffset - footprints[vehicle].halfWidth - 0.1)
+        }
+    },
+  )
+})
