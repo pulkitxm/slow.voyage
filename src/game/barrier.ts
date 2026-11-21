@@ -73,3 +73,31 @@ export function resolveBarrierImpulse(
   }
   return approach
 }
+
+export const wallGlance = {
+  steepest: 0.6,
+  share: 0.3,
+  least: 0.015,
+  most: 0.06,
+  from: 5,
+  settle: 0.04,
+}
+
+export function glance(pose: { yaw: number; speed: number }, normalX: number, normalS: number) {
+  if (Math.abs(pose.speed) < wallGlance.from) return pose.yaw
+  const facing = Math.sign(pose.speed)
+  const headingX = -Math.sin(pose.yaw) * facing
+  const headingS = Math.cos(pose.yaw) * facing
+  const into = headingX * normalX + headingS * normalS
+  if (into <= 0) return pose.yaw
+  const entry = Math.asin(Math.min(1, into))
+  if (entry > wallGlance.steepest) return pose.yaw
+  const alongX = headingX - into * normalX
+  const alongS = headingS - into * normalS
+  const length = Math.hypot(alongX, alongS) || 1
+  const exit = Math.min(wallGlance.most, Math.max(wallGlance.least, entry * wallGlance.share))
+  const leaveX = (alongX / length) * Math.cos(exit) - normalX * Math.sin(exit)
+  const leaveS = (alongS / length) * Math.cos(exit) - normalS * Math.sin(exit)
+  const heading = Math.atan2(-leaveX * facing, leaveS * facing)
+  return pose.yaw + Math.atan2(Math.sin(heading - pose.yaw), Math.cos(heading - pose.yaw))
+}

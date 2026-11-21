@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { barrierResponse, resolveBarrierImpulse } from './barrier'
+import { barrierResponse, glance, resolveBarrierImpulse, wallGlance } from './barrier'
 import { vehicleMetrics, yawInertia } from './vehicles'
 import { vehicles } from './world'
 
@@ -83,4 +83,24 @@ test('a separating rail contact receives no impulse', () => {
     vehicleMetrics.touring,
   )
   expect(pose).toEqual(before)
+})
+
+test('a glancing wall contact turns the heading along the wall and slightly away from it', () => {
+  for (const facing of [1, -1])
+    for (const entry of [0.02, 0.1, 0.4]) {
+      const yaw = facing > 0 ? -entry : Math.PI - entry
+      const pose = { yaw, speed: 30 * facing }
+      const turned = glance(pose, 1, 0)
+      const moveX = -Math.sin(turned) * facing
+      const moveS = Math.cos(turned) * facing
+      expect(moveX).toBeLessThan(0)
+      expect(-moveX).toBeLessThanOrEqual(Math.sin(wallGlance.most) + 1e-9)
+      expect(Math.abs(moveS)).toBeGreaterThan(0.99)
+    }
+})
+
+test('a slow, steep or separating wall contact keeps its heading', () => {
+  expect(glance({ yaw: -0.1, speed: 2 }, 1, 0)).toBe(-0.1)
+  expect(glance({ yaw: -1.2, speed: 30 }, 1, 0)).toBe(-1.2)
+  expect(glance({ yaw: 0.1, speed: 30 }, 1, 0)).toBe(0.1)
 })

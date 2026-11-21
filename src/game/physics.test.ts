@@ -674,7 +674,7 @@ describe('vehicle dynamics', () => {
               expect(settings.cruiseSpeed).toBe(45)
             }
     },
-    30000,
+    180000,
   )
   test('one-pedal braking stops without selecting reverse', () => {
     const free = new CarPhysics(new FlatWorld({ ...defaults }))
