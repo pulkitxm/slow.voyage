@@ -16,6 +16,7 @@ interface CameraSubject {
 }
 
 export const cameraRush = { fov: 9, distance: 0.9, rate: 3.5 }
+export const impactShake = { pitch: 0.025, roll: 0.035 }
 export const cameraFeel = {
   lean: 0.0032,
   leanLimit: 0.04,
@@ -33,6 +34,8 @@ export class DrivingCamera {
   rush = 0
   rear = false
   motion = 1
+  impact = 0
+  frozen = false
   private lean = 0
   private dive = 0
   private clock = 0
@@ -225,19 +228,20 @@ export class DrivingCamera {
     const pushing = this.ready && dt > 0 ? (subject.speed - this.lastSpeed) / dt : 0
     this.lastYaw = subject.yaw
     this.lastSpeed = subject.speed
-    this.clock += dt
+    const settle = this.frozen ? 0 : dt
+    this.clock += settle
     const riding = mode === 'cinematic' ? 0 : this.motion
     this.lean = damp(
       this.lean,
       clamp(turning * subject.speed * cameraFeel.lean, -cameraFeel.leanLimit, cameraFeel.leanLimit),
       cameraFeel.settle,
-      dt,
+      settle,
     )
     this.dive = damp(
       this.dive,
       clamp(-pushing * cameraFeel.dive, -cameraFeel.diveLimit, cameraFeel.diveLimit),
       cameraFeel.settle,
-      dt,
+      settle,
     )
     if (riding) {
       const cabin = mode === 'bonnet' ? 1 : 0.7
@@ -246,6 +250,10 @@ export class DrivingCamera {
       camera.rotateZ(-this.lean * cabin * riding)
       camera.rotateX(-this.dive * cabin * riding + Math.sin(this.clock * 37) * tremor)
       camera.rotateY(Math.sin(this.clock * 29 + 1.7) * tremor * 0.7)
+    }
+    if (this.motion && this.impact > 0.005) {
+      camera.rotateX(Math.sin(this.clock * 41 + 1.3) * this.impact * impactShake.pitch)
+      camera.rotateZ(Math.sin(this.clock * 53) * this.impact * impactShake.roll)
     }
     const fov =
       68 +

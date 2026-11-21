@@ -266,3 +266,26 @@ test.each(vehicles)(
     }
   },
 )
+
+test('a paused camera holds perfectly still after a crash at speed', () => {
+  const { view, subject, world, camera } = fixture()
+  subject.speed = 40
+  view.impact = 1
+  const turns: number[] = []
+  for (let i = 0; i < 30; i++) {
+    subject.s += subject.speed / 60
+    view.update(subject, world, 'chase', 1 / 60)
+  }
+  for (let i = 0; i < 6; i++) {
+    view.update(subject, world, 'chase', 1 / 60)
+    turns.push(camera.quaternion.x)
+  }
+  expect(Math.max(...turns) - Math.min(...turns)).toBeGreaterThan(0.0001)
+  view.frozen = true
+  for (let i = 0; i < 180; i++) view.update(subject, world, 'chase', 1 / 60)
+  const held = camera.quaternion.clone()
+  for (let i = 0; i < 60; i++) {
+    view.update(subject, world, 'chase', 1 / 60)
+    expect(camera.quaternion.angleTo(held)).toBeLessThan(1e-6)
+  }
+})
