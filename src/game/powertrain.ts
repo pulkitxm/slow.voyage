@@ -108,7 +108,12 @@ export const stickShift = {
   bounce: 13,
   dip: 0.045,
   overRev: 1.03,
-  reverseBelow: 1.2,
+  reverseBelow: 3,
+  coastingReverse: 7,
+  coasting: 0.05,
+  settle: 0.3,
+  standstill: 0.3,
+  lug: { floor: 1.5, stall: 0.8, judder: 9, shake: 0.35, sag: 0.3, wobble: 0.08 },
   braking: { base: 0.25, revs: 1.5, leverage: 2.4 },
 } as const
 
@@ -131,6 +136,8 @@ export class Gearbox {
   shifts = 0
   manual = false
   limited = false
+  lug = 0
+  private holding = 0
   private clock = 0
   constructor(public profile: EngineProfile) {
     this.rpm = profile.idle
@@ -142,6 +149,8 @@ export class Gearbox {
     this.load = 0
     this.shifting = 0
     this.limited = false
+    this.lug = 0
+    this.holding = 0
   }
   engagedRpm(speed: number, gear = this.gear) {
     const top = this.profile.gearTops[Math.max(1, gear) - 1] ?? 1
@@ -150,29 +159,56 @@ export class Gearbox {
   revs(speed: number) {
     return this.engagedRpm(speed) / this.profile.redline
   }
-  request(direction: number, speed: number) {
-    if (!direction || this.shifting > 0) return false
+  request(direction: number, speed: number, throttle = 0) {
+    if (!direction) return false
     const tops = this.profile.gearTops
+    const coasting = throttle < stickShift.coasting
+    const reverseLimit = coasting ? stickShift.coastingReverse : stickShift.reverseBelow
     if (direction > 0) {
       if (this.gear < 0) {
-        if (Math.abs(speed) > stickShift.reverseBelow) return false
+        if (Math.abs(speed) > reverseLimit) return false
         this.gear = 1
       } else if (this.gear < tops.length) this.gear++
       else return false
     } else if (this.gear > 1) {
-      if (this.engagedRpm(speed, this.gear - 1) > this.profile.redline * stickShift.overRev)
+      if (
+        !coasting &&
+        this.engagedRpm(speed, this.gear - 1) > this.profile.redline * stickShift.overRev
+      )
         return false
       this.gear--
-    } else if (this.gear === 1 && Math.abs(speed) <= stickShift.reverseBelow) this.gear = -1
+    } else if (this.gear === 1 && Math.abs(speed) <= reverseLimit) this.gear = -1
     else return false
     this.shifting = this.profile.shiftSeconds * (direction > 0 ? 1 : 0.7)
     this.shifts++
     return true
   }
+  standby(speed: number, throttle: number, brake: number, dt: number) {
+    const still = Math.abs(speed) < stickShift.standstill && this.shifting === 0
+    const backward = still && this.gear > 0 && brake > 0.2 && throttle < 0.05
+    const forward = still && this.gear < 0 && throttle > 0.2 && brake < 0.05
+    this.holding = backward || forward ? this.holding + dt : 0
+    if (this.holding < stickShift.settle) return false
+    this.holding = 0
+    this.gear = backward ? -1 : 1
+    this.shifting = this.profile.shiftSeconds * 0.7
+    this.shifts++
+    return true
+  }
   pull(speed: number) {
+    this.lug = 0
     if (this.shifting > 0) return 0
     const revs = this.revs(speed)
-    return torqueShare(Math.abs(this.gear) === 1 ? Math.max(revs, stickShift.launch) : revs)
+    const gear = Math.abs(this.gear)
+    if (gear === 1) return torqueShare(Math.max(revs, stickShift.launch))
+    const { floor, stall, judder, shake } = stickShift.lug
+    const lowest = (this.profile.idle * floor) / this.profile.redline
+    if (revs >= lowest) return torqueShare(revs)
+    const bog = revs / lowest
+    const slip = stall / (gear - 1) ** 2
+    this.lug = 1 - bog
+    const stutter = 1 - shake * this.lug * (Math.sin(this.clock * judder * Math.PI * 2) > 0 ? 1 : 0)
+    return torqueShare(revs) * (slip + (1 - slip) * bog * bog) * stutter
   }
   engineBraking(speed: number) {
     const tops = this.profile.gearTops
@@ -207,9 +243,15 @@ export class Gearbox {
       ? profile.redline *
         (1 - stickShift.dip * (Math.sin(this.clock * stickShift.bounce * Math.PI * 2) > 0 ? 1 : 0))
       : profile.redline
-    const target = Math.min(ceiling, Math.max(profile.idle, engaged, clutch))
+    const { sag, wobble, judder } = stickShift.lug
+    const bogged = manual && this.lug > 0 && drive > 0.1
+    const floor = bogged
+      ? profile.idle *
+        (1 - sag * this.lug + wobble * this.lug * Math.sin(this.clock * judder * Math.PI * 2))
+      : profile.idle
+    const target = Math.min(ceiling, Math.max(floor, engaged, clutch))
     const rate = this.shifting > 0 ? profile.revRate * 0.7 : profile.revRate
-    this.rpm = damp(this.rpm, target, this.limited ? 60 : rate, dt)
+    this.rpm = bogged ? target : damp(this.rpm, target, this.limited ? 60 : rate, dt)
     const cut = this.limited && target < profile.redline ? 0.25 : 1
     this.load = damp(this.load, this.shifting > 0 ? 0 : drive * cut, this.limited ? 60 : 12, dt)
   }
