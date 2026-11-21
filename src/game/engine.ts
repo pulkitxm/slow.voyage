@@ -52,7 +52,6 @@ import {
 } from './world'
 import { WorldMap } from './world-map'
 
-const impactShake = { pitch: 0.025, roll: 0.035 }
 const paintBudget = 11
 const paintDepth = 0.7
 export const idlePace = 46
@@ -154,6 +153,7 @@ export class RoadEngine {
   water: Water
   terrain: Terrain
   car: VehicleModel
+  incoming: VehicleModel | null = null
   audio = new DriveAudio()
   atmosphere: Atmosphere
   precipitation: Precipitation
@@ -631,20 +631,27 @@ export class RoadEngine {
     }
     if (refresh) this.terrain.refresh(this.settings, budget.detail)
     if (vehicleChange) {
-      this.scene.remove(this.car.group)
-      this.car.dispose()
-      this.car = createVehicleModel(this.settings, budget.software)
-      if (!budget.software)
-        dressVehicle(this.car, this.settings.vehicle, () => this.applyLighting())
-      this.scene.add(this.car.group)
-      this.configureHeadlights()
-      this.arrival = 0
-      this.view.snap()
+      this.incoming?.dispose()
+      const next = createVehicleModel(this.settings, budget.software)
+      this.incoming = next
+      const ready = () => {
+        if (this.disposed || this.incoming !== next) return
+        const mount = () => {
+          if (this.disposed || this.incoming !== next) return
+          this.incoming = null
+          this.mountVehicle(next)
+        }
+        this.renderer.compileAsync(next.group, this.camera, this.scene).then(mount, mount)
+      }
+      const dressing = !budget.software && dressVehicle(next, this.settings.vehicle, ready)
+      if (!dressing) ready()
       this.physics.suspension.configure(settings.vehicle)
       this.physics.suspension.reset(this.physics)
     }
     this.car.body.color.set(settings.color).multiplyScalar(paintDepth)
-    this.renderer.setPixelRatio(this.pixelRatio(budget))
+    this.incoming?.body.color.set(settings.color).multiplyScalar(paintDepth)
+    const ratio = this.pixelRatio(budget)
+    if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio)
     this.configureCinema(budget)
     this.configureShadows(budget)
     this.applyLighting()
@@ -673,6 +680,16 @@ export class RoadEngine {
       shadow.map?.dispose()
       shadow.map = null
     }
+  }
+  mountVehicle(next: VehicleModel) {
+    if (this.rendered) this.crossfade.capture(vehicleArrival.fade)
+    this.scene.remove(this.car.group)
+    this.car.dispose()
+    this.car = next
+    this.scene.add(next.group)
+    this.configureHeadlights()
+    this.applyLighting()
+    this.arrival = 0
   }
   configureHeadlights() {
     if (!this.headlights.length)
@@ -1028,12 +1045,9 @@ export class RoadEngine {
     skyline.strength.value = cameraMode === 'bonnet' ? 0.3 : 0.7
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
+    this.view.impact = p.impact
+    this.view.frozen = this.paused || this.photo
     this.view.update(p, this.world, cameraMode, dt)
-    if (p.impact > 0.005 && this.view.motion) {
-      const seconds = time / 1000
-      this.camera.rotateX(Math.sin(seconds * 41 + 1.3) * p.impact * impactShake.pitch)
-      this.camera.rotateZ(Math.sin(seconds * 53) * p.impact * impactShake.roll)
-    }
     if (!this.paused && !this.photo) this.lifeClock += dt
     if (this.life) {
       const driver = this.driver
@@ -1063,8 +1077,7 @@ export class RoadEngine {
         }
         this.physics.impact = Math.max(this.physics.impact, Math.min(1, 0.3 + weight * 1.6))
         this.audio.thud(knock.distance, Math.min(1, weight * 3))
-        if (knock.kind === 'person')
-          this.audio.cry(knock.voice ? 'woman' : 'man', true, knock.distance)
+        if (knock.kind === 'person') this.audio.cry(knock.voice, true, knock.distance)
         this.lifeAlarm = this.lifeClock
       }
       for (const kind of this.terrain.brush(driver)) {
@@ -1073,12 +1086,12 @@ export class RoadEngine {
         this.audio.brushed(kind === 'post')
       }
       const panicked = this.lifeClock - this.lifeAlarm < 0.6
-      for (let voice = 0; voice < Math.min(4, this.life.startled); voice++)
+      for (const [index, startled] of this.life.startled.slice(0, 4).entries())
         this.audio.cry(
-          Math.random() > 0.5 ? 'woman' : 'man',
+          startled.voice,
           panicked,
-          12 + Math.random() * 10,
-          0.12 + voice * (0.14 + Math.random() * 0.2),
+          startled.distance,
+          0.12 + index * (0.14 + Math.random() * 0.2),
         )
     }
     this.travel.set(-Math.sin(p.yaw) * p.speed, 0, -Math.cos(p.yaw) * p.speed)
@@ -1181,6 +1194,7 @@ export class RoadEngine {
     this.cast?.dispose()
     this.atmosphere.dispose()
     this.car.dispose()
+    this.incoming?.dispose()
     this.tyreClouds.dispose()
     this.wake?.dispose()
     this.skids.dispose()

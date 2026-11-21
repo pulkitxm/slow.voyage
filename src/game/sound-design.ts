@@ -310,32 +310,67 @@ export function boostVoice(held: number, tank: number) {
 
 export type CryVoice = 'man' | 'woman'
 
+export const cryVoices = {
+  man: {
+    pitch: 172,
+    spread: 0.22,
+    scream: 1.75,
+    waver: 5.2,
+    rasp: 0.5,
+    shout: [
+      { frequency: 610, q: 5, gain: 1 },
+      { frequency: 1250, q: 6, gain: 0.6 },
+      { frequency: 2450, q: 8, gain: 0.3 },
+    ],
+    cry: [
+      { frequency: 780, q: 4, gain: 1 },
+      { frequency: 1220, q: 6, gain: 0.75 },
+      { frequency: 2550, q: 8, gain: 0.35 },
+    ],
+  },
+  woman: {
+    pitch: 318,
+    spread: 0.2,
+    scream: 1.95,
+    waver: 6.8,
+    rasp: 0.18,
+    shout: [
+      { frequency: 760, q: 5, gain: 1 },
+      { frequency: 1720, q: 6, gain: 0.6 },
+      { frequency: 2950, q: 8, gain: 0.35 },
+    ],
+    cry: [
+      { frequency: 1020, q: 4, gain: 1 },
+      { frequency: 1580, q: 6, gain: 0.7 },
+      { frequency: 3250, q: 8, gain: 0.45 },
+    ],
+  },
+} as const
+
 export function cryVoice(voice: CryVoice, scream: boolean, variation: number) {
-  const base = (voice === 'man' ? 250 : 430) * (0.9 + 0.2 * clamp(variation, 0, 1))
+  const tone = cryVoices[voice]
+  const vary = clamp(variation, 0, 1)
+  const base = tone.pitch * (1 - tone.spread / 2 + tone.spread * vary)
   return scream
     ? {
-        pitch: base * 1.55,
-        leap: 1.5,
-        fall: 1.05,
-        length: 0.75 + 0.35 * clamp(variation, 0, 1),
+        pitch: base * tone.scream,
+        leap: 1.35,
+        fall: 1.02,
+        length: 0.75 + 0.35 * vary,
         peak: 1,
-        formants: [
-          { frequency: 950, q: 4, gain: 1 },
-          { frequency: 1650, q: 6, gain: 0.7 },
-          { frequency: 3100, q: 7, gain: 0.35 },
-        ],
+        waver: tone.waver,
+        rasp: tone.rasp,
+        formants: tone.cry,
       }
     : {
         pitch: base,
         leap: 1.28,
         fall: 0.8,
-        length: 0.3 + 0.12 * clamp(variation, 0, 1),
+        length: 0.3 + 0.12 * vary,
         peak: 0.7,
-        formants: [
-          { frequency: 620, q: 4, gain: 1 },
-          { frequency: 1900, q: 6, gain: 0.55 },
-          { frequency: 2700, q: 7, gain: 0.25 },
-        ],
+        waver: tone.waver,
+        rasp: tone.rasp * 0.7,
+        formants: tone.shout,
       }
 }
 

@@ -161,7 +161,7 @@ export class DriveAudio {
     source.frequency.linearRampToValueAtTime(shape.pitch * shape.leap, t + shape.length * 0.22)
     source.frequency.linearRampToValueAtTime(shape.pitch * shape.fall, t + shape.length)
     const waver = context.createOscillator()
-    waver.frequency.value = 6.3
+    waver.frequency.value = shape.waver
     const depth = context.createGain()
     depth.gain.value = shape.pitch * 0.035
     waver.connect(depth).connect(source.frequency)
@@ -184,7 +184,7 @@ export class DriveAudio {
     waver.start(t)
     source.stop(t + shape.length + 0.05)
     waver.stop(t + shape.length + 0.05)
-    this.burst(t, 2400, 0.7, level * 0.3, shape.length * 0.3)
+    this.burst(t, voice === 'man' ? 1500 : 2800, 0.7, level * shape.rasp, shape.length * 0.5)
   }
 
   brushed(hard: boolean) {

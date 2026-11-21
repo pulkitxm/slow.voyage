@@ -3,6 +3,7 @@ export const crossfadeTiming = { settleFrames: 3, duration: 1400, reducedDuratio
 export class SceneCrossfade {
   private veil: HTMLCanvasElement | null = null
   private framesUntilFade = 0
+  private duration: number = crossfadeTiming.duration
 
   constructor(private source: HTMLCanvasElement) {}
 
@@ -10,7 +11,7 @@ export class SceneCrossfade {
     return this.veil !== null
   }
 
-  capture() {
+  capture(duration: number = crossfadeTiming.duration) {
     const { source } = this
     if (!source.parentElement || !source.width || !source.height) return
     const veil = document.createElement('canvas')
@@ -30,6 +31,7 @@ export class SceneCrossfade {
     source.after(veil)
     this.veil = veil
     this.framesUntilFade = crossfadeTiming.settleFrames
+    this.duration = duration
   }
 
   rendered() {
@@ -38,7 +40,9 @@ export class SceneCrossfade {
     this.framesUntilFade--
     if (this.framesUntilFade > 0) return
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    const duration = reduced ? crossfadeTiming.reducedDuration : crossfadeTiming.duration
+    const duration = reduced
+      ? Math.min(this.duration, crossfadeTiming.reducedDuration)
+      : this.duration
     veil.style.transition = `opacity ${duration}ms cubic-bezier(0.45, 0, 0.25, 1)`
     void veil.offsetWidth
     veil.style.opacity = '0'
