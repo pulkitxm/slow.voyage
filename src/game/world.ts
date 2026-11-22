@@ -19,6 +19,8 @@ export const roadShapes: Record<RoadMode, { broad: number; middle: number; bend:
   straight: { broad: 0, middle: 0, bend: 0 },
   calm: { broad: 180, middle: 10, bend: 0 },
 }
+export const steeringFeels = ['relaxed', 'balanced', 'direct'] as const
+export type SteeringFeel = (typeof steeringFeels)[number]
 export const cameraMotions = ['full', 'calm'] as const
 export type CameraMotion = (typeof cameraMotions)[number]
 export type Weather = 'clear' | 'overcast' | 'rain' | 'storm' | 'fog'
@@ -48,6 +50,7 @@ export interface Settings {
   camera: CameraMode
   motion: CameraMotion
   transmission: Transmission
+  steeringFeel: SteeringFeel
   color: string
   volume: number
   quality: 'high' | 'low'
@@ -78,6 +81,7 @@ export const defaults: Settings = {
   camera: 'chase',
   motion: 'full',
   transmission: 'automatic',
+  steeringFeel: 'balanced',
   color: '#a3211b',
   volume: 0.25,
   quality: 'high',

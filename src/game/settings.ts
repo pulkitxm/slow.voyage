@@ -8,6 +8,7 @@ import {
   lifeLevels,
   roadModes,
   type Settings,
+  steeringFeels,
   transmissions,
   vehicles,
 } from './world'
@@ -39,6 +40,7 @@ export function decodeSettings(stored: unknown): Settings {
       'camera',
       'motion',
       'transmission',
+      'steeringFeel',
       'quality',
       'units',
       'autodriveMode',
@@ -56,6 +58,7 @@ export function decodeSettings(stored: unknown): Settings {
         camera: cameras,
         motion: cameraMotions,
         transmission: transmissions,
+        steeringFeel: steeringFeels,
         quality: ['high', 'low'],
         units: ['km', 'mi'],
         autodriveMode: ['full', 'steer', 'speed'],
