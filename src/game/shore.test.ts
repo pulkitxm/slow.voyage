@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { MeadowMaterial } from './ground'
 import { defaults } from './world'
 
-test('the meadow shader darkens a wet shore band and draws a thin foam line at the waterline', () => {
+test('the meadow shader wears bare earth into the grass, darkens a wet shore band and draws a foam line', () => {
   Reflect.set(globalThis, 'document', {
     createElementNS: () => ({ addEventListener() {}, removeEventListener() {}, style: {} }),
   })
@@ -19,6 +19,13 @@ test('the meadow shader darkens a wet shore band and draws a thin foam line at t
     'fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7',
   )
   expect(shader.fragmentShader).toMatch(/float foamWidth = min\(0\.035, max\(fwidth\(fieldHeight\)/)
-  expect(material.customProgramCacheKey()).toBe('triplanar-rock-road-cuts-varied-shore')
+  expect(shader.fragmentShader).toContain('float fieldBare')
+  expect(shader.fragmentShader).toContain(
+    'fieldSoil * sampledDiffuseColor.rgb * 1.15, fieldBare * 0.72',
+  )
+  expect(shader.fragmentShader.indexOf('float fieldBare')).toBeLessThan(
+    shader.fragmentShader.indexOf('float rockBlend'),
+  )
+  expect(material.customProgramCacheKey()).toBe('triplanar-rock-road-cuts-varied-shore-worn')
   Reflect.deleteProperty(globalThis, 'document')
 })

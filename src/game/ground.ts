@@ -260,6 +260,13 @@ diffuseColor.rgb *= mix(1.0, 0.45 + fieldGrain * 1.1, fieldClose * 0.75);
 diffuseColor.rgb *= mix(1.0, 0.62 + texture2D(fieldDetailMap, fieldPosition * 0.031 + vec2(0.13, 0.71)).g * 0.76, fieldFar * 0.6);
 diffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldPosition * 0.13 + vec2(17.3, 61.9)));
 diffuseColor.rgb *= 0.93 + fieldVariationAt(fieldPosition * 11.0 + vec2(3.1, 8.7)) * 0.14;
+float fieldLush = smoothstep(0.3, 0.7, fieldVariationAt(fieldPosition * 0.021 + vec2(140.2, 9.4)));
+diffuseColor.rgb *= mix(vec3(1.08, 0.98, 0.8), vec3(0.9, 1.0, 0.93), fieldLush);
+float fieldWorn = fieldVariationAt(fieldPosition * 0.046 + vec2(71.3, 12.9)) * 0.72
+  + fieldVariationAt(fieldPosition * 0.83 + vec2(5.1, 33.7)) * 0.28;
+float fieldBare = smoothstep(0.6, 0.74, fieldWorn) * (1.0 - smoothstep(0.18, 0.42, fieldSlope)) * (1.0 - fieldLush * 0.6);
+diffuseColor.rgb = mix(diffuseColor.rgb, fieldSoil * sampledDiffuseColor.rgb * 1.15, fieldBare * 0.72);
+diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))), diffuseColor.rgb, 0.87);
 float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fieldVariation);
 float cutFace = smoothstep(0.06, 0.32, fieldSlope)
   * (1.0 - smoothstep(6.0, 13.0, fieldRoadDistance))
@@ -324,7 +331,7 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'triplanar-rock-road-cuts-varied-shore'
+    return 'triplanar-rock-road-cuts-varied-shore-worn'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
