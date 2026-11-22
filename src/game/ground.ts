@@ -283,7 +283,12 @@ vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockAlbedo / vec3(0.231
 diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
 float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);
-diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSlope)) * 0.32;`,
+diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSlope)) * 0.32;
+float shoreWet = (1.0 - smoothstep(0.04, 0.85 + fieldVariation * 0.5, fieldHeight)) * step(-0.4, fieldHeight);
+diffuseColor.rgb = mix(diffuseColor.rgb, fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7);
+float foamWidth = min(0.035, max(fwidth(fieldHeight) * 1.5, 0.004) * (1.0 + fieldVariationAt(fieldPosition * 6.0 + vec2(2.9, 7.3))));
+float foamLine = (1.0 - smoothstep(0.0, foamWidth, abs(fieldHeight - foamWidth * 0.5))) * step(-0.4, fieldHeight);
+diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_maps>',
@@ -319,7 +324,7 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'triplanar-rock-road-cuts-varied'
+    return 'triplanar-rock-road-cuts-varied-shore'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
