@@ -152,7 +152,7 @@ Changes made: each scan was rendered from the side at full detail under soft
 light, with its leaf cut-outs from the scan's alpha map, into a 512 pixel
 picture with a transparent background. The fir is built from several renders of
 the fir and pine saplings layered into one full tree, and the slender tree from
-layered bushes. The pictures were levelled to a common brightness, had their
+layered bushes. The pictures are 768 pixels square, were levelled to a common brightness, had their
 colour spread under the transparent edges, and were saved as WebP. In the game
 they are drawn on the crossed tree cards that the painted trees used, tinted per
 landscape, turned yellow to rust in autumn and dusted with snow on the conifers

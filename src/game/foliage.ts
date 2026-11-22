@@ -17,6 +17,17 @@ export const treePhotos = [
   slenderUrl,
 ] as const
 export const evergreenTile = 4
+export const treeVariety = { warm: 0.1, cool: 0.12 }
+
+export function treeTint(color: THREE.Color, shade: number, warm: number, cool: number) {
+  const sway = Math.abs(warm % 1) - 0.5
+  const drift = Math.abs(cool % 1) - 0.5
+  return color.setRGB(
+    shade * (1 + sway * 2 * treeVariety.warm),
+    shade,
+    shade * (1 + drift * 2 * treeVariety.cool),
+  )
+}
 
 export function leafy(red: number, green: number, blue: number) {
   return green > red * 0.98 && green > blue * 1.15
@@ -26,7 +37,7 @@ export function autumnLeaf(red: number, green: number, blue: number, mix: number
   if (!leafy(red, green, blue)) return [red, green, blue] as const
   const light = (0.3 * red + 0.59 * green + 0.11 * blue) * 1.18
   const warm = Math.min(1, Math.max(0, mix))
-  const hue = [0.96 + 0.26 * warm, 0.68 - 0.2 * warm, 0.2 - 0.04 * warm] as const
+  const hue = [0.9 + 0.2 * warm, 0.7 - 0.15 * warm, 0.26 - 0.06 * warm] as const
   const weight = 0.3 * hue[0] + 0.59 * hue[1] + 0.11 * hue[2]
   return [
     Math.min(255, (light * hue[0]) / weight),
@@ -44,10 +55,12 @@ export function snowDusted(red: number, green: number, blue: number, cover: numb
   ] as const
 }
 
-function patch(x: number, y: number) {
-  const value = Math.sin((x >> 3) * 127.1 + (y >> 3) * 311.7) * 43758.5453
+function patch(x: number, y: number, grain = 3) {
+  const value = Math.sin((x >> grain) * 127.1 + (y >> grain) * 311.7) * 43758.5453
   return value - Math.floor(value)
 }
+
+export const snowReach = 5
 
 function drawPhoto(
   context: CanvasRenderingContext2D,
@@ -68,12 +81,18 @@ function drawPhoto(
       const red = data[index] ?? 0
       const green = data[index + 1] ?? 0
       const blue = data[index + 2] ?? 0
+      const open = y < snowReach || (data[index + 3 - snowReach * tileSize * 4] ?? 0) < 60
       const colour =
         season === 'autumn'
           ? variant === evergreenTile
             ? ([red, green, blue] as const)
-            : autumnLeaf(red, green, blue, patch(x + variant * 57, y))
-          : snowDusted(red, green, blue, patch(x, y) * (1.15 - y / tileSize))
+            : autumnLeaf(
+                red,
+                green,
+                blue,
+                patch(x + variant * 57, y, 6) * 0.7 + patch(x, y + variant * 31, 3) * 0.3,
+              )
+          : snowDusted(red, green, blue, open ? 1 : patch(x, y) * 0.45)
       data[index] = colour[0]
       data[index + 1] = colour[1]
       data[index + 2] = colour[2]
@@ -83,7 +102,8 @@ function drawPhoto(
 
 const atlasColumns = 2
 const atlasRows = 3
-const tileSize = 512
+const tileSize = 768
+const paintSize = 512
 function drawConifer(context: CanvasRenderingContext2D, season: Season) {
   const rng = random(5489)
   context.strokeStyle = '#514b3c'
@@ -394,10 +414,12 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
           plane.rotateY((side * Math.PI) / 3)
         }
         const uv = plane.getAttribute('uv')
+        const mirrored = !shrub && side === 1
         for (let i = 0; i < uv.count; i++)
           uv.setXY(
             i,
-            (uv.getX(i) + (atlasVariant % atlasColumns)) / atlasColumns,
+            ((mirrored ? 1 - uv.getX(i) : uv.getX(i)) + (atlasVariant % atlasColumns)) /
+              atlasColumns,
             (uv.getY(i) + Math.floor(atlasVariant / atlasColumns)) / atlasRows,
           )
         planes.push(plane)
@@ -426,6 +448,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
       }
       context.save()
       context.translate(left, top)
+      context.scale(tileSize / paintSize, tileSize / paintSize)
       drawTree(context, variant, season)
       context.restore()
     }

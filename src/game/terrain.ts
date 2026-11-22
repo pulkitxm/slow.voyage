@@ -4,7 +4,7 @@ import { asphaltTexture } from './asphalt'
 import { Boulders, planBoulders, planPlants } from './boulders'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
-import { Foliage } from './foliage'
+import { Foliage, treeTint } from './foliage'
 import { grassGeometry, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { groundLayout } from './ground-grid'
@@ -777,7 +777,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9;
         shades.push(x, s, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
-        trees.setColorAt(placed++, new THREE.Color().setScalar(0.88 + rng() * 0.24))
+        trees.setColorAt(placed++, treeTint(color, 0.88 + rng() * 0.24, rng(), rng()))
       }
       for (const tree of forest) {
         matrix.position.set(tree.x, groundSurface.sample(tree.x, tree.s) - plantRootRecess, -tree.s)
@@ -788,7 +788,10 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.9;
         shades.push(tree.x, tree.s, tree.width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
-        trees.setColorAt(placed++, color.setScalar(tree.shade))
+        trees.setColorAt(
+          placed++,
+          treeTint(color, tree.shade, (tree.x * 0.37) % 1, (tree.s * 0.53) % 1),
+        )
       }
       trees.count = placed
       trees.castShadow = true
