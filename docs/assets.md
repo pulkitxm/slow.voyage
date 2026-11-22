@@ -22,7 +22,7 @@ running game makes no requests to Poly Haven.
 
 ## People and animals
 
-Walkers and four of the grazing animals are rigged models by
+Walkers and three of the grazing animals are rigged models by
 [Quaternius](https://quaternius.com/), published under
 [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
@@ -30,16 +30,33 @@ Walkers and four of the grazing animals are rigged models by
   Casual models, downloaded from [Poly Pizza](https://poly.pizza/m/HMnuH5geEG).
 - `src/assets/models/sheep.glb` derives from the Sheep model on
   [Poly Pizza](https://poly.pizza/m/rgJXF570ZK).
-- `src/assets/models/cow.glb`, `horse.glb`, and `deer.glb` derive from the
+- `src/assets/models/horse.glb` and `deer.glb` derive from the
   [Ultimate Animated Animals](https://quaternius.com/packs/ultimateanimatedanimals.html)
   pack.
 
 Each file keeps only its walk, idle, and eating clips. Meshes are welded and
 quantized with glTF Transform, which brings the six files to about 2 MB
-together. Shirt, trouser, and skin materials are recoloured per walker. Goats,
-camels, and elephants have no suitable public-domain rigged model and remain
-generated in code, as does every figure on software rendering or if a model
-fails to load.
+together. Shirt, trouser, and skin materials are recoloured per walker. Goats
+and camels have no suitable freely licensed rigged model with a walk cycle and
+remain generated in code, as does every figure on software rendering or if a
+model fails to load.
+
+Cattle and elephants are textured, rigged models published on Sketchfab under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The files were taken
+from the [Objaverse](https://huggingface.co/datasets/allenai/objaverse) mirror.
+
+| Animal   | File                             | Model            | Author                                                       | Source                                                             |
+| -------- | -------------------------------- | ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Cow      | `src/assets/models/cattle.glb`   | Cow+motions      | [Kapi777](https://sketchfab.com/Kapi777)                     | <https://sketchfab.com/3d-models/cfacf56db7934b6cb7382fd1c3e428f1> |
+| Bull     | `src/assets/models/bull.glb`     | Bull+motions     | [Kapi777](https://sketchfab.com/Kapi777)                     | <https://sketchfab.com/3d-models/50982988cd354bfcb79f9820ba60a27b> |
+| Elephant | `src/assets/models/elephant.glb` | walking elephant | [erinaekasyaharani](https://sketchfab.com/erinaekasyaharani) | <https://sketchfab.com/3d-models/2705e7483341479e8015d996cd766611> |
+
+Changes made: each model keeps its colour texture at 512 pixels in WebP and
+loses its other maps, clips were renamed to the game's walk, idle and eating
+cycles and the rest removed, and meshes were welded and compressed with meshopt
+through glTF Transform. The elephant has only a walk cycle, so it stands in its
+rest pose when idle. None of the three has a falling cycle, so a struck animal
+tips over. The credit also appears in the game's help dialog.
 
 The files are served from the application and included in its offline cache.
 
@@ -152,9 +169,9 @@ Changes made: each scan was rendered from the side at full detail under soft
 light, with its leaf cut-outs from the scan's alpha map, into a 512 pixel
 picture with a transparent background. The fir is built from several renders of
 the fir and pine saplings layered into one full tree, and the slender tree from
-layered bushes. The pictures are 768 pixels square, were levelled to a common brightness, had their
-colour spread under the transparent edges, and were saved as WebP. In the game
-they are drawn on the crossed tree cards that the painted trees used, tinted per
-landscape, turned yellow to rust in autumn and dusted with snow on the conifers
-in winter. Bare winter broadleaf trees are still painted in code, as is every
-tree if a picture fails to load.
+layered bushes. The pictures are 768 pixels square, were levelled to a common
+brightness, had their colour spread under the transparent edges, and were saved
+as WebP. In the game they are drawn on the crossed tree cards that the painted
+trees used, tinted per landscape, turned yellow to rust in autumn and dusted
+with snow on the conifers in winter. Bare winter broadleaf trees are still
+painted in code, as is every tree if a picture fails to load.

@@ -94,7 +94,20 @@ export function Help({ onClose }: { onClose: () => void }) {
             >
               CC BY 4.0
             </a>{' '}
-            and reduced in detail. People and animals by Quaternius, CC0.
+            and reduced in detail. Cow and bull by{' '}
+            <a href="https://sketchfab.com/Kapi777" target="_blank" rel="noreferrer noopener">
+              Kapi777
+            </a>{' '}
+            (Cow+motions, Bull+motions) and elephant by{' '}
+            <a
+              href="https://sketchfab.com/erinaekasyaharani"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              erinaekasyaharani
+            </a>{' '}
+            (walking elephant), also CC BY 4.0 and reduced in detail. People and other animals by
+            Quaternius, CC0. Trees, plants and rocks from Poly Haven, CC0.
           </p>
         </div>
       </section>
