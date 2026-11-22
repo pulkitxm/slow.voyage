@@ -26,7 +26,12 @@ import {
   threatened,
 } from './reactions'
 import { roadPoint } from './road'
+import type { CryVoice } from './sound-design'
 import { type LifeLevel, random, type Settings, shoreHeight, type World } from './world'
+
+export function voiceOf(phase: number): CryVoice {
+  return Math.floor(phase * 7.3) % 2 ? 'woman' : 'man'
+}
 
 export const lifeLayout = {
   slot: 60,
@@ -101,7 +106,7 @@ export interface Knock {
   x: number
   s: number
   distance: number
-  voice: number
+  voice: CryVoice
 }
 
 function hashed(index: number, salt: number) {
@@ -459,7 +464,7 @@ export class Life {
   private scare: { x: number; s: number; until: number } | null = null
   private pace = 0
   knocks: Knock[] = []
-  startled = 0
+  startled: { voice: CryVoice; distance: number }[] = []
   stage: Stage | null = null
   private clock = 0
   placed: Placed[] = []
@@ -493,7 +498,7 @@ export class Life {
       this.scare = null
     }
     this.knocks.length = 0
-    this.startled = 0
+    this.startled.length = 0
     this.pace = car.speed
     let stained = 0
     const scare = this.scare && time < this.scare.until ? this.scare : null
@@ -552,7 +557,7 @@ export class Life {
                 x: spot.x,
                 s: spot.s,
                 distance: near,
-                voice: Math.floor(member.phase * 7.3) % 2,
+                voice: voiceOf(member.phase),
               })
               this.scare = { x: spot.x, s: spot.s, until: time + 0.25 }
             } else {
@@ -562,7 +567,8 @@ export class Life {
               if (scare && Math.hypot(spot.x - scare.x, spot.s - scare.s) < reactionLayout.alarm)
                 fresh = alarm(ensure(), time, reactionLayout.alarmTime, wits * 2.2) || fresh
               if (threatened(car, who)) alarm(ensure(), time, reactionLayout.dodgeTime, wits)
-              if (fresh && member.kind === 'person') this.startled++
+              if (fresh && member.kind === 'person')
+                this.startled.push({ voice: voiceOf(member.phase), distance: near })
             }
           }
           if (fate?.fallen) {

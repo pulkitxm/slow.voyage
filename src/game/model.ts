@@ -24,13 +24,13 @@ export function createVehicleModel(settings: Settings, software = false): Vehicl
   return new CarModel(settings, software)
 }
 
-export const vehicleArrival = { duration: 0.75, lift: 0.5, shrink: 0.06 }
+export const vehicleArrival = { duration: 0.55, lift: 0.12, shrink: 0.03, fade: 450 }
 
 export function arrivalPose(elapsed: number) {
   const progress = clamp(elapsed / vehicleArrival.duration, 0, 1)
   const remaining = 1 - progress
   return {
-    lift: vehicleArrival.lift * remaining ** 2 * Math.abs(Math.cos(1.5 * Math.PI * progress)),
+    lift: vehicleArrival.lift * remaining ** 3,
     scale: 1 - vehicleArrival.shrink * remaining ** 3,
   }
 }

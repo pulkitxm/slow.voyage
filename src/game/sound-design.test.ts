@@ -253,7 +253,13 @@ test('screams are higher and longer than shouts and fade with distance', () => {
     expect(scream.length).toBeGreaterThan(shout.length * 1.8)
     expect(scream.peak).toBeGreaterThan(shout.peak)
   }
-  expect(cryVoice('woman', true, 0.5).pitch).toBeGreaterThan(cryVoice('man', true, 0.5).pitch)
+  for (const scream of [true, false]) {
+    const man = cryVoice('man', scream, 1)
+    const woman = cryVoice('woman', scream, 0)
+    expect(woman.pitch).toBeGreaterThan(man.pitch * 1.4)
+    expect(woman.formants[1]?.frequency ?? 0).toBeGreaterThan(man.formants[1]?.frequency ?? 0)
+    expect(man.rasp).toBeGreaterThan(woman.rasp)
+  }
   expect(earshot(0)).toBe(1)
   expect(earshot(16)).toBeCloseTo(0.5, 6)
   expect(earshot(80)).toBeLessThan(0.05)

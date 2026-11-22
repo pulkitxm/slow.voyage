@@ -40,6 +40,7 @@ interface Template {
   scene: THREE.Object3D
   clips: THREE.AnimationClip[]
   scale: number
+  order: number
 }
 
 interface Actor {
@@ -85,7 +86,9 @@ export class Cast implements Stage {
           scene: file.scene,
           clips: file.animations,
           scale: tall > 0 ? source.height / tall : 1,
+          order: sources.indexOf(source),
         })
+        list.sort((a, b) => a.order - b.order)
         this.templates.set(source.kind, list)
       })
   }
