@@ -105,7 +105,10 @@ of the whole loop.
   swept clear of the bodywork to the nearer side instead of passing through it.
 - A car that brushes a guardrail, rock wall or deep water edge at a shallow
   angle is turned along it and slightly away, keeping most of its speed, so it
-  never rides the rail.
+  never rides the rail. The sloping end piece of each rail run is solid as well,
+  so a car sliding off the last segment is caught instead of passing through.
+  Every impact takes speed in proportion to how squarely it is met: a brush
+  keeps nearly all of it, a quarter radian strike loses a fifth or more.
 - Each walker shouts and screams in their own voice: men lower, rougher and
   with darker vowels, women higher and brighter.
 - Off the road, slopes steeper than about 45 degrees act as walls instead of

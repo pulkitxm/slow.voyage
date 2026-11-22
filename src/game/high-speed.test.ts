@@ -366,7 +366,8 @@ describe('guardrail glances at speed', () => {
   test.each(vehicles.filter((vehicle) => vehicle !== 'motorcycle'))(
     '%s glances off a rail and leaves it instead of riding along it',
     (vehicle) => {
-      for (const speed of [25, 45])
+      for (const speed of [25, 45]) {
+        const kept: Record<number, number> = {}
         for (const angle of [0.03, 0.1, 0.25]) {
           const settings: Settings = { ...defaults, vehicle }
           const car = new CarPhysics(new RailedWorld(settings))
@@ -377,18 +378,29 @@ describe('guardrail glances at speed', () => {
           car.suspension.reset(car)
           let touching = 0
           let touched = false
-          for (let step = 0; step < 240; step++) {
+          let before = speed
+          let after = 0
+          for (let step = 0, linger = -1; step < 480 && linger !== 0; step++) {
+            const moving = Math.hypot(car.speed, car.lateralSpeed)
             car.update(1 / 120, { ...neutralInput, throttle: 0.5 }, settings)
             if (car.scrape > 0) {
+              if (!touched) before = moving
               touched = true
               touching += 1 / 120
-            }
+            } else if (touched && linger < 0) linger = 12
+            if (linger > 0) linger--
+            after = Math.hypot(car.speed, car.lateralSpeed)
           }
+          const awayX = -Math.sin(car.yaw) * car.speed + Math.cos(car.yaw) * car.lateralSpeed
           expect(touched).toBe(true)
           expect(touching).toBeLessThan(0.15)
-          expect(car.speed).toBeGreaterThan(speed * 0.7)
-          expect(car.x).toBeLessThan(roadLayout.railOffset - footprints[vehicle].halfWidth - 0.1)
+          expect(awayX).toBeLessThan(0)
+          kept[angle] = after / before
         }
+        expect(kept[0.03]).toBeGreaterThan(0.85)
+        expect(kept[0.25]).toBeGreaterThan(0.5)
+        expect(kept[0.25]).toBeLessThan((kept[0.03] ?? 0) - 0.08)
+      }
     },
   )
 })

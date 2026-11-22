@@ -38,6 +38,15 @@ export const railFaces = {
   inner: roadLayout.railOffset - 0.02,
   outer: roadLayout.railOffset + 0.12,
 }
+export const railTerminal = 1.4
+
+export function railAt(world: World, s: number, side: number) {
+  return (
+    guardrailAt(world, s, side) ||
+    guardrailAt(world, s - railTerminal, side) ||
+    guardrailAt(world, s + railTerminal, side)
+  )
+}
 export const trunkSize = { base: 0.25, canopyShare: 0.02 }
 const outlineSpacing = 1.5
 
@@ -82,7 +91,7 @@ export function railObstacles(world: World, pose: Pose, footprint: Footprint) {
       const frame = roadCoordinates(world, position.x, position.s)
       const across = frame.distance * side
       const penetration = inside ? across - railFaces.inner : railFaces.outer - across
-      if (penetration < 0 || !guardrailAt(world, frame.s, side)) continue
+      if (penetration < 0 || !railAt(world, frame.s, side)) continue
       const direction = inside ? side : -side
       const normalX = direction * Math.cos(frame.road.yaw),
         normalS = direction * Math.sin(frame.road.yaw)

@@ -74,8 +74,23 @@ export function resolveBarrierImpulse(
   return approach
 }
 
+export const impactLoss = 0.9
+
+export function impactShare(
+  pose: Pick<ChassisPose, 'yaw' | 'speed' | 'lateralSpeed'>,
+  normalX: number,
+  normalS: number,
+) {
+  const velocityX = -Math.sin(pose.yaw) * pose.speed + Math.cos(pose.yaw) * pose.lateralSpeed
+  const velocityS = Math.cos(pose.yaw) * pose.speed + Math.sin(pose.yaw) * pose.lateralSpeed
+  const magnitude = Math.hypot(velocityX, velocityS)
+  if (magnitude < 1e-6) return 1
+  const into = Math.max(0, (velocityX * normalX + velocityS * normalS) / magnitude)
+  return Math.max(0.05, 1 - impactLoss * into)
+}
+
 export const wallGlance = {
-  steepest: 0.6,
+  steepest: 0.45,
   share: 0.3,
   least: 0.015,
   most: 0.06,

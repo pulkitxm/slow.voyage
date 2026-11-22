@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { barrierResponse } from './barrier'
+import { barrierResponse, impactLoss } from './barrier'
 import { footprints, outline, railFaces } from './collision'
 import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
@@ -460,7 +460,8 @@ describe('guardrail response', () => {
           const scrape = barrierResponse.friction * (1 + barrierResponse.restitution) * free.normal
           expect(contact.car.impact).toBeGreaterThan(0)
           expect(contact.tangent).toBeLessThan(free.tangent)
-          expect(contact.tangent).toBeGreaterThan(free.tangent - scrape - 0.000001)
+          const share = 1 - (impactLoss * free.normal) / Math.hypot(free.normal, free.tangent)
+          expect(contact.tangent).toBeGreaterThan((free.tangent - scrape) * share - 0.05)
           expect(contact.normal).toBeLessThan(0)
           expect(contact.normal).toBeGreaterThan(-free.normal * 0.5)
           expect(contact.car.yaw).toBeCloseTo(free.car.yaw, 8)
@@ -473,7 +474,7 @@ describe('guardrail response', () => {
     const glancing = railContact(1, 0, 0, 2, 30)
     expect(faster.car.impact).toBeGreaterThan(gentle.car.impact * 5)
     expect(glancing.car.impact).toBeCloseTo(faster.car.impact, 3)
-    expect(glancing.tangent).toBeGreaterThan(29)
+    expect(glancing.tangent).toBeGreaterThan(27)
   })
   test('a firm rail strike raises one rail collision event scaled by approach speed', () => {
     const firm = railContact(1, 0, 0, 3, 0)

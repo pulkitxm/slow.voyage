@@ -1,4 +1,4 @@
-import { glance, resolveBarrierImpulse, wallGlance } from './barrier'
+import { glance, impactShare, resolveBarrierImpulse, wallGlance } from './barrier'
 import {
   boundaryObstacle,
   footprints,
@@ -314,13 +314,18 @@ export class CarPhysics {
         this.x -= obstacle.normalX * (obstacle.penetration + 0.001)
         this.s -= obstacle.normalS * (obstacle.penetration + 0.001)
       }
+      const deepest = obstacles.reduce((a, b) => (b.penetration > a.penetration ? b : a))
+      const share = impactShare(this, deepest.normalX, deepest.normalS)
       const approach = resolveBarrierImpulse(
         this,
         obstacles.flatMap((obstacle) => obstacle.contacts),
         vehicle,
       )
+      if (approach > collisionSound.minimumApproach) {
+        this.speed *= share
+        this.lateralSpeed *= share
+      }
       this.impact = Math.max(this.impact, clamp(approach / 8, 0, 1))
-      const deepest = obstacles.reduce((a, b) => (b.penetration > a.penetration ? b : a))
       if (deepest.material !== 'trunk') {
         const aim = glance(
           { yaw: this.yaw + this.deflection, speed: this.speed },
