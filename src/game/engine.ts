@@ -435,6 +435,7 @@ export class RoadEngine {
     if (!budget.software) dressVehicle(this.car, this.settings.vehicle, () => this.applyLighting())
     this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
     this.scene.add(this.car.group, this.contact)
+    this.canvas.dataset.vehicleShown = this.settings.vehicle
     if (!budget.software) {
       this.wake = new Wake(this.terrain.grassMaterial.fieldUniforms.fieldNoiseMap)
       this.scene.add(this.tyreClouds.points, this.skids.mesh, this.wake.group)
@@ -636,12 +637,8 @@ export class RoadEngine {
       this.incoming = next
       const ready = () => {
         if (this.disposed || this.incoming !== next) return
-        const mount = () => {
-          if (this.disposed || this.incoming !== next) return
-          this.incoming = null
-          this.mountVehicle(next)
-        }
-        this.renderer.compileAsync(next.group, this.camera, this.scene).then(mount, mount)
+        this.incoming = null
+        this.mountVehicle(next)
       }
       const dressing = !budget.software && dressVehicle(next, this.settings.vehicle, ready)
       if (!dressing) ready()
@@ -682,14 +679,21 @@ export class RoadEngine {
     }
   }
   mountVehicle(next: VehicleModel) {
+    this.canvas.dataset.vehicleShown = this.settings.vehicle
     if (this.rendered) this.crossfade.capture(vehicleArrival.fade)
     this.scene.remove(this.car.group)
     this.car.dispose()
     this.car = next
     this.scene.add(next.group)
     this.configureHeadlights()
-    this.applyLighting()
+    this.reflect(next.group, this.scene.environment)
     this.arrival = 0
+  }
+  reflect(group: THREE.Object3D, environment: THREE.Texture | null) {
+    group.traverse((object) => {
+      if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial)
+        object.material.envMap = environment
+    })
   }
   configureHeadlights() {
     if (!this.headlights.length)
@@ -720,11 +724,7 @@ export class RoadEngine {
       const environment = this.atmosphere.setAppearance(this.settings, profile)
       this.scene.environment = environment
       this.scene.environmentIntensity = 0.13
-      this.car.group.traverse((object) => {
-        if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial) {
-          object.material.envMap = environment
-        }
-      })
+      this.reflect(this.car.group, environment)
       this.terrain.roadMaterial.envMap = environment
     }
     this.precipitation.setAppearance(this.settings, profile)

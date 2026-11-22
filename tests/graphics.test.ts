@@ -270,6 +270,9 @@ test('software cockpit changes retain textures and avoid rebuilding world shader
             .click()
           await page.getByRole('button', { name: 'Close settings' }).click()
           await page.waitForSelector(`[data-vehicle="${vehicle}"]`)
+          await page.waitForSelector(`canvas[data-vehicle-shown="${vehicle}"]`, {
+            state: 'attached',
+          })
           const graphics = await page.evaluate(async () => {
             await new Promise(requestAnimationFrame)
             await new Promise(requestAnimationFrame)
