@@ -52,6 +52,54 @@ export const cinemaRelief = {
   steadyJitter: 0.0015,
   patience: 3,
   scales: [1, 0.82, 0.68],
+  grace: 4,
+  longestCounted: 0.1,
+  comfortable: 1 / 50,
+  recovery: 12,
+}
+
+export type StrainVerdict = 'lower' | 'raise' | null
+
+export class StrainGauge {
+  strain = 0
+  ease = 0
+  grace = 0
+  lowered = 0
+
+  hold(seconds = cinemaRelief.grace) {
+    this.grace = Math.max(this.grace, seconds)
+    this.strain = 0
+    this.ease = 0
+  }
+
+  step(elapsed: number, strained: boolean, busy: boolean, scale: number): StrainVerdict {
+    const counted = Math.min(elapsed, cinemaRelief.longestCounted)
+    if (busy) {
+      this.strain = this.ease = 0
+      return null
+    }
+    if (this.grace > 0) {
+      this.grace = Math.max(0, this.grace - counted)
+      this.strain = this.ease = 0
+      return null
+    }
+    this.strain = Math.max(
+      0,
+      Math.min(cinemaRelief.patience, this.strain + (strained ? counted : -counted)),
+    )
+    if (this.strain >= cinemaRelief.patience) {
+      this.strain = this.ease = 0
+      this.lowered++
+      return 'lower'
+    }
+    if (scale > 0 && !strained && elapsed < cinemaRelief.comfortable) this.ease += elapsed
+    else this.ease = 0
+    if (this.ease >= cinemaRelief.recovery * 2 ** Math.max(0, this.lowered - 1)) {
+      this.ease = 0
+      return 'raise'
+    }
+    return null
+  }
 }
 export function frameStrained(elapsed: number, pace: number, jitter: number) {
   const capped =
