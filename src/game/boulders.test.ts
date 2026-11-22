@@ -84,3 +84,16 @@ test('leafy shrubs and bushes are left out in winter while other plants stay', (
     expect(kept).toBeGreaterThan(10)
   }
 })
+
+test('most scanned plants stand close to the road edge where they can be seen', () => {
+  const world = new World({ ...defaults, landscape: 'forest' })
+  let near = 0
+  let total = 0
+  for (let tile = 0; tile < 60; tile++)
+    for (const plant of planPlants(world, tile * 120, 120, random(tile * 389 + 11))) {
+      total++
+      if (Math.abs(roadCoordinates(world, plant.x, plant.s).distance) < 16) near++
+    }
+  expect(total).toBeGreaterThan(300)
+  expect(near / total).toBeGreaterThan(0.6)
+})

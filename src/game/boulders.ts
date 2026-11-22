@@ -83,7 +83,7 @@ export function planPlants(world: World, start: number, length: number, rng: () 
   for (let attempt = 0; attempt < wanted * 3 && list.length < wanted; attempt++) {
     const s = start + rng() * length
     const side = rng() > 0.5 ? 1 : -1
-    const reach = plantNearest + rng() ** 1.4 * (plantFarthest - plantNearest)
+    const reach = plantNearest + rng() ** 2.6 * (plantFarthest - plantNearest)
     const kind = options[Math.floor(rng() * options.length)] ?? 4
     const yaw = rng() * Math.PI * 2
     const spec = kinds[kind]
