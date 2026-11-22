@@ -45,10 +45,15 @@ of the whole loop.
 - The gearbox is automatic by default. The manual setting puts the gears on E
   (up) and Q (down), or the scenery buttons on a controller. Each gear pulls
   hardest in the upper half of its revs and stops at a rev limiter, so first
-  tops out near its own speed until the driver shifts; a tall gear from rest is
-  sluggish; lifting off slows the car on the engine, more in low gears; a
-  downshift that would over-rev is refused; reverse sits one click below first at
-  a standstill, and the brake holds the car instead of reversing. Shifts cut
+  tops out near its own speed until the driver shifts. Second can pull away from
+  rest, but a taller gear lugs: the revs sag below idle, the car shudders, third
+  barely crawls and top gear will not move the car. Lifting off slows the car on
+  the engine, more in low gears. Off the throttle every shift is accepted, even
+  in quick succession; under power a downshift that would over-rev is refused.
+  Reverse sits one click below first and engages while rolling below about
+  25 km/h off the throttle. Holding the brake through a stop drops into reverse
+  and holding the throttle at a standstill in reverse selects first, so S always
+  brakes then reverses and W always brakes then drives, as in automatic. Shifts cut
   drive for a moment and make a clunk, with exhaust pops on hard upshifts and a
   stutter on the limiter. The gear readout turns amber near the redline and red
   on the limiter. Autodrive always shifts for itself.

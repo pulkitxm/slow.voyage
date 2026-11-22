@@ -60,6 +60,7 @@ const directionChangeSpeed = 0.05
 const brakeResponseSeconds = 0.1
 export const collisionSound = { minimumApproach: 0.8, fullApproach: 10 }
 const gripSteeringShare = 1.5
+const shudder = 0.12
 
 export class CarPhysics {
   x = 0
@@ -212,9 +213,11 @@ export class CarPhysics {
     const v = Math.abs(this.speed)
     const stick = this.gearbox
     const manual = input.manual === true
-    if (manual) stick.request(input.shift ?? 0, this.speed)
+    if (manual) {
+      stick.request(input.shift ?? 0, this.speed, input.throttle)
+      stick.standby(this.speed, input.throttle, input.brake, dt)
+    }
     const backing = manual && stick.gear < 0
-    if (backing) input = { ...input, throttle: input.brake, brake: input.throttle }
     const pull = manual ? (backing ? 0 : stick.pull(this.speed)) : 1
     const reverseCommand =
       input.brake > 0 && input.throttle === 0 && (!manual || backing || this.speed < -0.5)
@@ -296,6 +299,8 @@ export class CarPhysics {
     this.speed = forwardSpeed
     this.yaw += turn
     this.impact = damp(this.impact, 0, 5, dt)
+    if (manual && stick.lug > 0 && input.throttle > 0.1)
+      this.impact = Math.max(this.impact, stick.lug * shudder)
     const footprint = footprints[settings.vehicle]
     const obstacles = railObstacles(this.world, this, footprint)
     for (const trunk of this.trunks(this.s)) {
