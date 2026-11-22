@@ -38,7 +38,11 @@ test('lap times read as minutes, seconds and tenths', () => {
 test('a shared spot survives a round trip and rejects malformed links', () => {
   const spot = { landscape: 'canyon' as const, seed: 4721, distance: 3400 }
   expect(encodeSpot(spot)).toBe('#canyon-4721@3.4')
-  expect(decodeSpot(encodeSpot(spot))).toEqual(spot)
+  expect(decodeSpot(encodeSpot(spot))).toEqual({ ...spot, roadMode: 'winding' })
+  const straight = { ...spot, roadMode: 'straight' as const }
+  expect(encodeSpot(straight)).toBe('#canyon-4721-straight@3.4')
+  expect(decodeSpot(encodeSpot(straight))).toEqual(straight)
+  expect(decodeSpot('#canyon-4721-spiral@3.4')).toBe(null)
   expect(encodeSpot({ ...spot, distance: worldLoop.length * 2 + 3400 })).toBe('#canyon-4721@3.4')
   expect(encodeSpot({ ...spot, distance: -600 })).toBe('#canyon-4721@11.4')
   for (const hash of ['', '#', '#moon-1@2', '#canyon-123456@1', '#canyon-1@99', '#canyon@3', 'x'])

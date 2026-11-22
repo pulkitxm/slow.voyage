@@ -64,6 +64,12 @@ seven landscapes, three seasons, six skies including a live day cycle, five kind
 of weather, paint, camera, grip, power, sound, detail, and units. Preferences are
 stored on the device.
 
+The Journey tab also chooses the road itself. Winding Roads is the full road
+with every bend. Endless Straight holds one heading for the whole lap while the
+hills, lakes and forests keep changing around it. Calm Drive keeps only long,
+wide curves and halves the walkers on the verge. Links to a spot carry the road
+mode.
+
 The minimap shows the road, terrain, landmarks to find, lap progress, and an
 arrow back to the road when off it. Laps are timed from line to line. The Journey
 tab copies a link that reopens the same road at the same spot.

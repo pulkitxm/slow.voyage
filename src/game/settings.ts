@@ -6,6 +6,7 @@ import {
   cameraMotions,
   defaults,
   lifeLevels,
+  roadModes,
   type Settings,
   transmissions,
   vehicles,
@@ -28,6 +29,7 @@ export function decodeSettings(stored: unknown): Settings {
     const values = stored as Record<string, unknown>
     for (const key of [
       'landscape',
+      'roadMode',
       'season',
       'daylight',
       'weather',
@@ -44,6 +46,7 @@ export function decodeSettings(stored: unknown): Settings {
     ] as const) {
       const options: Record<typeof key, readonly string[]> = {
         landscape: landscapeIds,
+        roadMode: roadModes,
         season: ['summer', 'autumn', 'winter'],
         daylight: ['dawn', 'day', 'sunset', 'dusk', 'night', 'cycle'],
         weather: ['clear', 'overcast', 'rain', 'storm', 'fog'],

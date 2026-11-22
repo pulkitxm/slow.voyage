@@ -12,6 +12,13 @@ export const lifeLevels = ['none', 'quiet', 'lively'] as const
 export type LifeLevel = (typeof lifeLevels)[number]
 export const transmissions = ['automatic', 'manual'] as const
 export type Transmission = (typeof transmissions)[number]
+export const roadModes = ['winding', 'straight', 'calm'] as const
+export type RoadMode = (typeof roadModes)[number]
+export const roadShapes: Record<RoadMode, { broad: number; middle: number; bend: number }> = {
+  winding: { broad: 200, middle: 75, bend: 14 },
+  straight: { broad: 0, middle: 0, bend: 0 },
+  calm: { broad: 180, middle: 10, bend: 0 },
+}
 export const cameraMotions = ['full', 'calm'] as const
 export type CameraMotion = (typeof cameraMotions)[number]
 export type Weather = 'clear' | 'overcast' | 'rain' | 'storm' | 'fog'
@@ -30,6 +37,7 @@ export type AssistanceMode = 'off' | 'full' | 'steer' | 'speed'
 export type SteeringSource = 'digital' | 'analog' | 'mouse' | 'automatic'
 export interface Settings {
   landscape: Landscape
+  roadMode: RoadMode
   season: Season
   daylight: Daylight
   weather: Weather
@@ -59,6 +67,7 @@ export interface Settings {
 }
 export const defaults: Settings = {
   landscape: 'highlands',
+  roadMode: 'winding',
   season: 'summer',
   daylight: 'day',
   weather: 'clear',
@@ -116,8 +125,12 @@ export class World {
     const broad = roadCurve(s, 1200, seed),
       middle = roadCurve(s + 77, 450, seed + 97),
       bend = roadCurve(s + 37, 140, seed + 931)
-    const x = broad.value * 200 + middle.value * 75 + bend.value * 14
-    const dx = broad.derivative * 200 + middle.derivative * 75 + bend.derivative * 14
+    const shape = roadShapes[this.settings.roadMode]
+    const x = broad.value * shape.broad + middle.value * shape.middle + bend.value * shape.bend
+    const dx =
+      broad.derivative * shape.broad +
+      middle.derivative * shape.middle +
+      bend.derivative * shape.bend
     const rise = roadCurve(s, 1350, seed + 499),
       crest = roadCurve(s + 129, 420, seed + 951)
     const [base, riseScale, crestScale] = landscapeProfiles[this.settings.landscape].road

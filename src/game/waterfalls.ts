@@ -70,8 +70,8 @@ function trace(world: World, x: number, s: number) {
 }
 
 export function lapWaterfalls(world: World): Waterfall[] {
-  const { landscape, seed } = world.settings
-  const key = `${landscape}/${seed}`
+  const { landscape, seed, roadMode } = world.settings
+  const key = `${landscape}/${roadMode}/${seed}`
   if (cached?.key === key) return cached.list
   const list: Waterfall[] = []
   const wanted = landscapeProfiles[landscape].falls

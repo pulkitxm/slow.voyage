@@ -43,6 +43,7 @@ export const lifeLayout = {
   aside: 14,
   walkers: { quiet: 0.14, lively: 0.46 },
   herds: { quiet: 0.14, lively: 0.34 },
+  calmShare: 0.5,
 } as const
 
 const herds: Record<Landscape, readonly Species[]> = {
@@ -134,7 +135,8 @@ export function planSlot(world: World, slot: number, level: LifeLevel): Plan | n
   const rng = random(seed * 31 + slot * 7919 + landscapeIds.indexOf(landscape) * 131 + 17)
   const roll = rng()
   const firstSide = rng() > 0.5 ? 1 : -1
-  const walkers = lifeLayout.walkers[level]
+  const walkers =
+    lifeLayout.walkers[level] * (world.settings.roadMode === 'calm' ? lifeLayout.calmShare : 1)
   const grazing = lifeLayout.herds[level] * (season === 'winter' ? 0.5 : 1)
   if (roll < walkers) {
     for (const side of [firstSide, -firstSide]) {
@@ -490,7 +492,7 @@ export class Life {
     calm: boolean,
     horn = false,
   ) {
-    const key = `${settings.landscape}/${settings.seed}/${settings.season}/${settings.life}`
+    const key = `${settings.landscape}/${settings.roadMode}/${settings.seed}/${settings.season}/${settings.life}`
     if (key !== this.key) {
       this.key = key
       this.plans.clear()
