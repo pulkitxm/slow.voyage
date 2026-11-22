@@ -145,6 +145,9 @@ of the whole loop.
   ramps, and foliage closer than the chase camera is cut away so the view never
   fills with leaves.
   The roadside life setting chooses empty, quiet, or lively (the default).
+- Open ground is not one green: broad patches run from dry and warm to lush and
+  cool, worn spots show bare earth on gentle slopes, and the colour is a little
+  less saturated than before.
 - Woodland trees wear pictures of photoscanned firs, broadleaf trees and
   bushes on their crossed cards instead of painted shapes. Leaves turn from
   yellow to rust in autumn, conifers carry snow in winter, and bare winter
