@@ -15,7 +15,13 @@ import {
 } from './controls'
 import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
-import { cinemaRelief, createGraphicsRenderer, frameStrained, graphicsBudget } from './graphics'
+import {
+  cinemaRelief,
+  createGraphicsRenderer,
+  frameStrained,
+  graphicsBudget,
+  StrainGauge,
+} from './graphics'
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { LapClock } from './laps'
@@ -111,7 +117,7 @@ export class RoadEngine {
   renderer: THREE.WebGLRenderer
   antialiasing: SoftwareAntialias | null
   cinema: CinematicPipeline | null = null
-  cinemaStrain = 0
+  strainGauge = new StrainGauge()
   framePace = 1 / 60
   frameJitter = 0
   dayClock = 0
@@ -530,6 +536,7 @@ export class RoadEngine {
   }
   setPaused(paused: boolean) {
     if (!this.started) return
+    if (this.paused && !paused) this.strainGauge.hold()
     this.paused = paused
     this.blur()
     this.emitState()
@@ -613,6 +620,11 @@ export class RoadEngine {
       settings.daylight !== this.settings.daylight ||
       settings.weather !== this.settings.weather
     if (environmentChange && this.rendered) this.crossfade.capture()
+    this.strainGauge.hold()
+    if (settings.quality !== this.settings.quality) {
+      this.renderScale = 0
+      this.cinemaBlocked = false
+    }
     if (environmentChange) this.minimap.invalidate()
     this.settings = { ...settings }
     this.world.settings = this.settings
@@ -681,6 +693,7 @@ export class RoadEngine {
   mountVehicle(next: VehicleModel) {
     this.canvas.dataset.vehicleShown = this.settings.vehicle
     if (this.rendered) this.crossfade.capture(vehicleArrival.fade)
+    this.strainGauge.hold()
     this.scene.remove(this.car.group)
     this.car.dispose()
     this.car = next
@@ -953,15 +966,18 @@ export class RoadEngine {
     this.frameJitter += (Math.abs(elapsed - this.framePace) - this.frameJitter) * 0.05
     const strained = frameStrained(elapsed, this.framePace, this.frameJitter)
     if (!this.software && this.started && !this.paused && !this.photo) {
-      this.cinemaStrain = clamp(
-        this.cinemaStrain + (strained ? elapsed : -elapsed),
-        0,
-        cinemaRelief.patience,
+      const verdict = this.strainGauge.step(
+        elapsed,
+        strained,
+        this.terrain.rebuilding || this.crossfade.active || this.incoming !== null,
+        this.renderScale,
       )
-      if (this.cinemaStrain >= cinemaRelief.patience) {
-        this.cinemaStrain = 0
+      if (verdict) {
         const budget = graphicsBudget(this.renderer, this.settings.quality)
-        if (this.renderScale < cinemaRelief.scales.length - 1) {
+        if (verdict === 'raise') {
+          this.renderScale--
+          this.renderer.setPixelRatio(this.pixelRatio(budget))
+        } else if (this.renderScale < cinemaRelief.scales.length - 1) {
           this.renderScale++
           this.renderer.setPixelRatio(this.pixelRatio(budget))
         } else {

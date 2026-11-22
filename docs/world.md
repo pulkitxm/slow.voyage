@@ -65,7 +65,9 @@ of the whole loop.
 - Rendering on capable hardware goes through an HDR pipeline with bloom, ambient
   occlusion, distance haze, and grading. Slow frames step the resolution down
   before any effect is dropped, and a display that is steadily capped at 30 Hz is
-  not treated as slow.
+  not treated as slow. Stalls while scenery, season, light or vehicle change are
+  not counted, one long stall counts as a single short frame, and a lowered
+  resolution steps back up after a long run of smooth frames.
 - Landscapes are profiles in `src/game/landscapes.ts`. Forest, canyon, and
   northern lakes were added to highlands, alpine, and desert.
 - Skies include dawn, dusk, and a live cycle through a full day every twelve
