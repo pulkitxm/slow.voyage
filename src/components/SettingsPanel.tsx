@@ -16,6 +16,7 @@ import {
   roadModes,
   roadWear,
   seasons,
+  steeringFeels,
   vehicles,
   weather,
 } from './options'
@@ -411,6 +412,23 @@ export function SettingsPanel({
                 car on the engine. Off the throttle you can shift freely. Holding the brake through
                 a stop drops into reverse. Autodrive shifts for you.
               </p>
+            </section>
+            <section className="setting-section">
+              <h3>Steering feel</h3>
+              <div className="segmented">
+                {steeringFeels.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={settings.steeringFeel === item.id ? 'selected' : ''}
+                    aria-pressed={settings.steeringFeel === item.id}
+                    onClick={() => update('steeringFeel', item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p>{steeringFeels.find((item) => item.id === settings.steeringFeel)?.description}</p>
             </section>
             <section className="setting-section">
               <label className="check-option">

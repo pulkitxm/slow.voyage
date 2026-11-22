@@ -16,7 +16,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['W / ↑', 'Accelerate'],
             ['Shift + W / ↑', 'Boost while the charge lasts'],
             ['S / ↓', 'Brake, then reverse'],
-            ['A D / ← →', 'Steer'],
+            ['A D / ← →', 'Steer (taps nudge at speed, holding builds to full grip)'],
             ['Space', 'Handbrake'],
             ['F', 'Toggle autodrive'],
             ['G', 'Choose assistance mode'],
