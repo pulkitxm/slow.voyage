@@ -389,8 +389,9 @@ export function SettingsPanel({
               <p>
                 Manual puts the gears on E (up) and Q (down), or the scenery buttons on a
                 controller. Each gear pulls hardest in the upper half of its revs and stops at the
-                limiter, lifting off slows the car on the engine, and reverse sits one click below
-                first at a standstill. Autodrive shifts for you.
+                limiter, a gear too tall for the speed lugs and shudders, and lifting off slows the
+                car on the engine. Off the throttle you can shift freely. Holding the brake through
+                a stop drops into reverse. Autodrive shifts for you.
               </p>
             </section>
             <section className="setting-section">
