@@ -52,7 +52,7 @@ export function restClip(root: THREE.Object3D, name: string) {
   return new THREE.AnimationClip(name, 1, tracks)
 }
 
-export function standingHeight(root: THREE.Object3D) {
+export function standing(root: THREE.Object3D) {
   root.updateMatrixWorld(true)
   const bounds = new THREE.Box3()
   root.traverse((part) => {
@@ -61,7 +61,9 @@ export function standingHeight(root: THREE.Object3D) {
       if (part.boundingBox) bounds.union(part.boundingBox.clone().applyMatrix4(part.matrixWorld))
     } else if (part instanceof THREE.Mesh) bounds.expandByObject(part)
   })
-  return bounds.isEmpty() ? 0 : bounds.max.y - bounds.min.y
+  return bounds.isEmpty()
+    ? { height: 0, base: 0 }
+    : { height: bounds.max.y - bounds.min.y, base: bounds.min.y }
 }
 
 const dyes: Record<string, number> = { Shirt: 0, Pants: 1, Skin: 2 }
@@ -84,6 +86,7 @@ interface Template {
   scene: THREE.Object3D
   clips: THREE.AnimationClip[]
   scale: number
+  base: number
   order: number
 }
 
@@ -112,7 +115,7 @@ export class Cast implements Stage {
     for (const source of sources)
       loader.load(source.url, (file) => {
         if (this.disposed) return
-        const tall = standingHeight(file.scene)
+        const { height: tall, base } = standing(file.scene)
         const clips = file.animations.some((clip) => clip.name === 'Idle')
           ? file.animations
           : [...file.animations, restClip(file.scene, 'Idle')]
@@ -132,6 +135,7 @@ export class Cast implements Stage {
           scene: file.scene,
           clips,
           scale: tall > 0 ? source.height / tall : 1,
+          base,
           order: sources.indexOf(source),
         })
         list.sort((a, b) => a.order - b.order)
@@ -203,9 +207,10 @@ export class Cast implements Stage {
     const felled = spot.mood === 2
     const lying = felled && !actor.actions.has('Death') ? spot.tip : 0
     actor.root.rotation.order = 'YXZ'
-    actor.root.position.set(spot.x, spot.y + lying * 0.2, -spot.s)
+    const size = template.scale * spot.member.scale
+    actor.root.position.set(spot.x, spot.y + lying * 0.2 - template.base * size, -spot.s)
     actor.root.rotation.set((-Math.PI / 2) * lying, spot.yaw, 0)
-    actor.root.scale.setScalar(template.scale * spot.member.scale)
+    actor.root.scale.setScalar(size)
     const fresh = actor.member !== spot.member
     if (fresh) {
       actor.member = spot.member

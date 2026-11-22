@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import { castSources, restClip, standingHeight } from './cast'
+import { castSources, restClip, standing } from './cast'
 
 test('cattle come as a cow and a bull and the elephant has a model of its own', () => {
   const cattle = castSources.filter((source) => source.kind === 'cow')
@@ -37,11 +37,15 @@ test('a model without an idle clip stands in its rest pose', () => {
   expect(hip.position.y).toBeCloseTo(1.2, 5)
 })
 
-test('standing height measures plain meshes and is zero for an empty scene', () => {
-  expect(standingHeight(new THREE.Object3D())).toBe(0)
+test('standing measures the height and the level of the feet, so a model with a low origin is lifted', () => {
+  expect(standing(new THREE.Object3D())).toEqual({ height: 0, base: 0 })
   const root = new THREE.Object3D()
   const body = new THREE.Mesh(new THREE.BoxGeometry(1, 2.5, 1))
   body.position.y = 1.25
   root.add(body)
-  expect(standingHeight(root)).toBeCloseTo(2.5, 5)
+  expect(standing(root).height).toBeCloseTo(2.5, 5)
+  expect(standing(root).base).toBeCloseTo(0, 5)
+  body.position.y = 0.25
+  expect(standing(root).height).toBeCloseTo(2.5, 5)
+  expect(standing(root).base).toBeCloseTo(-1, 5)
 })
