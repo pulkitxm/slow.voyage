@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { footprints } from './collision'
 import { automaticTarget, neutralInput, resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
 import { roadCoordinates, roadLayout } from './road'
@@ -235,7 +234,7 @@ describe('high-speed manual handling', () => {
   test.each(vehicles)(
     '%s held keyboard steering builds to cornering grip without sliding at speed',
     (vehicle) => {
-      const settings = { ...defaults, vehicle }
+      const settings: Settings = { ...defaults, vehicle, steeringAssist: 'light' }
       const car = new CarPhysics(new FlatWorld(settings))
       let reached = Number.POSITIVE_INFINITY
       let hardest = 0
@@ -252,9 +251,9 @@ describe('high-speed manual handling', () => {
   )
 
   test.each(vehicles)(
-    '%s quarter-second keyboard taps at top speed barely turn the nose',
+    '%s quarter-second keyboard taps at top speed barely turn the nose with light assist',
     (vehicle) => {
-      const settings = { ...defaults, vehicle }
+      const settings: Settings = { ...defaults, vehicle, steeringAssist: 'light' }
       const car = new CarPhysics(new FlatWorld(settings))
       car.reset(300)
       car.speed = vehicleMetrics[vehicle].maxSpeed * 0.95

@@ -134,23 +134,23 @@ export const roadModes = [
       'Only long, wide curves and half as many walkers on the verge. Made for cruising and looking around.',
   },
 ] as const
-export const steeringFeels = [
+export const steeringAssists = [
   {
-    id: 'relaxed',
-    label: 'Relaxed',
+    id: 'off',
+    label: 'Free',
+    description:
+      'The steering answers with the same strength at any speed. A key turns the car as hard as the tyres allow, straight away.',
+  },
+  {
+    id: 'light',
+    label: 'Light assist',
+    description:
+      'At highway speed a tap only nudges the car within its lane and holding a key builds to full grip over about a second.',
+  },
+  {
+    id: 'strong',
+    label: 'Strong assist',
     description:
       'The calmest keys at speed. A tap drifts the car a hand width and a long hold eases into the bend.',
-  },
-  {
-    id: 'balanced',
-    label: 'Balanced',
-    description:
-      'A tap at highway speed nudges the car within its lane and holding builds smoothly to full grip, the way assisted steering feels in racing games.',
-  },
-  {
-    id: 'direct',
-    label: 'Direct',
-    description:
-      'The quick rack with no softening at speed. Keys turn in sharply, for experienced drivers.',
   },
 ] as const

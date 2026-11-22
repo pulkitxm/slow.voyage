@@ -1,5 +1,5 @@
 import { vehicleMetrics } from './vehicles'
-import { clamp, type SteeringFeel, type SteeringSource, type Vehicle } from './world'
+import { clamp, type SteeringAssist, type SteeringSource, type Vehicle } from './world'
 
 export const keyboardSoftening = {
   startSpeed: 12,
@@ -9,11 +9,15 @@ export const keyboardSoftening = {
   calmSpan: 18,
   holdFrom: 0.12,
 }
-export const steeringFeel: Record<SteeringFeel, { tapShare: number; holdSpan: number }> = {
-  relaxed: { tapShare: 0.16, holdSpan: 1.3 },
-  balanced: { tapShare: 0.26, holdSpan: 1 },
-  direct: { tapShare: 0.7, holdSpan: 0.4 },
+export const steeringAssist: Record<
+  SteeringAssist,
+  { tapShare: number; holdSpan: number; speedDelay: number }
+> = {
+  off: { tapShare: 1, holdSpan: 0.4, speedDelay: 0 },
+  light: { tapShare: 0.26, holdSpan: 1, speedDelay: 1 },
+  strong: { tapShare: 0.16, holdSpan: 1.3, speedDelay: 1 },
 }
+export const motorcycleAssist = { tapShare: 0.7, holdSpan: 0.4, speedDelay: 1 }
 export const digitalResponse = { settle: 0.45, speedDelay: 0.25, centering: 0.5 }
 
 export function steeringLimit(speed: number, vehicle: Vehicle) {
@@ -57,10 +61,13 @@ export class Steering {
     speed: number,
     vehicle: Vehicle,
     gripLimit = Number.POSITIVE_INFINITY,
-    feel: SteeringFeel = 'balanced',
+    assist: SteeringAssist = 'light',
   ) {
-    const { tapShare: lightTouch, holdSpan } =
-      steeringFeel[vehicle === 'motorcycle' ? 'direct' : feel]
+    const {
+      tapShare: lightTouch,
+      holdSpan,
+      speedDelay,
+    } = vehicle === 'motorcycle' && assist !== 'off' ? motorcycleAssist : steeringAssist[assist]
     if (dt <= 0) return this.angle
     const metrics = vehicleMetrics[vehicle]
     const limit = steeringLimit(speed, vehicle)
@@ -91,7 +98,9 @@ export class Steering {
     const target = clamp(command, -1, 1)
     if (this.source === 'digital') {
       const factor =
-        vehicle === 'motorcycle' ? 1 + ratio * ratio : 1 + digitalResponse.speedDelay * ratio
+        vehicle === 'motorcycle'
+          ? 1 + ratio * ratio * speedDelay
+          : 1 + digitalResponse.speedDelay * ratio * speedDelay
       const centering = target === 0 && vehicle !== 'motorcycle' ? digitalResponse.centering : 1
       this.track(
         dt,
