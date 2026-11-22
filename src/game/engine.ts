@@ -6,6 +6,7 @@ import { Cast } from './cast'
 import { CinematicPipeline } from './cinema'
 import { dressVehicle } from './coachwork'
 import { footprints } from './collision'
+import { contactPatch, contactShade } from './contact-shadow'
 import {
   automaticTarget,
   mergeManualInput,
@@ -61,7 +62,6 @@ import { WorldMap } from './world-map'
 const paintBudget = 11
 const paintDepth = 0.7
 export const idlePace = 46
-export const contactShade = { opacity: 0.86, margin: 1.25, lift: 0.045 }
 
 function contactShadow() {
   const canvas = document.createElement('canvas')
@@ -75,7 +75,7 @@ function contactShadow() {
     context.fillStyle = fade
     context.fillRect(0, 0, 64, 64)
   }
-  const geometry = new THREE.PlaneGeometry(1, 1)
+  const geometry = new THREE.PlaneGeometry(1, 1, contactShade.columns, contactShade.rows)
   geometry.rotateX(-Math.PI / 2)
   const mesh = new THREE.Mesh(
     geometry,
@@ -92,6 +92,7 @@ function contactShadow() {
     }),
   )
   mesh.renderOrder = 1
+  mesh.frustumCulled = false
   return mesh
 }
 export const lightingPace = { step: 0.5, reflection: 6 }
@@ -1031,17 +1032,11 @@ export class RoadEngine {
     this.trailTyres(dt, time / 1000)
     const footprint = footprints[this.settings.vehicle]
     const grounded = p.suspension.wheels.filter((wheel) => wheel.contact).length
-    this.contact.position.copy(this.car.group.position)
-    this.contact.quaternion.copy(this.car.group.quaternion)
-    this.contact.translateY(contactShade.lift)
-    this.contact.translateZ((footprint.rear - footprint.front) / 2)
-    this.contact.scale.set(
-      footprint.halfWidth * 2 * contactShade.margin,
-      1,
-      (footprint.front + footprint.rear) * contactShade.margin,
-    )
+    const outline = this.contact.geometry.getAttribute('position')
+    const patch = contactPatch(this.world, p, footprint, outline.array as Float32Array)
+    outline.needsUpdate = true
     this.contact.material.opacity =
-      (contactShade.opacity * grounded) / Math.max(1, p.suspension.wheels.length)
+      (contactShade.opacity * patch.strength * grounded) / Math.max(1, p.suspension.wheels.length)
     const settling = this.arrival < vehicleArrival.duration
     this.arrival += dt
     if (settling) {
