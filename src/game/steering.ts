@@ -1,15 +1,18 @@
 import { vehicleMetrics } from './vehicles'
-import { clamp, type SteeringSource, type Vehicle } from './world'
+import { clamp, type SteeringFeel, type SteeringSource, type Vehicle } from './world'
 
 export const keyboardSoftening = {
   startSpeed: 12,
   span: 10,
-  tapShare: 0.7,
   heldShare: 1,
   calmFrom: 12,
   calmSpan: 18,
-  holdFrom: 0.1,
-  holdSpan: 0.4,
+  holdFrom: 0.12,
+}
+export const steeringFeel: Record<SteeringFeel, { tapShare: number; holdSpan: number }> = {
+  relaxed: { tapShare: 0.16, holdSpan: 1.3 },
+  balanced: { tapShare: 0.26, holdSpan: 1 },
+  direct: { tapShare: 0.7, holdSpan: 0.4 },
 }
 export const digitalResponse = { settle: 0.45, speedDelay: 0.25, centering: 0.5 }
 
@@ -54,7 +57,10 @@ export class Steering {
     speed: number,
     vehicle: Vehicle,
     gripLimit = Number.POSITIVE_INFINITY,
+    feel: SteeringFeel = 'balanced',
   ) {
+    const { tapShare: lightTouch, holdSpan } =
+      steeringFeel[vehicle === 'motorcycle' ? 'direct' : feel]
     if (dt <= 0) return this.angle
     const metrics = vehicleMetrics[vehicle]
     const limit = steeringLimit(speed, vehicle)
@@ -66,19 +72,13 @@ export class Steering {
     const side = Math.sign(command)
     this.held = side && side === this.heldSide ? this.held + dt : 0
     this.heldSide = side
-    const leaning = clamp(
-      (this.held - keyboardSoftening.holdFrom) / keyboardSoftening.holdSpan,
-      0,
-      1,
-    )
+    const leaning = clamp((this.held - keyboardSoftening.holdFrom) / holdSpan, 0, 1)
     const calm = clamp(
       (Math.abs(speed) - keyboardSoftening.calmFrom) / keyboardSoftening.calmSpan,
       0,
       1,
     )
-    const tapShare =
-      keyboardSoftening.heldShare +
-      (keyboardSoftening.tapShare - keyboardSoftening.heldShare) * calm
+    const tapShare = keyboardSoftening.heldShare + (lightTouch - keyboardSoftening.heldShare) * calm
     const gripShare =
       tapShare + (keyboardSoftening.heldShare - tapShare) * leaning * leaning * (3 - 2 * leaning)
     const keyboardLimit = limit + (Math.min(limit, gripLimit * gripShare) - limit) * highway

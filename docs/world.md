@@ -65,6 +65,11 @@ of the whole loop.
   halves the walkers. Rails, delineators, landmarks, waterfalls, the minimap,
   the atlas, laps and autodrive all follow whichever road is chosen, and the
   world is rebuilt when the mode changes.
+- Keyboard steering is speed sensitive. Above town speeds a key first asks for a
+  small share of the grip angle and the share grows over about a second of
+  holding, so a 0.15 s tap at 30 to 45 m/s moves the car a quarter metre and a
+  hold still reaches the grip limit. Relaxed, balanced, and direct steering feels
+  change the starting share and how long the build takes.
 - The distance driven adds up across visits in the browser's local storage and
   shows under the trip distance as an all-time total.
 - Boost draws from a charge that burns for 7 seconds and refills in 22. While it

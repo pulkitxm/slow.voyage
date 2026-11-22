@@ -79,6 +79,12 @@ Steering input releases steering assistance; pedal input releases speed
 assistance. One-pedal driving gently brakes on accelerator release without
 selecting reverse. Cruise speed follows the selected display units.
 
+Keyboard steering softens with speed, as assisted steering does in racing games.
+At highway speed a tap nudges the car within its lane and holding a key builds
+smoothly to full grip, then the wheel recentres without swinging back. The
+steering feel setting chooses relaxed, balanced (the default), or direct, which
+keeps the quick rack with no softening.
+
 Drag the scenery to orbit in chase view or look around in bonnet view. Scroll to
 zoom in chase view and double-click to reset the camera. When mouse driving is
 enabled, use the middle mouse button for camera movement. Bonnet look-around
