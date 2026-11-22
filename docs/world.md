@@ -108,8 +108,10 @@ of the whole loop.
 - Walkers follow the verge by day, alone or in groups of up to seven, and step
   aside for a passing car. Herds chosen for each landscape graze in the fields:
   cows, sheep, horses, deer, goats, camels, and elephants. None are placed on the
-  carriageway. People, cows, horses, deer, and sheep are rigged public-domain
-  models with walk, run, idle, eating, and falling cycles; the rest are generated
+  carriageway. People, horses, deer, and sheep are rigged public-domain
+  models with walk, run, idle, eating, and falling cycles. Cattle are a textured
+  cow and bull and elephants a textured model with a walk cycle, all under
+  CC BY; goats and camels are generated
   in code.
 - Anyone in the path of a moving car bolts after a short reaction time, so a slow
   car is dodged and a fast one is not. The horn sends everyone within earshot

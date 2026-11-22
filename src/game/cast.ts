@@ -2,8 +2,10 @@ import * as THREE from 'three'
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import { clone } from 'three/addons/utils/SkeletonUtils.js'
-import cowUrl from '../assets/models/cow.glb?url'
+import bullUrl from '../assets/models/bull.glb?url'
+import cattleUrl from '../assets/models/cattle.glb?url'
 import deerUrl from '../assets/models/deer.glb?url'
+import elephantUrl from '../assets/models/elephant.glb?url'
 import horseUrl from '../assets/models/horse.glb?url'
 import manUrl from '../assets/models/man.glb?url'
 import sheepUrl from '../assets/models/sheep.glb?url'
@@ -11,14 +13,58 @@ import womanUrl from '../assets/models/woman.glb?url'
 import type { Creature } from './creatures'
 import type { Placed, Stage } from './life'
 
-const sources: { kind: Creature; url: string; height: number }[] = [
+export const castSources: { kind: Creature; url: string; height: number }[] = [
   { kind: 'person', url: manUrl, height: 1.78 },
   { kind: 'person', url: womanUrl, height: 1.68 },
-  { kind: 'cow', url: cowUrl, height: 1.55 },
+  { kind: 'cow', url: cattleUrl, height: 1.62 },
+  { kind: 'cow', url: bullUrl, height: 1.66 },
+  { kind: 'elephant', url: elephantUrl, height: 3.1 },
   { kind: 'horse', url: horseUrl, height: 1.85 },
   { kind: 'deer', url: deerUrl, height: 1.6 },
   { kind: 'sheep', url: sheepUrl, height: 0.95 },
 ]
+
+const sources = castSources
+
+export function restClip(root: THREE.Object3D, name: string) {
+  const tracks: THREE.KeyframeTrack[] = []
+  root.traverse((part) => {
+    if (!(part instanceof THREE.Bone) || !part.name) return
+    const { position, quaternion, scale } = part
+    tracks.push(
+      new THREE.VectorKeyframeTrack(
+        `${part.name}.position`,
+        [0, 1],
+        [...position.toArray(), ...position.toArray()],
+      ),
+      new THREE.QuaternionKeyframeTrack(
+        `${part.name}.quaternion`,
+        [0, 1],
+        [...quaternion.toArray(), ...quaternion.toArray()],
+      ),
+      new THREE.VectorKeyframeTrack(
+        `${part.name}.scale`,
+        [0, 1],
+        [...scale.toArray(), ...scale.toArray()],
+      ),
+    )
+  })
+  return new THREE.AnimationClip(name, 1, tracks)
+}
+
+export function standing(root: THREE.Object3D) {
+  root.updateMatrixWorld(true)
+  const bounds = new THREE.Box3()
+  root.traverse((part) => {
+    if (part instanceof THREE.SkinnedMesh) {
+      part.computeBoundingBox()
+      if (part.boundingBox) bounds.union(part.boundingBox.clone().applyMatrix4(part.matrixWorld))
+    } else if (part instanceof THREE.Mesh) bounds.expandByObject(part)
+  })
+  return bounds.isEmpty()
+    ? { height: 0, base: 0 }
+    : { height: bounds.max.y - bounds.min.y, base: bounds.min.y }
+}
 
 const dyes: Record<string, number> = { Shirt: 0, Pants: 1, Skin: 2 }
 export const castPace = {
@@ -40,6 +86,7 @@ interface Template {
   scene: THREE.Object3D
   clips: THREE.AnimationClip[]
   scale: number
+  base: number
   order: number
 }
 
@@ -68,8 +115,10 @@ export class Cast implements Stage {
     for (const source of sources)
       loader.load(source.url, (file) => {
         if (this.disposed) return
-        const bounds = new THREE.Box3().setFromObject(file.scene)
-        const tall = bounds.max.y - bounds.min.y
+        const { height: tall, base } = standing(file.scene)
+        const clips = file.animations.some((clip) => clip.name === 'Idle')
+          ? file.animations
+          : [...file.animations, restClip(file.scene, 'Idle')]
         file.scene.traverse((part) => {
           if (!(part instanceof THREE.Mesh)) return
           part.castShadow = true
@@ -84,8 +133,9 @@ export class Cast implements Stage {
         const list = this.templates.get(source.kind) ?? []
         list.push({
           scene: file.scene,
-          clips: file.animations,
+          clips,
           scale: tall > 0 ? source.height / tall : 1,
+          base,
           order: sources.indexOf(source),
         })
         list.sort((a, b) => a.order - b.order)
@@ -157,9 +207,10 @@ export class Cast implements Stage {
     const felled = spot.mood === 2
     const lying = felled && !actor.actions.has('Death') ? spot.tip : 0
     actor.root.rotation.order = 'YXZ'
-    actor.root.position.set(spot.x, spot.y + lying * 0.2, -spot.s)
+    const size = template.scale * spot.member.scale
+    actor.root.position.set(spot.x, spot.y + lying * 0.2 - template.base * size, -spot.s)
     actor.root.rotation.set((-Math.PI / 2) * lying, spot.yaw, 0)
-    actor.root.scale.setScalar(template.scale * spot.member.scale)
+    actor.root.scale.setScalar(size)
     const fresh = actor.member !== spot.member
     if (fresh) {
       actor.member = spot.member
