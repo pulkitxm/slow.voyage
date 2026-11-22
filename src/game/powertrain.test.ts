@@ -177,18 +177,27 @@ describe('manual gearbox', () => {
     expect(car.speed).toBeGreaterThan(held + 4)
   })
 
-  test('a tall gear from rest is sluggish compared with first', () => {
-    const low = flat()
-    const tall = flat()
-    for (let click = 0; click < 3; click++) {
-      tall.update(1 / 120, stick(0, 0, 1), settings)
-      run(tall, 0.5, stick(0))
+  test('a tall gear from rest lugs and shudders while second still pulls away', () => {
+    const fromRest = (gear: number) => {
+      const car = flat()
+      car.gearbox.gear = gear
+      car.gearbox.manual = true
+      let shook = 0
+      for (let step = 0; step < 3 * 120; step++) {
+        car.update(1 / 120, stick(1), settings)
+        shook = Math.max(shook, car.gearbox.lug)
+      }
+      return { speed: car.speed, shook, rpm: car.gearbox.rpm }
     }
-    expect(tall.gearbox.gear).toBe(4)
-    run(low, 3, stick(1))
-    run(tall, 3, stick(1))
-    expect(tall.speed).toBeLessThan(low.speed * 0.7)
-    expect(tall.speed).toBeGreaterThan(0.5)
+    const first = fromRest(1)
+    const second = fromRest(2)
+    const third = fromRest(3)
+    const top = fromRest(profile.gearTops.length)
+    expect(second.speed).toBeGreaterThan(first.speed * 0.4)
+    expect(third.speed).toBeLessThan(first.speed * 0.25)
+    expect(third.shook).toBeGreaterThan(0.5)
+    expect(top.speed).toBeLessThan(0.3)
+    expect(top.rpm).toBeLessThan(profile.idle)
   })
 
   test('lifting off slows the car more in a low gear than a high one', () => {
@@ -203,7 +212,7 @@ describe('manual gearbox', () => {
     expect(coast(1)).toBeLessThan(coast(5) - 1)
   })
 
-  test('a downshift that would over-rev is refused and reverse needs a standstill', () => {
+  test('a downshift that would over-rev is refused under power and reverse engages while rolling slowly', () => {
     const car = flat()
     car.speed = 30
     car.gearbox.gear = 4
@@ -212,21 +221,64 @@ describe('manual gearbox', () => {
     run(car, 0.5, stick(0.5))
     car.update(1 / 120, stick(0.5, 0, -1), settings)
     expect(car.gearbox.gear).toBe(3)
-    const parked = flat()
-    parked.update(1 / 120, stick(0, 0, -1), settings)
-    expect(parked.gearbox.gear).toBe(-1)
-    expect(parked.telemetry().gear).toBe('R')
-    run(parked, 2, stick(1))
-    expect(parked.speed).toBeLessThan(-1)
-    run(parked, 4, stick(0, 1))
-    expect(Math.abs(parked.speed)).toBeLessThan(0.3)
+    car.update(1 / 120, stick(0, 0, -1), settings)
+    expect(car.gearbox.gear).toBe(2)
+    const quick = flat()
+    quick.speed = 6
+    quick.update(1 / 120, stick(1, 0, -1), settings)
+    expect(quick.gearbox.gear).toBe(1)
+    quick.update(1 / 120, stick(0, 0, -1), settings)
+    expect(quick.gearbox.gear).toBe(-1)
+    const fast = flat()
+    fast.speed = 12
+    fast.update(1 / 120, stick(0, 0, -1), settings)
+    expect(fast.gearbox.gear).toBe(1)
+    const rolling = flat()
+    rolling.speed = 2.5
+    rolling.update(1 / 120, stick(0, 0, -1), settings)
+    expect(rolling.gearbox.gear).toBe(-1)
+    expect(rolling.telemetry().gear).toBe('R')
+    run(rolling, 3, stick(0, 1))
+    expect(rolling.speed).toBeLessThan(-1)
+    run(rolling, 1, stick(1))
+    expect(rolling.speed).toBeGreaterThan(-0.3)
   })
 
-  test('the brake holds the car at rest in a forward gear instead of reversing', () => {
+  test('holding the brake through a stop drops into reverse and the throttle brings first back', () => {
     const car = flat()
-    run(car, 3, stick(0, 1))
-    expect(Math.abs(car.speed)).toBeLessThan(0.05)
+    car.speed = 10
+    car.gearbox.gear = 3
+    car.gearbox.manual = true
+    let stopped = -1
+    let backing = -1
+    for (let step = 0; step < 6 * 120; step++) {
+      car.update(1 / 120, stick(0, 1), settings)
+      if (stopped < 0 && car.speed < 0.05) stopped = step / 120
+      if (backing < 0 && car.speed < -1) backing = step / 120
+    }
+    expect(car.gearbox.gear).toBe(-1)
+    expect(backing - stopped).toBeLessThan(1.2)
+    run(car, 3, stick(1))
     expect(car.gearbox.gear).toBe(1)
+    expect(car.speed).toBeGreaterThan(1)
+  })
+
+  test('off the throttle the driver can shift up and down freely, even mid-shift', () => {
+    const car = flat()
+    car.speed = 5
+    car.gearbox.gear = 1
+    car.gearbox.manual = true
+    for (const [shift, gear] of [
+      [1, 2],
+      [1, 3],
+      [1, 4],
+      [-1, 3],
+      [-1, 2],
+      [1, 3],
+    ] as const) {
+      car.update(1 / 120, stick(0, 0, shift), settings)
+      expect(car.gearbox.gear).toBe(gear)
+    }
   })
 
   test('the torque share peaks in the upper revs and cuts at the limiter', () => {
