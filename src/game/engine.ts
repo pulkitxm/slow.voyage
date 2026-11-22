@@ -474,6 +474,7 @@ export class RoadEngine {
     this.onProgress?.(0.04, 'stone')
     await this.terrain.grassMaterial.rock.ready
     await this.terrain.boulders?.ready
+    await this.terrain.foliage.ready
     if (this.disposed) return
     const p = this.physics
     await this.paint()

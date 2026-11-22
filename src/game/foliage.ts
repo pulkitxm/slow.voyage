@@ -1,6 +1,85 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import broadleafUrl from '../assets/trees/broadleaf-a.webp'
+import spreadingUrl from '../assets/trees/broadleaf-b.webp'
+import bushUrl from '../assets/trees/bush-a.webp'
+import leafyBushUrl from '../assets/trees/bush-b.webp'
+import coniferUrl from '../assets/trees/conifer.webp'
+import slenderUrl from '../assets/trees/slender.webp'
 import { random, type Season } from './world'
+
+export const treePhotos = [
+  broadleafUrl,
+  spreadingUrl,
+  bushUrl,
+  leafyBushUrl,
+  coniferUrl,
+  slenderUrl,
+] as const
+export const evergreenTile = 4
+
+export function leafy(red: number, green: number, blue: number) {
+  return green > red * 0.98 && green > blue * 1.15
+}
+
+export function autumnLeaf(red: number, green: number, blue: number, mix: number) {
+  if (!leafy(red, green, blue)) return [red, green, blue] as const
+  const light = (0.3 * red + 0.59 * green + 0.11 * blue) * 1.18
+  const warm = Math.min(1, Math.max(0, mix))
+  const hue = [0.96 + 0.26 * warm, 0.68 - 0.2 * warm, 0.2 - 0.04 * warm] as const
+  const weight = 0.3 * hue[0] + 0.59 * hue[1] + 0.11 * hue[2]
+  return [
+    Math.min(255, (light * hue[0]) / weight),
+    Math.min(255, (light * hue[1]) / weight),
+    Math.min(255, (light * hue[2]) / weight),
+  ] as const
+}
+
+export function snowDusted(red: number, green: number, blue: number, cover: number) {
+  const amount = Math.min(1, Math.max(0, cover)) * 0.55
+  return [
+    red + (226 - red) * amount,
+    green + (233 - green) * amount,
+    blue + (236 - blue) * amount,
+  ] as const
+}
+
+function patch(x: number, y: number) {
+  const value = Math.sin((x >> 3) * 127.1 + (y >> 3) * 311.7) * 43758.5453
+  return value - Math.floor(value)
+}
+
+function drawPhoto(
+  context: CanvasRenderingContext2D,
+  photo: CanvasImageSource,
+  left: number,
+  top: number,
+  variant: number,
+  season: Season,
+) {
+  context.drawImage(photo, left, top, tileSize, tileSize)
+  if (season === 'summer') return
+  const image = context.getImageData(left, top, tileSize, tileSize)
+  const data = image.data
+  for (let y = 0; y < tileSize; y++)
+    for (let x = 0; x < tileSize; x++) {
+      const index = (y * tileSize + x) * 4
+      if ((data[index + 3] ?? 0) === 0) continue
+      const red = data[index] ?? 0
+      const green = data[index + 1] ?? 0
+      const blue = data[index + 2] ?? 0
+      const colour =
+        season === 'autumn'
+          ? variant === evergreenTile
+            ? ([red, green, blue] as const)
+            : autumnLeaf(red, green, blue, patch(x + variant * 57, y))
+          : snowDusted(red, green, blue, patch(x, y) * (1.15 - y / tileSize))
+      data[index] = colour[0]
+      data[index + 1] = colour[1]
+      data[index + 2] = colour[2]
+    }
+  context.putImageData(image, left, top)
+}
 
 const atlasColumns = 2
 const atlasRows = 3
@@ -209,7 +288,28 @@ export class Foliage {
   leafNormals = { value: 1 }
   treeGeometries: THREE.BufferGeometry[] = []
   winterShrubGeometries: THREE.BufferGeometry[] = []
+  photos: (HTMLImageElement | null)[] = treePhotos.map(() => null)
+  ready: Promise<void>
+  private season: Season
+  private disposed = false
   constructor(season: Season) {
+    this.season = season
+    this.ready = Promise.all(
+      treePhotos.map(
+        (url, index) =>
+          new Promise<void>((resolve) => {
+            const image = new Image()
+            image.onload = () => {
+              this.photos[index] = image
+              resolve()
+            }
+            image.onerror = () => resolve()
+            image.src = url
+          }),
+      ),
+    ).then(() => {
+      if (!this.disposed) this.update(this.season)
+    })
     this.canvas = document.createElement('canvas')
     this.canvas.width = tileSize * atlasColumns
     this.canvas.height = tileSize * atlasRows
@@ -311,22 +411,28 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
     this.update(season)
   }
   update(season: Season) {
+    this.season = season
     this.leafNormals.value = season === 'winter' ? 0 : 1
     const context = this.canvas.getContext('2d')
     if (!context) throw new Error('Foliage canvas is unavailable')
     context.clearRect(0, 0, this.canvas.width, this.canvas.height)
     for (let variant = 0; variant < 6; variant++) {
+      const left = (variant % atlasColumns) * tileSize
+      const top = (atlasRows - 1 - Math.floor(variant / atlasColumns)) * tileSize
+      const photo = this.photos[variant]
+      if (photo && (season !== 'winter' || variant === evergreenTile)) {
+        drawPhoto(context, photo, left, top, variant, season)
+        continue
+      }
       context.save()
-      context.translate(
-        (variant % atlasColumns) * tileSize,
-        (atlasRows - 1 - Math.floor(variant / atlasColumns)) * tileSize,
-      )
+      context.translate(left, top)
       drawTree(context, variant, season)
       context.restore()
     }
     this.texture.needsUpdate = true
   }
   dispose() {
+    this.disposed = true
     this.texture.dispose()
     this.treeMaterial.dispose()
     for (const geometry of this.treeGeometries) geometry.dispose()
