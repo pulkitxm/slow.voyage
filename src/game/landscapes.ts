@@ -55,7 +55,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     falls: 3,
     palms: 0,
     boulders: 5,
-    plants: 2,
+    plants: 7,
   },
   alpine: {
     road: [100, 28, 8],
@@ -78,7 +78,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     falls: 7,
     palms: 0,
     boulders: 9,
-    plants: 2,
+    plants: 6,
   },
   desert: {
     road: [18, 4, 1],
@@ -108,7 +108,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     falls: 0,
     palms: 0,
     boulders: 7,
-    plants: 4,
+    plants: 7,
   },
   forest: {
     road: [34, 14, 4],
@@ -131,7 +131,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     falls: 4,
     palms: 0,
     boulders: 4,
-    plants: 6,
+    plants: 12,
   },
   canyon: {
     road: [46, 16, 4],
@@ -161,7 +161,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     falls: 2,
     palms: 0,
     boulders: 10,
-    plants: 4,
+    plants: 7,
   },
   fjord: {
     road: [9, 5, 1.6],
@@ -191,7 +191,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     falls: 6,
     palms: 0,
     boulders: 8,
-    plants: 4,
+    plants: 9,
   },
   jungle: {
     road: [30, 12, 4],
@@ -221,7 +221,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     falls: 8,
     palms: 34,
     boulders: 5,
-    plants: 12,
+    plants: 18,
   },
 }
 
