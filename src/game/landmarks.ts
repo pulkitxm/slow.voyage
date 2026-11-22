@@ -60,8 +60,8 @@ const pools: Record<Landscape, readonly LandmarkKind[]> = {
 let cached: { key: string; list: Landmark[] } | null = null
 
 export function lapLandmarks(world: World): Landmark[] {
-  const { landscape, seed } = world.settings
-  const key = `${landscape}/${seed}`
+  const { landscape, seed, roadMode } = world.settings
+  const key = `${landscape}/${roadMode}/${seed}`
   if (cached?.key === key) return cached.list
   const list: Landmark[] = []
   const pool = pools[landscape]

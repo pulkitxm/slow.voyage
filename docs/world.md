@@ -58,6 +58,14 @@ of the whole loop.
   drive for a moment and make a clunk, with exhaust pops on hard upshifts and a
   stutter on the limiter. The gear readout turns amber near the redline and red
   on the limiter. Autodrive always shifts for itself.
+- The road has three shapes, chosen in the Journey settings. Winding Roads adds
+  broad sweeps, medium curves and tight bends. Endless Straight removes all
+  three, so the road keeps one heading while terrain, woodland, water and
+  landmarks still vary along the lap. Calm Drive keeps a gentler broad sweep
+  with a touch of the medium curve, for bends no tighter than about 600 m, and
+  halves the walkers. Rails, delineators, landmarks, waterfalls, the minimap,
+  the atlas, laps and autodrive all follow whichever road is chosen, and the
+  world is rebuilt when the mode changes.
 - The distance driven adds up across visits in the browser's local storage and
   shows under the trip distance as an all-time total.
 - Boost draws from a charge that burns for 7 seconds and refills in 22. While it

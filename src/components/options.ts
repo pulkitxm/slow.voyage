@@ -115,3 +115,22 @@ export const colors = [
   '#c8aa66',
   '#343b39',
 ]
+export const roadModes = [
+  {
+    id: 'winding',
+    label: 'Winding Roads',
+    description: 'Sweeping bends, tight corners and climbs. The road as it was made.',
+  },
+  {
+    id: 'straight',
+    label: 'Endless Straight',
+    description:
+      'No turns at all. The road holds its heading while hills, lakes and forests keep changing around you.',
+  },
+  {
+    id: 'calm',
+    label: 'Calm Drive',
+    description:
+      'Only long, wide curves and half as many walkers on the verge. Made for cruising and looking around.',
+  },
+] as const

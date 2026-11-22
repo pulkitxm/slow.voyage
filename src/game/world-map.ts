@@ -49,7 +49,7 @@ export class WorldMap {
   private paint() {
     const { columns, rows } = this
     const settings = this.world.settings
-    const key = `${settings.landscape}/${settings.seed}/${settings.season}`
+    const key = `${settings.landscape}/${settings.roadMode}/${settings.seed}/${settings.season}`
     if (key !== this.key || !this.raster || !this.pixels) {
       this.key = key
       this.column = 0
