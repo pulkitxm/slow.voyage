@@ -97,6 +97,11 @@ of the whole loop.
   them, each with a small loss of speed and its own sound. Trees, sign posts,
   rails, rock outcrops and landmarks are solid. A struck walker or animal is
   swept clear of the bodywork to the nearer side instead of passing through it.
+- A car that brushes a guardrail, rock wall or deep water edge at a shallow
+  angle is turned along it and slightly away, keeping most of its speed, so it
+  never rides the rail.
+- Each walker shouts and screams in their own voice: men lower, rougher and
+  with darker vowels, women higher and brighter.
 - Off the road, slopes steeper than about 45 degrees act as walls instead of
   ramps, and foliage closer than the chase camera is cut away so the view never
   fills with leaves.
@@ -106,6 +111,11 @@ of the whole loop.
 - Waterfalls pour over rock ledges set into steep hillsides that face the road.
   Monsoon Jungle is a seventh landscape of dense broadleaf canopy, leaning palms,
   and ferns.
+- Switching vehicle keeps the current one on screen until the next is loaded
+  and its shaders are compiled, then cross-fades to it while the camera glides
+  to the new distance.
+- Pausing or opening the photo view freezes the camera: crash and speed shake
+  stop instead of vibrating behind the menu.
 - The touring car, hatchback, supercar, and pickup wear modelled bodies over the
   generated ones, with the same suspension, steering, and wheel spin driving the
   modelled wheels. See `assets.md`.
