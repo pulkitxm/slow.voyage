@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
+import { railAt } from './collision'
 import { neutralInput } from './controls'
 import { smoothStep, worldLoop } from './field'
 import { landscapeIds, landscapeProfiles, passEasing, passLayout } from './landscapes'
 import { CarPhysics } from './physics'
-import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
+import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { angleDifference, clamp, defaults, fordDepth, World } from './world'
 
 const cell = 12
@@ -119,7 +120,7 @@ function plan(world: World) {
         s,
       )
     for (const [index, side] of [-1, 1].entries()) {
-      let open = !guardrailAt(world, s, side)
+      let open = !railAt(world, s, side)
       let previous = road.y
       for (
         let distance = roadLayout.halfWidth + 1;

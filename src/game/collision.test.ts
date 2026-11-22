@@ -5,6 +5,7 @@ import {
   outline,
   railFaces,
   railObstacles,
+  railTerminal,
   type Trunk,
   terrainBounds,
   trunkObstacle,
@@ -301,5 +302,55 @@ describe('terrain bounds', () => {
       car.update(1 / 120, throttle, settings)
       expect(deepestPoint(car)).toBeGreaterThan(-terrainBounds.wadeDepth - 0.3)
     }
+  })
+})
+
+class EndingRailWorld extends OpenWorld {
+  override guardrail(s: number, side: number) {
+    return side === 1 && s < 300
+  }
+}
+
+describe('guardrail terminals', () => {
+  test('the sloping end piece beyond the last rail segment is solid', () => {
+    const world = new EndingRailWorld({ ...defaults })
+    const footprint = footprints.touring
+    const across = railFaces.inner - footprint.halfWidth + 0.05
+    for (const reach of [0.3, 1, railTerminal - 0.1]) {
+      const obstacles = railObstacles(
+        world,
+        { x: across, s: 300 + reach + footprint.rear, yaw: 0 },
+        footprint,
+      )
+      expect(obstacles.length).toBe(1)
+    }
+    expect(
+      railObstacles(
+        world,
+        { x: across, s: 300 + railTerminal + 0.3 + footprint.rear, yaw: 0 },
+        footprint,
+      ).length,
+    ).toBe(0)
+  })
+
+  test('a car sliding off the end of a rail at 127 km/h is stopped by the terminal', () => {
+    const settings: Settings = { ...defaults }
+    const car = new CarPhysics(new EndingRailWorld(settings))
+    car.reset(299)
+    car.x = railFaces.inner - footprints.touring.halfWidth - 0.3
+    car.yaw = -0.2
+    car.speed = 35.3
+    car.suspension.reset(car)
+    let farthest = 0
+    for (let step = 0; step < 240; step++) {
+      car.update(1 / 120, neutralInput, settings)
+      for (const point of outline(footprints.touring)) {
+        const x = car.x + point.localX * Math.cos(car.yaw) - point.localS * Math.sin(car.yaw)
+        const s = car.s + point.localX * Math.sin(car.yaw) + point.localS * Math.cos(car.yaw)
+        if (s > 300 && s < 300 + railTerminal) farthest = Math.max(farthest, x)
+      }
+    }
+    expect(farthest).toBeLessThan(railFaces.inner + 0.01)
+    expect(car.x).toBeLessThan(railFaces.inner)
   })
 })
