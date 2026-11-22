@@ -180,6 +180,7 @@ export function useDrive() {
     const hash = encodeSpot({
       landscape: settingsRef.current.landscape,
       seed: settingsRef.current.seed,
+      roadMode: settingsRef.current.roadMode,
       distance: instance.physics.s,
     })
     history.replaceState(null, '', hash)
@@ -224,7 +225,11 @@ export function useDrive() {
     const spot = decodeSpot(location.hash)
     const loaded = {
       ...loadSettings(),
-      ...(spot && { landscape: spot.landscape, seed: spot.seed }),
+      ...(spot && {
+        landscape: spot.landscape,
+        seed: spot.seed,
+        roadMode: spot.roadMode ?? 'winding',
+      }),
     }
     setSettings(loaded)
     settingsRef.current = loaded

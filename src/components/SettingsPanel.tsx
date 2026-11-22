@@ -13,6 +13,7 @@ import {
   daylight,
   landscapes,
   life,
+  roadModes,
   roadWear,
   seasons,
   vehicles,
@@ -112,6 +113,23 @@ export function SettingsPanel({
                   </button>
                 ))}
               </div>
+            </section>
+            <section className="setting-section">
+              <h3>The road</h3>
+              <div className="segmented">
+                {roadModes.map((item) => (
+                  <button
+                    type="button"
+                    key={item.id}
+                    className={settings.roadMode === item.id ? 'selected' : ''}
+                    aria-pressed={settings.roadMode === item.id}
+                    onClick={() => update('roadMode', item.id)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <p>{roadModes.find((item) => item.id === settings.roadMode)?.description}</p>
             </section>
             <section className="setting-section">
               <h3>A change of season</h3>

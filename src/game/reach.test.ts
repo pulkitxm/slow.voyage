@@ -67,8 +67,14 @@ function drivableLoop(world: World) {
 test.each(landscapeIds)(
   '%s always has a gentle route from the road, around the world and back',
   (landscape) => {
-    for (const seed of [42, 7, 90210]) {
-      const loop = drivableLoop(new World({ ...defaults, landscape, seed }))
+    for (const [seed, roadMode] of [
+      [42, 'winding'],
+      [7, 'winding'],
+      [90210, 'winding'],
+      [42, 'straight'],
+      [42, 'calm'],
+    ] as const) {
+      const loop = drivableLoop(new World({ ...defaults, landscape, seed, roadMode }))
       expect(loop.crossings).toBeGreaterThan(40)
       expect(loop.reach).toBeGreaterThan(0.12)
       expect(loop.lowest).toBeGreaterThanOrEqual(fordDepth - 1e-4)
@@ -179,10 +185,16 @@ function plan(world: World) {
   return { route, rows, columns, gates: gate.map((g) => g.reduce((a, b) => a + b, 0)) }
 }
 
-test.each(landscapeIds)(
-  '%s lets a pickup leave one side of the road, cross the seam and drive back onto it',
-  (landscape) => {
-    const settings = { ...defaults, landscape, vehicle: 'pickup' as const }
+test.each([
+  ...landscapeIds.map((landscape) => [landscape, 'winding'] as const),
+  ['highlands', 'straight'] as const,
+  ['canyon', 'straight'] as const,
+  ['fjord', 'calm'] as const,
+  ['alpine', 'calm'] as const,
+])(
+  '%s on %s roads lets a pickup leave one side of the road, cross the seam and drive back onto it',
+  (landscape, roadMode) => {
+    const settings = { ...defaults, landscape, roadMode, vehicle: 'pickup' as const }
     const world = new World(settings)
     const found = plan(world)
     expect(found.route.length).toBeGreaterThan(200)

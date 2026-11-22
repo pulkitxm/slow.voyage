@@ -40,6 +40,11 @@ export function Help({ onClose }: { onClose: () => void }) {
           ))}
         </div>
         <p>
+          Pick the road in Journey settings: Winding Roads with every bend, Endless Straight with no
+          turns while the scenery keeps changing, or Calm Drive with long gentle curves and a
+          quieter verge.
+        </p>
+        <p>
           Steering takes over steering assistance. Using the pedals takes over speed assistance.
           Choose assistance and one-pedal driving in Controls settings.
         </p>

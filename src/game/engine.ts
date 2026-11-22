@@ -605,8 +605,11 @@ export class RoadEngine {
   setSettings(settings: Settings) {
     const budget = graphicsBudget(this.renderer, settings.quality)
     const roadChange =
-      settings.landscape !== this.settings.landscape || settings.seed !== this.settings.seed
+      settings.landscape !== this.settings.landscape ||
+      settings.seed !== this.settings.seed ||
+      settings.roadMode !== this.settings.roadMode
     const refresh =
+      roadChange ||
       settings.season !== this.settings.season ||
       settings.landscape !== this.settings.landscape ||
       settings.quality !== this.settings.quality ||
