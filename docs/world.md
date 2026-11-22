@@ -142,6 +142,10 @@ of the whole loop.
   ramps, and foliage closer than the chase camera is cut away so the view never
   fills with leaves.
   The roadside life setting chooses empty, quiet, or lively (the default).
+- Woodland trees wear pictures of generated firs, broadleaf trees and
+  bushes on their crossed cards instead of painted shapes. Leaves turn from
+  yellow to rust in autumn, conifers carry snow in winter, and bare winter
+  trees are still drawn in code.
 - Generated shrubs, bushes, desert scrub and jungle plants grow beside the
   road in the landscapes they belong to, close to their real size. They can be
   driven through, leafy ones turn in autumn and are left out in winter.
