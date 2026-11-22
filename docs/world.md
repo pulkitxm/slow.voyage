@@ -91,6 +91,10 @@ of the whole loop.
 - The road carries delineator posts, bend chevrons, and a gantry at the lap line.
   Up to eight landmarks per lap can be found.
 - Tyres raise dust, smoke, and spray, and leave skid marks when they slide.
+- The dark patch under each vehicle is draped over the ground it stands on,
+  sampled from the same surface the tyres touch, so it follows banks and bumps
+  off the road instead of tilting with the body, and it fades when the car
+  leaves the ground.
 - The road wears. One condition map, 2.4 km long and repeated five times a lap,
   holds puddle basins, dirt, pothole damage, and repair patches. The asphalt shader
   and the pavement height both read it, so a pothole that shows is one the
