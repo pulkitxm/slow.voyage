@@ -46,3 +46,54 @@ test('each landscape plants only its own plants, beside the road and out of the 
     expect(planted).toBeGreaterThan(landscapeProfiles[landscape].plants * 10)
   }
 })
+
+test('shrubs, bushes and jungle plants can be driven through and every landscape has its own', () => {
+  const kinds = boulderLayout.kinds
+  const added = kinds.slice(8)
+  expect(added.length).toBe(7)
+  for (const plant of added) {
+    expect(plant.rock).toBe(false)
+    expect(plant.solid).toBe(0)
+    expect(plant.size[1]).toBeLessThanOrEqual(3)
+  }
+  for (const landscape of landscapeIds) {
+    expect(new Set(plantKinds[landscape]).size).toBeGreaterThanOrEqual(3)
+    expect(plantKinds[landscape].some((kind) => kind >= 8)).toBe(true)
+    for (const kind of plantKinds[landscape]) expect(kinds[kind]).toBeDefined()
+  }
+  expect(plantKinds.desert).toContain(12)
+  expect(plantKinds.jungle).toContain(13)
+  expect(plantKinds.forest).not.toContain(12)
+})
+
+test('leafy shrubs and bushes are left out in winter while other plants stay', () => {
+  for (const landscape of ['highlands', 'forest', 'fjord'] as const) {
+    const summer = new World({ ...defaults, landscape })
+    const winter = new World({ ...defaults, landscape, season: 'winter' })
+    let leafy = 0
+    let kept = 0
+    for (let tile = 0; tile < 40; tile++) {
+      for (const plant of planPlants(summer, tile * 120, 120, random(tile * 389 + 11)))
+        if ('leafy' in (boulderLayout.kinds[plant.kind] ?? {})) leafy++
+      for (const plant of planPlants(winter, tile * 120, 120, random(tile * 389 + 11))) {
+        expect('leafy' in (boulderLayout.kinds[plant.kind] ?? {})).toBe(false)
+        kept++
+      }
+    }
+    expect(leafy).toBeGreaterThan(10)
+    expect(kept).toBeGreaterThan(10)
+  }
+})
+
+test('most plants stand close to the road edge where they can be seen', () => {
+  const world = new World({ ...defaults, landscape: 'forest' })
+  let near = 0
+  let total = 0
+  for (let tile = 0; tile < 60; tile++)
+    for (const plant of planPlants(world, tile * 120, 120, random(tile * 389 + 11))) {
+      total++
+      if (Math.abs(roadCoordinates(world, plant.x, plant.s).distance) < 16) near++
+    }
+  expect(total).toBeGreaterThan(300)
+  expect(near / total).toBeGreaterThan(0.6)
+})

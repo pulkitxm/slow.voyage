@@ -1,15 +1,22 @@
 import * as THREE from 'three'
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js'
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
+import bushUrl from '../assets/models/plants/bush.glb?url'
+import smallBushUrl from '../assets/models/plants/bush-small.glb?url'
+import calatheaUrl from '../assets/models/plants/calathea.glb?url'
 import fernUrl from '../assets/models/plants/fern.glb?url'
+import pachiraUrl from '../assets/models/plants/pachira.glb?url'
 import quiverUrl from '../assets/models/plants/quiver.glb?url'
+import scrubUrl from '../assets/models/plants/scrub.glb?url'
+import shrubUrl from '../assets/models/plants/shrub.glb?url'
+import wideShrubUrl from '../assets/models/plants/shrub-wide.glb?url'
 import stumpUrl from '../assets/models/plants/stump.glb?url'
 import stoneUrl from '../assets/models/rocks/rock-a.glb?url'
 import slabUrl from '../assets/models/rocks/rock-b.glb?url'
 import boulderUrl from '../assets/models/rocks/rock-c.glb?url'
 import { type Landscape, landscapeProfiles } from './landscapes'
 import { roadCoordinates, roadPoint } from './road'
-import { shoreHeight, type World } from './world'
+import { type Season, shoreHeight, type World } from './world'
 
 export const boulderLayout = {
   nearest: 7.5,
@@ -27,17 +34,44 @@ export const boulderLayout = {
     { url: fernUrl, part: 'fern_tall', size: [1.2, 2], rock: false, solid: 0, glow: 2.6 },
     { url: fernUrl, part: 'fern_wide', size: [1.2, 2], rock: false, solid: 0, glow: 2.6 },
     { url: fernUrl, part: 'fern_small', size: [0.9, 1.5], rock: false, solid: 0, glow: 2.6 },
+    { url: shrubUrl, part: '', size: [1.3, 2.1], rock: false, solid: 0, glow: 1.9, leafy: true },
+    {
+      url: wideShrubUrl,
+      part: '',
+      size: [1.8, 2.8],
+      rock: false,
+      solid: 0,
+      glow: 1.9,
+      leafy: true,
+    },
+    { url: bushUrl, part: '', size: [1.2, 2], rock: false, solid: 0, glow: 1.9, leafy: true },
+    {
+      url: smallBushUrl,
+      part: '',
+      size: [0.7, 1.3],
+      rock: false,
+      solid: 0,
+      glow: 1.9,
+      leafy: true,
+    },
+    { url: scrubUrl, part: '', size: [0.7, 1.4], rock: false, solid: 0, glow: 1.8 },
+    { url: pachiraUrl, part: '', size: [1.2, 2.2], rock: false, solid: 0, glow: 1.4 },
+    { url: calatheaUrl, part: '', size: [0.7, 1.2], rock: false, solid: 0, glow: 1.8 },
   ],
 } as const
 
+export const plantSeasons = {
+  autumn: [1.3, 0.92, 0.5],
+} as const
+
 export const plantKinds: Record<Landscape, readonly number[]> = {
-  highlands: [4],
-  alpine: [4],
-  desert: [3, 3, 3, 4],
-  forest: [4, 4, 5, 6, 7],
-  canyon: [3, 3, 4],
-  fjord: [4, 5, 7],
-  jungle: [5, 6, 7, 5, 6, 4],
+  highlands: [4, 8, 9, 10, 11, 11],
+  alpine: [4, 8, 10, 11, 11],
+  desert: [3, 3, 3, 4, 12, 12, 12],
+  forest: [4, 5, 6, 7, 8, 9, 10, 11],
+  canyon: [3, 3, 4, 12, 12, 12],
+  fjord: [4, 5, 7, 8, 10, 11],
+  jungle: [5, 6, 7, 4, 13, 13, 13, 14, 14, 9],
 }
 
 export function planPlants(world: World, start: number, length: number, rng: () => number) {
@@ -49,15 +83,16 @@ export function planPlants(world: World, start: number, length: number, rng: () 
   for (let attempt = 0; attempt < wanted * 3 && list.length < wanted; attempt++) {
     const s = start + rng() * length
     const side = rng() > 0.5 ? 1 : -1
-    const reach = plantNearest + rng() ** 1.4 * (plantFarthest - plantNearest)
+    const reach = plantNearest + rng() ** 2.6 * (plantFarthest - plantNearest)
     const kind = options[Math.floor(rng() * options.length)] ?? 4
     const yaw = rng() * Math.PI * 2
     const spec = kinds[kind]
+    const bare = world.settings.season === 'winter' && spec && 'leafy' in spec
     const [least, most] = spec?.size ?? [1, 1]
     const size = least + rng() * (most - least)
     const point = roadPoint(world.road(s), s, side * reach)
     if (world.height(point.x, point.s) < shoreHeight + 0.3) continue
-    if (world.surface(point.x, point.s).onRoad) continue
+    if (world.surface(point.x, point.s).onRoad || bare) continue
     list.push({ kind, x: point.x, s: point.s, yaw, size, radius: size * (spec?.solid ?? 0) })
   }
   return list
@@ -106,9 +141,10 @@ export function planBoulders(world: World, start: number, length: number, rng: (
 }
 
 interface PlantModel {
-  geometry: THREE.BufferGeometry
-  material: THREE.Material
+  parts: { geometry: THREE.BufferGeometry; material: THREE.Material }[]
   rock: boolean
+  leafy: boolean
+  glow: number
   span: number
   base: number
 }
@@ -137,8 +173,10 @@ export class Boulders {
       boulderLayout.kinds.map((kind, index) =>
         fetched(kind.url).then((scene) => {
           const root = kind.part ? scene.getObjectByName(kind.part) : scene
+          const parts: PlantModel['parts'] = []
+          const box = new THREE.Box3()
           root?.traverse((part) => {
-            if (!(part instanceof THREE.Mesh) || this.models[index]) return
+            if (!(part instanceof THREE.Mesh) || (kind.rock && parts.length)) return
             const geometry = part.geometry.clone()
             for (const name of ['position', 'normal']) {
               const packed = geometry.getAttribute(name)
@@ -154,9 +192,7 @@ export class Boulders {
             geometry.applyMatrix4(part.matrixWorld)
             geometry.deleteAttribute('color')
             geometry.computeBoundingBox()
-            const box = geometry.boundingBox ?? new THREE.Box3()
-            geometry.translate(-(box.min.x + box.max.x) / 2, 0, -(box.min.z + box.max.z) / 2)
-            geometry.computeVertexNormals()
+            if (geometry.boundingBox) box.union(geometry.boundingBox)
             const source = Array.isArray(part.material) ? part.material[0] : part.material
             if (!source) return
             const material = kind.rock ? source : source.clone()
@@ -170,14 +206,21 @@ export class Boulders {
                 material.color.setScalar(kind.glow)
               }
             }
-            this.models[index] = {
-              geometry,
-              material,
-              rock: kind.rock,
-              span: Math.max(box.max.x - box.min.x, box.max.z - box.min.z, 0.001),
-              base: box.min.y,
-            }
+            parts.push({ geometry, material })
           })
+          if (!parts.length) return
+          for (const part of parts) {
+            part.geometry.translate(-(box.min.x + box.max.x) / 2, 0, -(box.min.z + box.max.z) / 2)
+            part.geometry.computeVertexNormals()
+          }
+          this.models[index] = {
+            parts,
+            rock: kind.rock,
+            leafy: 'leafy' in kind,
+            glow: kind.glow,
+            span: Math.max(box.max.x - box.min.x, box.max.z - box.min.z, 0.001),
+            base: box.min.y,
+          }
         }),
       ),
     ).then(
@@ -189,17 +232,28 @@ export class Boulders {
       },
     )
   }
+  dress(season: Season) {
+    const [red, green, blue] = season === 'autumn' ? plantSeasons.autumn : [1, 1, 1]
+    for (const model of this.models)
+      if (model?.leafy)
+        for (const part of model.parts)
+          if (part.material instanceof THREE.MeshStandardMaterial && part.material.alphaTest > 0)
+            part.material.color.setRGB(model.glow * red, model.glow * green, model.glow * blue)
+  }
   tint(rock: THREE.ColorRepresentation) {
     for (const model of this.models)
-      if (model?.rock && model.material instanceof THREE.MeshStandardMaterial)
-        model.material.color.set(rock).lerp(this.plain, 0.35).multiplyScalar(1.9)
+      for (const part of model?.rock ? model.parts : [])
+        if (part.material instanceof THREE.MeshStandardMaterial)
+          part.material.color.set(rock).lerp(this.plain, 0.35).multiplyScalar(1.9)
   }
   add(group: THREE.Group, list: Boulder[], ground: (x: number, s: number) => number) {
     if (!this.loaded) return
     for (const [index, model] of this.models.entries()) {
       const mine = list.filter((boulder) => boulder.kind === index)
       if (!model || !mine.length) continue
-      const mesh = new THREE.InstancedMesh(model.geometry, model.material, mine.length)
+      const meshes = model.parts.map(
+        (part) => new THREE.InstancedMesh(part.geometry, part.material, mine.length),
+      )
       for (const [slot, boulder] of mine.entries()) {
         const scale = boulder.size / model.span
         this.pose.position.set(
@@ -212,24 +266,25 @@ export class Boulders {
         this.pose.rotation.set(0, boulder.yaw, 0)
         this.pose.scale.setScalar(scale)
         this.pose.updateMatrix()
-        mesh.setMatrixAt(slot, this.pose.matrix)
+        for (const mesh of meshes) mesh.setMatrixAt(slot, this.pose.matrix)
       }
-      mesh.castShadow = true
-      mesh.receiveShadow = true
-      group.add(mesh)
+      for (const mesh of meshes) {
+        mesh.castShadow = true
+        mesh.receiveShadow = true
+        group.add(mesh)
+      }
     }
   }
   owns(geometry: THREE.BufferGeometry) {
-    return this.models.some((model) => model?.geometry === geometry)
+    return this.models.some((model) => model?.parts.some((part) => part.geometry === geometry))
   }
   dispose() {
-    for (const model of this.models) {
-      model?.geometry.dispose()
-      if (model) {
-        for (const value of Object.values(model.material))
+    for (const model of this.models)
+      for (const part of model?.parts ?? []) {
+        part.geometry.dispose()
+        for (const value of Object.values(part.material))
           if (value instanceof THREE.Texture) value.dispose()
-        model.material.dispose()
+        part.material.dispose()
       }
-    }
   }
 }
