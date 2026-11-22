@@ -132,3 +132,29 @@ WebP, and are compressed with meshopt. They are planted close to their real
 size, can be driven through, and the leafy ones turn in autumn and are left out
 in winter. Scans of fir and pine saplings were tried as roadside trees and left
 out: cut down far enough to plant in numbers they lose their needles.
+
+## Trees
+
+The woodland trees are pictures of photoscanned plants from Poly Haven, released
+under
+[Creative Commons CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+| File                                | Source assets                   | Used for                  |
+| ----------------------------------- | ------------------------------- | ------------------------- |
+| `src/assets/trees/broadleaf-a.webp` | Island Tree 02                  | broadleaf trees           |
+| `src/assets/trees/broadleaf-b.webp` | Island Tree 02                  | spreading broadleaf trees |
+| `src/assets/trees/conifer.webp`     | Fir Sapling, Pine Sapling Small | firs and pines            |
+| `src/assets/trees/slender.webp`     | Searsia Lucida                  | tall slender trees        |
+| `src/assets/trees/bush-a.webp`      | Searsia Lucida                  | woodland shrubs           |
+| `src/assets/trees/bush-b.webp`      | Searsia Lucida                  | woodland shrubs           |
+
+Changes made: each scan was rendered from the side at full detail under soft
+light, with its leaf cut-outs from the scan's alpha map, into a 512 pixel
+picture with a transparent background. The fir is built from several renders of
+the fir and pine saplings layered into one full tree, and the slender tree from
+layered bushes. The pictures were levelled to a common brightness, had their
+colour spread under the transparent edges, and were saved as WebP. In the game
+they are drawn on the crossed tree cards that the painted trees used, tinted per
+landscape, turned yellow to rust in autumn and dusted with snow on the conifers
+in winter. Bare winter broadleaf trees are still painted in code, as is every
+tree if a picture fails to load.
