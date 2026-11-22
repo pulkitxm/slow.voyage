@@ -1,5 +1,14 @@
 import { expect, test } from 'bun:test'
-import { autumnLeaf, evergreenTile, leafy, snowDusted, treePhotos } from './foliage'
+import * as THREE from 'three'
+import {
+  autumnLeaf,
+  evergreenTile,
+  leafy,
+  snowDusted,
+  treePhotos,
+  treeTint,
+  treeVariety,
+} from './foliage'
 
 const light = (colour: readonly number[]) =>
   0.3 * (colour[0] ?? 0) + 0.59 * (colour[1] ?? 0) + 0.11 * (colour[2] ?? 0)
@@ -44,4 +53,18 @@ test('snow lightens needles in proportion to its cover and never darkens them', 
     expect(heavy[channel] ?? 0).toBeLessThan(240)
   }
   expect(snowDusted(40, 70, 40, 5)).toEqual(heavy)
+})
+
+test('each tree takes its own slight warm or cool cast around its shade', () => {
+  const color = new THREE.Color()
+  const hues = new Set<string>()
+  for (let tree = 0; tree < 40; tree++) {
+    treeTint(color, 1, tree * 0.137, tree * 0.291)
+    expect(color.g).toBe(1)
+    expect(Math.abs(color.r - 1)).toBeLessThanOrEqual(treeVariety.warm + 1e-9)
+    expect(Math.abs(color.b - 1)).toBeLessThanOrEqual(treeVariety.cool + 1e-9)
+    hues.add(`${color.r.toFixed(2)}/${color.b.toFixed(2)}`)
+  }
+  expect(hues.size).toBeGreaterThan(20)
+  expect(treeTint(color, 0.5, 0.5, 0.5).g).toBe(0.5)
 })
