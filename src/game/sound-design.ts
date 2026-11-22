@@ -15,6 +15,8 @@ export interface EngineVoice {
   turbo: number
   pops: number
   volume: number
+  intake: number
+  body: readonly [number, number]
 }
 
 export const engineVoices: Record<Vehicle, EngineVoice> = {
@@ -27,9 +29,11 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     grit: 0.12,
     rumble: 0.35,
     clatter: 0,
-    turbo: 0.02,
+    turbo: 0.12,
     pops: 0,
     volume: 0.85,
+    intake: 0.5,
+    body: [140, 620],
   },
   roadster: {
     cylinders: 8,
@@ -43,6 +47,8 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     turbo: 0,
     pops: 0.7,
     volume: 1,
+    intake: 0.8,
+    body: [110, 480],
   },
   motorcycle: {
     cylinders: 4,
@@ -56,6 +62,8 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     turbo: 0,
     pops: 0.35,
     volume: 0.8,
+    intake: 0.9,
+    body: [210, 1150],
   },
   bus: {
     cylinders: 6,
@@ -69,6 +77,8 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     turbo: 0.3,
     pops: 0,
     volume: 1,
+    intake: 0.45,
+    body: [85, 360],
   },
   pickup: {
     cylinders: 8,
@@ -79,9 +89,11 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     grit: 0.4,
     rumble: 0.8,
     clatter: 0,
-    turbo: 0.1,
+    turbo: 0.2,
     pops: 0,
     volume: 1,
+    intake: 0.7,
+    body: [95, 420],
   },
   hatchback: {
     cylinders: 4,
@@ -92,9 +104,11 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     grit: 0.2,
     rumble: 0.25,
     clatter: 0,
-    turbo: 0.08,
+    turbo: 0.26,
     pops: 0,
     volume: 0.8,
+    intake: 0.55,
+    body: [165, 760],
   },
   supercar: {
     cylinders: 12,
@@ -108,6 +122,8 @@ export const engineVoices: Record<Vehicle, EngineVoice> = {
     turbo: 0,
     pops: 0.6,
     volume: 1,
+    intake: 1,
+    body: [150, 980],
   },
 }
 
@@ -143,7 +159,34 @@ export function engineTone(voice: EngineVoice, profile: EngineProfile, rpm: numb
     clatter: voice.clatter * (0.4 + 0.6 * effort) * (1 - 0.4 * revs),
     turbo: voice.turbo * effort * revs * revs,
     turboPitch: 1800 + 4200 * revs,
+    intake: voice.intake * effort ** 1.5 * (0.25 + 0.75 * revs),
+    intakeBand: clamp(firing * 2.6, 260, 2800),
+    flutter: (0.004 + voice.unevenness * 0.03) * (1 - 0.7 * revs) * (1 - 0.5 * effort),
+    overrun: voice.rumble * (1 - effort) ** 2 * smoothStep(clamp((revs - 0.25) / 0.4, 0, 1)),
+    bodyGain: 3 + 5 * effort,
   }
+}
+
+export const turboSpool = { rise: 0.55, fall: 0.22, whistle: [2400, 9200], blowOff: 0.45 } as const
+
+export function spoolTurbo(spool: number, load: number, revs: number, dt: number) {
+  const target = clamp(load, 0, 1) * smoothStep(clamp(revs / 0.7, 0, 1))
+  const time = target > spool ? turboSpool.rise : turboSpool.fall
+  return spool + (target - spool) * (1 - Math.exp(-dt / time))
+}
+
+export function turboVoice(voice: EngineVoice, spool: number) {
+  const pressure = clamp(spool, 0, 1)
+  return {
+    pitch: turboSpool.whistle[0] + (turboSpool.whistle[1] - turboSpool.whistle[0]) * pressure,
+    whistle: voice.turbo * pressure * pressure,
+    hiss: voice.turbo * pressure ** 3 * 0.6,
+  }
+}
+
+export function blowOff(voice: EngineVoice, spool: number, previousLoad: number, load: number) {
+  if (voice.turbo < 0.1 || spool < turboSpool.blowOff || previousLoad - load < 0.5) return 0
+  return clamp(voice.turbo * 3, 0, 1) * clamp((spool - turboSpool.blowOff) / 0.4, 0.3, 1)
 }
 
 export function liftOffPop(voice: EngineVoice, revs: number, previousLoad: number, load: number) {
@@ -172,10 +215,35 @@ export function squealLevel(slip: number, speed: number, offroad: boolean) {
   return amount * clamp(Math.abs(speed) / tireSound.rollingSpeed, 0, 1)
 }
 
+export const tireScrub = { start: 0.03, full: 0.16 }
+
+export function scrubLevel(slip: number, speed: number, offroad: boolean) {
+  if (offroad) return 0
+  const amount = smoothStep(
+    clamp((slip - tireScrub.start) / (tireScrub.full - tireScrub.start), 0, 1),
+  )
+  return amount * clamp(Math.abs(speed) / 12, 0, 1)
+}
+
+export function squealPitch(vehicle: Vehicle, squeal: number, speed: number) {
+  return (
+    tirePitch[vehicle] * (1.08 - 0.2 * clamp(squeal, 0, 1)) * (0.9 + clamp(speed / 40, 0, 1) * 0.2)
+  )
+}
+
 export function gravelLevel(speed: number, offroad: boolean, sand: boolean, slip: number) {
   if (!offroad) return 0
   const rolling = clamp(Math.abs(speed) / 20, 0, 1)
   return (sand ? 0.6 : 1) * (rolling * 0.8 + clamp(slip, 0, 1) * 0.5 * rolling)
+}
+
+export const gravelGrains = { slowest: 5, fastest: 46, bands: [700, 4200] } as const
+
+export function gravelRate(speed: number, offroad: boolean, sand: boolean) {
+  if (!offroad || sand) return 0
+  const rolling = clamp(Math.abs(speed) / 25, 0, 1)
+  if (rolling < 0.02) return 0
+  return gravelGrains.slowest + (gravelGrains.fastest - gravelGrains.slowest) * rolling
 }
 
 export function roadLevel(speed: number, offroad: boolean) {
@@ -184,6 +252,21 @@ export function roadLevel(speed: number, offroad: boolean) {
 
 export function windLevel(speed: number) {
   return clamp(Math.abs(speed) / 50, 0, 1.2) ** 2
+}
+
+export const windVoice = { whistleFrom: 24, whistleSpan: 22, buffetFrom: 30, buffetSpan: 20 }
+
+export function windLayers(speed: number, gust: number) {
+  const v = Math.abs(speed)
+  const sway = 1 + 0.35 * clamp(gust, -1, 1)
+  return {
+    rush: windLevel(v) * sway,
+    band: 260 + v * 34,
+    whistle:
+      smoothStep(clamp((v - windVoice.whistleFrom) / windVoice.whistleSpan, 0, 1)) * 0.5 * sway,
+    whistlePitch: 1900 + v * 38,
+    buffet: smoothStep(clamp((v - windVoice.buffetFrom) / windVoice.buffetSpan, 0, 1)),
+  }
 }
 
 export function brakeSquealLevel(speed: number, brake: number) {
@@ -206,6 +289,8 @@ export interface ImpactVoice {
   thump: number
   thumpPitch: number
   crunch: number
+  boom: number
+  debris: number
 }
 
 const vehicleWeight: Record<Vehicle, number> = {
@@ -237,6 +322,8 @@ export function impactVoice(material: ObstacleMaterial, strength: number, vehicl
       thump: 0.6,
       thumpPitch: 70 * pitch,
       crunch,
+      boom: 0,
+      debris: 0,
     },
     trunk: {
       partials: [
@@ -249,6 +336,8 @@ export function impactVoice(material: ObstacleMaterial, strength: number, vehicl
       thump: 1,
       thumpPitch: 58 * pitch,
       crunch,
+      boom: 0,
+      debris: 0,
     },
     rock: {
       partials: [{ frequency: 96, decay: 0.1, gain: 0.4 }],
@@ -258,6 +347,8 @@ export function impactVoice(material: ObstacleMaterial, strength: number, vehicl
       thump: 0.9,
       thumpPitch: 50 * pitch,
       crunch,
+      boom: 0,
+      debris: 0,
     },
     water: {
       partials: [],
@@ -267,12 +358,17 @@ export function impactVoice(material: ObstacleMaterial, strength: number, vehicl
       thump: 0.35,
       thumpPitch: 44 * pitch,
       crunch: 0,
+      boom: 0,
+      debris: 0,
     },
   }
   const voice = voices[material]
   const level = (0.25 + 0.75 * force) * Math.min(weight, 1.3)
+  const hard = material !== 'water' ? smoothStep(clamp((force - 0.5) / 0.4, 0, 1)) : 0
   return {
     ...voice,
+    boom: (material === 'water' ? 0.3 : 0.5 + 0.5 * force) * level,
+    debris: Math.round(hard * (material === 'rail' ? 7 : 5)),
     partials: voice.partials.map((partial) => ({
       ...partial,
       frequency: partial.frequency * pitch,
@@ -294,7 +390,7 @@ export function wadeLevel(depth: number, speed: number) {
   return clamp(depth / 0.4, 0, 1) * clamp(Math.abs(speed) / 6, 0, 1)
 }
 
-export const boostSound = { rise: 3.2, pitch: [190, 470], band: [900, 2600] } as const
+export const boostSound = { rise: 3.2, pitch: [620, 1750], band: [900, 2600] } as const
 
 export function boostVoice(held: number, tank: number) {
   const build = clamp(held / boostSound.rise, 0, 1)
@@ -361,6 +457,9 @@ export function cryVoice(voice: CryVoice, scream: boolean, variation: number) {
         waver: tone.waver,
         rasp: tone.rasp,
         formants: tone.cry,
+        breath: 0.1,
+        jitter: 0.018,
+        attack: 0.05,
       }
     : {
         pitch: base,
@@ -371,6 +470,9 @@ export function cryVoice(voice: CryVoice, scream: boolean, variation: number) {
         waver: tone.waver,
         rasp: tone.rasp * 0.7,
         formants: tone.shout,
+        breath: 0.16,
+        jitter: 0.012,
+        attack: 0.025,
       }
 }
 

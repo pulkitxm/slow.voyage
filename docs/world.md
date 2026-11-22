@@ -124,6 +124,15 @@ of the whole loop.
   so a car sliding off the last segment is caught instead of passing through.
   Every impact takes speed in proportion to how squarely it is met: a brush
   keeps nearly all of it, a quarter radian strike loses a fifth or more.
+  never rides the rail.
+- Every sound is synthesised. Engines layer two slightly detuned harmonic
+  voices through body resonances of their own, breathe induction noise under
+  load, burble on the overrun and idle unevenly. Turbocharged engines whistle
+  as boost builds with a short lag and vent through a blow-off valve when the
+  driver lifts. Tyres scrub before they squeal and the squeal drops in pitch as
+  the slide deepens, gravel throws individual stones against the arches, wind
+  gains a whistle and buffeting at speed, and crashes carry a deep boom with
+  falling debris after a hard hit. Impacts and voices echo faintly off the land.
 - Each walker shouts and screams in their own voice: men lower, rougher and
   with darker vowels, women higher and brighter.
 - Off the road, slopes steeper than about 45 degrees act as walls instead of
