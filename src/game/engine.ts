@@ -773,6 +773,7 @@ export class RoadEngine {
     this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.34)
     this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.8)
     this.terrain.boulders?.tint(landscapeProfiles[this.settings.landscape].field?.rock ?? '#8c877a')
+    this.terrain.boulders?.dress(this.settings.season)
     const glow = Math.max(
       profile.night ? 0.38 : 0.2,
       clamp(profile.ambient / 2.6, 0.06, 1) * (profile.night ? 0.5 : 1),
