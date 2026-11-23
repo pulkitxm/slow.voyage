@@ -4,7 +4,7 @@ import { asphaltTexture } from './asphalt'
 import { Boulders, planBoulders, planPlants } from './boulders'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
-import { Foliage, treeTint } from './foliage'
+import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
 import { grassGeometry, grassLighting, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { groundLayout } from './ground-grid'
@@ -28,7 +28,7 @@ import {
   waterfallGeometry,
   waterfallMaterial,
 } from './waterfalls'
-import { createWoodland, roadsidePlantHeight } from './woodland'
+import { coniferBuild, createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 const grassViewDistance = { full: 45, end: 120 }
@@ -724,6 +724,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       narrow,
     ]
     const shades: number[] = []
+    const relief = evergreenRelief(profile.foliage)
     for (let variant = 0; variant < vegetationCounts.length; variant++) {
       const geometry =
         settings.season === 'winter' && variant >= 2 && variant < 4
@@ -762,7 +763,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           (shrub
             ? 0.85 + rng() * 0.35
             : variant === 4
-              ? 0.42 + rng() * 0.16
+              ? coniferBuild.slim + rng() * coniferBuild.spread
               : variant === 5
                 ? 0.42 + rng() * 0.13
                 : 0.9 + rng() * 0.2)
@@ -772,7 +773,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         shades.push(x, s, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
-        trees.setColorAt(placed++, treeTint(color, 0.88 + rng() * 0.24, rng(), rng()))
+        treeTint(color, 0.88 + rng() * 0.24, rng(), rng())
+        if (variant === evergreenTile) color.multiply(relief)
+        trees.setColorAt(placed++, color)
       }
       for (const tree of forest) {
         matrix.position.set(tree.x, groundSurface.sample(tree.x, tree.s) - plantRootRecess, -tree.s)
@@ -783,10 +786,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         shades.push(tree.x, tree.s, tree.width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
-        trees.setColorAt(
-          placed++,
-          treeTint(color, tree.shade, (tree.x * 0.37) % 1, (tree.s * 0.53) % 1),
-        )
+        treeTint(color, tree.shade, (tree.x * 0.37) % 1, (tree.s * 0.53) % 1)
+        if (variant === evergreenTile) color.multiply(relief)
+        trees.setColorAt(placed++, color)
       }
       trees.count = placed
       trees.castShadow = true

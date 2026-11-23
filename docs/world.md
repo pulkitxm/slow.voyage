@@ -161,6 +161,9 @@ of the whole loop.
   bushes on their crossed cards instead of painted shapes. Leaves turn from
   yellow to rust in autumn, conifers carry snow in winter, and bare winter
   trees are still drawn in code.
+- Firs stand at the proportions of the photographed tree instead of being
+  squeezed into narrow cones, and they keep their own dark green in landscapes
+  that warm the colour of their leaves.
 - Photoscanned shrubs, bushes, desert scrub and jungle plants grow beside the
   road in the landscapes they belong to, close to their real size. They can be
   driven through, leafy ones turn in autumn and are left out in winter.

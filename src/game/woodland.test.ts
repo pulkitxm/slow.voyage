@@ -1,5 +1,11 @@
 import { expect, test } from 'bun:test'
-import { createWoodland, roadsidePlantHeight, woodlandCoverage, woodlandDensity } from './woodland'
+import {
+  coniferBuild,
+  createWoodland,
+  roadsidePlantHeight,
+  woodlandCoverage,
+  woodlandDensity,
+} from './woodland'
 import { defaults, World } from './world'
 
 test.each(['highlands', 'alpine'] as const)(
@@ -94,4 +100,20 @@ test('adjacent and distant terrain sections retain bounded distinct tree sets', 
       seen.add(key)
     }
   }
+})
+
+test('firs stand at the proportions of the photographed tree instead of a squeezed cone', () => {
+  const world = new World({ ...defaults, landscape: 'forest' })
+  let firs = 0
+  for (const tile of [2, 3, 5, 8]) {
+    for (const tree of createWoodland(world, tile, 'high')) {
+      if (tree.variant !== 4) continue
+      firs++
+      const build = tree.width / tree.height
+      expect(build).toBeGreaterThanOrEqual(coniferBuild.slim)
+      expect(build).toBeLessThanOrEqual(coniferBuild.slim + coniferBuild.spread)
+    }
+  }
+  expect(firs).toBeGreaterThan(20)
+  expect(coniferBuild.slim).toBeGreaterThan(0.55)
 })
