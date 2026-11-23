@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { Trunk } from './collision'
+import { layShade } from './contact-shadow'
 import {
   animalGeometry,
   type Creature,
@@ -91,6 +92,8 @@ export interface Placed {
   x: number
   y: number
   s: number
+  slopeX: number
+  slopeS: number
   yaw: number
   step: number
   stride: number
@@ -254,11 +257,14 @@ export function placeMember(
     const aside = ease(1 - near / lifeLayout.aside) * 1.3
     const point = roadPoint(road, s, plan.side * (member.across + aside))
     const direction = forward ? 1 : -1
+    const ground = world.surface(point.x, point.s)
     return {
       kind: 'person',
       x: point.x,
-      y: world.surface(point.x, point.s).height + Math.abs(Math.sin(travelled * 2.6)) * 0.022,
+      y: ground.height + Math.abs(Math.sin(travelled * 2.6)) * 0.022,
       s: point.s,
+      slopeX: ground.slopeX,
+      slopeS: ground.slopeS,
       yaw: Math.atan2(-Math.sin(road.yaw) * direction, -Math.cos(road.yaw) * direction),
       step: travelled * 2.6,
       stride: 0.62,
@@ -289,11 +295,14 @@ export function placeMember(
   const x = home.x + fromX + (toX - fromX) * walked
   const along = home.s + fromS + (toS - fromS) * walked
   const distance = Math.hypot(toX - fromX, toS - fromS)
+  const ground = world.surface(x, along)
   return {
     kind: member.kind,
     x,
-    y: world.surface(x, along).height,
+    y: ground.height,
     s: along,
+    slopeX: ground.slopeX,
+    slopeS: ground.slopeS,
     yaw: Math.atan2(toX - fromX, -(toS - fromS)),
     step: (cycle * 7 + walked * distance * 3.2) * 1.6,
     stride: moving
@@ -475,6 +484,7 @@ export class Life {
   private plans = new Map<number, Plan | null>()
   private key = ''
   private pose = new THREE.Object3D()
+  private lie = new THREE.Matrix4()
   constructor(private world: World) {
     for (const kind of ['person', ...species] as const)
       this.troupes.set(
@@ -577,7 +587,10 @@ export class Life {
             const down = fallenPose(fate.fallen, time)
             spot.x = down.x
             spot.s = down.s
-            spot.y = this.world.surface(down.x, down.s).height + down.lift
+            const rest = this.world.surface(down.x, down.s)
+            spot.y = rest.height + down.lift
+            spot.slopeX = rest.slopeX
+            spot.slopeS = rest.slopeS
             spot.yaw = fate.fallen.yaw
             spot.mood = 2
             spot.tip = down.tip
@@ -622,7 +635,12 @@ export class Life {
               spot.x = x
               spot.s = along
             }
-            if (fate.dx !== 0 || fate.ds !== 0) spot.y = this.world.surface(spot.x, spot.s).height
+            if (fate.dx !== 0 || fate.ds !== 0) {
+              const stand = this.world.surface(spot.x, spot.s)
+              spot.y = stand.height
+              spot.slopeX = stand.slopeX
+              spot.slopeS = stand.slopeS
+            }
             const alert = time < fate.until + 2
             if (pace !== 0 || alert) {
               const moving = Math.abs(pace) > 0.6
@@ -647,15 +665,15 @@ export class Life {
           this.pose.updateMatrix()
           if (!staged) troupe.mesh.setMatrixAt(index, this.pose.matrix)
           if (this.placed.length <= this.shade.instanceMatrix.count) {
-            this.pose.rotation.set(0, spot.yaw, 0)
-            this.pose.position.y = spot.y + 0.06
-            this.pose.scale.set(
-              reach * (member.kind === 'person' ? 2.6 : 1.9),
-              1,
-              reach * (member.kind === 'person' ? 2.6 : 3.6),
+            this.shade.setMatrixAt(
+              this.placed.length - 1,
+              layShade(
+                this.lie,
+                spot,
+                reach * (member.kind === 'person' ? 2.6 : 1.9),
+                reach * (member.kind === 'person' ? 2.6 : 3.6),
+              ),
             )
-            this.pose.updateMatrix()
-            this.shade.setMatrixAt(this.placed.length - 1, this.pose.matrix)
           }
           troupe.gait.setXYZW(index, spot.step, spot.stride, spot.graze * 0.95, 0)
           for (const [slotIndex, tint] of member.tints.entries())
