@@ -97,6 +97,7 @@ export interface Placed {
   s: number
   slopeX: number
   slopeS: number
+  shade: number
   yaw: number
   step: number
   stride: number
@@ -407,6 +408,7 @@ export function placeMember(
       s: point.s,
       slopeX: ground.slopeX,
       slopeS: ground.slopeS,
+      shade: 0,
       yaw: Math.atan2(headX, -headS),
       step: travelled * 2.6,
       stride: 0.62,
@@ -432,6 +434,7 @@ export function placeMember(
     s: along,
     slopeX: ground.slopeX,
     slopeS: ground.slopeS,
+    shade: 0,
     yaw: Math.atan2(path.headX, -path.headS),
     step: (path.cycle * 7 + path.travelled * 3.2) * 1.6,
     stride:
@@ -608,6 +611,7 @@ export class Life {
   knocks: Knock[] = []
   startled: { voice: CryVoice; distance: number }[] = []
   stage: Stage | null = null
+  shadeAt: ((x: number, s: number) => number) | null = null
   private clock = 0
   placed: Placed[] = []
   private material = lifeMaterial()
@@ -802,8 +806,10 @@ export class Life {
           }
           this.placed.push(spot)
           const staged = this.stage?.has(member.kind) ?? false
-          if (staged) this.stage?.place(spot, dt, near)
-          else counts.set(member.kind, index + 1)
+          if (staged) {
+            if (this.shadeAt) spot.shade = this.shadeAt(spot.x, spot.s)
+            this.stage?.place(spot, dt, near)
+          } else counts.set(member.kind, index + 1)
           this.pose.rotation.order = 'YXZ'
           this.pose.position.set(spot.x, spot.y + spot.tip * reach * 0.5, -spot.s)
           this.pose.rotation.set((-Math.PI / 2) * spot.tip, spot.yaw, 0)

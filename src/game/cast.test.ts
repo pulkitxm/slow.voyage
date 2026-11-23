@@ -1,6 +1,16 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import { castGait, castPace, castPick, castSources, restClip, standing, stridePace } from './cast'
+import {
+  castGait,
+  castLight,
+  castPace,
+  castPick,
+  castShade,
+  castSources,
+  restClip,
+  standing,
+  stridePace,
+} from './cast'
 
 test('cattle come as a cow and a bull and the elephant has a model of its own', () => {
   const cattle = castSources.filter((source) => source.kind === 'cow')
@@ -122,4 +132,14 @@ test('the ground speed of a walk clip is read from how its planted feet slide', 
   expect(stridePace(root, clip)).toBeLessThan(pace * 1.12)
   expect(stridePace(root, restClip(root, 'Idle'))).toBe(0)
   expect(stridePace(new THREE.Object3D(), clip)).toBe(0)
+})
+
+test('animals and walkers darken with the canopy shade they stand in', () => {
+  expect(castLight(0)).toBe(1)
+  expect(castLight(0.34)).toBeCloseTo(1 - 0.34 * castShade.depth, 9)
+  expect(castLight(0.34)).toBeLessThan(0.75)
+  expect(castLight(1)).toBeGreaterThan(0.1)
+  expect(castLight(2)).toBe(castLight(1))
+  expect(castLight(-1)).toBe(1)
+  expect(castLight(0.6)).toBeLessThan(castLight(0.3))
 })
