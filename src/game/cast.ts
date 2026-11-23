@@ -82,6 +82,66 @@ export function standing(root: THREE.Object3D) {
     : { height: bounds.max.y - bounds.min.y, base: bounds.min.y }
 }
 
+export function stridePace(root: THREE.Object3D, clip: THREE.AnimationClip, samples = 48) {
+  const bones: THREE.Bone[] = []
+  root.traverse((part) => {
+    if (part instanceof THREE.Bone) bones.push(part)
+  })
+  if (!bones.length || clip.duration <= 0) return 0
+  const mixer = new THREE.AnimationMixer(root)
+  const action = mixer.clipAction(clip)
+  action.play()
+  const paths: THREE.Vector3[][] = bones.map(() => [])
+  for (let index = 0; index <= samples; index++) {
+    mixer.setTime((clip.duration * index) / samples)
+    root.updateMatrixWorld(true)
+    for (const [bone, path] of paths.entries())
+      path.push((bones[bone] as THREE.Bone).getWorldPosition(new THREE.Vector3()))
+  }
+  mixer.stopAllAction()
+  mixer.uncacheRoot(root)
+  root.updateMatrixWorld(true)
+  let floor = Infinity
+  let top = -Infinity
+  for (const path of paths)
+    for (const point of path) {
+      floor = Math.min(floor, point.y)
+      top = Math.max(top, point.y)
+    }
+  const tall = top - floor
+  if (!(tall > 0)) return 0
+  const paces: number[] = []
+  const beat = clip.duration / samples
+  const middle = (values: number[]) => {
+    values.sort((a, b) => a - b)
+    const half = values.length >> 1
+    return values.length % 2
+      ? (values[half] ?? 0)
+      : ((values[half - 1] ?? 0) + (values[half] ?? 0)) / 2
+  }
+  for (const path of paths) {
+    const heights = path.map((point) => point.y)
+    const lowest = Math.min(...heights)
+    const lift = Math.max(...heights) - lowest
+    if (lowest > floor + tall * 0.08 || lift < tall * 0.01) continue
+    const planted = (point: THREE.Vector3) => point.y <= lowest + lift * 0.3
+    const slides: number[] = []
+    for (let index = 1; index < path.length; index++) {
+      const from = path[index - 1] as THREE.Vector3
+      const to = path[index] as THREE.Vector3
+      if (planted(from) && planted(to)) slides.push(Math.hypot(to.x - from.x, to.z - from.z) / beat)
+    }
+    const share = path.filter(planted).length / path.length
+    const reach = Math.hypot(
+      Math.max(...path.map((point) => point.x)) - Math.min(...path.map((point) => point.x)),
+      Math.max(...path.map((point) => point.z)) - Math.min(...path.map((point) => point.z)),
+    )
+    if (share > 0) paces.push(reach / (share * clip.duration))
+    if (slides.length) paces.push(middle(slides))
+  }
+  return paces.length ? middle(paces) : 0
+}
+
 const dyes: Record<string, number> = { Shirt: 0, Pants: 1, Skin: 2 }
 export const castPace = {
   walker: 1.25,
@@ -92,10 +152,24 @@ export const castPace = {
   shadows: 90,
   collapse: 1.7,
   detail: 60,
+  still: 0.1,
+  slowest: 0.3,
+  fastest: 2.8,
 }
 
-function clampPace(value: number) {
-  return Math.max(0.5, Math.min(1.6, value))
+export function castGait(
+  pace: number,
+  stride: number,
+  strides: { walk: number; run: number },
+  runs: boolean,
+) {
+  if (pace <= castPace.still || stride <= 0.08) return null
+  const clip = runs && pace > Math.sqrt(strides.walk * strides.run) ? 'Run' : 'Walk'
+  const natural = clip === 'Run' ? strides.run : strides.walk
+  return {
+    clip,
+    rate: Math.max(castPace.slowest, Math.min(castPace.fastest, pace / natural)),
+  } as const
 }
 
 interface Template {
@@ -105,6 +179,7 @@ interface Template {
   base: number
   order: number
   share: number
+  pace: Map<string, number>
 }
 
 interface Actor {
@@ -149,10 +224,16 @@ export class Cast implements Stage {
             }
         })
         const list = this.templates.get(source.kind) ?? []
+        const scale = tall > 0 ? source.height / tall : 1
+        const pace = new Map<string, number>()
+        for (const clip of clips)
+          if (clip.name === 'Walk' || clip.name === 'Run')
+            pace.set(clip.name, stridePace(file.scene, clip) * scale)
         list.push({
           scene: file.scene,
           clips,
-          scale: tall > 0 ? source.height / tall : 1,
+          scale,
+          pace,
           base,
           share: source.share ?? 1,
           order: sources.indexOf(source),
@@ -243,17 +324,24 @@ export class Cast implements Stage {
         for (const [slot, tint] of spot.member.tints.entries()) actor.dyed[slot]?.color.copy(tint)
     }
     const walker = spot.kind === 'person'
+    const strides = {
+      walk:
+        (template.pace.get('Walk') || (walker ? castPace.walker : castPace.grazer)) *
+        spot.member.scale,
+      run:
+        (template.pace.get('Run') || (walker ? castPace.runner : castPace.gallop)) *
+        spot.member.scale,
+    }
+    const gait = castGait(spot.pace, spot.stride, strides, actor.actions.has('Run'))
     const want = felled
       ? actor.actions.has('Death')
         ? 'Death'
         : 'Idle'
-      : spot.mood === 1 && actor.actions.has('Run')
-        ? 'Run'
-        : spot.stride > 0.08
-          ? 'Walk'
-          : spot.graze > 0.35 && actor.actions.has('Eating')
-            ? 'Eating'
-            : 'Idle'
+      : gait
+        ? gait.clip
+        : spot.graze > 0.35 && actor.actions.has('Eating')
+          ? 'Eating'
+          : 'Idle'
     const next = actor.actions.get(want)
     if (next && actor.playing !== want) {
       const previous = actor.actions.get(actor.playing)
@@ -274,15 +362,7 @@ export class Cast implements Stage {
       else previous?.stop()
       actor.playing = want
     }
-    if (next && want === 'Walk')
-      next.timeScale =
-        spot.mood === 1
-          ? 2.3
-          : walker
-            ? spot.member.pace / castPace.walker
-            : Math.max(0.4, spot.member.pace / castPace.grazer)
-    if (next && want === 'Run')
-      next.timeScale = clampPace(spot.pace / (walker ? castPace.runner : castPace.gallop))
+    if (next && gait && !felled) next.timeScale = gait.rate
     const shaded = near < castPace.shadows
     if (shaded !== actor.shaded) {
       actor.shaded = shaded

@@ -236,6 +236,117 @@ export function planSlot(world: World, slot: number, level: LifeLevel): Plan | n
   return null
 }
 
+export const wanderLayout = {
+  nearest: 0.55,
+  sweep: 2.4,
+  swing: 0.9,
+  curl: 0.33,
+  share: 0.6,
+  ramp: 0.2,
+  chords: 16,
+}
+
+type Roamer = Pick<Member, 'phase' | 'roam' | 'heading' | 'pace'>
+
+function wanderRest(member: Roamer, index: number) {
+  const angle =
+    member.heading +
+    index * wanderLayout.sweep +
+    (hashed(index, Math.floor(member.phase * 97)) - 0.5) * wanderLayout.swing
+  const reach =
+    member.roam *
+    (wanderLayout.nearest +
+      (1 - wanderLayout.nearest) * hashed(index, Math.floor(member.phase * 31) + 3))
+  return { x: Math.cos(angle) * reach, s: Math.sin(angle) * reach }
+}
+
+function wanderFace(member: Roamer, index: number) {
+  const from = wanderRest(member, index - 1)
+  const to = wanderRest(member, index + 1)
+  const span = Math.hypot(to.x - from.x, to.s - from.s) || 1
+  return { x: (to.x - from.x) / span, s: (to.s - from.s) / span }
+}
+
+export function wander(member: Roamer, time: number) {
+  const period = 13 + (member.phase % 9)
+  const clock = time / period + member.phase
+  const cycle = Math.floor(clock)
+  const part = clock - cycle
+  const from = wanderRest(member, cycle - 1)
+  const to = wanderRest(member, cycle)
+  const leave = wanderFace(member, cycle - 1)
+  const arrive = wanderFace(member, cycle)
+  const curl = Math.hypot(to.x - from.x, to.s - from.s) * wanderLayout.curl
+  const ax = from.x + leave.x * curl
+  const as = from.s + leave.s * curl
+  const bx = to.x - arrive.x * curl
+  const bs = to.s - arrive.s * curl
+  const at = (t: number) => {
+    const r = 1 - t
+    return {
+      x: r * r * r * from.x + 3 * r * r * t * ax + 3 * r * t * t * bx + t * t * t * to.x,
+      s: r * r * r * from.s + 3 * r * r * t * as + 3 * r * t * t * bs + t * t * t * to.s,
+    }
+  }
+  const marks = [0]
+  let last = from
+  for (let chord = 1; chord <= wanderLayout.chords; chord++) {
+    const point = at(chord / wanderLayout.chords)
+    marks.push((marks[chord - 1] ?? 0) + Math.hypot(point.x - last.x, point.s - last.s))
+    last = point
+  }
+  const length = marks[wanderLayout.chords] ?? 0
+  const ramp = wanderLayout.ramp
+  const share = Math.min(wanderLayout.share, length / (member.pace * (1 - ramp)) / period)
+  const stage = share > 0 ? part / share : 1
+  if (stage >= 1)
+    return {
+      x: to.x,
+      s: to.s,
+      headX: arrive.x,
+      headS: arrive.s,
+      speed: 0,
+      travelled: length,
+      length,
+      share,
+      part,
+      cycle,
+    }
+  const edge = ramp * (1 - ramp)
+  const glide =
+    stage < ramp
+      ? (stage * stage) / (2 * edge)
+      : stage > 1 - ramp
+        ? 1 - ((1 - stage) * (1 - stage)) / (2 * edge)
+        : (stage - ramp / 2) / (1 - ramp)
+  const rate =
+    (stage < ramp ? stage / edge : stage > 1 - ramp ? (1 - stage) / edge : 1 / (1 - ramp)) /
+    (share * period)
+  const travelled = glide * length
+  let chord = 0
+  while (chord < wanderLayout.chords - 1 && (marks[chord + 1] ?? 0) < travelled) chord++
+  const before = marks[chord] ?? 0
+  const piece = (marks[chord + 1] ?? before) - before
+  const t = (chord + (piece > 0 ? (travelled - before) / piece : 0)) / wanderLayout.chords
+  const r = 1 - t
+  const slopeX = 3 * r * r * (ax - from.x) + 6 * r * t * (bx - ax) + 3 * t * t * (to.x - bx)
+  const slopeS = 3 * r * r * (as - from.s) + 6 * r * t * (bs - as) + 3 * t * t * (to.s - bs)
+  const steep = Math.hypot(slopeX, slopeS)
+  const point = at(t)
+  return {
+    x: point.x,
+    s: point.s,
+    headX: steep > 1e-6 ? slopeX / steep : leave.x,
+    headS: steep > 1e-6 ? slopeS / steep : leave.s,
+    speed: length * rate,
+    travelled,
+    length,
+    share,
+    part,
+    cycle,
+  }
+}
+
 export function placeMember(
   world: World,
   plan: Plan,
@@ -279,22 +390,9 @@ export function placeMember(
   const s = plan.base + lap + member.along
   const road = world.road(s)
   const home = roadPoint(road, s, plan.side * member.across)
-  const period = 13 + (member.phase % 9)
-  const clock = time / period + member.phase
-  const cycle = Math.floor(clock)
-  const part = clock - cycle
-  const spot = (index: number) => {
-    const angle = hashed(index, Math.floor(member.phase * 97)) * Math.PI * 2
-    const reach = hashed(index, Math.floor(member.phase * 31) + 3) * member.roam
-    return [Math.cos(angle) * reach, Math.sin(angle) * reach] as const
-  }
-  const [fromX, fromS] = spot(cycle - 1)
-  const [toX, toS] = spot(cycle)
-  const walked = ease(part / 0.3)
-  const moving = part < 0.3
-  const x = home.x + fromX + (toX - fromX) * walked
-  const along = home.s + fromS + (toS - fromS) * walked
-  const distance = Math.hypot(toX - fromX, toS - fromS)
+  const path = wander(member, time)
+  const x = home.x + path.x
+  const along = home.s + path.s
   const ground = world.surface(x, along)
   return {
     kind: member.kind,
@@ -303,20 +401,21 @@ export function placeMember(
     s: along,
     slopeX: ground.slopeX,
     slopeS: ground.slopeS,
-    yaw: Math.atan2(toX - fromX, -(toS - fromS)),
-    step: (cycle * 7 + walked * distance * 3.2) * 1.6,
-    stride: moving
-      ? 0.42 * Math.sin(Math.PI * Math.min(1, part / 0.3))
-      : 0.035 * Math.max(0, Math.sin(time * 0.7 + member.phase * 3)),
+    yaw: Math.atan2(path.headX, -path.headS),
+    step: (path.cycle * 7 + path.travelled * 3.2) * 1.6,
+    stride:
+      path.speed > 0
+        ? 0.42 * Math.min(1, path.speed / (member.pace * 0.6))
+        : 0.035 * Math.max(0, Math.sin(time * 0.7 + member.phase * 3)),
     graze:
       member.grazer *
-      ease((part - 0.36) / 0.12) *
-      (1 - ease((part - 0.86) / 0.1)) *
+      ease((path.part - path.share - 0.06) / 0.12) *
+      (1 - ease((path.part - 0.86) / 0.1)) *
       (0.9 + 0.1 * Math.sin(time * 2.6 + member.phase * 5)),
     mood: 0,
     tip: 0,
     age: 0,
-    pace: member.pace,
+    pace: path.speed,
     member,
   }
 }
@@ -642,16 +741,19 @@ export class Life {
               spot.slopeS = stand.slopeS
             }
             const alert = time < fate.until + 2
-            if (pace !== 0 || alert) {
-              const moving = Math.abs(pace) > 0.6
+            const turned = fate.headX !== 0 || fate.headS !== 0
+            if (Math.abs(pace) > reactionLayout.creep) {
               fate.stride += Math.abs(pace) * dt * 2.4
-              if (fate.headX !== 0 || fate.headS !== 0)
-                spot.yaw = Math.atan2(fate.headX, -fate.headS)
+              if (turned) spot.yaw = Math.atan2(fate.headX, -fate.headS)
               spot.step = fate.stride
-              spot.stride = moving ? (pace > 0 ? 0.95 : 0.6) : 0
+              spot.stride = pace > 0 ? 0.95 : 0.6
               spot.graze = 0
               spot.mood = pace > 1.5 ? 1 : 0
               spot.pace = Math.abs(pace)
+            } else if (alert) {
+              spot.graze = 0
+              if (turned && spot.pace < reactionLayout.creep)
+                spot.yaw = Math.atan2(fate.headX, -fate.headS)
             }
           }
           this.placed.push(spot)
