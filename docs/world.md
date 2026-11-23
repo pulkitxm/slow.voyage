@@ -150,6 +150,12 @@ of the whole loop.
 - Soft shadows follow the slope of whatever they fall on, and the offset that
   keeps a surface from shading itself grows with the size of a shadow texel, so
   bodywork, rocks and trunks stay clean instead of showing a stippled hatch.
+- Grazing animals walk real curved paths between resting spots at a walking
+  pace, turning as they go, and stand still in between. The legs of every
+  modelled walker and animal turn over at the rate the ground actually passes,
+  measured from each model's own walk and run cycles, so nobody steps on the
+  spot or slides. Cattle hurry away from a horn at a fast walk instead of a
+  gallop their models cannot show.
 - The soft shade under every walker and animal lies along the slope they stand
   on, so it no longer floats off a bank on one side and sinks into it on the
   other.

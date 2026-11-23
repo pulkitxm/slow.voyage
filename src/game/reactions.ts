@@ -26,11 +26,12 @@ export const reactionLayout = {
   sweep: 0.22,
   mourn: 120,
   apart: 120,
+  creep: 0.12,
 } as const
 
 export const fleePace: Record<Creature, number> = {
   person: 4.7,
-  cow: 5.2,
+  cow: 2.4,
   sheep: 5.6,
   deer: 9,
   horse: 9.5,
