@@ -41,6 +41,7 @@ export const lifeLayout = {
   capacity: 40,
   verge: 4.5,
   stride: 44,
+  turn: 0.4,
   aside: 14,
   walkers: { quiet: 0.14, lively: 0.46 },
   herds: { quiet: 0.14, lively: 0.34 },
@@ -347,6 +348,33 @@ export function wander(member: Roamer, time: number) {
   }
 }
 
+export function stroll(travelled: number) {
+  const span = lifeLayout.stride
+  const turn = lifeLayout.turn
+  const arc = Math.PI * turn
+  const lap = (span + arc) * 2
+  const lapse = ((travelled % lap) + lap) % lap
+  if (lapse < span) return { along: lapse, out: 0, headAlong: 1, headOut: 0 }
+  if (lapse < span + arc) {
+    const angle = (lapse - span) / turn
+    return {
+      along: span + Math.sin(angle) * turn,
+      out: (1 - Math.cos(angle)) * turn,
+      headAlong: Math.cos(angle),
+      headOut: Math.sin(angle),
+    }
+  }
+  if (lapse < span * 2 + arc)
+    return { along: span * 2 + arc - lapse, out: turn * 2, headAlong: -1, headOut: 0 }
+  const angle = (lapse - span * 2 - arc) / turn
+  return {
+    along: -Math.sin(angle) * turn,
+    out: (1 + Math.cos(angle)) * turn,
+    headAlong: -Math.cos(angle),
+    headOut: -Math.sin(angle),
+  }
+}
+
 export function placeMember(
   world: World,
   plan: Plan,
@@ -356,18 +384,19 @@ export function placeMember(
   car: { x: number; s: number },
 ): Placed {
   if (member.kind === 'person') {
-    const span = lifeLayout.stride
     const travelled = time * member.pace + member.phase
-    const lapse = travelled % (span * 2)
-    const forward = lapse < span
-    const local = 8 + (forward ? lapse : span * 2 - lapse) + member.along * (forward ? -1 : 1)
-    const s = plan.base + lap + local
+    const walk = stroll(travelled - member.along)
+    const s = plan.base + lap + 8 + walk.along
     const road = world.road(s)
-    const centre = roadPoint(road, s, plan.side * member.across)
+    const out = member.across + walk.out
+    const centre = roadPoint(road, s, plan.side * out)
     const near = Math.hypot(centre.x - car.x, centre.s - car.s)
     const aside = ease(1 - near / lifeLayout.aside) * 1.3
-    const point = roadPoint(road, s, plan.side * (member.across + aside))
-    const direction = forward ? 1 : -1
+    const point = roadPoint(road, s, plan.side * (out + aside))
+    const sin = Math.sin(road.yaw)
+    const cos = Math.cos(road.yaw)
+    const headX = -sin * walk.headAlong + plan.side * cos * walk.headOut
+    const headS = cos * walk.headAlong + plan.side * sin * walk.headOut
     const ground = world.surface(point.x, point.s)
     return {
       kind: 'person',
@@ -376,7 +405,7 @@ export function placeMember(
       s: point.s,
       slopeX: ground.slopeX,
       slopeS: ground.slopeS,
-      yaw: Math.atan2(-Math.sin(road.yaw) * direction, -Math.cos(road.yaw) * direction),
+      yaw: Math.atan2(headX, -headS),
       step: travelled * 2.6,
       stride: 0.62,
       graze: 0,

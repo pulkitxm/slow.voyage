@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { loopCells } from './field'
 import { landscapeIds } from './landscapes'
-import { lifeLayout, placeMember, planSlot, wander, wanderLayout } from './life'
+import { lifeLayout, placeMember, planSlot, stroll, wander, wanderLayout } from './life'
 import { roadCoordinates, roadLayout } from './road'
 import { defaults, shoreHeight, World } from './world'
 
@@ -140,4 +140,37 @@ test('a placed animal strides only while it moves', () => {
   }
   expect(striding).toBeGreaterThan(20)
   expect(resting).toBeGreaterThan(20)
+})
+
+test('walkers turn round on a small walked arc instead of flipping on the spot', () => {
+  const lap = (lifeLayout.stride + Math.PI * lifeLayout.turn) * 2
+  const tick = 0.02
+  let before = stroll(0)
+  let reversed = 0
+  for (let travelled = tick; travelled < lap * 2.2; travelled += tick) {
+    const now = stroll(travelled)
+    expect(Math.hypot(now.along - before.along, now.out - before.out)).toBeCloseTo(tick, 3)
+    expect(Math.hypot(now.headAlong, now.headOut)).toBeCloseTo(1, 9)
+    expect(now.headAlong * before.headAlong + now.headOut * before.headOut).toBeGreaterThan(0.99)
+    expect(now.out).toBeGreaterThanOrEqual(-1e-9)
+    if (Math.sign(now.headAlong) !== Math.sign(before.headAlong)) reversed++
+    before = now
+  }
+  expect(reversed).toBeGreaterThanOrEqual(4)
+  const world = new World({ ...defaults })
+  const plan = plans(world, 'lively').find((candidate) => candidate.walkers)
+  const member = plan?.members[0]
+  if (!plan || !member) throw new Error('No walkers were planned')
+  const far = { x: world.road(0).x + 900, s: -900 }
+  let last = placeMember(world, plan, member, 0, 0, far)
+  for (let time = 0.05; time < (lap / member.pace) * 1.1; time += 0.05) {
+    const spot = placeMember(world, plan, member, 0, time, far)
+    const covered = Math.hypot(spot.x - last.x, spot.s - last.s) / 0.05
+    expect(covered).toBeGreaterThan(member.pace * 0.6)
+    expect(covered).toBeLessThan(member.pace * 1.4)
+    let turn = spot.yaw - last.yaw
+    turn = Math.abs(Math.atan2(Math.sin(turn), Math.cos(turn)))
+    expect(turn / 0.05).toBeLessThan((member.pace / lifeLayout.turn) * 1.5)
+    last = spot
+  }
 })
