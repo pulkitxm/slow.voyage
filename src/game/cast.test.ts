@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import { castSources, restClip, standing } from './cast'
+import { castPick, castSources, restClip, standing } from './cast'
 
 test('cattle come as a cow and a bull and the elephant has a model of its own', () => {
   const cattle = castSources.filter((source) => source.kind === 'cow')
@@ -10,6 +10,10 @@ test('cattle come as a cow and a bull and the elephant has a model of its own', 
   const elephant = castSources.find((source) => source.kind === 'elephant')
   expect(elephant?.height ?? 0).toBeGreaterThan((cattle[0]?.height ?? 0) * 1.7)
   for (const source of castSources) expect(source.url).toMatch(/\.glb/)
+  for (const source of cattle) {
+    expect(source.glow ?? 1).toBeGreaterThan(1.5)
+    expect(source.height).toBeGreaterThan(1.7)
+  }
 })
 
 test('a model without an idle clip stands in its rest pose', () => {
@@ -48,4 +52,20 @@ test('standing measures the height and the level of the feet, so a model with a 
   body.position.y = 0.25
   expect(standing(root).height).toBeCloseTo(2.5, 5)
   expect(standing(root).base).toBeCloseTo(-1, 5)
+})
+
+test('herds are mostly cows with the odd bull, chosen the same way for the same animal', () => {
+  const shares = castSources
+    .filter((source) => source.kind === 'cow')
+    .map((source) => source.share ?? 1)
+  const counts = [0, 0]
+  for (let animal = 0; animal < 400; animal++) {
+    const pick = castPick(shares, animal * 0.0731 + 0.013)
+    expect(castPick(shares, animal * 0.0731 + 0.013)).toBe(pick)
+    counts[pick] = (counts[pick] ?? 0) + 1
+  }
+  expect(counts[0] ?? 0).toBeGreaterThan((counts[1] ?? 0) * 2)
+  expect(counts[1] ?? 0).toBeGreaterThan(40)
+  expect(castPick([1], 0.42)).toBe(0)
+  expect(castPick([1, 1], 0)).toBe(0)
 })

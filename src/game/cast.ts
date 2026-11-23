@@ -13,18 +13,34 @@ import womanUrl from '../assets/models/woman.glb?url'
 import type { Creature } from './creatures'
 import type { Placed, Stage } from './life'
 
-export const castSources: { kind: Creature; url: string; height: number }[] = [
+export const castSources: {
+  kind: Creature
+  url: string
+  height: number
+  glow?: number
+  share?: number
+}[] = [
   { kind: 'person', url: manUrl, height: 1.78 },
   { kind: 'person', url: womanUrl, height: 1.68 },
-  { kind: 'cow', url: cattleUrl, height: 1.62 },
-  { kind: 'cow', url: bullUrl, height: 1.66 },
-  { kind: 'elephant', url: elephantUrl, height: 3.1 },
+  { kind: 'cow', url: cattleUrl, height: 1.78, glow: 1.9, share: 3 },
+  { kind: 'cow', url: bullUrl, height: 1.84, glow: 5, share: 1 },
+  { kind: 'elephant', url: elephantUrl, height: 3.1, glow: 1.35 },
   { kind: 'horse', url: horseUrl, height: 1.85 },
   { kind: 'deer', url: deerUrl, height: 1.6 },
   { kind: 'sheep', url: sheepUrl, height: 0.95 },
 ]
 
 const sources = castSources
+
+export function castPick(shares: number[], phase: number) {
+  const total = shares.reduce((sum, share) => sum + share, 0)
+  let mark = ((((phase * 7.3) % 1) + 1) % 1) * total
+  for (const [index, share] of shares.entries()) {
+    if (mark < share) return index
+    mark -= share
+  }
+  return Math.max(0, shares.length - 1)
+}
 
 export function restClip(root: THREE.Object3D, name: string) {
   const tracks: THREE.KeyframeTrack[] = []
@@ -88,6 +104,7 @@ interface Template {
   scale: number
   base: number
   order: number
+  share: number
 }
 
 interface Actor {
@@ -128,6 +145,7 @@ export class Cast implements Stage {
             if (material instanceof THREE.MeshStandardMaterial) {
               material.metalness = 0
               material.roughness = 0.88
+              material.color.multiplyScalar(source.glow ?? 1)
             }
         })
         const list = this.templates.get(source.kind) ?? []
@@ -136,6 +154,7 @@ export class Cast implements Stage {
           clips,
           scale: tall > 0 ? source.height / tall : 1,
           base,
+          share: source.share ?? 1,
           order: sources.indexOf(source),
         })
         list.sort((a, b) => a.order - b.order)
@@ -198,7 +217,13 @@ export class Cast implements Stage {
   place(spot: Placed, dt: number, near: number) {
     const options = this.templates.get(spot.kind)
     if (!options?.length) return
-    const template = options[Math.floor(spot.member.phase * 7.3) % options.length] ?? options[0]
+    const template =
+      options[
+        castPick(
+          options.map((option) => option.share),
+          spot.member.phase,
+        )
+      ] ?? options[0]
     if (!template) return
     const index = this.used.get(template) ?? 0
     this.used.set(template, index + 1)
