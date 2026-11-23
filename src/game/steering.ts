@@ -11,13 +11,14 @@ export const keyboardSoftening = {
 }
 export const steeringAssist: Record<
   SteeringAssist,
-  { tapShare: number; holdSpan: number; speedDelay: number }
+  { tapShare: number; holdSpan: number; speedDelay: number; gripReach: number }
 > = {
-  off: { tapShare: 1, holdSpan: 0.4, speedDelay: 0 },
-  light: { tapShare: 0.26, holdSpan: 1, speedDelay: 1 },
-  strong: { tapShare: 0.16, holdSpan: 1.3, speedDelay: 1 },
+  off: { tapShare: 1, holdSpan: 0.4, speedDelay: 0, gripReach: 1.5 },
+  light: { tapShare: 0.26, holdSpan: 1, speedDelay: 1, gripReach: 1 },
+  strong: { tapShare: 0.16, holdSpan: 1.3, speedDelay: 1, gripReach: 1 },
 }
-export const motorcycleAssist = { tapShare: 0.7, holdSpan: 0.4, speedDelay: 1 }
+export const motorcycleAssist = { tapShare: 0.7, holdSpan: 0.4, speedDelay: 1, gripReach: 1 }
+export const motorcycleFree = { tapShare: 1, holdSpan: 0.4, speedDelay: 0, gripReach: 3 }
 export const digitalResponse = { settle: 0.45, speedDelay: 0.25, centering: 0.5 }
 
 export function steeringLimit(speed: number, vehicle: Vehicle) {
@@ -67,7 +68,12 @@ export class Steering {
       tapShare: lightTouch,
       holdSpan,
       speedDelay,
-    } = vehicle === 'motorcycle' && assist !== 'off' ? motorcycleAssist : steeringAssist[assist]
+      gripReach,
+    } = vehicle === 'motorcycle'
+      ? assist === 'off'
+        ? motorcycleFree
+        : motorcycleAssist
+      : steeringAssist[assist]
     if (dt <= 0) return this.angle
     const metrics = vehicleMetrics[vehicle]
     const limit = steeringLimit(speed, vehicle)
@@ -88,7 +94,8 @@ export class Steering {
     const tapShare = keyboardSoftening.heldShare + (lightTouch - keyboardSoftening.heldShare) * calm
     const gripShare =
       tapShare + (keyboardSoftening.heldShare - tapShare) * leaning * leaning * (3 - 2 * leaning)
-    const keyboardLimit = limit + (Math.min(limit, gripLimit * gripShare) - limit) * highway
+    const keyboardLimit =
+      limit + (Math.min(limit, gripLimit * gripShare * gripReach) - limit) * highway
     const ratio = clamp(Math.abs(speed) / metrics.maxSpeed, 0, 1)
     const mouseLimit = limit * (1 - 0.4 * ratio)
     if (source && source !== this.source) {
