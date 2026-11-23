@@ -145,6 +145,8 @@ of the whole loop.
   ramps, and foliage closer than the chase camera is cut away so the view never
   fills with leaves.
   The roadside life setting chooses empty, quiet, or lively (the default).
+- Grass tufts take the shade they stand in: the extra glow that keeps blades
+  bright in sunlight is held back under trees and in the shadow of hills.
 - Open ground is not one green: broad patches run from dry and warm to lush and
   cool, worn spots show bare earth on gentle slopes, and the colour is a little
   less saturated than before.

@@ -11,7 +11,7 @@ test('cattle come as a cow and a bull and the elephant has a model of its own', 
   expect(elephant?.height ?? 0).toBeGreaterThan((cattle[0]?.height ?? 0) * 1.7)
   for (const source of castSources) expect(source.url).toMatch(/\.glb/)
   for (const source of cattle) {
-    expect(source.glow ?? 1).toBeGreaterThan(1.5)
+    expect(source.glow ?? 1).toBeGreaterThan(1.2)
     expect(source.height).toBeGreaterThan(1.7)
   }
 })

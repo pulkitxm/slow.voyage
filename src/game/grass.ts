@@ -2,6 +2,15 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { random } from './world'
 
+export const grassLighting = `#if NUM_DIR_LIGHTS > 0
+float grassBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
+float grassReach = dot(diffuseColor.rgb * directionalLights[0].color, vec3(1.0)) * RECIPROCAL_PI * 0.3;
+float grassSunlit = clamp(dot(reflectedLight.directDiffuse, vec3(1.0)) / max(grassReach, 0.0001), 0.0, 1.0);
+outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBacklight * 0.1) * mix(0.2, 1.0, grassSunlit);
+outgoingLight += reflectedLight.indirectDiffuse * 0.9 * mix(0.4, 1.0, grassSunlit);
+#endif
+#include <opaque_fragment>`
+
 export function grassTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 512
