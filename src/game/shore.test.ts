@@ -55,3 +55,29 @@ test('rock on a bank is drawn from one facing instead of two smeared together', 
   )
   Reflect.deleteProperty(globalThis, 'document')
 })
+
+test('the software ground skips its bump and close detail lookups without changing the rest', () => {
+  Reflect.set(globalThis, 'document', {
+    createElementNS: () => ({ addEventListener() {}, removeEventListener() {}, style: {} }),
+  })
+  const compile = (software: boolean) => {
+    const material = new MeadowMaterial(new THREE.Texture(), defaults, software)
+    const shader = {
+      uniforms: {},
+      vertexShader: THREE.ShaderLib.standard.vertexShader,
+      fragmentShader: THREE.ShaderLib.standard.fragmentShader,
+    } as unknown as THREE.WebGLProgramParametersWithUniforms
+    material.onBeforeCompile(shader, {} as THREE.WebGLRenderer)
+    return { material, shader }
+  }
+  const plain = compile(true)
+  const full = compile(false)
+  expect(plain.material.bumpMap).toBe(null)
+  expect(full.material.bumpMap).not.toBe(null)
+  expect(plain.material.defines?.FIELD_PLAIN).toBe('')
+  expect(full.material.defines?.FIELD_PLAIN).toBeUndefined()
+  expect(plain.shader.fragmentShader).toBe(full.shader.fragmentShader)
+  expect(plain.shader.fragmentShader).toMatch(/#ifndef FIELD_PLAIN\nfloat fieldGrain/)
+  expect(plain.shader.fragmentShader).toMatch(/#ifdef USE_BUMPMAP\nnormal = perturbNormalArb/)
+  Reflect.deleteProperty(globalThis, 'document')
+})

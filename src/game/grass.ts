@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { sharpness } from './graphics'
 import { random } from './world'
 
 export const grassLighting = `#if NUM_DIR_LIGHTS > 0
@@ -57,7 +58,7 @@ export function grassTexture() {
   texture.magFilter = THREE.LinearFilter
   texture.minFilter = THREE.LinearMipmapLinearFilter
   texture.generateMipmaps = true
-  texture.anisotropy = 8
+  texture.anisotropy = sharpness(8)
   texture.needsUpdate = true
   return texture
 }

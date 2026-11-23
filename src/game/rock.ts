@@ -4,6 +4,7 @@ import asphaltNormalUrl from '../assets/asphalt-normal.webp'
 import groundDetailUrl from '../assets/ground-detail.webp'
 import albedoUrl from '../assets/rock-albedo.jpg'
 import normalUrl from '../assets/rock-normal.png'
+import { sharpness } from './graphics'
 
 export function loadSurfaceTexture(url: string, colorSpace: THREE.ColorSpace) {
   const texture = new THREE.Texture()
@@ -11,7 +12,7 @@ export function loadSurfaceTexture(url: string, colorSpace: THREE.ColorSpace) {
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping
   texture.magFilter = THREE.LinearFilter
   texture.minFilter = THREE.LinearMipmapLinearFilter
-  texture.anisotropy = 8
+  texture.anisotropy = sharpness(8)
   const ready = new THREE.ImageLoader().loadAsync(url).then((image) => {
     texture.image = image
     texture.needsUpdate = true

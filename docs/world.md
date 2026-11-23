@@ -170,6 +170,11 @@ of the whole loop.
   bushes on their crossed cards instead of painted shapes. Leaves turn from
   yellow to rust in autumn, conifers carry snow in winter, and bare winter
   trees are still drawn in code.
+- On a software renderer the picture gives way before the simulation does:
+  textures skip anisotropic filtering, the ground drops its bump and close
+  detail lookups, and the render resolution steps down whenever frames take
+  longer than a quarter of a second, the point past which the simulation would
+  fall behind real time. It steps back up only when there is headroom.
 - Rock on banks and cliffs is drawn from the one facing that suits each slope
   instead of two blended together, so road cuts show strata and cracks rather
   than a smear.
