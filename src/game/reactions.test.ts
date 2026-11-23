@@ -7,6 +7,7 @@ import {
   flee,
   fleePace,
   freshFate,
+  observed,
   reactionLayout,
   struck,
   threatened,
@@ -114,4 +115,16 @@ test('large animals topple only at a real impact speed and slide clear of the ca
   expect(rest.x).toBeGreaterThan(car.halfWidth + reactionLayout.berth)
   expect(rest.lift).toBeCloseTo(0, 6)
   expect(fallenPose(light, reactionLayout.throwTime / 2).lift).toBeLessThanOrEqual(0.3)
+})
+
+test('the speed and heading of someone running are read from the ground they covered', () => {
+  expect(observed(undefined, 1, 2, 3)).toBe(null)
+  const seen = observed({ x: 10, s: 20, time: 5 }, 10.3, 20.4, 5.1)
+  expect(seen?.speed).toBeCloseTo(5, 9)
+  expect(seen?.headX).toBeCloseTo(0.6, 9)
+  expect(seen?.headS).toBeCloseTo(0.8, 9)
+  expect(observed({ x: 10, s: 20, time: 5 }, 10, 20, 5.1)).toEqual({ speed: 0, headX: 0, headS: 0 })
+  expect(observed({ x: 10, s: 20, time: 5 }, 10.3, 20.4, 5)).toBe(null)
+  expect(observed({ x: 10, s: 20, time: 5 }, 10.3, 20.4, 5 + reactionLayout.stale + 0.1)).toBe(null)
+  expect(observed({ x: 10, s: 20, time: 5 }, 10, 12020, 5.1)).toBe(null)
 })
