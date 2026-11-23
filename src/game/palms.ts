@@ -77,7 +77,7 @@ export function palmGeometry(seed: number) {
   const height = 7 + rng() * 4
   const lean = 0.6 + rng() * 1.4
   const heading = rng() * Math.PI * 2
-  const bark = new THREE.Color('#6d5a44')
+  const bark = new THREE.Color('#8f775c')
   const rings = 9
   const radial = 7
   const ring = (index: number) => {
