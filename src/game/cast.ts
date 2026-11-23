@@ -22,8 +22,8 @@ export const castSources: {
 }[] = [
   { kind: 'person', url: manUrl, height: 1.78 },
   { kind: 'person', url: womanUrl, height: 1.68 },
-  { kind: 'cow', url: cattleUrl, height: 1.78, glow: 1.9, share: 3 },
-  { kind: 'cow', url: bullUrl, height: 1.84, glow: 5, share: 1 },
+  { kind: 'cow', url: cattleUrl, height: 1.78, glow: 1.3, share: 3 },
+  { kind: 'cow', url: bullUrl, height: 1.84, glow: 3.6, share: 1 },
   { kind: 'elephant', url: elephantUrl, height: 3.1, glow: 1.35 },
   { kind: 'horse', url: horseUrl, height: 1.85 },
   { kind: 'deer', url: deerUrl, height: 1.6 },

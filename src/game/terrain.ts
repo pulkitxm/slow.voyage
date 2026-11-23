@@ -5,7 +5,7 @@ import { Boulders, planBoulders, planPlants } from './boulders'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { Foliage, treeTint } from './foliage'
-import { grassGeometry, grassTexture } from './grass'
+import { grassGeometry, grassLighting, grassTexture } from './grass'
 import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
 import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
@@ -297,15 +297,10 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
-        `#if NUM_DIR_LIGHTS > 0
-float grassBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
-outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.07 + grassBacklight * 0.1);
-outgoingLight += reflectedLight.indirectDiffuse * 0.9;
-#endif
-#include <opaque_fragment>`,
+        grassLighting,
       )
     }
-    this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-meadow'
+    this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-shaded-meadow'
     this.asphalt = asphaltTexture()
     this.fallMaterial = waterfallMaterial(
       this.grassMaterial.fieldUniforms.fieldNoiseMap,
