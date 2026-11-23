@@ -150,6 +150,9 @@ of the whole loop.
 - Soft shadows follow the slope of whatever they fall on, and the offset that
   keeps a surface from shading itself grows with the size of a shadow texel, so
   bodywork, rocks and trunks stay clean instead of showing a stippled hatch.
+- The soft shade under every walker and animal lies along the slope they stand
+  on, so it no longer floats off a bank on one side and sinks into it on the
+  other.
 - Open ground is not one green: broad patches run from dry and warm to lush and
   cool, worn spots show bare earth on gentle slopes, and the colour is a little
   less saturated than before.

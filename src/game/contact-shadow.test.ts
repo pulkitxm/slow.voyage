@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
+import { Matrix4, Object3D, Vector3 } from 'three'
 import { footprints } from './collision'
-import { contactPatch, contactShade } from './contact-shadow'
+import { contactPatch, contactShade, layShade, restingShade } from './contact-shadow'
 import { neutralInput } from './controls'
 import { CarPhysics } from './physics'
 import { defaults, type Settings, World } from './world'
@@ -87,4 +88,43 @@ test('the shadow stays on the ground and fades as the car leaves it', () => {
   expect(hopping.strength).toBeLessThan(planted.strength)
   expect(hopping.strength).toBeGreaterThan(flying.strength)
   expect(flying.strength).toBe(contactShade.faintest)
+})
+
+test('the shade under a walker or animal lies along the slope it stands on', () => {
+  const spot = { x: 14, y: 31, s: 220, yaw: 0.7, slopeX: 0.22, slopeS: -0.31 }
+  const matrix = layShade(new Matrix4(), spot, 2.3, 4.3)
+  const at = (across: number, along: number) => new Vector3(across, 0, along).applyMatrix4(matrix)
+  let tallest = 0
+  for (const [across, along] of [
+    [-0.5, -0.5],
+    [0.5, -0.5],
+    [0.5, 0.5],
+    [-0.5, 0.5],
+  ] as const) {
+    const corner = at(across, along)
+    const ground = spot.y + spot.slopeX * (corner.x - spot.x) + spot.slopeS * (-corner.z - spot.s)
+    expect(corner.y - ground).toBeCloseTo(restingShade.lift, 6)
+    tallest = Math.max(tallest, Math.abs(corner.y - spot.y))
+  }
+  expect(tallest).toBeGreaterThan(0.3)
+  expect(at(0.5, 0).distanceTo(at(-0.5, 0))).toBeCloseTo(2.3, 6)
+  expect(at(0, 0.5).distanceTo(at(0, -0.5))).toBeCloseTo(4.3, 6)
+  expect(
+    at(0.5, 0)
+      .sub(at(-0.5, 0))
+      .dot(at(0, 0.5).sub(at(0, -0.5))),
+  ).toBeCloseTo(0, 9)
+})
+
+test('on level ground the shade sits exactly where the flat one did', () => {
+  const spot = { x: -6, y: 12, s: 90, yaw: -1.9, slopeX: 0, slopeS: 0 }
+  const flat = new Object3D()
+  flat.rotation.order = 'YXZ'
+  flat.position.set(spot.x, spot.y + restingShade.lift, -spot.s)
+  flat.rotation.set(0, spot.yaw, 0)
+  flat.scale.set(1.4, 1, 2.7)
+  flat.updateMatrix()
+  const laid = layShade(new Matrix4(), spot, 1.4, 2.7)
+  for (const [index, value] of flat.matrix.elements.entries())
+    expect(laid.elements[index]).toBeCloseTo(value, 9)
 })
