@@ -65,9 +65,10 @@ of the whole loop.
   halves the walkers. Rails, delineators, landmarks, waterfalls, the minimap,
   the atlas, laps and autodrive all follow whichever road is chosen, and the
   world is rebuilt when the mode changes.
-- Keyboard steering is free by default. A key asks for the full grip angle
-  straight away and the rack moves as quickly at top speed as at a crawl, so the
-  cornering response after 0.3 s is about the same at 45 m/s as at 10 m/s. Light
+- Keyboard steering is free by default. A key asks for one and a half times the
+  grip angle straight away (three times on the motorcycle) and the rack moves as
+  quickly at top speed as at a crawl, so cornering builds as fast on the
+  motorway as it does in town while a quick tap still stays in its lane. Light
   and strong steering assists are options: above town speeds a key first asks
   for a small share of the grip angle and the share grows over about a second of
   holding, so a 0.15 s tap moves the car a quarter metre.
