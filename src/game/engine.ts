@@ -436,6 +436,8 @@ export class RoadEngine {
       this.life = new Life(this.world)
       this.cast = new Cast()
       this.life.stage = this.cast
+      const canopy = this.terrain
+      this.life.shadeAt = (x, s) => canopy.shadeAt(x, s)
       this.scene.add(this.life.group, this.cast.group)
     }
     const terrain = this.terrain

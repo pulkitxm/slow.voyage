@@ -161,6 +161,9 @@ of the whole loop.
   turned by the ground they actually covered since the last frame.
 - Walkers turn round at the end of their stretch on a small walked arc and come
   back a step further from the road, instead of flipping on the spot.
+- Modelled walkers and animals darken with the canopy shade they stand in, by
+  the same pools of shade that are drawn on the ground under each tree, so an
+  elephant under the trees no longer looks lit from within.
 - The soft shade under every walker and animal lies along the slope they stand
   on, so it no longer floats off a bank on one side and sinks into it on the
   other.
