@@ -119,6 +119,19 @@ describe('free steering', () => {
     }
   })
 
+  test.each([...cars, 'motorcycle'] as const)(
+    '%s builds cornering as quickly on the motorway as it does in town',
+    (vehicle) => {
+      const town = press(vehicle, 15, 1, 'off').trace[23] ?? 0
+      expect(town).toBeGreaterThan(0.25)
+      for (const speed of [22, 30, 45]) {
+        const motorway = press(vehicle, speed, 1, 'off').trace[23] ?? 0
+        expect(motorway).toBeGreaterThan(town * 0.85)
+        expect(motorway).toBeLessThan(town * 1.5)
+      }
+    },
+  )
+
   test.each(cars)('%s rack reaches its target equally fast at any speed', (vehicle) => {
     const times = [0, 20, 45].map((speed) => {
       const rack = new Steering()
