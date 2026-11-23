@@ -6,6 +6,7 @@ import bushUrl from '../assets/trees/bush-a.webp'
 import leafyBushUrl from '../assets/trees/bush-b.webp'
 import coniferUrl from '../assets/trees/conifer.webp'
 import slenderUrl from '../assets/trees/slender.webp'
+import { sharpness } from './graphics'
 import { random, type Season } from './world'
 
 export const treePhotos = [
@@ -349,7 +350,7 @@ export class Foliage {
     this.canvas.height = tileSize * atlasRows
     this.texture = new THREE.CanvasTexture(this.canvas)
     this.texture.colorSpace = THREE.SRGBColorSpace
-    this.texture.anisotropy = 8
+    this.texture.anisotropy = sharpness(8)
     this.treeMaterial = new THREE.MeshStandardMaterial({
       map: this.texture,
       side: THREE.DoubleSide,

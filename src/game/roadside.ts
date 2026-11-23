@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { sharpness } from './graphics'
 import { guardrailAt, roadLayout, roadPoint } from './road'
 import { angleDifference, type World } from './world'
 
@@ -138,7 +139,7 @@ function canvasTexture(
   paint(context)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.anisotropy = 4
+  texture.anisotropy = sharpness(4)
   return texture
 }
 
