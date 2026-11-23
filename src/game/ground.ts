@@ -105,6 +105,15 @@ export function* groundRows(
   return ground
 }
 
+export const rockFacing = { sharpness: 12 }
+
+export function rockShares(x: number, y: number, z: number) {
+  const length = Math.hypot(x, y, z) || 1
+  const shares = [x, y, z].map((part) => Math.abs(part / length) ** rockFacing.sharpness)
+  const total = shares.reduce((sum, share) => sum + share, 0) || 1
+  return shares.map((share) => share / total)
+}
+
 export function groundTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 256
@@ -276,7 +285,7 @@ float grassPocket = (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * smoothstep(0.25,
 cutFace *= 1.0 - grassPocket * 0.88;
 rockBlend = max(rockBlend, cutFace);
 float rockGrain = fieldVariationAt(fieldPosition * 80.0);
-vec3 rockWeights = pow(abs(normalize(fieldNormal)), vec3(4.0));
+vec3 rockWeights = pow(abs(normalize(fieldNormal)), vec3(${rockFacing.sharpness.toFixed(1)}));
 rockWeights /= dot(rockWeights, vec3(1.0));
 float rockWarp = (fieldVariationAt(fieldPosition * 4.0) - 0.5) * 0.2;
 vec2 rockUvX = vec2(fieldPosition.y, fieldHeight) / 3.6 + rockWarp;
@@ -331,7 +340,7 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'triplanar-rock-road-cuts-varied-shore-worn'
+    return 'triplanar-rock-road-cuts-varied-shore-worn-crisp'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()
