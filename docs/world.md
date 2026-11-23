@@ -170,6 +170,9 @@ of the whole loop.
   bushes on their crossed cards instead of painted shapes. Leaves turn from
   yellow to rust in autumn, conifers carry snow in winter, and bare winter
   trees are still drawn in code.
+- Rock on banks and cliffs is drawn from the one facing that suits each slope
+  instead of two blended together, so road cuts show strata and cracks rather
+  than a smear.
 - Water far from the car mirrors sky from a little above the horizon and keeps
   part of its own colour, so distant lakes read as blue water instead of a
   white sheet.
