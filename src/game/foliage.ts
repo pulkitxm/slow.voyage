@@ -29,6 +29,20 @@ export function treeTint(color: THREE.Color, shade: number, warm: number, cool: 
   )
 }
 
+export const evergreenTone = { kept: 0.25 }
+
+export function evergreenRelief(tint: string | null, relief = new THREE.Color()) {
+  if (!tint) return relief.setRGB(1, 1, 1)
+  relief.set(tint)
+  const level = (relief.r + relief.g + relief.b) / 3
+  const ease = 1 - evergreenTone.kept
+  return relief.setRGB(
+    (level / Math.max(0.05, relief.r)) ** ease,
+    (level / Math.max(0.05, relief.g)) ** ease,
+    (level / Math.max(0.05, relief.b)) ** ease,
+  )
+}
+
 export function leafy(red: number, green: number, blue: number) {
   return green > red * 0.98 && green > blue * 1.15
 }

@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import {
   autumnLeaf,
+  evergreenRelief,
   evergreenTile,
   leafy,
   snowDusted,
@@ -9,6 +10,7 @@ import {
   treeTint,
   treeVariety,
 } from './foliage'
+import { landscapeProfiles } from './landscapes'
 
 const light = (colour: readonly number[]) =>
   0.3 * (colour[0] ?? 0) + 0.59 * (colour[1] ?? 0) + 0.11 * (colour[2] ?? 0)
@@ -67,4 +69,23 @@ test('each tree takes its own slight warm or cool cast around its shade', () => 
   }
   expect(hues.size).toBeGreaterThan(20)
   expect(treeTint(color, 0.5, 0.5, 0.5).g).toBe(0.5)
+})
+
+test('evergreens keep their own green where the landscape warms its leaves', () => {
+  const spread = (colour: THREE.Color) =>
+    Math.max(colour.r, colour.g, colour.b) / Math.min(colour.r, colour.g, colour.b)
+  const level = (colour: THREE.Color) => (colour.r + colour.g + colour.b) / 3
+  expect(evergreenRelief(null).toArray()).toEqual([1, 1, 1])
+  let warmed = 0
+  for (const profile of Object.values(landscapeProfiles)) {
+    if (!profile.foliage) continue
+    warmed++
+    const tint = new THREE.Color(profile.foliage)
+    const worn = tint.clone().multiply(evergreenRelief(profile.foliage))
+    expect(spread(worn) - 1).toBeLessThan((spread(tint) - 1) * 0.5)
+    expect(spread(worn)).toBeGreaterThanOrEqual(1)
+    expect(Math.abs(level(worn) / level(tint) - 1)).toBeLessThan(0.12)
+    expect(worn.b / worn.r).toBeGreaterThan(tint.b / tint.r)
+  }
+  expect(warmed).toBeGreaterThan(2)
 })
