@@ -156,6 +156,8 @@ of the whole loop.
   measured from each model's own walk and run cycles, so nobody steps on the
   spot or slides. Cattle hurry away from a horn at a fast walk instead of a
   gallop their models cannot show.
+- Walkers turn round at the end of their stretch on a small walked arc and come
+  back a step further from the road, instead of flipping on the spot.
 - The soft shade under every walker and animal lies along the slope they stand
   on, so it no longer floats off a bank on one side and sinks into it on the
   other.
