@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import {
   autumnLeaf,
+  crownClearance,
+  crownShown,
   evergreenRelief,
   evergreenTile,
   leafy,
@@ -88,4 +90,17 @@ test('evergreens keep their own green where the landscape warms its leaves', () 
     expect(worn.b / worn.r).toBeGreaterThan(tint.b / tint.r)
   }
   expect(warmed).toBeGreaterThan(2)
+})
+
+test('a tree the camera is inside vanishes whole instead of dissolving into dots', () => {
+  expect(crownShown(20, 6)).toBe(1)
+  expect(crownShown(3 + crownClearance.shown, 6)).toBe(1)
+  expect(crownShown(3 + crownClearance.hidden, 6)).toBe(0)
+  expect(crownShown(1, 6)).toBe(0)
+  const half = crownShown(3 + (crownClearance.hidden + crownClearance.shown) / 2, 6)
+  expect(half).toBeGreaterThan(0.3)
+  expect(half).toBeLessThan(0.7)
+  expect(crownShown(8, 12)).toBe(0)
+  expect(crownShown(8, 4)).toBe(1)
+  expect(crownClearance.shown - crownClearance.hidden).toBeLessThan(0.6)
 })

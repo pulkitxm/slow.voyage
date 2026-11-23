@@ -19,6 +19,13 @@ export const treePhotos = [
 ] as const
 export const evergreenTile = 4
 export const treeVariety = { warm: 0.1, cool: 0.12 }
+export const crownClearance = { hidden: 2.6, shown: 3 }
+
+export function crownShown(distance: number, width: number) {
+  const { hidden, shown } = crownClearance
+  const reach = Math.min(1, Math.max(0, (distance - width / 2 - hidden) / (shown - hidden)))
+  return reach * reach * (3 - 2 * reach)
+}
 
 export function treeTint(color: THREE.Color, shade: number, warm: number, cool: number) {
   const sway = Math.abs(warm % 1) - 0.5
@@ -362,7 +369,7 @@ export class Foliage {
       shader.uniforms.leafNormals = this.leafNormals
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nvarying float foliageDistance;\nvarying vec3 foliageNormal;',
+        '#include <common>\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <defaultnormal_vertex>',
@@ -377,11 +384,20 @@ foliageNormal = normalMatrix * crownNormal;`,
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <project_vertex>',
-        '#include <project_vertex>\nfoliageDistance = length(mvPosition.xyz);',
+        `#include <project_vertex>
+foliageDistance = length(mvPosition.xyz);
+#ifdef USE_INSTANCING
+vec4 foliageRoot = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+float foliageSpread = length(instanceMatrix[0].xyz) * 0.5;
+#else
+vec4 foliageRoot = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+float foliageSpread = 0.5;
+#endif
+foliageClear = length(foliageRoot.xz) - foliageSpread;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float leafNormals;\nvarying float foliageDistance;\nvarying vec3 foliageNormal;',
+        '#include <common>\nuniform float leafNormals;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_begin>',
@@ -396,7 +412,7 @@ nonPerturbedNormal = normal;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
-        '#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif\nfloat foliageDither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));\nif (smoothstep(4.3, 4.9, 1.0 / gl_FragCoord.w) < foliageDither) discard;',
+        `#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif\nfloat foliageDither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));\nif (smoothstep(${crownClearance.hidden.toFixed(1)}, ${crownClearance.shown.toFixed(1)}, foliageClear) < foliageDither) discard;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
@@ -409,7 +425,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
 #include <opaque_fragment>`,
       )
     }
-    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-volume'
+    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-volume-whole'
     for (let variant = 0; variant < 8; variant++) {
       const planes: THREE.BufferGeometry[] = []
       const shrub = variant >= 2 && variant < 4

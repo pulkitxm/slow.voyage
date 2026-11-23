@@ -144,8 +144,8 @@ of the whole loop.
 - Each walker shouts and screams in their own voice: men lower, rougher and
   with darker vowels, women higher and brighter.
 - Off the road, slopes steeper than about 45 degrees act as walls instead of
-  ramps, and foliage closer than the chase camera is cut away so the view never
-  fills with leaves.
+  ramps, and a tree or bush whose crown the camera is inside or about to enter
+  is hidden whole, so the view never fills with leaves or dissolves into dots.
   The roadside life setting chooses empty, quiet, or lively (the default).
 - Grass tufts take the shade they stand in: the extra glow that keeps blades
   bright in sunlight is held back under trees and in the shadow of hills.
