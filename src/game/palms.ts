@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { random } from './world'
 
 export const palmLayout = { nearest: 7, farthest: 85, trunk: 0.22, ferns: 3.4 } as const
+export const palmTrunk = { rings: 22, sides: 10, flare: 0.9, scar: 0.8 }
 
 function leaf(
   positions: number[],
@@ -78,34 +79,40 @@ export function palmGeometry(seed: number) {
   const lean = 0.6 + rng() * 1.4
   const heading = rng() * Math.PI * 2
   const bark = new THREE.Color('#8f775c')
-  const rings = 9
-  const radial = 7
-  const ring = (index: number) => {
-    const along = index / rings
-    const radius = palmLayout.trunk * (1 - along * 0.45) * (index === 0 ? 1.5 : 1)
+  const { rings, sides, flare, scar } = palmTrunk
+  const core = (along: number) => {
     const bend = lean * along * along
-    return Array.from({ length: radial }, (_, step) => {
-      const angle = (step / radial) * Math.PI * 2
-      return new THREE.Vector3(
-        Math.sin(heading) * bend + Math.cos(angle) * radius,
-        height * along,
-        Math.cos(heading) * bend + Math.sin(angle) * radius,
-      )
-    })
+    return new THREE.Vector3(Math.sin(heading) * bend, height * along, Math.cos(heading) * bend)
   }
+  const girth = (index: number) => {
+    const along = index / rings
+    const root = Math.max(0, 1 - along * 9)
+    return (
+      palmLayout.trunk * (1 - along * 0.45) * (1 + flare * root * root) * (index % 2 ? 1 : 1.07)
+    )
+  }
+  const outward: THREE.Vector3[] = []
   for (let index = 0; index < rings; index++) {
-    const lower = ring(index)
-    const upper = ring(index + 1)
-    const shade = 0.75 + (index % 2) * 0.22
-    for (let step = 0; step < radial; step++) {
-      const a = lower[step]
-      const b = lower[(step + 1) % radial]
-      const c = upper[step]
-      const d = upper[(step + 1) % radial]
-      if (!a || !b || !c || !d) continue
-      for (const point of [a, c, b, b, c, d]) {
+    const shade = (index % 2 ? 1 : scar) * (0.8 + 0.2 * (index / rings))
+    const ends = [index, index + 1].map((level) => ({
+      centre: core(level / rings),
+      radius: girth(level),
+    }))
+    const corner = (level: 0 | 1, step: number) => {
+      const angle = (step / sides) * Math.PI * 2
+      const end = ends[level] as (typeof ends)[number]
+      const facing = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle))
+      return { point: facing.clone().multiplyScalar(end.radius).add(end.centre), facing }
+    }
+    for (let step = 0; step < sides; step++) {
+      const a = corner(0, step)
+      const b = corner(0, step + 1)
+      const c = corner(1, step)
+      const d = corner(1, step + 1)
+      for (const { point, facing } of [a, c, b, b, c, d]) {
         positions.push(point.x, point.y, point.z)
         colors.push(bark.r * shade, bark.g * shade, bark.b * shade)
+        outward.push(facing)
       }
     }
   }
@@ -126,7 +133,12 @@ export function palmGeometry(seed: number) {
       tone,
     )
   }
-  return finish(positions, colors)
+  const geometry = finish(positions, colors)
+  const normals = geometry.getAttribute('normal')
+  for (const [index, facing] of outward.entries())
+    normals.setXYZ(index, facing.x, facing.y, facing.z)
+  geometry.userData.trunk = outward.length
+  return geometry
 }
 
 export function fernGeometry(seed: number) {

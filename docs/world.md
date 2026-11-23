@@ -186,6 +186,9 @@ of the whole loop.
 - Water far from the car mirrors sky from a little above the horizon and keeps
   part of its own colour, so distant lakes read as blue water instead of a
   white sheet.
+- Palm trunks are round columns with ring scars and a flared foot instead of
+  flat facets, and the tint that colours a landscape's leaves leaves bark its
+  own brown, so jungle trunks no longer turn leaf green.
 - Firs stand at the proportions of the photographed tree instead of being
   squeezed into narrow cones, and they keep their own dark green in landscapes
   that warm the colour of their leaves.
