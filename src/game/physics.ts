@@ -264,7 +264,7 @@ export class CarPhysics {
       this.speed,
       settings.vehicle,
       gripSteering,
-      settings.steeringFeel,
+      settings.steeringAssist,
     )
     this.suspension.updateSteering(this.steering)
     const acceleration = solveTires(

@@ -16,7 +16,7 @@ import {
   roadModes,
   roadWear,
   seasons,
-  steeringFeels,
+  steeringAssists,
   vehicles,
   weather,
 } from './options'
@@ -414,21 +414,23 @@ export function SettingsPanel({
               </p>
             </section>
             <section className="setting-section">
-              <h3>Steering feel</h3>
+              <h3>Steering</h3>
               <div className="segmented">
-                {steeringFeels.map((item) => (
+                {steeringAssists.map((item) => (
                   <button
                     type="button"
                     key={item.id}
-                    className={settings.steeringFeel === item.id ? 'selected' : ''}
-                    aria-pressed={settings.steeringFeel === item.id}
-                    onClick={() => update('steeringFeel', item.id)}
+                    className={settings.steeringAssist === item.id ? 'selected' : ''}
+                    aria-pressed={settings.steeringAssist === item.id}
+                    onClick={() => update('steeringAssist', item.id)}
                   >
                     {item.label}
                   </button>
                 ))}
               </div>
-              <p>{steeringFeels.find((item) => item.id === settings.steeringFeel)?.description}</p>
+              <p>
+                {steeringAssists.find((item) => item.id === settings.steeringAssist)?.description}
+              </p>
             </section>
             <section className="setting-section">
               <label className="check-option">
