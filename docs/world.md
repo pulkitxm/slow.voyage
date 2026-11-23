@@ -155,7 +155,8 @@ of the whole loop.
   modelled walker and animal turn over at the rate the ground actually passes,
   measured from each model's own walk and run cycles, so nobody steps on the
   spot or slides. Cattle hurry away from a horn at a fast walk instead of a
-  gallop their models cannot show.
+  gallop their models cannot show. Anyone running from the car is paced and
+  turned by the ground they actually covered since the last frame.
 - Walkers turn round at the end of their stretch on a small walked arc and come
   back a step further from the road, instead of flipping on the spot.
 - The soft shade under every walker and animal lies along the slope they stand

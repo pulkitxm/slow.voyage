@@ -22,8 +22,10 @@ import {
   fallenPose,
   flee,
   freshFate,
+  observed,
   reactionLayout,
   struck,
+  type Trail,
   threatened,
 } from './reactions'
 import { roadPoint } from './road'
@@ -600,6 +602,7 @@ export class Life {
   private shade = contactShade()
   private stain = stains()
   private fates = new Map<Member, Fate>()
+  private trails = new Map<Member, Trail>()
   private scare: { x: number; s: number; until: number } | null = null
   private pace = 0
   knocks: Knock[] = []
@@ -635,6 +638,7 @@ export class Life {
       this.key = key
       this.plans.clear()
       this.fates.clear()
+      this.trails.clear()
       this.scare = null
     }
     this.knocks.length = 0
@@ -674,6 +678,7 @@ export class Life {
             near > reactionLayout.apart
           ) {
             this.fates.delete(member)
+            this.trails.delete(member)
             fate = undefined
           }
           if (fate && !fate.fallen) {
@@ -772,18 +777,28 @@ export class Life {
             const alert = time < fate.until + 2
             const turned = fate.headX !== 0 || fate.headS !== 0
             if (Math.abs(pace) > reactionLayout.creep) {
-              fate.stride += Math.abs(pace) * dt * 2.4
-              if (turned) spot.yaw = Math.atan2(fate.headX, -fate.headS)
+              const seen = observed(this.trails.get(member), spot.x, spot.s, time)
+              const speed = seen?.speed ?? Math.abs(pace)
+              fate.stride += speed * dt * 2.4
+              if (seen && seen.speed > reactionLayout.creep)
+                spot.yaw = Math.atan2(seen.headX, -seen.headS)
+              else if (turned) spot.yaw = Math.atan2(fate.headX, -fate.headS)
               spot.step = fate.stride
               spot.stride = pace > 0 ? 0.95 : 0.6
               spot.graze = 0
               spot.mood = pace > 1.5 ? 1 : 0
-              spot.pace = Math.abs(pace)
+              spot.pace = speed
             } else if (alert) {
               spot.graze = 0
               if (turned && spot.pace < reactionLayout.creep)
                 spot.yaw = Math.atan2(fate.headX, -fate.headS)
             }
+            const trail = this.trails.get(member)
+            if (trail) {
+              trail.x = spot.x
+              trail.s = spot.s
+              trail.time = time
+            } else this.trails.set(member, { x: spot.x, s: spot.s, time })
           }
           this.placed.push(spot)
           const staged = this.stage?.has(member.kind) ?? false

@@ -27,6 +27,8 @@ export const reactionLayout = {
   mourn: 120,
   apart: 120,
   creep: 0.12,
+  leap: 16,
+  stale: 0.5,
 } as const
 
 export const fleePace: Record<Creature, number> = {
@@ -90,6 +92,23 @@ export interface Bystander {
   x: number
   s: number
   radius: number
+}
+
+export interface Trail {
+  x: number
+  s: number
+  time: number
+}
+
+export function observed(trail: Trail | undefined, x: number, s: number, time: number) {
+  if (!trail) return null
+  const span = time - trail.time
+  if (span <= 0 || span > reactionLayout.stale) return null
+  const paceX = (x - trail.x) / span
+  const paceS = (s - trail.s) / span
+  const speed = Math.hypot(paceX, paceS)
+  if (speed > reactionLayout.leap) return null
+  return { speed, headX: speed > 0 ? paceX / speed : 0, headS: speed > 0 ? paceS / speed : 0 }
 }
 
 export function freshFate(): Fate {
