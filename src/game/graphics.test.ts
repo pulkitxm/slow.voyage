@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { cinemaRelief, frameStrained, StrainGauge } from './graphics'
+import { cinemaRelief, frameStrained, StrainGauge, shadowOffset, shadowReach } from './graphics'
 
 test('slow frames count as strain unless the display is steadily capped', () => {
   expect(frameStrained(1 / 60, 1 / 60, 0.0002)).toBe(false)
@@ -54,4 +54,14 @@ test('recovery slows down after repeated strain so the resolution does not oscil
   expect(run(gauge, cinemaRelief.patience + 0.5, 1 / 20, false, 1)).toEqual(['lower'])
   expect(run(gauge, cinemaRelief.recovery + 1, 1 / 60, false, 1)).toEqual([])
   expect(run(gauge, cinemaRelief.recovery, 1 / 60, false, 1)).toEqual(['raise'])
+})
+
+test('the shadow offset is wider than a shadow texel so bodywork does not shade itself in stripes', () => {
+  for (const size of [1024, 4096]) {
+    const texel = shadowReach.span / size
+    expect(shadowOffset(size)).toBeGreaterThan(texel * 1.2)
+    expect(shadowOffset(size)).toBeLessThan(texel * 2)
+  }
+  expect(shadowOffset(4096)).toBeLessThan(0.06)
+  expect(shadowOffset(1024)).toBeGreaterThan(shadowOffset(4096) * 3.9)
 })

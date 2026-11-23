@@ -22,6 +22,7 @@ import {
   frameStrained,
   graphicsBudget,
   StrainGauge,
+  shadowReach,
 } from './graphics'
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
@@ -40,6 +41,7 @@ import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
 import { bulky, heft, reactionLayout } from './reactions'
 import { puddleLevel } from './road-condition'
+import { fitShadowsToSurfaces } from './shadow-filter'
 import { SimulationClock } from './simulation-clock'
 import { ScenicSky } from './sky'
 import { skyline } from './skyline'
@@ -403,6 +405,7 @@ export class RoadEngine {
     this.atlas = new WorldMap(this.world)
     this.atlas.found = this.minimap.found
     this.crossfade = new SceneCrossfade(canvas)
+    fitShadowsToSurfaces()
     this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
     this.antialiasing = budget.software ? new SoftwareAntialias() : null
@@ -415,8 +418,8 @@ export class RoadEngine {
     this.scene.fog = new THREE.FogExp2('#d3ddd2', 0.00095)
     this.scene.add(this.ambient, this.sun, this.sun.target)
     this.sun.castShadow = true
-    this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -75
-    this.sun.shadow.camera.right = this.sun.shadow.camera.top = 75
+    this.sun.shadow.camera.left = this.sun.shadow.camera.bottom = -shadowReach.span / 2
+    this.sun.shadow.camera.right = this.sun.shadow.camera.top = shadowReach.span / 2
     this.sun.shadow.camera.near = 1
     this.sun.shadow.camera.far = 350
     this.configureShadows(budget)
