@@ -6,6 +6,7 @@ import {
   crownShown,
   evergreenRelief,
   evergreenTile,
+  leafShare,
   leafy,
   snowDusted,
   treePhotos,
@@ -103,4 +104,19 @@ test('a tree the camera is inside vanishes whole instead of dissolving into dots
   expect(crownShown(8, 12)).toBe(0)
   expect(crownShown(8, 4)).toBe(1)
   expect(crownClearance.shown - crownClearance.hidden).toBeLessThan(0.6)
+})
+
+test('the landscape tint colours leaves and leaves bark its own brown', () => {
+  expect(leafShare(0.2, 0.45, 0.12)).toBe(1)
+  expect(leafShare(0.42, 0.33, 0.22)).toBe(0)
+  expect(leafShare(0.3, 0.3, 0.3)).toBe(0)
+  const edge = leafShare(0.3, 0.324, 0.1)
+  expect(edge).toBeGreaterThan(0.1)
+  expect(edge).toBeLessThan(0.9)
+  for (const [red, green, blue] of [
+    [0.2, 0.45, 0.12],
+    [0.42, 0.33, 0.22],
+    [0.5, 0.4, 0.1],
+  ] as const)
+    expect(leafShare(red, green, blue) > 0.5).toBe(leafy(red, green, blue) && green - red > 0.03)
 })

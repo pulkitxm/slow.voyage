@@ -20,6 +20,15 @@ export const treePhotos = [
 export const evergreenTile = 4
 export const treeVariety = { warm: 0.1, cool: 0.12 }
 export const crownClearance = { hidden: 2.6, shown: 3 }
+export const leafTint = { soft: 0.06, bark: 1.15 }
+
+export function leafShare(red: number, green: number, blue: number) {
+  const reach = Math.min(
+    1,
+    Math.max(0, (green - Math.max(red * 0.98, blue * 1.15)) / leafTint.soft),
+  )
+  return reach * reach * (3 - 2 * reach)
+}
 
 export function crownShown(distance: number, width: number) {
   const { hidden, shown } = crownClearance
@@ -411,6 +420,14 @@ normal = normalize(mix(normal, normalize(crownNormal), crownWeight));
 nonPerturbedNormal = normal;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+#ifdef USE_MAP
+float foliageLeaf = smoothstep(0.0, ${leafTint.soft.toFixed(2)}, sampledDiffuseColor.g - max(sampledDiffuseColor.r * 0.98, sampledDiffuseColor.b * 1.15));
+diffuseColor.rgb = mix(diffuseColor.rgb / max(diffuse, vec3(0.001)) * ${leafTint.bark.toFixed(2)}, diffuseColor.rgb, foliageLeaf);
+#endif`,
+      )
+      shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
         `#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif\nfloat foliageDither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));\nif (smoothstep(${crownClearance.hidden.toFixed(1)}, ${crownClearance.shown.toFixed(1)}, foliageClear) < foliageDither) discard;`,
       )
@@ -425,7 +442,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
 #include <opaque_fragment>`,
       )
     }
-    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-volume-whole'
+    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-volume-whole-bark'
     for (let variant = 0; variant < 8; variant++) {
       const planes: THREE.BufferGeometry[] = []
       const shrub = variant >= 2 && variant < 4
