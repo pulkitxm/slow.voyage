@@ -1,6 +1,18 @@
 import * as THREE from 'three'
 import { type AtmosphereProfile, sunDirection } from './atmosphere'
 
+export const waterOptics = { waveLift: 0.22, sheen: 0.72, low: 0.02, high: 0.45 }
+
+export function skylineShare(bounce: number) {
+  const { waveLift, low, high } = waterOptics
+  const reach = Math.min(1, Math.max(0, (bounce + waveLift - low) / (high - low)))
+  return reach * reach * (3 - 2 * reach)
+}
+
+export function waterSheen(facing: number) {
+  return Math.min(waterOptics.sheen, 0.02 + 0.98 * (1 - facing) ** 5)
+}
+
 export class Water {
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
   constructor(scene: THREE.Scene) {
@@ -84,9 +96,9 @@ void main() {
   vec3 viewDirection = normalize(cameraPosition - waterPosition);
   float facing = clamp(dot(normal, viewDirection), 0.0, 1.0);
   vec3 bounce = reflect(-viewDirection, normal);
-  vec3 skyline = mix(horizonColor, zenithColor, smoothstep(0.02, 0.45, bounce.y));
+  vec3 skyline = mix(horizonColor, zenithColor, smoothstep(${waterOptics.low.toFixed(2)}, ${waterOptics.high.toFixed(2)}, bounce.y + ${waterOptics.waveLift.toFixed(2)}));
   skyline = mix(skyline, skyColor, 0.25);
-  float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
+  float fresnel = min(${waterOptics.sheen.toFixed(2)}, 0.02 + 0.98 * pow(1.0 - facing, 5.0));
   vec3 body = deepColor * (0.55 + 0.45 * facing);
   vec3 color = mix(body, skyline, fresnel * mix(1.0, 0.86, frozen));
   float glint = clamp(dot(bounce, sunDirection), 0.0, 1.0);
