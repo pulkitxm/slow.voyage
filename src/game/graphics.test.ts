@@ -1,5 +1,15 @@
 import { expect, test } from 'bun:test'
-import { cinemaRelief, frameStrained, StrainGauge, shadowOffset, shadowReach } from './graphics'
+import {
+  cinemaRelief,
+  frameStrained,
+  SoftwareGauge,
+  StrainGauge,
+  shadowOffset,
+  shadowReach,
+  sharpness,
+  softwareRelief,
+  textureDetail,
+} from './graphics'
 
 test('slow frames count as strain unless the display is steadily capped', () => {
   expect(frameStrained(1 / 60, 1 / 60, 0.0002)).toBe(false)
@@ -64,4 +74,55 @@ test('the shadow offset is wider than a shadow texel so bodywork does not shade 
   }
   expect(shadowOffset(4096)).toBeLessThan(0.06)
   expect(shadowOffset(1024)).toBeGreaterThan(shadowOffset(4096) * 3.9)
+})
+
+test('software rendering drops resolution when frames are too slow for the simulation to keep time', () => {
+  const gauge = new SoftwareGauge()
+  for (let frame = 0; frame < softwareRelief.patience - 1; frame++)
+    expect(gauge.step(softwareRelief.frame + 0.15, false, 0)).toBe(null)
+  expect(gauge.step(softwareRelief.frame + 0.15, false, 0)).toBe('lower')
+  for (let frame = 0; frame < softwareRelief.patience - 1; frame++)
+    expect(gauge.step(softwareRelief.frame + 0.05, false, 1)).toBe(null)
+  expect(gauge.step(softwareRelief.frame + 0.05, false, 1)).toBe('lower')
+  const last = softwareRelief.scales.length - 1
+  for (let frame = 0; frame < softwareRelief.patience * 3; frame++)
+    expect(gauge.step(1, false, last)).toBe(null)
+  expect(softwareRelief.frame).toBeLessThanOrEqual(0.25)
+})
+
+test('one slow frame, or slow frames while the world rebuilds, leave the software resolution alone', () => {
+  const gauge = new SoftwareGauge()
+  for (let round = 0; round < 6; round++) {
+    for (let frame = 0; frame < softwareRelief.patience - 1; frame++)
+      expect(gauge.step(0.4, false, 0)).toBe(null)
+    expect(gauge.step(0.2, false, 0)).toBe(null)
+  }
+  for (let frame = 0; frame < 40; frame++) expect(gauge.step(0.6, true, 0)).toBe(null)
+  expect(gauge.slow).toBe(0)
+})
+
+test('software resolution only returns when the next step up would still keep time', () => {
+  const gauge = new SoftwareGauge()
+  for (let frame = 0; frame < softwareRelief.recovery * 3; frame++)
+    expect(gauge.step(0.2, false, 2)).toBe(null)
+  for (let frame = 0; frame < softwareRelief.recovery - 1; frame++)
+    expect(gauge.step(0.08, false, 2)).toBe(null)
+  expect(gauge.step(0.08, false, 2)).toBe('raise')
+  for (let frame = 0; frame < softwareRelief.recovery * 2; frame++)
+    expect(gauge.step(0.05, false, 0)).toBe(null)
+  for (let index = 1; index < softwareRelief.scales.length; index++) {
+    const coarser = softwareRelief.scales[index] ?? 1
+    const finer = softwareRelief.scales[index - 1] ?? 1
+    expect(softwareRelief.comfortable * (finer / coarser) ** 2).toBeLessThan(softwareRelief.frame)
+  }
+})
+
+test('textures drop anisotropic filtering when the renderer asks for none', () => {
+  expect(sharpness(8)).toBe(8)
+  expect(sharpness(4)).toBe(4)
+  textureDetail.anisotropy = 1
+  expect(sharpness(8)).toBe(1)
+  expect(sharpness(4)).toBe(1)
+  textureDetail.anisotropy = 8
+  expect(sharpness(16)).toBe(8)
 })

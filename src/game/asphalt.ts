@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { sharpness } from './graphics'
 import { random } from './world'
 
 export function asphaltTexture() {
@@ -32,7 +33,7 @@ export function asphaltTexture() {
   const texture = new THREE.CanvasTexture(canvas)
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping
   texture.repeat.set(6, 80)
-  texture.anisotropy = 8
+  texture.anisotropy = sharpness(8)
   texture.colorSpace = THREE.SRGBColorSpace
   return texture
 }

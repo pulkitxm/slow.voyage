@@ -22,6 +22,11 @@ export function createGraphicsRenderer(canvas: HTMLCanvasElement) {
 }
 
 export const shadowReach = { span: 150, texels: 1.4 }
+export const textureDetail = { anisotropy: 8 }
+
+export function sharpness(wanted: number) {
+  return Math.max(1, Math.min(wanted, textureDetail.anisotropy))
+}
 
 export function shadowOffset(shadowSize: number) {
   return (shadowReach.span / shadowSize) * shadowReach.texels
@@ -47,6 +52,7 @@ export function graphicsBudget(renderer: WebGLRenderer, quality: Settings['quali
         : 0.375
       : Math.min(devicePixelRatio, quality === 'high' ? 1.7 : 1),
     shadowSize,
+    anisotropy: software ? 1 : 8,
     shadowRadius: software ? 1 : 2.5,
     shadowBias: software ? -0.00015 : -0.000025,
     shadowNormalBias: software ? 0.05 : shadowOffset(shadowSize),
@@ -108,6 +114,42 @@ export class StrainGauge {
     return null
   }
 }
+export const softwareRelief = {
+  frame: 0.25,
+  patience: 4,
+  scales: [1, 0.75, 0.56, 0.42],
+  comfortable: 0.11,
+  recovery: 40,
+}
+
+export class SoftwareGauge {
+  slow = 0
+  easy = 0
+
+  step(elapsed: number, busy: boolean, scale: number): StrainVerdict {
+    if (busy) {
+      this.slow = this.easy = 0
+      return null
+    }
+    if (elapsed > softwareRelief.frame) {
+      this.slow++
+      this.easy = 0
+    } else {
+      this.slow = 0
+      this.easy = elapsed < softwareRelief.comfortable ? this.easy + 1 : 0
+    }
+    if (this.slow >= softwareRelief.patience) {
+      this.slow = 0
+      return scale < softwareRelief.scales.length - 1 ? 'lower' : null
+    }
+    if (this.easy >= softwareRelief.recovery) {
+      this.easy = 0
+      return scale > 0 ? 'raise' : null
+    }
+    return null
+  }
+}
+
 export function frameStrained(elapsed: number, pace: number, jitter: number) {
   const capped =
     Math.abs(pace - cinemaRelief.cappedFrame) < 0.002 && jitter < cinemaRelief.steadyJitter

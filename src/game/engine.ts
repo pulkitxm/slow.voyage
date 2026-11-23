@@ -21,8 +21,11 @@ import {
   createGraphicsRenderer,
   frameStrained,
   graphicsBudget,
+  SoftwareGauge,
   StrainGauge,
   shadowReach,
+  softwareRelief,
+  textureDetail,
 } from './graphics'
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
@@ -121,6 +124,7 @@ export class RoadEngine {
   antialiasing: SoftwareAntialias | null
   cinema: CinematicPipeline | null = null
   strainGauge = new StrainGauge()
+  softwareGauge = new SoftwareGauge()
   framePace = 1 / 60
   frameJitter = 0
   dayClock = 0
@@ -408,6 +412,7 @@ export class RoadEngine {
     fitShadowsToSurfaces()
     this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
+    textureDetail.anisotropy = budget.anisotropy
     this.antialiasing = budget.software ? new SoftwareAntialias() : null
     this.software = budget.software
     this.renderer.setPixelRatio(this.pixelRatio(budget))
@@ -675,7 +680,8 @@ export class RoadEngine {
     if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
   }
   pixelRatio(budget: ReturnType<typeof graphicsBudget>) {
-    return budget.pixelRatio * (cinemaRelief.scales[this.renderScale] ?? 1)
+    const scales = budget.software ? softwareRelief.scales : cinemaRelief.scales
+    return budget.pixelRatio * (scales[this.renderScale] ?? 1)
   }
   configureCinema(budget: ReturnType<typeof graphicsBudget>) {
     const cinematic = budget.cinematic && !this.cinemaBlocked
@@ -993,6 +999,19 @@ export class RoadEngine {
           this.cinemaBlocked = true
           this.configureCinema(budget)
         }
+      }
+    }
+    if (this.software && this.started && !this.paused && !this.photo) {
+      const verdict = this.softwareGauge.step(
+        elapsed,
+        this.terrain.rebuilding || this.crossfade.active || this.incoming !== null,
+        this.renderScale,
+      )
+      if (verdict) {
+        this.renderScale += verdict === 'raise' ? -1 : 1
+        this.renderer.setPixelRatio(
+          this.pixelRatio(graphicsBudget(this.renderer, this.settings.quality)),
+        )
       }
     }
     this.lastTime = time

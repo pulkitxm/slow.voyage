@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { sharpness } from './graphics'
 import { groundLayout, groundOffsets } from './ground-grid'
 import { landscapeProfiles } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
@@ -148,7 +149,7 @@ export function groundTexture() {
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping
-  texture.anisotropy = 8
+  texture.anisotropy = sharpness(8)
   return texture
 }
 export const meadowNoise = `
@@ -193,7 +194,14 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
     fieldRockLayers: { value: 2 },
   }
   constructor(texture: THREE.Texture, settings: Settings, software: boolean) {
-    super({ map: texture, bumpMap: texture, bumpScale: 0.02, vertexColors: true, roughness: 1 })
+    super({
+      map: texture,
+      bumpMap: software ? null : texture,
+      bumpScale: 0.02,
+      vertexColors: true,
+      roughness: 1,
+    })
+    if (software) this.defines = { ...this.defines, FIELD_PLAIN: '' }
     this.normalMap = software ? null : this.fieldUniforms.fieldRockMap.value
     this.fieldUniforms.fieldRockLayers.value = software ? 1 : 2
     this.fieldUniforms.fieldDetail.value = software ? 0 : 1
@@ -264,9 +272,11 @@ diffuseColor.rgb *= 0.78 + fieldVariation * 0.4;
 float fieldReach = length(vViewPosition);
 float fieldClose = (1.0 - smoothstep(18.0, 80.0, fieldReach)) * fieldDetail;
 float fieldFar = smoothstep(30.0, 90.0, fieldReach) * (1.0 - smoothstep(260.0, 520.0, fieldReach)) * fieldDetail;
+#ifndef FIELD_PLAIN
 float fieldGrain = texture2D(fieldDetailMap, fieldPosition * 0.42).g * 0.6 + texture2D(fieldDetailMap, fieldPosition * 0.11 + vec2(0.37, 0.61)).g * 0.4;
 diffuseColor.rgb *= mix(1.0, 0.45 + fieldGrain * 1.1, fieldClose * 0.75);
 diffuseColor.rgb *= mix(1.0, 0.62 + texture2D(fieldDetailMap, fieldPosition * 0.031 + vec2(0.13, 0.71)).g * 0.76, fieldFar * 0.6);
+#endif
 diffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldPosition * 0.13 + vec2(17.3, 61.9)));
 diffuseColor.rgb *= 0.93 + fieldVariationAt(fieldPosition * 11.0 + vec2(3.1, 8.7)) * 0.14;
 float fieldLush = smoothstep(0.3, 0.7, fieldVariationAt(fieldPosition * 0.021 + vec2(140.2, 9.4)));
@@ -308,7 +318,9 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);`
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_maps>',
-        `normal = perturbNormalArb(-vViewPosition, normal, dHdxy_fwd(), faceDirection);
+        `#ifdef USE_BUMPMAP
+normal = perturbNormalArb(-vViewPosition, normal, dHdxy_fwd(), faceDirection);
+#endif
 #ifdef USE_NORMALMAP_TANGENTSPACE
 vec3 rockNormalX = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvX) * (rockMapAt(fieldRockMap, rockUvX) * 2.0 - 1.0);
 vec3 rockNormalY = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvY) * (rockMapAt(fieldRockMap, rockUvY) * 2.0 - 1.0);
