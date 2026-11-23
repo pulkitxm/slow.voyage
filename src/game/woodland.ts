@@ -2,6 +2,8 @@ import { latticeValue, loopCells, loopColumns, loopIndex, smoothStep, worldLoop 
 import { landscapeProfiles } from './landscapes'
 import { clamp, type Landscape, random, type Settings, type World } from './world'
 
+export const coniferBuild = { slim: 0.6, spread: 0.2 }
+
 export interface WoodlandTree {
   variant: 0 | 1 | 4 | 5
   x: number
@@ -88,7 +90,7 @@ export function createWoodland(world: World, tile: number, quality: Settings['qu
       const width =
         height *
         (variant === 4
-          ? 0.42 + rng() * 0.16
+          ? coniferBuild.slim + rng() * coniferBuild.spread
           : variant === 5
             ? 0.42 + rng() * 0.13
             : 0.8 + rng() * 0.2)
