@@ -1,3 +1,4 @@
+import type { Matrix4 } from 'three'
 import type { Footprint } from './collision'
 
 export const contactShade = {
@@ -54,4 +55,53 @@ export function contactPatch(
     ground,
     strength: Math.max(contactShade.faintest, 1 - gap / contactShade.fadeHeight),
   }
+}
+
+interface Resting {
+  x: number
+  y: number
+  s: number
+  yaw: number
+  slopeX: number
+  slopeS: number
+}
+
+export const restingShade = { lift: 0.06 }
+
+export function layShade(matrix: Matrix4, spot: Resting, width: number, length: number) {
+  const scale = 1 / Math.hypot(spot.slopeX, 1, spot.slopeS)
+  const upX = -spot.slopeX * scale
+  const upY = scale
+  const upZ = spot.slopeS * scale
+  const cos = Math.cos(spot.yaw)
+  const sin = Math.sin(spot.yaw)
+  const lean = cos * upX - sin * upZ
+  let sideX = cos - upX * lean
+  let sideY = -upY * lean
+  let sideZ = -sin - upZ * lean
+  const side = 1 / Math.hypot(sideX, sideY, sideZ)
+  sideX *= side
+  sideY *= side
+  sideZ *= side
+  const aheadX = sideY * upZ - sideZ * upY
+  const aheadY = sideZ * upX - sideX * upZ
+  const aheadZ = sideX * upY - sideY * upX
+  return matrix.set(
+    sideX * width,
+    upX,
+    aheadX * length,
+    spot.x,
+    sideY * width,
+    upY,
+    aheadY * length,
+    spot.y + restingShade.lift,
+    sideZ * width,
+    upZ,
+    aheadZ * length,
+    -spot.s,
+    0,
+    0,
+    0,
+    1,
+  )
 }
