@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
 import { Boulders, planBoulders, planPlants } from './boulders'
+import { canopyCover, canopyShade } from './canopy'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
@@ -66,8 +67,6 @@ function geometry(positions: number[], indices: number[], colors?: number[]) {
   return g
 }
 export const foliageWarmth = 1.5
-export const canopyShade = { opacity: 0.34, spread: 0.62, lift: 0.07 }
-
 function shadeTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 64
@@ -163,6 +162,7 @@ export class Terrain {
   seamSide = 0
   private lastX = 0
   trunks = new Map<number, Trunk[]>()
+  pools = new Map<number, number[]>()
   private softs = new Map<number, Soft[]>()
   builds = new Map<number, TileBuild>()
   retired: THREE.Group[] = []
@@ -796,6 +796,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       yield
     }
     if (this.shadeMaterial && shades.length) {
+      this.pools.set(id, shades)
       const pools = new THREE.InstancedMesh(this.shadeDisc, this.shadeMaterial, shades.length / 3)
       pools.name = 'shade'
       pools.renderOrder = 1
@@ -1032,6 +1033,15 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     }
     return ready / (ahead + 5)
   }
+  shadeAt(x: number, s: number) {
+    const tile = Math.floor(s / groundLayout.tileLength)
+    let open = 1
+    for (let id = tile - 1; id <= tile + 1; id++) {
+      const pools = this.pools.get(id)
+      if (pools) open *= 1 - canopyCover(pools, x, s)
+    }
+    return 1 - open
+  }
   *trunksNear(s: number) {
     const tile = Math.floor(s / groundLayout.tileLength)
     for (let id = tile - 1; id <= tile + 1; id++) yield* this.trunks.get(id) ?? []
@@ -1070,6 +1080,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.retired.push(group)
     this.tiles.delete(id)
     this.trunks.delete(id)
+    this.pools.delete(id)
     this.softs.delete(id)
   }
   clear() {

@@ -157,6 +157,12 @@ export const castPace = {
   fastest: 2.8,
 }
 
+export const castShade = { depth: 0.85, steps: 24 }
+
+export function castLight(shade: number) {
+  return 1 - Math.min(1, Math.max(0, shade)) * castShade.depth
+}
+
 export function castGait(
   pace: number,
   stride: number,
@@ -182,13 +188,20 @@ interface Template {
   pace: Map<string, number>
 }
 
+interface Tone {
+  material: THREE.MeshStandardMaterial
+  base: THREE.Color
+}
+
 interface Actor {
   root: THREE.Object3D
   mixer: THREE.AnimationMixer
   actions: Map<string, THREE.AnimationAction>
   playing: string
   member: unknown
-  dyed: (THREE.MeshStandardMaterial | undefined)[]
+  dyed: (Tone | undefined)[]
+  tones: Tone[]
+  shade: number
   owned: THREE.Material[]
   meshes: THREE.Mesh[]
   shaded: boolean
@@ -257,20 +270,26 @@ export class Cast implements Stage {
     const root = clone(template.scene)
     const owned: THREE.Material[] = []
     const dyed: Actor['dyed'] = []
+    const tones: Tone[] = []
     const copies = new Map<THREE.Material, THREE.Material>()
     const meshes: THREE.Mesh[] = []
     root.traverse((part) => {
       if (!(part instanceof THREE.Mesh)) return
       meshes.push(part)
       const swap = (material: THREE.Material) => {
-        const slot = dyes[material.name]
-        if (slot === undefined || !(material instanceof THREE.MeshStandardMaterial)) return material
+        if (!(material instanceof THREE.MeshStandardMaterial)) return material
         let copy = copies.get(material)
         if (!copy) {
           copy = material.clone()
           copies.set(material, copy)
           owned.push(copy)
-          dyed[slot] = copy as THREE.MeshStandardMaterial
+          const tone = {
+            material: copy as THREE.MeshStandardMaterial,
+            base: material.color.clone(),
+          }
+          tones.push(tone)
+          const slot = dyes[material.name]
+          if (slot !== undefined) dyed[slot] = tone
         }
         return copy
       }
@@ -286,6 +305,8 @@ export class Cast implements Stage {
       playing: '',
       member: null,
       dyed,
+      tones,
+      shade: -1,
       owned,
       meshes,
       shaded: true,
@@ -321,7 +342,14 @@ export class Cast implements Stage {
     if (fresh) {
       actor.member = spot.member
       if (spot.kind === 'person')
-        for (const [slot, tint] of spot.member.tints.entries()) actor.dyed[slot]?.color.copy(tint)
+        for (const [slot, tint] of spot.member.tints.entries()) actor.dyed[slot]?.base.copy(tint)
+      actor.shade = -1
+    }
+    const shade = Math.round(spot.shade * castShade.steps) / castShade.steps
+    if (shade !== actor.shade) {
+      actor.shade = shade
+      const light = castLight(shade)
+      for (const tone of actor.tones) tone.material.color.copy(tone.base).multiplyScalar(light)
     }
     const walker = spot.kind === 'person'
     const strides = {
