@@ -216,7 +216,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
       gravel: '#7a735e',
     },
     reflection: '#2f4a26',
-    foliage: '#c4ffa0',
+    foliage: '#c9eeb0',
     map: { low: [66, 108, 52], high: [118, 158, 76] },
     falls: 8,
     palms: 34,

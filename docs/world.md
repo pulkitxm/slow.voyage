@@ -148,6 +148,9 @@ of the whole loop.
   The roadside life setting chooses empty, quiet, or lively (the default).
 - Grass tufts take the shade they stand in: the extra glow that keeps blades
   bright in sunlight is held back under trees and in the shadow of hills.
+- Soft shadows follow the slope of whatever they fall on, and the offset that
+  keeps a surface from shading itself grows with the size of a shadow texel, so
+  bodywork, rocks and trunks stay clean instead of showing a stippled hatch.
 - Open ground is not one green: broad patches run from dry and warm to lush and
   cool, worn spots show bare earth on gentle slopes, and the colour is a little
   less saturated than before.
