@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { neutralInput } from './controls'
 import { CarPhysics } from './physics'
-import { defaults, type Settings, type SteeringFeel, type Vehicle, World } from './world'
+import { Steering } from './steering'
+import { defaults, type Settings, type SteeringAssist, type Vehicle, World } from './world'
 
 class OpenRoad extends World {
   override road(_s: number) {
@@ -17,8 +18,8 @@ class OpenRoad extends World {
 
 const cars = ['touring', 'roadster', 'hatchback', 'supercar', 'pickup', 'bus'] as const
 
-function press(vehicle: Vehicle, speed: number, hold: number, feel: SteeringFeel = 'balanced') {
-  const settings: Settings = { ...defaults, vehicle, steeringFeel: feel }
+function press(vehicle: Vehicle, speed: number, hold: number, assist: SteeringAssist = 'light') {
+  const settings: Settings = { ...defaults, vehicle, steeringAssist: assist }
   const car = new CarPhysics(new OpenRoad(settings))
   car.reset(300)
   car.speed = speed
@@ -46,7 +47,7 @@ function press(vehicle: Vehicle, speed: number, hold: number, feel: SteeringFeel
   return { trace, offset, peak: Math.abs(peak), reverse, heading: Math.abs(car.yaw) }
 }
 
-describe('keyboard steering at highway speed', () => {
+describe('keyboard steering with light assist at highway speed', () => {
   test.each(cars)('%s a 0.15 s tap at 30 to 45 m/s is a gentle lane nudge', (vehicle) => {
     for (const speed of [30, 38, 45]) {
       const tap = press(vehicle, speed, 0.15)
@@ -82,19 +83,68 @@ describe('keyboard steering at highway speed', () => {
       }
   })
 
-  test('relaxed steering is calmer than balanced and direct keeps the quick rack', () => {
+  test('strong assist is calmer than light and free steering turns in much harder', () => {
     for (const speed of [30, 45]) {
-      const relaxed = press('touring', speed, 0.3, 'relaxed')
-      const balanced = press('touring', speed, 0.3, 'balanced')
-      const direct = press('touring', speed, 0.3, 'direct')
+      const relaxed = press('touring', speed, 0.3, 'strong')
+      const balanced = press('touring', speed, 0.3, 'light')
+      const direct = press('touring', speed, 0.3, 'off')
       expect(relaxed.offset).toBeLessThan(balanced.offset * 0.8)
       expect(direct.offset).toBeGreaterThan(balanced.offset * 2)
     }
   })
 
   test('the light touch only applies at speed, so town driving keeps full lock', () => {
-    const slow = press('touring', 8, 0.3, 'balanced')
-    const direct = press('touring', 8, 0.3, 'direct')
-    expect(slow.peak).toBeCloseTo(direct.peak, 2)
+    const slow = press('touring', 8, 0.3, 'light')
+    const free = press('touring', 8, 0.3, 'off')
+    expect(slow.peak / free.peak).toBeGreaterThan(0.9)
+    expect(slow.peak / free.peak).toBeLessThan(1.02)
+  })
+})
+
+describe('free steering', () => {
+  test('is the default', () => {
+    expect(defaults.steeringAssist).toBe('off')
+  })
+
+  test.each(cars)('%s answers a key as strongly at 45 m/s as it does at 10 m/s', (vehicle) => {
+    const slow = press(vehicle, 10, 1, 'off')
+    for (const speed of [30, 38, 45]) {
+      const fast = press(vehicle, speed, 1, 'off')
+      for (const frame of [17, 35]) {
+        expect(fast.trace[frame] ?? 0).toBeGreaterThan((slow.trace[frame] ?? 0) * 0.6)
+      }
+      expect(fast.trace[59] ?? 0).toBeGreaterThan((slow.trace[59] ?? 0) * 0.95)
+      const assisted = press(vehicle, speed, 1, 'light')
+      expect(fast.trace[35] ?? 0).toBeGreaterThan((assisted.trace[35] ?? 0) * 3)
+    }
+  })
+
+  test.each(cars)('%s rack reaches its target equally fast at any speed', (vehicle) => {
+    const times = [0, 20, 45].map((speed) => {
+      const rack = new Steering()
+      let elapsed = 0
+      let target = 0
+      for (let step = 0; step < 480; step++) {
+        rack.update(1 / 120, 1, 'digital', speed, vehicle, 0.05, 'off')
+        target = Math.max(target, rack.angle)
+      }
+      const settle = new Steering()
+      while (settle.angle < target * 0.9 && elapsed < 4) {
+        settle.update(1 / 120, 1, 'digital', speed, vehicle, 0.05, 'off')
+        elapsed += 1 / 120
+      }
+      return elapsed
+    })
+    expect(Math.abs((times[1] ?? 0) - (times[0] ?? 0))).toBeLessThan(0.02)
+    expect(Math.abs((times[2] ?? 0) - (times[0] ?? 0))).toBeLessThan(0.02)
+  })
+
+  test.each(cars)('%s recentres after a hold without swinging back', (vehicle) => {
+    for (const speed of [30, 45])
+      for (const hold of [0.3, 1]) {
+        const release = press(vehicle, speed, hold, 'off')
+        expect(release.reverse).toBeLessThan(Math.max(0.03, release.peak * 0.06))
+        expect(release.trace[release.trace.length - 1]).toBeLessThan(0.02)
+      }
   })
 })
