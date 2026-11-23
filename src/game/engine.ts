@@ -791,6 +791,8 @@ export class RoadEngine {
     skyline.horizon.value.set(profile.horizon).multiplyScalar(glow * 0.9)
     skyline.zenith.value.set(profile.sky).multiplyScalar(glow * 0.8)
     skyline.ground.value.set('#3b4034').multiplyScalar(glow)
+    skyline.cloud.value.set(profile.cloudColor).multiplyScalar(glow)
+    skyline.clouds.value = profile.clouds
     this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0

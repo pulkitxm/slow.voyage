@@ -6,6 +6,7 @@ import pickupUrl from '../assets/models/cars/pickup.glb?url'
 import supercarUrl from '../assets/models/cars/supercar.glb?url'
 import touringUrl from '../assets/models/cars/touring.glb?url'
 import type { VehicleModel } from './model'
+import { glassFace, reflectSkyline } from './skyline'
 import { vehicleMetrics } from './vehicles'
 import type { Vehicle } from './world'
 
@@ -15,6 +16,8 @@ interface Coachwork {
   front: RegExp
   paint: string[]
 }
+
+export const lensGlow = { tail: 0.32, head: 0.22 }
 
 export const coachworks: Partial<Record<Vehicle, Coachwork>> = {
   touring: { url: touringUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
@@ -132,6 +135,7 @@ export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: ()
         part.receiveShadow = true
         const dress = (material: THREE.Material) => {
           if (spec.paint.includes(material.name)) return model.body
+          if (owned.has(material)) return material
           owned.add(material)
           if (material instanceof THREE.MeshPhysicalMaterial && material.transmission > 0) {
             material.transmission = 0
@@ -139,6 +143,14 @@ export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: ()
             material.opacity = 0.42
             material.color.set('#20262b')
             material.roughness = 0.08
+            reflectSkyline(material, 1 / material.opacity, glassFace.floor)
+          } else if (
+            material instanceof THREE.MeshStandardMaterial &&
+            material.transparent &&
+            /glass/i.test(material.name)
+          ) {
+            material.opacity = Math.max(material.opacity, glassFace.opacity)
+            reflectSkyline(material, 1 / material.opacity, glassFace.floor)
           }
           return material
         }
@@ -170,8 +182,9 @@ export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: ()
       const drive = model.update.bind(model)
       model.update = (wheelStates, braking, night, speed) => {
         drive(wheelStates, braking, night, speed)
-        for (const glow of tails) glow.emissiveIntensity = braking ? 3.2 : night ? 0.9 : 0
-        for (const glow of heads) glow.emissiveIntensity = night ? 2.4 : 0
+        for (const glow of tails)
+          glow.emissiveIntensity = braking ? 3.2 : night ? 0.9 : lensGlow.tail
+        for (const glow of heads) glow.emissiveIntensity = night ? 2.4 : lensGlow.head
       }
       for (const mesh of generated) mesh.visible = false
       onReady?.()

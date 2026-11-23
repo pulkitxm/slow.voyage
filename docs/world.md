@@ -170,6 +170,10 @@ of the whole loop.
   bushes on their crossed cards instead of painted shapes. Leaves turn from
   yellow to rust in autumn, conifers carry snow in winter, and bare winter
   trees are still drawn in code.
+- Bodywork reflects a sky with drifting cloud shapes and a ragged line of
+  distant hills instead of a plain gradient, so paint shows moving highlights
+  as the car turns. Window glass takes the same reflection much more strongly
+  and stays see-through, and lamp lenses keep a faint glow by day.
 - On a software renderer the picture gives way before the simulation does:
   textures skip anisotropic filtering, the ground drops its bump and close
   detail lookups, and the render resolution steps down whenever frames take
