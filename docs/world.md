@@ -161,6 +161,9 @@ of the whole loop.
   bushes on their crossed cards instead of painted shapes. Leaves turn from
   yellow to rust in autumn, conifers carry snow in winter, and bare winter
   trees are still drawn in code.
+- Water far from the car mirrors sky from a little above the horizon and keeps
+  part of its own colour, so distant lakes read as blue water instead of a
+  white sheet.
 - Firs stand at the proportions of the photographed tree instead of being
   squeezed into narrow cones, and they keep their own dark green in landscapes
   that warm the colour of their leaves.
