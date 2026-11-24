@@ -185,6 +185,9 @@ of the whole loop.
   detail lookups, and the render resolution steps down whenever frames take
   longer than a quarter of a second, the point past which the simulation would
   fall behind real time. It steps back up only when there is headroom.
+- The gravel verge has a ragged, mottled edge that fades into soil, and the
+  first line of grass beside the road wanders in and out instead of running
+  ruler straight.
 - Rock on banks and cliffs is drawn from the one facing that suits each slope
   instead of two blended together, so road cuts show strata and cracks rather
   than a smear.
