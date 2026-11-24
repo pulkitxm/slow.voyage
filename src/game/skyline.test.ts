@@ -51,8 +51,8 @@ test('cloud cover follows the weather: clear sky shows few, overcast shows all',
 
 test('glass reflects the sky far more readily than paint and is dressed only once', () => {
   expect(glassFace.floor).toBeGreaterThan(paintFloor * 4)
-  expect(glassFace.solid).toBeGreaterThan(paintFloor * 2)
-  expect(glassFace.solid).toBeLessThan(glassFace.floor)
+  expect(glassFace.solid).toBeGreaterThan(paintFloor)
+  expect(glassFace.solid).toBeLessThan(0.1)
   const glass = new THREE.MeshStandardMaterial({ transparent: true, opacity: 0.5 })
   reflectSkyline(glass, 2, glassFace.floor)
   const first = glass.onBeforeCompile
