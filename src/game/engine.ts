@@ -13,6 +13,8 @@ import {
   neutralInput,
   releaseAssistance,
   resolveInput,
+  SteeringHandover,
+  steers,
 } from './controls'
 import { SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
@@ -125,6 +127,7 @@ export class RoadEngine {
   cinema: CinematicPipeline | null = null
   strainGauge = new StrainGauge()
   softwareGauge = new SoftwareGauge()
+  handover = new SteeringHandover()
   framePace = 1 / 60
   frameJitter = 0
   dayClock = 0
@@ -538,6 +541,8 @@ export class RoadEngine {
   setAssistance(mode: AssistanceMode) {
     if (!this.started && mode !== 'off') this.start(mode)
     else {
+      if (steers(this.assistance) && !steers(mode)) this.handover.begin()
+      else if (steers(mode)) this.handover.cancel()
       this.assistance = mode
       this.emitState()
     }
@@ -609,6 +614,7 @@ export class RoadEngine {
     this.view.snap()
   }
   reset() {
+    this.handover.cancel()
     this.mouse.reset()
     this.physics.reset()
     this.view.center()
@@ -1041,9 +1047,17 @@ export class RoadEngine {
             ? automaticTarget(this.assistance, this.settings.cruiseSpeed, this.settings.vehicle)
             : 10,
         )
+        const manual = this.manualInput()
         input = !this.started
           ? automatic
-          : resolveInput(this.manualInput(), automatic, this.assistance, this.settings.onePedal)
+          : resolveInput(
+              steers(this.assistance)
+                ? manual
+                : this.handover.blend(manual, automatic, this.physics.speed, step),
+              automatic,
+              this.assistance,
+              this.settings.onePedal,
+            )
         if (this.stickDriven()) {
           input = { ...input, manual: true, shift: Math.sign(this.shiftQueue) }
           this.shiftQueue -= Math.sign(this.shiftQueue)
