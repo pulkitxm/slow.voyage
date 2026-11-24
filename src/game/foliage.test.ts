@@ -3,6 +3,8 @@ import * as THREE from 'three'
 import {
   atlasTile,
   autumnLeaf,
+  bareSnow,
+  bareTreePhotos,
   crownClearance,
   crownClusters,
   crownLayers,
@@ -173,4 +175,23 @@ test('a card seen edge on is hidden while the other two of a crossed tree stay w
     expect(facing.filter((value) => value >= 0.5 - 1e-9).length).toBeGreaterThanOrEqual(2)
     if (hidden.length) expect(facing.filter((value) => value > 0.6).length).toBe(2)
   }
+})
+
+test('every leaf shedding tree has a bare winter photo of its own and the conifer keeps its needles', () => {
+  expect(bareTreePhotos.length).toBe(treePhotos.length)
+  bareTreePhotos.forEach((url, index) => {
+    if (index === evergreenTile) expect(url).toBeNull()
+    else {
+      expect(url).toMatch(/-bare.*\.webp$/)
+      expect(url).not.toBe(treePhotos[index])
+    }
+  })
+  expect(new Set(bareTreePhotos).size).toBe(bareTreePhotos.length)
+  const twig = [96, 84, 70] as const
+  const edge = snowDusted(...twig, bareSnow.edge)
+  const body = snowDusted(...twig, bareSnow.body)
+  expect(light(edge)).toBeGreaterThan(light(body))
+  expect(light(body)).toBeGreaterThan(light(twig))
+  expect(light(edge)).toBeLessThan(170)
+  expect(light(edge)).toBeLessThan(light(snowDusted(...twig, 1)))
 })
