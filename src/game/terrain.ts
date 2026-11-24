@@ -122,6 +122,7 @@ export const tileStreaming = {
   budget: 3,
   refreshBudget: 9,
   softwareRefresh: 110,
+  unhurriedRefresh: 320,
   rebuildBehind: 15,
   rebuildAhead: 130,
   jump: 2,
@@ -171,6 +172,7 @@ export class Terrain {
   private lastX = 0
   trunks = new Map<number, Trunk[]>()
   pools = new Map<number, number[]>()
+  unhurried = false
   private softs = new Map<number, Soft[]>()
   builds = new Map<number, TileBuild>()
   retired: THREE.Group[] = []
@@ -1061,7 +1063,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     if (!this.builds.size) this.rebuilding = false
     const budget = this.rebuilding
       ? this.software
-        ? tileStreaming.softwareRefresh
+        ? this.unhurried
+          ? tileStreaming.unhurriedRefresh
+          : tileStreaming.softwareRefresh
         : tileStreaming.refreshBudget
       : tileStreaming.budget
     const deadline = performance.now() + budget

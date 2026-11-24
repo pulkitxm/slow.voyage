@@ -996,7 +996,9 @@ export class RoadEngine {
   render = (time: number) => {
     if (this.disposed) return
     this.frame = requestAnimationFrame(this.render)
-    const wait = renderWait(this.paused, this.software && this.controlsBlocked)
+    const settled = this.arrival >= vehicleArrival.duration && this.incoming === null
+    const wait = renderWait(this.paused, this.software && this.controlsBlocked && settled)
+    this.terrain.unhurried = wait > 0 && !this.paused
     if (wait > 0 && !this.photo && !this.redraw && this.rendered && time - this.lastTime < wait)
       return
     this.redraw = false
@@ -1099,7 +1101,7 @@ export class RoadEngine {
     this.contact.material.opacity =
       (contactShade.opacity * patch.strength * grounded) / Math.max(1, p.suspension.wheels.length)
     const settling = this.arrival < vehicleArrival.duration
-    this.arrival += dt
+    this.arrival += Math.min(elapsed, 0.25)
     if (settling) {
       const pose = arrivalPose(this.arrival)
       this.car.group.position.y += pose.lift
