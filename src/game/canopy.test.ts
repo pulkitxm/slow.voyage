@@ -1,5 +1,14 @@
 import { expect, test } from 'bun:test'
-import { CanopyIndex, canopyCover, canopyShade, tuftLight, tuftShade } from './canopy'
+import {
+  CanopyIndex,
+  canopyCover,
+  canopyShade,
+  shadeDepth,
+  shadeStops,
+  shadeTone,
+  tuftLight,
+  tuftShade,
+} from './canopy'
 
 test('standing under a tree is as dark as the pool drawn on the ground there', () => {
   const pools = [10, 50, 8]
@@ -56,4 +65,26 @@ test('grass under a crown is darkened a little more than the ground beneath it',
   expect(under).toBeGreaterThan(0.3)
   expect(tuftLight(1)).toBe(0.2)
   expect(tuftShade.depth).toBeGreaterThan(1)
+})
+
+test('the drawn pool of shade fades in its green channel the way the cover model does', () => {
+  expect(shadeStops[0]).toEqual([0, 1])
+  expect(shadeStops.at(-1)).toEqual([1, 0])
+  let last = 2
+  for (const [away, depth] of shadeStops) {
+    expect(depth).toBeCloseTo(shadeDepth(away), 9)
+    expect(depth).toBeLessThan(last)
+    last = depth
+    const tone = shadeTone(depth).match(/^rgb\((\d+), (\d+), (\d+)\)$/)
+    expect(tone).not.toBeNull()
+    expect(Number(tone?.[2])).toBe(Math.round(255 * depth))
+    expect(tone?.[1]).toBe(tone?.[2])
+    expect(tone?.[3]).toBe(tone?.[2])
+  }
+  const pools = [10, 50, 8]
+  const reach = 8 * canopyShade.spread
+  expect(canopyCover(pools, 10 + reach * 0.6, 50)).toBeCloseTo(
+    canopyShade.opacity * shadeDepth(0.6),
+    9,
+  )
 })
