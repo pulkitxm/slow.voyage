@@ -9,7 +9,7 @@ export const skyline = {
   strength: { value: 1 },
 }
 
-export const glassFace = { floor: 0.3, solid: 0.16, opacity: 0.5 }
+export const glassFace = { floor: 0.3, solid: 0.07, opacity: 0.5 }
 export const paintFloor = 0.045
 export const skylineDetail = { clear: 0.95, cover: 0.75, soft: 0.18, ridge: 0.025, relief: 0.085 }
 
