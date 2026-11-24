@@ -193,6 +193,16 @@ of the whole loop.
 - The gravel verge has a ragged, mottled edge that fades into soil, and the
   first line of grass beside the road wanders in and out instead of running
   ruler straight.
+- While the settings or help panel is open and nothing in the scene is
+  changing, a software renderer redraws only every 0.4 s, and at once after a
+  resize or a settings change, so clicks in the panel register in a fraction
+  of a second instead of about two. A vehicle arriving still draws every
+  frame and its arrival runs in real time however slow the frames are, and a
+  world rebuild gets a larger share of each paced frame so it finishes in a
+  few seconds.
+- The printed speedometer face on a software renderer is drawn from the first
+  frame after a vehicle arrives instead of waiting until the camera settles
+  on it, so its texture never loads late.
 - Changing the journey no longer freezes a software renderer. There the tree
   atlas is a ninth of the pixels, the sky reflection map is built once and only
   scaled in brightness afterwards, rebuilt ground tiles stream in under the veil

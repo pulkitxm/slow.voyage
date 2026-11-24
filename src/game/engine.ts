@@ -23,6 +23,7 @@ import {
   createGraphicsRenderer,
   frameStrained,
   graphicsBudget,
+  renderWait,
   SoftwareGauge,
   StrainGauge,
   shadowReach,
@@ -68,7 +69,6 @@ import { WorldMap } from './world-map'
 
 const paintBudget = 11
 const paintDepth = 0.7
-export const idlePace = 46
 
 function contactShadow() {
   const canvas = document.createElement('canvas')
@@ -128,6 +128,7 @@ export class RoadEngine {
   strainGauge = new StrainGauge()
   softwareGauge = new SoftwareGauge()
   handover = new SteeringHandover()
+  redraw = false
   framePace = 1 / 60
   frameJitter = 0
   dayClock = 0
@@ -234,6 +235,7 @@ export class RoadEngine {
       | 'map',
   ) => void
   resize = () => {
+    this.redraw = true
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
@@ -559,6 +561,7 @@ export class RoadEngine {
     this.emitState()
   }
   setControlsBlocked(blocked: boolean) {
+    this.redraw = true
     this.controlsBlocked = blocked
     if (blocked) this.blur()
   }
@@ -640,6 +643,7 @@ export class RoadEngine {
       refresh ||
       settings.daylight !== this.settings.daylight ||
       settings.weather !== this.settings.weather
+    this.redraw = true
     if (environmentChange && this.rendered) this.crossfade.capture()
     this.strainGauge.hold()
     if (settings.quality !== this.settings.quality) {
@@ -992,7 +996,12 @@ export class RoadEngine {
   render = (time: number) => {
     if (this.disposed) return
     this.frame = requestAnimationFrame(this.render)
-    if (this.paused && !this.photo && this.rendered && time - this.lastTime < idlePace) return
+    const settled = this.arrival >= vehicleArrival.duration && this.incoming === null
+    const wait = renderWait(this.paused, this.software && this.controlsBlocked && settled)
+    this.terrain.unhurried = wait > 0 && !this.paused
+    if (wait > 0 && !this.photo && !this.redraw && this.rendered && time - this.lastTime < wait)
+      return
+    this.redraw = false
     const elapsed = this.lastTime ? (time - this.lastTime) / 1000 : 1 / 60
     const dt = Math.min(elapsed, 0.05)
     this.frameRate = Math.round(1 / Math.max(elapsed, 0.001))
@@ -1023,7 +1032,10 @@ export class RoadEngine {
     if (this.software && this.started && !this.paused && !this.photo) {
       const verdict = this.softwareGauge.step(
         elapsed,
-        this.terrain.rebuilding || this.crossfade.active || this.incoming !== null,
+        this.controlsBlocked ||
+          this.terrain.rebuilding ||
+          this.crossfade.active ||
+          this.incoming !== null,
         this.renderScale,
       )
       if (verdict) {
@@ -1089,7 +1101,7 @@ export class RoadEngine {
     this.contact.material.opacity =
       (contactShade.opacity * patch.strength * grounded) / Math.max(1, p.suspension.wheels.length)
     const settling = this.arrival < vehicleArrival.duration
-    this.arrival += dt
+    this.arrival += Math.min(elapsed, 0.25)
     if (settling) {
       const pose = arrivalPose(this.arrival)
       this.car.group.position.y += pose.lift
