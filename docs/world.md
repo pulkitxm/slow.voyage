@@ -146,6 +146,8 @@ of the whole loop.
   ramps, and a tree or bush whose crown the camera is inside or about to enter
   is hidden whole, so the view never fills with leaves or dissolves into dots.
   The roadside life setting chooses empty, quiet, or lively (the default).
+- Grass tufts growing under a tree crown are darkened with the pool of shade
+  drawn on the ground there, a little more than the ground itself.
 - Grass tufts take the shade they stand in: the extra glow that keeps blades
   bright in sunlight is held back under trees and in the shadow of hills.
 - Soft shadows follow the slope of whatever they fall on, and the offset that
