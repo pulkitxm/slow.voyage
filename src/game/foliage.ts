@@ -100,7 +100,9 @@ function drawPhoto(
   top: number,
   variant: number,
   season: Season,
+  tileSize: number,
 ) {
+  const reach = Math.max(1, Math.round((snowReach * tileSize) / atlasTile.full))
   context.drawImage(photo, left, top, tileSize, tileSize)
   if (season === 'summer') return
   const image = context.getImageData(left, top, tileSize, tileSize)
@@ -112,7 +114,7 @@ function drawPhoto(
       const red = data[index] ?? 0
       const green = data[index + 1] ?? 0
       const blue = data[index + 2] ?? 0
-      const open = y < snowReach || (data[index + 3 - snowReach * tileSize * 4] ?? 0) < 60
+      const open = y < reach || (data[index + 3 - reach * tileSize * 4] ?? 0) < 60
       const colour =
         season === 'autumn'
           ? variant === evergreenTile
@@ -133,7 +135,7 @@ function drawPhoto(
 
 const atlasColumns = 2
 const atlasRows = 3
-const tileSize = 768
+export const atlasTile = { full: 768, coarse: 256 }
 const paintSize = 512
 function drawConifer(context: CanvasRenderingContext2D, season: Season) {
   const rng = random(5489)
@@ -343,7 +345,9 @@ export class Foliage {
   ready: Promise<void>
   private season: Season
   private disposed = false
-  constructor(season: Season) {
+  tile: number
+  constructor(season: Season, coarse = false) {
+    this.tile = coarse ? atlasTile.coarse : atlasTile.full
     this.season = season
     this.ready = Promise.all(
       treePhotos.map(
@@ -362,8 +366,8 @@ export class Foliage {
       if (!this.disposed) this.update(this.season)
     })
     this.canvas = document.createElement('canvas')
-    this.canvas.width = tileSize * atlasColumns
-    this.canvas.height = tileSize * atlasRows
+    this.canvas.width = this.tile * atlasColumns
+    this.canvas.height = this.tile * atlasRows
     this.texture = new THREE.CanvasTexture(this.canvas)
     this.texture.colorSpace = THREE.SRGBColorSpace
     this.texture.anisotropy = sharpness(8)
@@ -487,11 +491,12 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
     if (!context) throw new Error('Foliage canvas is unavailable')
     context.clearRect(0, 0, this.canvas.width, this.canvas.height)
     for (let variant = 0; variant < 6; variant++) {
+      const tileSize = this.tile
       const left = (variant % atlasColumns) * tileSize
       const top = (atlasRows - 1 - Math.floor(variant / atlasColumns)) * tileSize
       const photo = this.photos[variant]
       if (photo && (season !== 'winter' || variant === evergreenTile)) {
-        drawPhoto(context, photo, left, top, variant, season)
+        drawPhoto(context, photo, left, top, variant, season, tileSize)
         continue
       }
       context.save()

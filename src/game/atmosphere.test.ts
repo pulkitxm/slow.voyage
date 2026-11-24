@@ -1,5 +1,11 @@
 import { expect, test } from 'bun:test'
-import { atmosphereProfile, cycleStage, dayCycle } from './atmosphere'
+import {
+  atmosphereProfile,
+  cycleStage,
+  dayCycle,
+  reflectionLevel,
+  reflectionSize,
+} from './atmosphere'
 import { defaults } from './world'
 
 test('weather changes visibility and direct light rather than only recoloring the sky', () => {
@@ -70,4 +76,17 @@ test('the live sky passes through every phase and never jumps', () => {
 
 test('a fixed time of day ignores the clock', () => {
   expect(atmosphereProfile(defaults, 500)).toEqual(atmosphereProfile(defaults, 0))
+})
+
+test('a software renderer keeps its first reflection map and only scales its brightness', () => {
+  const day = atmosphereProfile({ ...defaults, daylight: 'day' }).ambient
+  const night = atmosphereProfile({ ...defaults, daylight: 'night' }).ambient
+  expect(reflectionLevel(day, day)).toBe(1)
+  expect(reflectionLevel(night, day)).toBeCloseTo(night / day, 9)
+  expect(reflectionLevel(night, day)).toBeLessThan(0.6)
+  expect(reflectionLevel(day, night)).toBeGreaterThan(1.5)
+  expect(reflectionLevel(1000, 1)).toBe(8)
+  expect(reflectionLevel(0, 1)).toBe(0.05)
+  expect(reflectionLevel(1, 0)).toBe(1)
+  expect(reflectionSize.coarse * 4).toBeLessThanOrEqual(reflectionSize.full)
 })

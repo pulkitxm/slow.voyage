@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import {
+  atlasTile,
   autumnLeaf,
   crownClearance,
   crownShown,
@@ -119,4 +120,10 @@ test('the landscape tint colours leaves and leaves bark its own brown', () => {
     [0.5, 0.4, 0.1],
   ] as const)
     expect(leafShare(red, green, blue) > 0.5).toBe(leafy(red, green, blue) && green - red > 0.03)
+})
+
+test('the tree atlas is a ninth of the pixels on a software renderer', () => {
+  expect(atlasTile.full).toBe(768)
+  expect(atlasTile.coarse * 3).toBeLessThanOrEqual(atlasTile.full)
+  expect(atlasTile.coarse).toBeGreaterThanOrEqual(128)
 })

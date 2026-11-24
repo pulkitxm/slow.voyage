@@ -1,8 +1,20 @@
-export const crossfadeTiming = { settleFrames: 3, duration: 1400, reducedDuration: 250 }
+export const crossfadeTiming = {
+  settleFrames: 3,
+  settleTime: 120,
+  duration: 1400,
+  reducedDuration: 250,
+}
+
+export function veilReady(frames: number, waited: number) {
+  return (
+    frames >= crossfadeTiming.settleFrames || (frames >= 1 && waited >= crossfadeTiming.settleTime)
+  )
+}
 
 export class SceneCrossfade {
   private veil: HTMLCanvasElement | null = null
-  private framesUntilFade = 0
+  private settled = -1
+  private since = 0
   private duration: number = crossfadeTiming.duration
 
   constructor(private source: HTMLCanvasElement) {}
@@ -30,15 +42,17 @@ export class SceneCrossfade {
     }
     source.after(veil)
     this.veil = veil
-    this.framesUntilFade = crossfadeTiming.settleFrames
+    this.settled = 0
+    this.since = performance.now()
     this.duration = duration
   }
 
   rendered() {
     const veil = this.veil
-    if (!veil || this.framesUntilFade <= 0) return
-    this.framesUntilFade--
-    if (this.framesUntilFade > 0) return
+    if (!veil || this.settled < 0) return
+    this.settled++
+    if (!veilReady(this.settled, performance.now() - this.since)) return
+    this.settled = -1
     const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     const duration = reduced
       ? Math.min(this.duration, crossfadeTiming.reducedDuration)
