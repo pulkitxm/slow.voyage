@@ -114,6 +114,12 @@ export class StrainGauge {
     return null
   }
 }
+export const renderPace = { idle: 46, panel: 400 }
+
+export function renderWait(paused: boolean, softwarePanel: boolean) {
+  return paused ? renderPace.idle : softwarePanel ? renderPace.panel : 0
+}
+
 export const softwareRelief = {
   frame: 0.25,
   patience: 4,

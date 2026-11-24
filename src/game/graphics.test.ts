@@ -2,6 +2,8 @@ import { expect, test } from 'bun:test'
 import {
   cinemaRelief,
   frameStrained,
+  renderPace,
+  renderWait,
   SoftwareGauge,
   StrainGauge,
   shadowOffset,
@@ -125,4 +127,13 @@ test('textures drop anisotropic filtering when the renderer asks for none', () =
   expect(sharpness(4)).toBe(1)
   textureDetail.anisotropy = 8
   expect(sharpness(16)).toBe(8)
+})
+
+test('a software renderer draws the scene less often while a panel is open so the interface stays quick', () => {
+  expect(renderWait(false, false)).toBe(0)
+  expect(renderWait(true, false)).toBe(renderPace.idle)
+  expect(renderWait(true, true)).toBe(renderPace.idle)
+  expect(renderWait(false, true)).toBe(renderPace.panel)
+  expect(renderPace.panel).toBeGreaterThan(softwareRelief.frame * 1000)
+  expect(renderPace.panel).toBeLessThanOrEqual(500)
 })
