@@ -193,6 +193,11 @@ of the whole loop.
 - The gravel verge has a ragged, mottled edge that fades into soil, and the
   first line of grass beside the road wanders in and out instead of running
   ruler straight.
+- Changing the journey no longer freezes a software renderer. There the tree
+  atlas is a ninth of the pixels, the sky reflection map is built once and only
+  scaled in brightness afterwards, rebuilt ground tiles stream in under the veil
+  instead of all in one frame, and the veil starts to lift after one drawn
+  frame and a short wait instead of three slow frames.
 - Rock on banks and cliffs is drawn from the one facing that suits each slope
   instead of two blended together, so road cuts show strata and cracks rather
   than a smear.

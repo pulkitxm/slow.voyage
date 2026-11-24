@@ -449,7 +449,7 @@ export class RoadEngine {
       yield* terrain.trunksNear(s)
       if (life) yield* life.obstacles(s)
     }
-    this.atmosphere = new Atmosphere(this.renderer)
+    this.atmosphere = new Atmosphere(this.renderer, budget.software)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
     if (!budget.software) dressVehicle(this.car, this.settings.vehicle, () => this.applyLighting())
@@ -725,9 +725,18 @@ export class RoadEngine {
     this.arrival = 0
   }
   reflect(group: THREE.Object3D, environment: THREE.Texture | null) {
+    const level = this.atmosphere.level
     group.traverse((object) => {
-      if (object instanceof THREE.Mesh && object.material instanceof THREE.MeshPhysicalMaterial)
-        object.material.envMap = environment
+      if (
+        !(object instanceof THREE.Mesh) ||
+        !(object.material instanceof THREE.MeshPhysicalMaterial)
+      )
+        return
+      const material = object.material
+      material.envMap = environment
+      const base: number = material.userData.envBase ?? material.envMapIntensity
+      material.userData.envBase = base
+      material.envMapIntensity = base * level
     })
   }
   configureHeadlights() {
@@ -758,7 +767,7 @@ export class RoadEngine {
       this.reflectionAt = this.dayClock
       const environment = this.atmosphere.setAppearance(this.settings, profile)
       this.scene.environment = environment
-      this.scene.environmentIntensity = 0.13
+      this.scene.environmentIntensity = 0.13 * this.atmosphere.level
       this.reflect(this.car.group, environment)
       this.terrain.roadMaterial.envMap = environment
     }
@@ -814,7 +823,7 @@ export class RoadEngine {
       this.skyTone.set(profile.horizon).multiplyScalar(clamp(profile.ambient / 2.6, 0.12, 1) * 0.9),
     )
     this.terrain.roadMaterial.color.set(profile.wet ? '#a9b1b6' : '#cbc9c4')
-    this.terrain.roadMaterial.envMapIntensity = profile.wet ? 0.8 : 0.2
+    this.terrain.roadMaterial.envMapIntensity = (profile.wet ? 0.8 : 0.2) * this.atmosphere.level
     for (const [index, light] of this.headlights.entries())
       light.intensity =
         index < this.car.headlightPositions.length &&
@@ -1097,7 +1106,7 @@ export class RoadEngine {
     this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 4 : 1.1)
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
-    this.car.body.envMapIntensity = cameraMode === 'bonnet' ? 0.3 : 0.16
+    this.car.body.envMapIntensity = (cameraMode === 'bonnet' ? 0.3 : 0.16) * this.atmosphere.level
     skyline.strength.value = cameraMode === 'bonnet' ? 0.3 : 0.7
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)

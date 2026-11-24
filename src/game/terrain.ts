@@ -121,6 +121,7 @@ export const tileStreaming = {
   lead: 2,
   budget: 3,
   refreshBudget: 9,
+  softwareRefresh: 110,
   rebuildBehind: 15,
   rebuildAhead: 130,
   jump: 2,
@@ -250,7 +251,7 @@ export class Terrain {
       roughness: 0.8,
     })
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings, software)
-    this.foliage = new Foliage(world.settings.season)
+    this.foliage = new Foliage(world.settings.season, software)
     this.tintFoliage(world.settings)
     this.bladeTexture = grassTexture()
     this.bladeMaterial = new THREE.MeshStandardMaterial({
@@ -904,7 +905,8 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         this.builds.set(id, build)
       }
       const immediate = this.rebuilding
-        ? id >= Math.floor((s - tileStreaming.rebuildBehind) / groundLayout.tileLength) &&
+        ? !this.software &&
+          id >= Math.floor((s - tileStreaming.rebuildBehind) / groundLayout.tileLength) &&
           id <= Math.floor((s + tileStreaming.rebuildAhead) / groundLayout.tileLength)
         : jump || id <= far + tileStreaming.lead
       if (immediate) {
@@ -1057,7 +1059,11 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
   }
   stream() {
     if (!this.builds.size) this.rebuilding = false
-    const budget = this.rebuilding ? tileStreaming.refreshBudget : tileStreaming.budget
+    const budget = this.rebuilding
+      ? this.software
+        ? tileStreaming.softwareRefresh
+        : tileStreaming.refreshBudget
+      : tileStreaming.budget
     const deadline = performance.now() + budget
     const priority = (id: number) =>
       id >= this.current ? id - this.current : (this.current - id) * 3
