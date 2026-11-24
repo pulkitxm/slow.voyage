@@ -185,12 +185,25 @@ export function atmosphereProfile(
     : from
 }
 
+export const reflectionSize = { full: 256, coarse: 64 }
+
+export function reflectionLevel(ambient: number, built: number) {
+  return built > 0 ? Math.min(8, Math.max(0.05, ambient / built)) : 1
+}
+
 export class Atmosphere {
   generator: THREE.PMREMGenerator
   reflection: THREE.WebGLRenderTarget | null = null
   key = ''
-  constructor(renderer: THREE.WebGLRenderer) {
+  width: number
+  level = 1
+  private built = 0
+  constructor(
+    renderer: THREE.WebGLRenderer,
+    private coarse = false,
+  ) {
     this.generator = new THREE.PMREMGenerator(renderer)
+    this.width = coarse ? reflectionSize.coarse : reflectionSize.full
   }
   setAppearance(settings: Settings, profile: AtmosphereProfile) {
     const groundColor =
@@ -199,18 +212,26 @@ export class Atmosphere {
         : (landscapeProfiles[settings.landscape].reflection ?? '#556c3c')
     const key = `${profile.sky}/${profile.horizon}/${profile.sun}/${profile.sunlight}/${profile.ambient}/${groundColor}/${profile.sunHeight}`
     if (key === this.key && this.reflection) return this.reflection.texture
+    if (this.coarse && this.reflection) {
+      this.level = reflectionLevel(profile.ambient, this.built)
+      return this.reflection.texture
+    }
+    this.built = profile.ambient
+    this.level = 1
     const sky = new THREE.Color(profile.sky)
     const horizon = new THREE.Color(profile.horizon)
     const ground = new THREE.Color(groundColor)
     const sun = new THREE.Color(profile.sun)
     const direction = sunDirection(profile.sunHeight)
     const color = new THREE.Color()
-    const pixels = new Float32Array(256 * 128 * 4)
-    for (let row = 0; row < 128; row++) {
-      const elevation = (row / 127 - 0.5) * Math.PI
+    const { width } = this
+    const tall = width / 2
+    const pixels = new Float32Array(width * tall * 4)
+    for (let row = 0; row < tall; row++) {
+      const elevation = (row / (tall - 1) - 0.5) * Math.PI
       const height = Math.sin(elevation)
-      for (let column = 0; column < 256; column++) {
-        const angle = (column / 255 - 0.5) * Math.PI * 2
+      for (let column = 0; column < width; column++) {
+        const angle = (column / (width - 1) - 0.5) * Math.PI * 2
         if (height >= 0) color.copy(horizon).lerp(sky, Math.sqrt(height))
         else color.copy(horizon).lerp(ground, Math.min(1, -height * 5))
         const facing = Math.max(
@@ -221,14 +242,14 @@ export class Atmosphere {
         )
         const sunGlow = height > 0 ? facing ** 256 * profile.sunlight * 8 : 0
         const radiance = profile.ambient * (height > 0 ? 1.1 : 0.45)
-        const index = (row * 256 + column) * 4
+        const index = (row * width + column) * 4
         pixels[index] = color.r * radiance + sun.r * sunGlow
         pixels[index + 1] = color.g * radiance + sun.g * sunGlow
         pixels[index + 2] = color.b * radiance + sun.b * sunGlow
         pixels[index + 3] = 1
       }
     }
-    const texture = new THREE.DataTexture(pixels, 256, 128, THREE.RGBAFormat, THREE.FloatType)
+    const texture = new THREE.DataTexture(pixels, width, tall, THREE.RGBAFormat, THREE.FloatType)
     texture.mapping = THREE.EquirectangularReflectionMapping
     texture.needsUpdate = true
     const reflection = this.generator.fromEquirectangular(texture)
