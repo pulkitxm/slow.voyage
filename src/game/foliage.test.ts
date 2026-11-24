@@ -4,7 +4,10 @@ import {
   atlasTile,
   autumnLeaf,
   crownClearance,
+  crownClusters,
+  crownLayers,
   crownShown,
+  edgeOn,
   evergreenRelief,
   evergreenTile,
   leafShare,
@@ -126,4 +129,48 @@ test('the tree atlas is a ninth of the pixels on a software renderer', () => {
   expect(atlasTile.full).toBe(768)
   expect(atlasTile.coarse * 3).toBeLessThanOrEqual(atlasTile.full)
   expect(atlasTile.coarse).toBeGreaterThanOrEqual(128)
+})
+
+test('trees carry leaf clusters inside the crown that face outward all round and stay on their photo', () => {
+  for (const variant of [0, 1, evergreenTile, 5]) {
+    const clusters = crownClusters(variant)
+    expect(clusters.length).toBeGreaterThanOrEqual(6)
+    const sides = new Set<number>()
+    for (const cluster of clusters) {
+      const radius = Math.hypot(cluster.x, cluster.z)
+      expect(radius).toBeGreaterThan(0.01)
+      expect(radius + cluster.size / 2).toBeLessThan(0.5)
+      expect(Math.cos(cluster.turn) * cluster.x + Math.sin(cluster.turn) * cluster.z).toBeCloseTo(
+        radius,
+        9,
+      )
+      expect(cluster.y).toBeGreaterThan(0.15)
+      expect(cluster.u - cluster.size / 2).toBeGreaterThanOrEqual(0.02 - 1e-9)
+      expect(cluster.u + cluster.size / 2).toBeLessThanOrEqual(0.98 + 1e-9)
+      expect(cluster.v - cluster.size / 2).toBeGreaterThanOrEqual(0.02 - 1e-9)
+      expect(cluster.v + cluster.size / 2).toBeLessThanOrEqual(0.98 + 1e-9)
+      const angle = ((cluster.turn % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+      sides.add(Math.floor(angle / (Math.PI / 2)))
+    }
+    expect(sides.size).toBe(4)
+    expect(crownClusters(variant)).toEqual(clusters)
+  }
+  expect(crownClusters(2)).toEqual([])
+  expect(crownClusters(3)).toEqual([])
+  expect(crownLayers.rim + crownLayers.ragged).toBeLessThan(1)
+  const fir = crownClusters(evergreenTile)
+  expect(fir.at(-1)?.size ?? 1).toBeLessThan(fir[0]?.size ?? 0)
+})
+
+test('a card seen edge on is hidden while the other two of a crossed tree stay whole', () => {
+  expect(edgeOn.hidden).toBeGreaterThan(0)
+  expect(edgeOn.shown).toBeGreaterThan(edgeOn.hidden)
+  for (let step = 0; step < 360; step++) {
+    const view = (step * Math.PI) / 360
+    const facing = [0, 1, 2].map((side) => Math.abs(Math.cos(view - (side * Math.PI) / 3)))
+    const hidden = facing.filter((value) => value < edgeOn.shown)
+    expect(hidden.length).toBeLessThanOrEqual(1)
+    expect(facing.filter((value) => value >= 0.5 - 1e-9).length).toBeGreaterThanOrEqual(2)
+    if (hidden.length) expect(facing.filter((value) => value > 0.6).length).toBe(2)
+  }
 })
