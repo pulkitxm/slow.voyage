@@ -185,6 +185,13 @@ of the whole loop.
   bushes on their crossed cards instead of painted shapes. Leaves turn from
   yellow to rust in autumn, conifers carry snow in winter, and bare winter
   trees are still drawn in code.
+- Each tree crown also holds six to ten smaller leaf clusters cut from the
+  same picture, set inside the crown and facing outward all round, so a tree
+  seen up close has depth and shifts as the car passes instead of reading as
+  two flat sheets. A card that is seen edge on is hidden, which removes the
+  thin vertical sliver that used to run through every tree. The clusters cast
+  no shadow of their own and are left out on a software renderer and on bare
+  winter trees.
 - Bodywork reflects a sky with drifting cloud shapes and a ragged line of
   distant hills instead of a plain gradient, so paint shows moving highlights
   as the car turns. Window glass takes the same reflection much more strongly
