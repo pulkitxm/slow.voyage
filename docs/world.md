@@ -194,6 +194,9 @@ of the whole loop.
 - The gravel verge has a ragged, mottled edge that fades into soil, and the
   first line of grass beside the road wanders in and out instead of running
   ruler straight.
+- While the settings or help panel is open, a software renderer redraws the
+  scene only every 0.4 s, and at once after a resize or a settings change, so
+  clicks in the panel register in a fraction of a second instead of about two.
 - Changing the journey no longer freezes a software renderer. There the tree
   atlas is a ninth of the pixels, the sky reflection map is built once and only
   scaled in brightness afterwards, rebuilt ground tiles stream in under the veil
