@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
 import { Boulders, planBoulders, planPlants } from './boulders'
-import { CanopyIndex, canopyCover, canopyShade, tuftLight } from './canopy'
+import { CanopyIndex, canopyCover, canopyShade, shadeStops, shadeTone, tuftLight } from './canopy'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
@@ -79,10 +79,10 @@ function shadeTexture() {
   canvas.width = canvas.height = 64
   const context = canvas.getContext('2d')
   if (!context) throw new Error('Shade texture canvas is unavailable')
-  const fade = context.createRadialGradient(32, 32, 3, 32, 32, 32)
-  fade.addColorStop(0, 'rgba(255, 255, 255, 1)')
-  fade.addColorStop(0.6, 'rgba(255, 255, 255, 0.55)')
-  fade.addColorStop(1, 'rgba(255, 255, 255, 0)')
+  context.fillStyle = shadeTone(0)
+  context.fillRect(0, 0, 64, 64)
+  const fade = context.createRadialGradient(32, 32, 0, 32, 32, 31)
+  for (const [away, depth] of shadeStops) fade.addColorStop(away, shadeTone(depth))
   context.fillStyle = fade
   context.fillRect(0, 0, 64, 64)
   return new THREE.CanvasTexture(canvas)
