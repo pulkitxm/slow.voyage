@@ -13,6 +13,6 @@ test('on a slow machine the veil lifts after one drawn frame and a short wait in
   expect(veilReady(1, crossfadeTiming.settleTime - 1)).toBe(false)
   expect(veilReady(1, crossfadeTiming.settleTime)).toBe(true)
   expect(veilReady(2, 440)).toBe(true)
-  expect(crossfadeTiming.settleTime).toBeGreaterThanOrEqual(200)
-  expect(crossfadeTiming.settleTime).toBeLessThan(500)
+  expect(crossfadeTiming.settleTime).toBeGreaterThan(crossfadeTiming.settleFrames * 17)
+  expect(crossfadeTiming.settleTime).toBeLessThan(250)
 })

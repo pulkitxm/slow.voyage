@@ -1,6 +1,6 @@
 export const crossfadeTiming = {
   settleFrames: 3,
-  settleTime: 300,
+  settleTime: 120,
   duration: 1400,
   reducedDuration: 250,
 }
