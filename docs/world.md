@@ -65,6 +65,12 @@ of the whole loop.
   halves the walkers. Rails, delineators, landmarks, waterfalls, the minimap,
   the atlas, laps and autodrive all follow whichever road is chosen, and the
   world is rebuilt when the mode changes.
+- When autodrive is switched off and nobody is driving, it keeps the car in
+  its lane while it coasts. Once the driver takes a pedal the wheel is held
+  for half a second and eased back to centre over about a second more. Any
+  steering input, a reset or coming to a stop ends the handover at once.
+  Without it a car leaving autodrive on a bend was off the tarmac within two
+  seconds.
 - Keyboard steering is free by default. A key asks for one and a half times the
   grip angle straight away (three times on the motorcycle) and the rack moves as
   quickly at top speed as at a crawl, so cornering builds as fast on the

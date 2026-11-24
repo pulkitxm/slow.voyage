@@ -1,13 +1,19 @@
 import { expect, test } from 'bun:test'
 import {
   automaticTarget,
+  handover,
   mergeManualInput,
   neutralInput,
   releaseAssistance,
   resolveInput,
+  SteeringHandover,
+  steers,
 } from './controls'
 import type { Input } from './physics'
+import { CarPhysics } from './physics'
+import { roadCoordinates, roadLayout } from './road'
 import { vehicleMetrics } from './vehicles'
+import { defaults, type Settings, World } from './world'
 
 test('speed assistance forwards service braking without dropping manual ownership rules', () => {
   const automatic = { ...neutralInput, regenBrake: 0.7 }
@@ -170,4 +176,84 @@ test('autosteer targets the vehicle top speed while cruise modes target the sett
   expect(automaticTarget('steer', 20, 'roadster')).toBe(vehicleMetrics.roadster.maxSpeed)
   expect(automaticTarget('full', 20, 'roadster')).toBe(20)
   expect(automaticTarget('speed', 20, 'bus')).toBe(20)
+})
+
+test('autodrive keeps the car in its lane until the driver takes a pedal, then lets go gradually', () => {
+  const automatic: Input = { ...neutralInput, steer: 0.4, steeringSource: 'automatic' }
+  const pedal: Input = { ...neutralInput, throttle: 1 }
+  const grip = new SteeringHandover()
+  expect(grip.blend(neutralInput, automatic, 20, 0.1)).toBe(neutralInput)
+  grip.begin()
+  for (let step = 0; step < 600; step++) {
+    const idle = grip.blend(neutralInput, automatic, 20, 0.1)
+    expect(idle.steer).toBe(0.4)
+    expect(idle.steeringSource).toBe('automatic')
+  }
+  const held = grip.blend(pedal, automatic, 20, handover.hold)
+  expect(held.steer).toBe(0.4)
+  expect(held.throttle).toBe(1)
+  expect(grip.blend(pedal, automatic, 20, handover.fade / 2).steer).toBe(0.4)
+  expect(grip.blend(neutralInput, automatic, 20, handover.fade / 2).steer).toBeCloseTo(0.2, 9)
+  expect(grip.blend(neutralInput, automatic, 20, 0.01)).toBe(neutralInput)
+  expect(grip.left).toBe(0)
+})
+
+test('the handover ends at once when the driver steers, the car stops or it is cancelled', () => {
+  const automatic: Input = { ...neutralInput, steer: -0.3, steeringSource: 'automatic' }
+  const steering: Input = { ...neutralInput, steer: 1, steeringSource: 'digital' }
+  const grip = new SteeringHandover()
+  grip.begin()
+  expect(grip.blend(steering, automatic, 20, 0.01)).toBe(steering)
+  expect(grip.left).toBe(0)
+  grip.begin()
+  const mouse: Input = { ...neutralInput, steeringSource: 'mouse' }
+  expect(grip.blend(mouse, automatic, 20, 0.01)).toBe(mouse)
+  grip.begin()
+  expect(grip.blend(neutralInput, automatic, handover.slowest / 2, 0.01)).toBe(neutralInput)
+  grip.begin()
+  grip.cancel()
+  expect(grip.blend(neutralInput, automatic, 20, 0.01)).toBe(neutralInput)
+  expect(steers('full') && steers('steer')).toBe(true)
+  expect(steers('speed') || steers('off')).toBe(false)
+  grip.begin()
+  for (const taking of [
+    { ...neutralInput, brake: 1 },
+    { ...neutralInput, handbrake: true },
+    { ...neutralInput, boost: true },
+  ]) {
+    grip.begin()
+    grip.blend(taking, automatic, 20, 0.01)
+    expect(grip.taken).toBe(true)
+  }
+})
+
+test('a driverless car leaving autodrive on a winding road coasts to a stop on the tarmac', () => {
+  const settings: Settings = { ...defaults, cruiseSpeed: 22 }
+  const world = new World(settings)
+  const run = (start: number, gentle: boolean) => {
+    const car = new CarPhysics(world)
+    car.reset(start)
+    car.speed = 22
+    car.suspension.reset(car)
+    for (let step = 0; step < 360; step++) car.update(1 / 120, car.autoInput(22), settings)
+    const grip = new SteeringHandover()
+    if (gentle) grip.begin()
+    let widest = 0
+    for (let step = 0; step < 12 * 120 && Math.abs(car.speed) > 1; step++) {
+      const automatic = car.autoInput(22)
+      const manual = grip.blend(neutralInput, automatic, car.speed, 1 / 120)
+      car.update(1 / 120, resolveInput(manual, automatic, 'off', false), settings)
+      widest = Math.max(widest, Math.abs(roadCoordinates(world, car.x, car.s).distance))
+    }
+    return widest
+  }
+  let rescued = 0
+  for (const start of [200, 3400, 6200, 7800, 8200, 9800]) {
+    const gentle = run(start, true)
+    const abrupt = run(start, false)
+    expect(gentle).toBeLessThan(roadLayout.halfWidth / 2)
+    expect(gentle).toBeLessThan(abrupt)
+    if (abrupt > roadLayout.halfWidth) rescued++
+  }
+  expect(rescued).toBeGreaterThanOrEqual(4)
 })
