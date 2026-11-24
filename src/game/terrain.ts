@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
 import { Boulders, planBoulders, planPlants } from './boulders'
-import { canopyCover, canopyShade } from './canopy'
+import { CanopyIndex, canopyCover, canopyShade, tuftLight } from './canopy'
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
@@ -822,6 +822,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         ? Math.min(2800, profile.grass)
         : profile.grass
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
+    const canopy = this.shadeMaterial ? new CanopyIndex(shades) : null
     grass.name = 'meadow'
     grass.receiveShadow = true
     grass.frustumCulled = false
@@ -857,6 +858,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         .copy(base)
         .lerp(light, 0.12 + rng() * 0.7)
         .multiplyScalar(0.88 + rng() * 0.2)
+      if (canopy) color.multiplyScalar(tuftLight(canopy.cover(x, s)))
       grass.setColorAt(placedGrass++, color)
     }
     grass.count = placedGrass
