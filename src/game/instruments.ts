@@ -116,6 +116,7 @@ export function createSpeedometer(
     geometry.rotateX(-Math.PI / 2)
     overlay = new THREE.Mesh(geometry, theme.printed(print.texture()))
     overlay.name = 'printed-dial'
+    overlay.frustumCulled = false
     overlay.position.y = 0.005
     group.add(overlay)
   }
