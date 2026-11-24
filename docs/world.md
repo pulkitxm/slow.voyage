@@ -183,8 +183,11 @@ of the whole loop.
   less saturated than before.
 - Woodland trees wear pictures of photoscanned firs, broadleaf trees and
   bushes on their crossed cards instead of painted shapes. Leaves turn from
-  yellow to rust in autumn, conifers carry snow in winter, and bare winter
-  trees are still drawn in code.
+  yellow to rust in autumn and conifers carry snow in winter. Bare winter
+  trees and bushes are pictures of the same scans with their leaves taken
+  off, so they keep the real trunk and twig structure and line up with their
+  summer shape, with a light dusting of snow along the top of each branch.
+  They load only when the season is winter.
 - Each tree crown also holds six to ten smaller leaf clusters cut from the
   same picture, set inside the crown and facing outward all round, so a tree
   seen up close has depth and shifts as the car passes instead of reading as

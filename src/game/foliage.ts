@@ -1,11 +1,16 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import broadleafUrl from '../assets/trees/broadleaf-a.webp'
+import bareBroadleafUrl from '../assets/trees/broadleaf-a-bare.webp'
 import spreadingUrl from '../assets/trees/broadleaf-b.webp'
+import bareSpreadingUrl from '../assets/trees/broadleaf-b-bare.webp'
 import bushUrl from '../assets/trees/bush-a.webp'
+import bareBushUrl from '../assets/trees/bush-a-bare.webp'
 import leafyBushUrl from '../assets/trees/bush-b.webp'
+import bareLeafyBushUrl from '../assets/trees/bush-b-bare.webp'
 import coniferUrl from '../assets/trees/conifer.webp'
 import slenderUrl from '../assets/trees/slender.webp'
+import bareSlenderUrl from '../assets/trees/slender-bare.webp'
 import { sharpness } from './graphics'
 import { random, type Season } from './world'
 
@@ -18,6 +23,16 @@ export const treePhotos = [
   slenderUrl,
 ] as const
 export const evergreenTile = 4
+export const bareTreePhotos = [
+  bareBroadleafUrl,
+  bareSpreadingUrl,
+  bareBushUrl,
+  bareLeafyBushUrl,
+  null,
+  bareSlenderUrl,
+] as const
+export const bareSnow = { edge: 0.5, body: 0.2 }
+export const bareCrown = 0.45
 export const treeVariety = { warm: 0.1, cool: 0.12 }
 export const crownClearance = { hidden: 2.6, shown: 3 }
 export const leafTint = { soft: 0.06, bark: 1.15 }
@@ -148,6 +163,7 @@ function drawPhoto(
   variant: number,
   season: Season,
   tileSize: number,
+  bare = false,
 ) {
   const reach = Math.max(1, Math.round((snowReach * tileSize) / atlasTile.full))
   context.drawImage(photo, left, top, tileSize, tileSize)
@@ -172,7 +188,9 @@ function drawPhoto(
                 blue,
                 patch(x + variant * 57, y, 6) * 0.7 + patch(x, y + variant * 31, 3) * 0.3,
               )
-          : snowDusted(red, green, blue, open ? 1 : patch(x, y) * 0.45)
+          : bare
+            ? snowDusted(red, green, blue, open ? bareSnow.edge : patch(x, y) * bareSnow.body)
+            : snowDusted(red, green, blue, open ? 1 : patch(x, y) * 0.45)
       data[index] = colour[0]
       data[index + 1] = colour[1]
       data[index + 2] = colour[2]
@@ -390,6 +408,8 @@ export class Foliage {
   treeGeometries: THREE.BufferGeometry[] = []
   winterShrubGeometries: THREE.BufferGeometry[] = []
   photos: (HTMLImageElement | null)[] = treePhotos.map(() => null)
+  bare: (HTMLImageElement | null)[] = bareTreePhotos.map(() => null)
+  private bareLoading: Promise<void> | null = null
   ready: Promise<void>
   private season: Season
   private disposed = false
@@ -573,9 +593,33 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
     }
     this.update(season)
   }
+  loadBare() {
+    this.bareLoading ??= Promise.all(
+      bareTreePhotos.map(
+        (url, index) =>
+          new Promise<void>((resolve) => {
+            if (!url) {
+              resolve()
+              return
+            }
+            const image = new Image()
+            image.onload = () => {
+              this.bare[index] = image
+              resolve()
+            }
+            image.onerror = () => resolve()
+            image.src = url
+          }),
+      ),
+    ).then(() => {
+      if (!this.disposed && this.season === 'winter') this.update(this.season)
+    })
+    return this.bareLoading
+  }
   update(season: Season) {
     this.season = season
-    this.leafNormals.value = season === 'winter' ? 0 : 1
+    if (season === 'winter') this.loadBare()
+    this.leafNormals.value = season === 'winter' ? bareCrown : 1
     const context = this.canvas.getContext('2d')
     if (!context) throw new Error('Foliage canvas is unavailable')
     context.clearRect(0, 0, this.canvas.width, this.canvas.height)
@@ -583,9 +627,10 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
       const tileSize = this.tile
       const left = (variant % atlasColumns) * tileSize
       const top = (atlasRows - 1 - Math.floor(variant / atlasColumns)) * tileSize
-      const photo = this.photos[variant]
-      if (photo && (season !== 'winter' || variant === evergreenTile)) {
-        drawPhoto(context, photo, left, top, variant, season, tileSize)
+      const leafless = season === 'winter' && variant !== evergreenTile
+      const photo = leafless ? this.bare[variant] : this.photos[variant]
+      if (photo) {
+        drawPhoto(context, photo, left, top, variant, season, tileSize, leafless)
         continue
       }
       context.save()
