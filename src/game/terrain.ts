@@ -100,6 +100,7 @@ function twinMesh(source: THREE.Mesh) {
   } else twin = new THREE.Mesh(source.geometry, source.material)
   twin.name = source.name
   twin.castShadow = source.castShadow
+  twin.customDepthMaterial = source.customDepthMaterial
   twin.receiveShadow = source.receiveShadow
   twin.frustumCulled = source.frustumCulled
   twin.userData.source = source
@@ -802,6 +803,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       }
       trees.count = placed
       trees.castShadow = true
+      trees.customDepthMaterial = this.foliage.shadowMaterial
       group.add(trees)
       yield
     }

@@ -21,6 +21,53 @@ export const evergreenTile = 4
 export const treeVariety = { warm: 0.1, cool: 0.12 }
 export const crownClearance = { hidden: 2.6, shown: 3 }
 export const leafTint = { soft: 0.06, bark: 1.15 }
+export const crownLayers = { depth: 0.55, rim: 0.5, ragged: 0.45, lean: 0.3 }
+export const edgeOn = { hidden: 0.1, shown: 0.32 }
+const crownShapes: Record<
+  number,
+  { count: number; low: number; high: number; reach: (level: number) => number }
+> = {
+  0: { count: 9, low: 0.42, high: 0.76, reach: () => 0.38 },
+  1: { count: 10, low: 0.42, high: 0.88, reach: () => 0.39 },
+  4: { count: 10, low: 0.2, high: 0.78, reach: (level) => 0.31 * ((0.92 - level) / 0.67) },
+  5: { count: 6, low: 0.2, high: 0.86, reach: () => 0.15 },
+}
+
+export interface CrownCluster {
+  x: number
+  y: number
+  z: number
+  turn: number
+  lean: number
+  size: number
+  u: number
+  v: number
+}
+
+export function crownClusters(variant: number) {
+  const shape = crownShapes[variant]
+  const clusters: CrownCluster[] = []
+  if (!shape) return clusters
+  const rng = random(4177 + variant * 613)
+  for (let index = 0; index < shape.count; index++) {
+    const level = shape.low + ((index + 0.5) / shape.count) * (shape.high - shape.low)
+    const reach = shape.reach(level)
+    const turn = index * 2.399963 + Math.PI / 6 + (rng() - 0.5) * 0.3
+    const size = Math.min(0.42, Math.max(0.16, reach * 1.15))
+    const radius = reach * crownLayers.depth
+    clusters.push({
+      x: Math.cos(turn) * radius,
+      y: level,
+      z: Math.sin(turn) * radius,
+      turn,
+      lean: (rng() - 0.3) * crownLayers.lean,
+      size,
+      u: Math.min(0.98 - size / 2, Math.max(0.02 + size / 2, 0.5 + (rng() - 0.5) * reach * 0.5)),
+      v: Math.min(0.98 - size / 2, Math.max(0.02 + size / 2, level)),
+    })
+  }
+  return clusters
+}
 
 export function leafShare(red: number, green: number, blue: number) {
   const reach = Math.min(
@@ -338,6 +385,7 @@ export class Foliage {
   canvas: HTMLCanvasElement
   texture: THREE.CanvasTexture
   treeMaterial: THREE.MeshStandardMaterial
+  shadowMaterial: THREE.MeshDepthMaterial
   leafNormals = { value: 1 }
   treeGeometries: THREE.BufferGeometry[] = []
   winterShrubGeometries: THREE.BufferGeometry[] = []
@@ -382,7 +430,7 @@ export class Foliage {
       shader.uniforms.leafNormals = this.leafNormals
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
+        '#include <common>\nattribute vec2 cluster;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <defaultnormal_vertex>',
@@ -398,6 +446,7 @@ foliageNormal = normalMatrix * crownNormal;`,
       shader.vertexShader = shader.vertexShader.replace(
         '#include <project_vertex>',
         `#include <project_vertex>
+foliageCluster = cluster;
 foliageDistance = length(mvPosition.xyz);
 #ifdef USE_INSTANCING
 vec4 foliageRoot = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
@@ -410,11 +459,12 @@ foliageClear = length(foliageRoot.xz) - foliageSpread;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float leafNormals;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
+        '#include <common>\nuniform float leafNormals;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_begin>',
         `#include <normal_fragment_begin>
+if (abs(dot(normal, normalize(vViewPosition))) < mix(${edgeOn.hidden.toFixed(2)}, ${edgeOn.shown.toFixed(2)}, foliageDither)) discard;
 vec2 foliageUv = fract(vMapUv * vec2(2.0, 3.0));
 float evergreen = step(2.0 / 3.0, vMapUv.y) * (1.0 - step(0.5, vMapUv.x));
 float crownWeight = smoothstep(0.24, 0.48, foliageUv.y) * max(leafNormals, evergreen);
@@ -433,7 +483,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb / max(diffuse, vec3(0.001)) * ${leafTint
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
-        `#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif\nfloat foliageDither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));\nif (smoothstep(${crownClearance.hidden.toFixed(1)}, ${crownClearance.shown.toFixed(1)}, foliageClear) < foliageDither) discard;`,
+        `#ifdef USE_ALPHATEST\nfloat foliageAlpha = mix(alphaTest, 0.28, smoothstep(180.0, 650.0, foliageDistance));\nif (diffuseColor.a < foliageAlpha) discard;\n#endif\nfloat clusterRim = length(foliageCluster);\nif (clusterRim > 0.001) {\nfloat clusterEvergreen = step(2.0 / 3.0, vMapUv.y) * (1.0 - step(0.5, vMapUv.x));\nfloat clusterGrain = fract(sin(dot(floor(vMapUv * 380.0), vec2(12.9898, 78.233))) * 43758.5453);\nif (max(leafNormals, clusterEvergreen) < 0.5 || clusterRim > ${crownLayers.rim.toFixed(2)} + ${crownLayers.ragged.toFixed(2)} * clusterGrain) discard;\n}\nfloat foliageDither = fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))));\nif (smoothstep(${crownClearance.hidden.toFixed(1)}, ${crownClearance.shown.toFixed(1)}, foliageClear) < foliageDither) discard;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
@@ -446,7 +496,23 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
 #include <opaque_fragment>`,
       )
     }
-    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-volume-whole-bark'
+    this.treeMaterial.customProgramCacheKey = () =>
+      'seasonal-foliage-volume-whole-bark-layered-facing'
+    this.shadowMaterial = new THREE.MeshDepthMaterial({
+      depthPacking: THREE.RGBADepthPacking,
+      map: this.texture,
+      alphaTest: 0.46,
+      side: THREE.DoubleSide,
+    })
+    this.shadowMaterial.onBeforeCompile = (shader) => {
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute vec2 cluster;')
+        .replace(
+          '#include <project_vertex>',
+          '#include <project_vertex>\nif (dot(cluster, cluster) > 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);',
+        )
+    }
+    this.shadowMaterial.customProgramCacheKey = () => 'foliage-shadow-whole-crown'
     for (let variant = 0; variant < 8; variant++) {
       const planes: THREE.BufferGeometry[] = []
       const shrub = variant >= 2 && variant < 4
@@ -473,6 +539,29 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
             ((mirrored ? 1 - uv.getX(i) : uv.getX(i)) + (atlasVariant % atlasColumns)) /
               atlasColumns,
             (uv.getY(i) + Math.floor(atlasVariant / atlasColumns)) / atlasRows,
+          )
+        plane.setAttribute('cluster', new THREE.BufferAttribute(new Float32Array(8), 2))
+        planes.push(plane)
+      }
+      for (const cluster of coarse || variant >= 6 ? [] : crownClusters(variant)) {
+        const plane = new THREE.PlaneGeometry(cluster.size, cluster.size)
+        plane.setAttribute(
+          'cluster',
+          new THREE.BufferAttribute(new Float32Array([-1, 1, 1, 1, -1, -1, 1, -1]), 2),
+        )
+        plane.rotateX(-cluster.lean)
+        plane.rotateY(Math.PI / 2 - cluster.turn)
+        plane.translate(cluster.x, cluster.y, cluster.z)
+        const uv = plane.getAttribute('uv')
+        for (let i = 0; i < uv.count; i++)
+          uv.setXY(
+            i,
+            (cluster.u + (uv.getX(i) - 0.5) * cluster.size + (atlasVariant % atlasColumns)) /
+              atlasColumns,
+            (cluster.v +
+              (uv.getY(i) - 0.5) * cluster.size +
+              Math.floor(atlasVariant / atlasColumns)) /
+              atlasRows,
           )
         planes.push(plane)
       }
@@ -511,6 +600,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
     this.disposed = true
     this.texture.dispose()
     this.treeMaterial.dispose()
+    this.shadowMaterial.dispose()
     for (const geometry of this.treeGeometries) geometry.dispose()
     for (const geometry of this.winterShrubGeometries) geometry.dispose()
   }
