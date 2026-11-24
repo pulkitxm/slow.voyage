@@ -172,6 +172,9 @@ of the whole loop.
 - Modelled walkers and animals darken with the canopy shade they stand in, by
   the same pools of shade that are drawn on the ground under each tree, so an
   elephant under the trees no longer looks lit from within.
+- The pool of shade drawn on the ground under each tree fades out smoothly
+  from its middle, the same way the shade on animals and grass does. It used
+  to end in a hard straight edge.
 - The soft shade under every walker and animal lies along the slope they stand
   on, so it no longer floats off a bank on one side and sinks into it on the
   other.
