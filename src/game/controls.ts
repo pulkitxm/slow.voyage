@@ -79,6 +79,43 @@ export function resolveInput(
   }
 }
 
+export const handover = { hold: 0.5, fade: 1.3, slowest: 2 }
+
+export function steers(mode: AssistanceMode) {
+  return mode === 'full' || mode === 'steer'
+}
+
+export class SteeringHandover {
+  left = 0
+  taken = false
+
+  begin() {
+    this.left = handover.hold + handover.fade
+    this.taken = false
+  }
+
+  cancel() {
+    this.left = 0
+  }
+
+  blend(manual: Input, automatic: Input, speed: number, dt: number): Input {
+    if (this.left <= 0) return manual
+    if (manual.steer !== 0 || manual.steeringSource || Math.abs(speed) < handover.slowest) {
+      this.left = 0
+      return manual
+    }
+    if (manual.throttle > 0 || manual.brake > 0 || manual.handbrake || manual.boost)
+      this.taken = true
+    const weight = Math.min(1, this.left / handover.fade)
+    if (this.taken) this.left = Math.max(0, this.left - dt)
+    return {
+      ...manual,
+      steer: automatic.steer * weight,
+      steeringSource: automatic.steeringSource,
+    }
+  }
+}
+
 export function automaticTarget(mode: AssistanceMode, cruiseSpeed: number, vehicle: Vehicle) {
   return mode === 'steer' ? vehicleMetrics[vehicle].maxSpeed : cruiseSpeed
 }
