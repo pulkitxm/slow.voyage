@@ -5,6 +5,8 @@ Three.js. The world is a closed 12 km lap that also wraps sideways across 3 km,
 so driving away from the road in any direction leads back to it. All geometry and sounds are generated locally. Fonts and application
 assets are bundled for offline play.
 
+Highly inspired by [slowroads.io](https://slowroads.io/) (big fan of the game!!).
+
 ## Run
 
 Requires Bun 1.4.2 or newer.
