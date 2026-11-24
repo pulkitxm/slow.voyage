@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
-import { MeadowMaterial, rockFacing, rockShares } from './ground'
+import { MeadowMaterial, rockFacing, rockShares, verge, vergeStart } from './ground'
 import { defaults } from './world'
 
 test('the meadow shader wears bare earth into the grass, darkens a wet shore band and draws a foam line', () => {
@@ -26,7 +26,9 @@ test('the meadow shader wears bare earth into the grass, darkens a wet shore ban
   expect(shader.fragmentShader.indexOf('float fieldBare')).toBeLessThan(
     shader.fragmentShader.indexOf('float rockBlend'),
   )
-  expect(material.customProgramCacheKey()).toBe('triplanar-rock-road-cuts-varied-shore-worn-crisp')
+  expect(material.customProgramCacheKey()).toBe(
+    'triplanar-rock-road-cuts-varied-shore-worn-crisp-verge',
+  )
   Reflect.deleteProperty(globalThis, 'document')
 })
 
@@ -79,5 +81,30 @@ test('the software ground skips its bump and close detail lookups without changi
   expect(plain.shader.fragmentShader).toBe(full.shader.fragmentShader)
   expect(plain.shader.fragmentShader).toMatch(/#ifndef FIELD_PLAIN\nfloat fieldGrain/)
   expect(plain.shader.fragmentShader).toMatch(/#ifdef USE_BUMPMAP\nnormal = perturbNormalArb/)
+  Reflect.deleteProperty(globalThis, 'document')
+})
+
+test('the grass line beside the road wanders instead of running ruler straight', () => {
+  const starts = Array.from({ length: 400 }, (_, index) => vergeStart(index * 0.5))
+  expect(Math.min(...starts)).toBeGreaterThanOrEqual(0)
+  expect(Math.max(...starts)).toBeLessThanOrEqual(verge.wander)
+  expect(Math.max(...starts) - Math.min(...starts)).toBeGreaterThan(verge.wander * 0.9)
+  let steepest = 0
+  for (let index = 1; index < starts.length; index++)
+    steepest = Math.max(steepest, Math.abs((starts[index] ?? 0) - (starts[index - 1] ?? 0)))
+  expect(steepest).toBeLessThan(0.4)
+  Reflect.set(globalThis, 'document', {
+    createElementNS: () => ({ addEventListener() {}, removeEventListener() {}, style: {} }),
+  })
+  const material = new MeadowMaterial(new THREE.Texture(), defaults, false)
+  const shader = {
+    uniforms: {},
+    vertexShader: THREE.ShaderLib.standard.vertexShader,
+    fragmentShader: THREE.ShaderLib.standard.fragmentShader,
+  } as unknown as THREE.WebGLProgramParametersWithUniforms
+  material.onBeforeCompile(shader, {} as THREE.WebGLRenderer)
+  expect(shader.fragmentShader).toContain('float gravelRag')
+  expect(shader.fragmentShader).toContain('float gravelGrain')
+  expect(shader.fragmentShader).toContain('mix(diffuseColor.rgb, gravelTone, gravelBlend)')
   Reflect.deleteProperty(globalThis, 'document')
 })

@@ -107,6 +107,19 @@ export function* groundRows(
 }
 
 export const rockFacing = { sharpness: 12 }
+export const verge = {
+  rag: 0.7,
+  ragScale: 0.85,
+  grain: 0.6,
+  grainScale: 1.9,
+  stone: 0.34,
+  stoneScale: 9,
+  wander: 0.8,
+}
+
+export function vergeStart(s: number) {
+  return verge.wander * (0.5 + 0.5 * Math.sin(s * 0.9 + Math.sin(s * 0.23) * 2))
+}
 
 export function rockShares(x: number, y: number, z: number) {
   const length = Math.hypot(x, y, z) || 1
@@ -307,8 +320,18 @@ vec3 rockAlbedo = rockMapAt(fieldRockColorMap, rockUvX) * rockWeights.x
 float earthBlend = cutFace * (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * bankPatch;
 vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockAlbedo / vec3(0.2314, 0.1465, 0.0838) * (0.8 + rockGrain * 0.2);
 diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
+#ifdef FIELD_PLAIN
 float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
-diffuseColor.rgb = mix(diffuseColor.rgb, fieldGravel * sampledDiffuseColor.rgb, gravelBlend);
+vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb;
+#else
+float gravelRag = texture2D(fieldNoiseMap, (fieldPosition * ${verge.ragScale.toFixed(2)} + 0.5) / 128.0).r - 0.5;
+float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35 + gravelRag * ${verge.rag.toFixed(2)});
+float gravelGrain = texture2D(fieldDetailMap, fieldPosition * ${verge.grainScale.toFixed(2)}).g;
+float gravelStone = texture2D(fieldNoiseMap, (fieldPosition * ${verge.stoneScale.toFixed(1)} + 0.5) / 128.0).r;
+vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb * (${(1 - verge.grain / 2).toFixed(2)} + gravelGrain * ${verge.grain.toFixed(2)}) * (${(1 - verge.stone / 2).toFixed(2)} + gravelStone * ${verge.stone.toFixed(2)});
+gravelTone = mix(gravelTone, fieldSoil * sampledDiffuseColor.rgb, smoothstep(0.45, 0.85, fieldRoadDistance + gravelRag * ${verge.rag.toFixed(2)}) * 0.45);
+#endif
+diffuseColor.rgb = mix(diffuseColor.rgb, gravelTone, gravelBlend);
 diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSlope)) * 0.32;
 float shoreWet = (1.0 - smoothstep(0.04, 0.85 + fieldVariation * 0.5, fieldHeight)) * step(-0.4, fieldHeight);
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7);
@@ -352,7 +375,7 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'triplanar-rock-road-cuts-varied-shore-worn-crisp'
+    return 'triplanar-rock-road-cuts-varied-shore-worn-crisp-verge'
   }
   override dispose() {
     this.fieldUniforms.fieldNoiseMap.value.dispose()

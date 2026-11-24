@@ -7,7 +7,14 @@ import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
 import { grassGeometry, grassLighting, grassTexture } from './grass'
-import { groundGeometry, groundRows, groundTexture, MeadowMaterial, meadowNoise } from './ground'
+import {
+  groundGeometry,
+  groundRows,
+  groundTexture,
+  MeadowMaterial,
+  meadowNoise,
+  vergeStart,
+} from './ground'
 import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { landmarkFootprints, landmarkGeometry, lapLandmarks } from './landmarks'
@@ -832,7 +839,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       const s = start + rng() * groundLayout.tileLength,
         d =
           (rng() > 0.5 ? 1 : -1) *
-          (roadLayout.halfWidth + roadLayout.shoulder + 0.15 + rng() ** 2.2 * 23)
+          (roadLayout.halfWidth + roadLayout.shoulder + 0.15 + vergeStart(s) + rng() ** 2.2 * 23)
       const road = this.world.road(s)
       const x = road.x + d
       const roadsideDistance = Math.abs(roadCoordinates(this.world, x, s).distance)
