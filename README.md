@@ -152,11 +152,10 @@ checkpoint. Use `bun run format` to apply formatting.
 Run `bun run review:capture pass-name` while the local server is running to save
 repeatable 1280 × 720 captures of the local build.
 Each clean browser session enables autodrive and captures six and twelve seconds
-of driving. The generated `.review/pass-name/index.html` compares the frames;
+of driving. The generated `.review/pass-name/index.html` shows the frames;
 the manifest records the revision and browser errors. Capture files remain local
 and are ignored by Git. Open `http://localhost:3002/__review/pass-name/` to view
-the comparison. This viewer is available only in development. Different routes
-and seeds limit terrain comparisons.
+the capture. This viewer is available only in development.
 Review visual findings, change one related concern, and capture again with a new
 label. Verify handling changes with measured input-response and simulation checks.
 
@@ -168,4 +167,3 @@ label. Verify handling changes with measured input-response and simulation check
 - `worker/sw.ts`: the offline worker.
 - `scripts/offline.ts`: content-addressed precache generation and worker bundling.
 - `tests/offline.test.ts`: production worker tests against an unavailable origin.
-

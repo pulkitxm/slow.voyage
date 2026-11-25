@@ -33,7 +33,7 @@ if (!/^[a-zA-Z0-9_-]+$/.test(label))
 const directory = resolve('.review', label)
 if (await Bun.file(`${directory}/index.html`).exists())
   throw new Error(
-    'This capture label already exists. Choose another to preserve the previous comparison.',
+    'This capture label already exists. Choose another to preserve the previous capture.',
   )
 await mkdir(directory, { recursive: true })
 const executable = browserExecutable()
@@ -51,13 +51,6 @@ const [revision, workingTree] = await Promise.all([
   readGit(['rev-parse', 'HEAD']),
   readGit(['status', '--porcelain']),
 ])
-const press = (step_id: string, selector: string, key: string) => ({
-  step_id,
-  action: 'press',
-  locator: { kind: 'css', selector },
-  key,
-  timeout_ms: 30000,
-})
 const click = (step_id: string, selector: string) => ({
   step_id,
   action: 'click',
@@ -140,15 +133,15 @@ async function captureSource(source: (typeof sources)[number]) {
     clearTimeout(timeout)
   }
 }
-const comparisons = []
-for (const source of sources) comparisons.push(await captureSource(source))
+const captures = []
+for (const source of sources) captures.push(await captureSource(source))
 const metadata = {
   recordedAt: new Date().toISOString(),
   revision,
   dirty: workingTree.length > 0,
   workingTree,
   viewport: { width: 1280, height: 720 },
-  sources: comparisons.map(({ id, name, url, failures }) => ({ id, name, url, failures })),
+  sources: captures.map(({ id, name, url, failures }) => ({ id, name, url, failures })),
 }
 await Bun.write(`${directory}/manifest.json`, JSON.stringify(metadata, null, 2))
 const escapeHtml = (value: string) =>
@@ -159,12 +152,12 @@ const escapeHtml = (value: string) =>
     .replaceAll('"', '&quot;')
 await Bun.write(
   `${directory}/index.html`,
-  `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/icon.svg"><title>Driving comparison ${escapeHtml(label)}</title><style>body{background:#18221d;color:#edf1e8;font:16px system-ui;margin:32px}p{max-width:85ch;line-height:1.6}main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}img{width:100%;display:block}figure{margin:20px 0}figcaption{padding:8px 0;color:#b8c7ba}a{color:#cee3b3}code{overflow-wrap:anywhere}.error{color:#ffb5a8}@media(max-width:850px){main{grid-template-columns:1fr}}</style><h1>Driving comparison: ${escapeHtml(label)}</h1><p>Captured at 1280 × 720 with clean browser profiles and autodrive enabled. These images support visual review; use measured input and simulation traces for handling claims.</p><p>Local revision: <code>${escapeHtml(revision)}</code>. Working tree: ${workingTree ? 'uncommitted changes were present' : 'clean'}.</p><main>${comparisons.map((source) => `<section><h2>${escapeHtml(source.name)}</h2><a href="${escapeHtml(source.url)}">${escapeHtml(source.url)}</a>${source.failures.length ? `<p class="error">Capture requires inspection: ${escapeHtml(source.failures.join('; '))}</p>` : '<p>All capture steps passed without browser errors.</p>'}${['six-seconds', 'twelve-seconds'].map((step) => `<figure><a href="${source.id}-${step}.png"><img alt="${escapeHtml(source.name)} at ${step.replace('-', ' ')}" src="${source.id}-${step}.png"></a><figcaption>${step.replace('-', ' ')}</figcaption></figure>`).join('')}</section>`).join('')}</main>`,
+  `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/icon.svg"><title>Driving capture ${escapeHtml(label)}</title><style>body{background:#18221d;color:#edf1e8;font:16px system-ui;margin:32px}p{max-width:85ch;line-height:1.6}main{display:grid;grid-template-columns:1fr;gap:24px}img{width:100%;display:block}figure{margin:20px 0}figcaption{padding:8px 0;color:#b8c7ba}a{color:#cee3b3}code{overflow-wrap:anywhere}.error{color:#ffb5a8}</style><h1>Driving capture: ${escapeHtml(label)}</h1><p>Captured at 1280 × 720 with clean browser profiles and autodrive enabled. These images support visual review; use measured input and simulation traces for handling claims.</p><p>Local revision: <code>${escapeHtml(revision)}</code>. Working tree: ${workingTree ? 'uncommitted changes were present' : 'clean'}.</p><main>${captures.map((source) => `<section><h2>${escapeHtml(source.name)}</h2><a href="${escapeHtml(source.url)}">${escapeHtml(source.url)}</a>${source.failures.length ? `<p class="error">Capture requires inspection: ${escapeHtml(source.failures.join('; '))}</p>` : '<p>All capture steps passed without browser errors.</p>'}${['six-seconds', 'twelve-seconds'].map((step) => `<figure><a href="${source.id}-${step}.png"><img alt="${escapeHtml(source.name)} at ${step.replace('-', ' ')}" src="${source.id}-${step}.png"></a><figcaption>${step.replace('-', ' ')}</figcaption></figure>`).join('')}</section>`).join('')}</main>`,
 )
-for (const source of comparisons)
+for (const source of captures)
   console.log(
     `${source.name}: ${source.failures.length ? source.failures.join('; ') : 'capture passed'}`,
   )
-console.log(`Comparison: ${directory}/index.html`)
+console.log(`Capture: ${directory}/index.html`)
 console.log(`Viewer: http://localhost:3002/__review/${label}/`)
-if (comparisons.some((source) => source.failures.length)) process.exitCode = 1
+if (captures.some((source) => source.failures.length)) process.exitCode = 1
