@@ -120,7 +120,7 @@ void main() {
   float across = abs(wakeShape.x - 0.5) * 2.0;
   float churn = texture2D(fieldNoiseMap, vec2(along * 0.13 - wakeTime * 0.21 + wakeShape.x * 0.09, rise * 0.06 + wakeShape.x * 0.11)).r * 0.6
     + texture2D(fieldNoiseMap, vec2(along * 0.37 - wakeTime * 0.47 + 0.4 - wakeShape.x * 0.23, rise * 0.17 - wakeTime * 0.05)).r * 0.4;
-  float fade = smoothstep(0.0, 0.12, along) * pow(1.0 - along, 1.3);
+  float fade = smoothstep(0.0, 0.12, along) * pow(clamp(1.0 - along, 0.0, 1.0), 1.3);
   float dome = wakeShape.w < 0.5
     ? (1.0 - smoothstep(0.3, 1.0, across)) * (1.0 - smoothstep(0.08, 1.0, rise)) * smoothstep(0.0, 0.06, rise)
     : (1.0 - smoothstep(0.1, 1.0, rise)) * 0.9;

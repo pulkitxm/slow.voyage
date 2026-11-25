@@ -124,6 +124,21 @@ of the whole loop.
 - The road carries delineator posts, bend chevrons, and a gantry at the lap line.
   Up to eight landmarks per lap can be found.
 - Tyres raise dust, smoke, and spray, and leave skid marks when they slide.
+  `src/game/particles.ts` is one pooled, instanced particle draw whose motion,
+  drag, wind drift, gravity, and bounce run in the vertex shader, so the
+  processor only writes new particles. `src/game/effects.ts` decides what each
+  wheel throws: lit, billowing smoke from wheelspin, handbrake slides and
+  lock-ups on dry asphalt; dust tinted by the landscape and the gravel verge,
+  growing with speed, thin on grass and absent on wet ground; mist and
+  droplets thrown up and back on wet roads in rain; and spark streaks that
+  bounce off the road when the body scrapes or hits a guardrail or rock face.
+  Ultra keeps 4096 particles, Full beauty 1536 at a lower emission rate, and
+  Easy on the engine and software rendering none.
+- Headlights come on at night, at dusk, and in fog, rain, or snow.
+  `src/game/lamps.ts` adds glowing head and tail lamp halos at every detail
+  level, with brighter brake lights. Full beauty adds flat beam sprites and
+  Ultra soft volumetric beam cones, both thickened by fog and rain. Smoke,
+  dust, and spray are lit by the low beams and the tail lamps.
 - The dark patch under each vehicle is draped over the ground it stands on,
   sampled from the same surface the tyres touch, so it follows banks and bumps
   off the road instead of tilting with the body, and it fades when the car

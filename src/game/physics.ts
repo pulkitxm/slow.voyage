@@ -84,6 +84,10 @@ export class CarPhysics {
   hitMaterial: ObstacleMaterial = 'rail'
   scrape = 0
   scrapeMaterial: ObstacleMaterial = 'rail'
+  scrapeX = 0
+  scrapeS = 0
+  scrapeNormalX = 0
+  scrapeNormalS = 0
   wading = 0
   gearbox = new Gearbox(engineProfiles.touring)
   driveForce = 0
@@ -337,6 +341,13 @@ export class CarPhysics {
       }
       this.scrape = Math.abs(this.speed)
       this.scrapeMaterial = deepest.material
+      const touch = deepest.contacts[0]
+      const cos = Math.cos(this.yaw),
+        sin = Math.sin(this.yaw)
+      this.scrapeX = touch ? this.x + touch.localX * cos - touch.localS * sin : this.x
+      this.scrapeS = touch ? this.s + touch.localX * sin + touch.localS * cos : this.s
+      this.scrapeNormalX = deepest.normalX
+      this.scrapeNormalS = deepest.normalS
       if (approach > collisionSound.minimumApproach) {
         this.hits++
         this.hitStrength = clamp(approach / collisionSound.fullApproach, 0, 1)

@@ -67,7 +67,9 @@ of weather, paint, camera, grip, power, sound, detail, and units. Preferences ar
 stored on the device. Detail has three levels: Easy on the engine, Full beauty,
 and Ultra. Ultra is the default on hardware that can hold it at 60 frames a
 second, and it lowers its own resolution and effects, or steps back to Full
-beauty, when frames run slow.
+beauty, when frames run slow. Tyre smoke, dust, rain spray, sparks, and visible headlight
+beams follow the detail level: Ultra shows them in full, Full beauty with fewer
+particles and simpler beams, and Easy on the engine keeps only the lamp glow.
 
 The Journey tab also chooses the road itself. Winding Roads is the full road
 with every bend. Endless Straight holds one heading for the whole lap while the

@@ -17,6 +17,7 @@ import {
   steers,
 } from './controls'
 import { crossfadeTiming, SceneCrossfade } from './crossfade'
+import { effectsLevel, RoadEffects } from './effects'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { FrameGovernor, governorPlan, reliefLevels } from './governor'
 import {
@@ -35,6 +36,7 @@ import {
   textureDetail,
   ultraReach,
 } from './graphics'
+import { beamHaze, Lamps } from './lamps'
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { LapClock } from './laps'
@@ -58,7 +60,7 @@ import { ScenicSky } from './sky'
 import { skyline } from './skyline'
 import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
-import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
+import { SkidMarks, trailLayout } from './tyre-trail'
 import type { UltraPipeline } from './ultra'
 import { vehicleMetrics } from './vehicles'
 import { Wake, wakeStrength } from './wake'
@@ -148,18 +150,18 @@ export class RoadEngine {
   life: Life | null = null
   cast: Cast | null = null
   contact = contactShadow()
-  tyreClouds = new TyreParticles()
+  effects: RoadEffects | null = null
+  lamps: Lamps
+  lampLevel = 0
+  beamHaze = 0
   skids = new SkidMarks()
   wake: Wake | null = null
   wetRoad = false
-  private dustTone = new THREE.Color()
-  private paleDust = new THREE.Color('#d9cfb8')
   private neutralFill = new THREE.Color('#efe9e1')
   private travel = new THREE.Vector3()
   private skyTone = new THREE.Color()
-  private cloudTone = new THREE.Color()
-  private cloudPlace = new THREE.Vector3()
-  private cloudDrift = new THREE.Vector3()
+  private lampFront = new THREE.Vector3()
+  private lampBack = new THREE.Vector3()
   laps = new LapClock()
   photo = false
   onLap?: (time: number, record: boolean) => void
@@ -479,13 +481,20 @@ export class RoadEngine {
     this.atmosphere = new Atmosphere(this.renderer, budget.software)
     this.precipitation = new Precipitation(this.scene)
     this.car = createVehicleModel(this.settings, budget.software)
-    if (!budget.software) dressVehicle(this.car, this.settings.vehicle, () => this.applyLighting())
+    const noise = this.terrain.grassMaterial.fieldUniforms.fieldNoiseMap
+    this.lamps = new Lamps()
+    if (!budget.software)
+      dressVehicle(this.car, this.settings.vehicle, () => {
+        this.configureHeadlights()
+        this.applyLighting()
+      })
     this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
     this.scene.add(this.car.group, this.contact)
     this.canvas.dataset.vehicleShown = this.settings.vehicle
     if (!budget.software) {
-      this.wake = new Wake(this.terrain.grassMaterial.fieldUniforms.fieldNoiseMap)
-      this.scene.add(this.tyreClouds.points, this.skids.mesh, this.wake.group)
+      this.wake = new Wake(noise)
+      this.effects = new RoadEffects(noise)
+      this.scene.add(this.effects.particles.mesh, this.skids.mesh, this.wake.group)
     }
     this.configureHeadlights()
     this.applyLighting()
@@ -766,6 +775,9 @@ export class RoadEngine {
       this.cinema.dispose()
       this.cinema = null
     }
+    const level = effectsLevel(budget.software, this.settings.quality, budget.ultra)
+    this.effects?.setLevel(level)
+    this.lamps.setLevel(level)
     const solid = this.sky.material.uniforms.solid
     if (solid) solid.value = this.cinema || this.ultra ? 0 : 1
   }
@@ -855,6 +867,14 @@ export class RoadEngine {
     this.spill.target.position.set(0, -1.2, nose[2] - 24)
     this.tailGlow.position.set(0, 0.14, reach.rear - 0.15)
     this.car.group.add(this.spill, this.spill.target, this.tailGlow)
+    const heads = this.car.headlightPositions
+    const tails =
+      this.car.tailLightPositions ??
+      heads.map(([x, y]) => [x * 0.92, y + 0.06, reach.rear - 0.06] as [number, number, number])
+    this.lamps.fit(heads, tails)
+    this.lampFront.set(0, nose[1], nose[2] - 0.3)
+    this.lampBack.set(0, tails[0]?.[1] ?? 0.8, (tails[0]?.[2] ?? reach.rear) + 0.3)
+    this.car.group.add(this.lamps.group)
   }
   applyLighting(drifting = false) {
     const profile = atmosphereProfile(this.settings, this.dayClock)
@@ -872,17 +892,21 @@ export class RoadEngine {
     const night = profile.night > 0.5
     this.dark = night
     this.wetRoad = profile.wet
-    this.tyreClouds.setLight(
-      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1) ** 1.7,
-    )
     this.wake?.setLight(
       clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1) ** 1.4,
     )
-    this.dustTone.set(
-      this.settings.season === 'winter'
-        ? '#eef1f0'
-        : (landscapeProfiles[this.settings.landscape].ground?.light ?? '#b9ad8a'),
-    )
+    if (this.effects) {
+      this.effects.setScene(this.settings, profile.wet)
+      const light = this.effects.particles.light
+      light.sunDirection.value.set(sunOffset.x, profile.sunHeight, sunOffset.z).normalize()
+      light.sunColor.value.set(profile.sun).multiplyScalar(profile.sunlight / Math.PI)
+      light.skyColor.value
+        .set(profile.horizon)
+        .lerp(this.neutralFill, 0.6)
+        .multiplyScalar((profile.ambient * (profile.night ? 0.95 : 0.34)) / Math.PI + 0.02)
+      light.groundColor.value.copy(light.skyColor.value).multiplyScalar(0.55)
+    }
+    this.beamHaze = beamHaze(profile.fog, profile.wet || profile.snow, night)
     this.terrain.setNight(night)
     this.minimap.dim = clamp(0.3 + (profile.ambient / 2.6) * 0.7, 0.5, 1)
     this.atlas.dim = this.minimap.dim
@@ -921,12 +945,14 @@ export class RoadEngine {
     )
     this.terrain.roadMaterial.color.set(profile.wet ? '#a9b1b6' : '#cbc9c4')
     this.terrain.roadMaterial.envMapIntensity = (profile.wet ? 0.8 : 0.2) * this.atmosphere.level
+    this.lampLevel =
+      night || profile.wet || profile.snow || this.settings.weather === 'fog'
+        ? night
+          ? 1
+          : clamp(1 - profile.sunlight * 0.6 - profile.ambient * 0.25, 0.08, 1)
+        : 0
     for (const [index, light] of this.headlights.entries())
-      light.intensity =
-        index < this.car.headlightPositions.length &&
-        (night || profile.wet || profile.snow || this.settings.weather === 'fog')
-          ? 150 * (night ? 1 : clamp(1 - profile.sunlight * 0.6 - profile.ambient * 0.25, 0.08, 1))
-          : 0
+      light.intensity = index < this.car.headlightPositions.length ? 150 * this.lampLevel : 0
   }
   advanceSky(dt: number) {
     this.dayClock += dt
@@ -959,40 +985,8 @@ export class RoadEngine {
       const sliding =
         active && wheel.contact && wheel.onRoad && wheel.slip > trailLayout.markSlip && speed > 3
       this.skids.trace(index, sliding, wheel.x, wheel.ground + 0.03, -wheel.s)
-      if (!active || !wheel.contact || speed < 4) continue
-      let rate = 0
-      let opacity = 0.3
-      let size = 1.3
-      if (p.wading > 0) {
-        rate = Math.min(speed, 20) * 2.2
-        opacity = 0.36
-        size = 1.7
-        this.cloudTone.set('#e4eef2')
-      } else if (!wheel.onRoad) {
-        rate = Math.min(speed, 30) * 0.8
-        opacity = 0.05 + Math.min(speed, 30) * 0.0022
-        size = 2.7
-        this.cloudTone.copy(this.dustTone).lerp(this.paleDust, 0.62).multiplyScalar(2.3)
-      } else if (wheel.slip > trailLayout.smokeSlip) {
-        rate = 26 * wheel.slip
-        this.cloudTone.set('#dfe3e3')
-      } else if (this.wetRoad && speed > 10) {
-        const pooled = wheel.puddle
-        rate = speed * (3.4 + pooled * 3)
-        opacity = 0.06 + pooled * 0.05
-        size = 1.5 + pooled * 0.9
-        this.cloudTone.set('#c9d6dc')
-      }
-      if (Math.random() >= rate * dt) continue
-      this.cloudPlace.set(wheel.x, wheel.ground + 0.15, -wheel.s)
-      this.cloudDrift.set(
-        (Math.random() - 0.5) * 1.4 - Math.sin(p.yaw) * p.speed * 0.12,
-        0.5 + Math.random() * 0.8,
-        (Math.random() - 0.5) * 1.4 - Math.cos(p.yaw) * p.speed * 0.12,
-      )
-      this.tyreClouds.emit(this.cloudPlace, this.cloudDrift, this.cloudTone, opacity, size, seconds)
     }
-    this.tyreClouds.update(seconds, this.canvas.height)
+    this.effects?.update(p, this.world, active, seconds, dt)
     if (this.wake) {
       const rear = p.suspension.wheels.filter(
         (wheel) => !wheel.front || p.suspension.wheels.length <= 2,
@@ -1215,15 +1209,30 @@ export class RoadEngine {
       this.car.group.position.y += pose.lift
       this.car.group.scale.setScalar(pose.scale)
     }
-    this.car.update(
-      p.suspension.wheels,
-      input.brake > 0 || input.regenBrake > 0,
-      this.dark,
-      p.speed,
-    )
+    const braking = input.brake > 0 || input.regenBrake > 0
+    const lamps = this.lampLevel
+    this.car.update(p.suspension.wheels, braking, lamps > 0.05, p.speed)
     const beams = (this.headlights[0]?.intensity ?? 0) / 210
     this.spill.intensity = beams * 2.4
-    this.tailGlow.intensity = beams * (input.brake > 0 || input.regenBrake > 0 ? 4 : 1.1)
+    this.tailGlow.intensity = beams * (braking ? 4 : 1.1)
+    const tail = braking ? 0.5 + lamps * 0.5 : lamps * 0.4
+    this.lamps.update(
+      lamps,
+      tail,
+      this.beamHaze,
+      p.y,
+      this.canvas.height,
+      this.settings.camera !== 'bonnet' || this.photo,
+    )
+    if (this.effects) {
+      const light = this.effects.particles.light
+      const group = this.car.group
+      light.lampOrigin.value.copy(this.lampFront).applyMatrix4(group.matrixWorld)
+      light.lampAim.value.set(0, -0.05, -1).transformDirection(group.matrixWorld)
+      light.lampLevel.value = lamps * 3
+      light.tailOrigin.value.copy(this.lampBack).applyMatrix4(group.matrixWorld)
+      light.tailLevel.value = tail * 1.6
+    }
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
     this.car.setExteriorVisible(cameraMode !== 'bonnet')
     this.car.body.envMapIntensity = (cameraMode === 'bonnet' ? 0.3 : 0.16) * this.atmosphere.level
@@ -1400,7 +1409,8 @@ export class RoadEngine {
     this.atmosphere.dispose()
     this.car.dispose()
     this.incoming?.dispose()
-    this.tyreClouds.dispose()
+    this.effects?.dispose()
+    this.lamps.dispose()
     this.wake?.dispose()
     this.skids.dispose()
     this.contact.geometry.dispose()
