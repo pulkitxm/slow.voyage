@@ -136,6 +136,7 @@ export class Gearbox {
   shifts = 0
   manual = false
   limited = false
+  cutting = false
   lug = 0
   private holding = 0
   private clock = 0
@@ -148,7 +149,7 @@ export class Gearbox {
     this.rpm = profile.idle
     this.load = 0
     this.shifting = 0
-    this.limited = false
+    this.limited = this.cutting = false
     this.lug = 0
     this.holding = 0
   }
@@ -252,7 +253,8 @@ export class Gearbox {
     const target = Math.min(ceiling, Math.max(floor, engaged, clutch))
     const rate = this.shifting > 0 ? profile.revRate * 0.7 : profile.revRate
     this.rpm = bogged ? target : damp(this.rpm, target, this.limited ? 60 : rate, dt)
-    const cut = this.limited && target < profile.redline ? 0.25 : 1
+    this.cutting = this.limited && target < profile.redline
+    const cut = this.cutting ? 0.25 : 1
     this.load = damp(this.load, this.shifting > 0 ? 0 : drive * cut, this.limited ? 60 : 12, dt)
   }
   label(speed: number) {

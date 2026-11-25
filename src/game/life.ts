@@ -609,7 +609,7 @@ export class Life {
   private scare: { x: number; s: number; until: number } | null = null
   private pace = 0
   knocks: Knock[] = []
-  startled: { voice: CryVoice; distance: number }[] = []
+  startled: { voice: CryVoice; distance: number; x: number; s: number }[] = []
   stage: Stage | null = null
   shadeAt: ((x: number, s: number) => number) | null = null
   private clock = 0
@@ -717,7 +717,12 @@ export class Life {
                 fresh = alarm(ensure(), time, reactionLayout.alarmTime, wits * 2.2) || fresh
               if (threatened(car, who)) alarm(ensure(), time, reactionLayout.dodgeTime, wits)
               if (fresh && member.kind === 'person')
-                this.startled.push({ voice: voiceOf(member.phase), distance: near })
+                this.startled.push({
+                  voice: voiceOf(member.phase),
+                  distance: near,
+                  x: spot.x,
+                  s: spot.s,
+                })
             }
           }
           if (fate?.fallen) {

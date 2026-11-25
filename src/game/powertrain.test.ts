@@ -167,6 +167,25 @@ describe('manual gearbox', () => {
     expect(car.telemetry().gear).toBe('1')
   })
 
+  test('the limiter cuts the engine in bursts while the pedal stays down', () => {
+    const car = flat()
+    run(car, 14, stick(1))
+    let cut = 0
+    let flips = 0
+    let before = car.gearbox.cutting
+    for (let step = 0; step < 120; step++) {
+      car.update(1 / 120, stick(1), settings)
+      if (car.gearbox.cutting) cut++
+      if (car.gearbox.cutting !== before) flips++
+      before = car.gearbox.cutting
+    }
+    expect(cut).toBeGreaterThan(30)
+    expect(cut).toBeLessThan(90)
+    expect(flips).toBeGreaterThan(15)
+    run(car, 1, stick(0))
+    expect(car.gearbox.cutting).toBe(false)
+  })
+
   test('shifting up at the limiter lets the car pull on', () => {
     const car = flat()
     run(car, 8, stick(1))

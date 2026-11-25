@@ -1,198 +1,52 @@
 import type { ObstacleMaterial } from './collision'
 import { smoothStep } from './field'
-import type { EngineProfile } from './powertrain'
-import { clamp, type Vehicle } from './world'
+import type { Landscape } from './landscapes'
+import type { RoadWear } from './road-condition'
+import { clamp, type Season, type Vehicle, type Weather } from './world'
 
-export interface EngineVoice {
-  cylinders: number
-  rolloff: number
-  unevenness: number
-  brightness: number
-  resonance: number
-  grit: number
-  rumble: number
-  clatter: number
-  turbo: number
-  pops: number
-  volume: number
-  intake: number
-  body: readonly [number, number]
+export const mixLevels = {
+  master: 1.6,
+  engine: 0.25,
+  road: 0.16,
+  gravel: 0.22,
+  rumble: 0.3,
+  wind: 0.24,
+  horn: 0.16,
+  thunder: 0.5,
+  squeal: 0.11,
+  brakeSqueal: 0.03,
+  scrape: 0.28,
+  wade: 0.35,
+  rain: 0.07,
+  impact: 0.55,
+  boost: 0.2,
+  boostWhine: 0.045,
+  voice: 0.34,
+  intake: 0.5,
+  turbo: 0.09,
+  scrub: 0.1,
+  grains: 0.16,
+  whistle: 0.05,
+  buffet: 0.2,
+  echo: 0.2,
+  grass: 0.14,
+  skid: 0.12,
+  joints: 0.5,
+  thump: 0.6,
+  ambience: 0.5,
+  drumming: 0.6,
 }
 
-export const engineVoices: Record<Vehicle, EngineVoice> = {
-  touring: {
-    cylinders: 6,
-    rolloff: 1.35,
-    unevenness: 0.06,
-    brightness: 4.5,
-    resonance: 1.2,
-    grit: 0.12,
-    rumble: 0.35,
-    clatter: 0,
-    turbo: 0.12,
-    pops: 0,
-    volume: 0.85,
-    intake: 0.5,
-    body: [140, 620],
-  },
-  roadster: {
-    cylinders: 8,
-    rolloff: 1,
-    unevenness: 0.4,
-    brightness: 5.5,
-    resonance: 3,
-    grit: 0.45,
-    rumble: 0.65,
-    clatter: 0,
-    turbo: 0,
-    pops: 0.7,
-    volume: 1,
-    intake: 0.8,
-    body: [110, 480],
-  },
-  motorcycle: {
-    cylinders: 4,
-    rolloff: 0.75,
-    unevenness: 0.12,
-    brightness: 8,
-    resonance: 4.5,
-    grit: 0.6,
-    rumble: 0.2,
-    clatter: 0,
-    turbo: 0,
-    pops: 0.35,
-    volume: 0.8,
-    intake: 0.9,
-    body: [210, 1150],
-  },
-  bus: {
-    cylinders: 6,
-    rolloff: 1.35,
-    unevenness: 0.18,
-    brightness: 4.2,
-    resonance: 1.4,
-    grit: 0.35,
-    rumble: 0.55,
-    clatter: 0.55,
-    turbo: 0.3,
-    pops: 0,
-    volume: 1,
-    intake: 0.45,
-    body: [85, 360],
-  },
-  pickup: {
-    cylinders: 8,
-    rolloff: 1.25,
-    unevenness: 0.3,
-    brightness: 3.8,
-    resonance: 1.8,
-    grit: 0.4,
-    rumble: 0.8,
-    clatter: 0,
-    turbo: 0.2,
-    pops: 0,
-    volume: 1,
-    intake: 0.7,
-    body: [95, 420],
-  },
-  hatchback: {
-    cylinders: 4,
-    rolloff: 1.2,
-    unevenness: 0.1,
-    brightness: 5,
-    resonance: 1.6,
-    grit: 0.2,
-    rumble: 0.25,
-    clatter: 0,
-    turbo: 0.26,
-    pops: 0,
-    volume: 0.8,
-    intake: 0.55,
-    body: [165, 760],
-  },
-  supercar: {
-    cylinders: 12,
-    rolloff: 0.8,
-    unevenness: 0.08,
-    brightness: 7.5,
-    resonance: 4,
-    grit: 0.5,
-    rumble: 0.45,
-    clatter: 0,
-    turbo: 0,
-    pops: 0.6,
-    volume: 1,
-    intake: 1,
-    body: [150, 980],
-  },
-}
+export const cameraMix = {
+  chase: { exhaust: 1, bay: 0.3, turbo: 0.55, cabin: 0.25, outside: 1, muffle: 20000 },
+  cinematic: { exhaust: 1, bay: 0.25, turbo: 0.5, cabin: 0.15, outside: 1, muffle: 20000 },
+  bonnet: { exhaust: 0.5, bay: 1, turbo: 1, cabin: 1, outside: 0.7, muffle: 2600 },
+  saddle: { exhaust: 0.75, bay: 0.9, turbo: 1, cabin: 0, outside: 1, muffle: 20000 },
+} as const
 
-export function engineSpectrum(voice: EngineVoice) {
-  const count = Math.min(80, voice.cylinders * 10)
-  const real = new Float32Array(count + 1)
-  const imag = new Float32Array(count + 1)
-  const half = voice.cylinders / 2
-  for (let n = 1; n <= count; n++) {
-    const order = n / voice.cylinders
-    const decay = 1 / Math.max(order, 0.5) ** voice.rolloff
-    const weight =
-      n % voice.cylinders === 0 ? 1 : n % half === 0 ? voice.unevenness : voice.unevenness * 0.3
-    const phase = (n * 2.399963) % (Math.PI * 2)
-    real[n] = weight * decay * Math.cos(phase)
-    imag[n] = weight * decay * Math.sin(phase)
-  }
-  return { real, imag }
-}
-
-export function engineTone(voice: EngineVoice, profile: EngineProfile, rpm: number, load: number) {
-  const revs = clamp((rpm - profile.idle) / (profile.redline - profile.idle), 0, 1)
-  const effort = clamp(load, 0, 1)
-  const cycle = rpm / 120
-  const firing = cycle * voice.cylinders
-  return {
-    cycle,
-    firing,
-    cutoff: Math.min(12000, firing * voice.brightness * (0.55 + 0.9 * effort) + 120),
-    gain: voice.volume * (0.35 + 0.65 * effort) * (0.6 + 0.4 * revs),
-    grit: voice.grit * effort * (0.3 + 0.7 * revs),
-    rumble: voice.rumble * (1 - 0.5 * revs),
-    clatter: voice.clatter * (0.4 + 0.6 * effort) * (1 - 0.4 * revs),
-    turbo: voice.turbo * effort * revs * revs,
-    turboPitch: 1800 + 4200 * revs,
-    intake: voice.intake * effort ** 1.5 * (0.25 + 0.75 * revs),
-    intakeBand: clamp(firing * 2.6, 260, 2800),
-    flutter: (0.004 + voice.unevenness * 0.03) * (1 - 0.7 * revs) * (1 - 0.5 * effort),
-    overrun: voice.rumble * (1 - effort) ** 2 * smoothStep(clamp((revs - 0.25) / 0.4, 0, 1)),
-    bodyGain: 3 + 5 * effort,
-  }
-}
-
-export const turboSpool = { rise: 0.55, fall: 0.22, whistle: [2400, 9200], blowOff: 0.45 } as const
-
-export function spoolTurbo(spool: number, load: number, revs: number, dt: number) {
-  const target = clamp(load, 0, 1) * smoothStep(clamp(revs / 0.7, 0, 1))
-  const time = target > spool ? turboSpool.rise : turboSpool.fall
-  return spool + (target - spool) * (1 - Math.exp(-dt / time))
-}
-
-export function turboVoice(voice: EngineVoice, spool: number) {
-  const pressure = clamp(spool, 0, 1)
-  return {
-    pitch: turboSpool.whistle[0] + (turboSpool.whistle[1] - turboSpool.whistle[0]) * pressure,
-    whistle: voice.turbo * pressure * pressure,
-    hiss: voice.turbo * pressure ** 3 * 0.6,
-  }
-}
-
-export function blowOff(voice: EngineVoice, spool: number, previousLoad: number, load: number) {
-  if (voice.turbo < 0.1 || spool < turboSpool.blowOff || previousLoad - load < 0.5) return 0
-  return clamp(voice.turbo * 3, 0, 1) * clamp((spool - turboSpool.blowOff) / 0.4, 0.3, 1)
-}
-
-export function liftOffPop(voice: EngineVoice, revs: number, previousLoad: number, load: number) {
-  if (!voice.pops || revs < 0.45) return 0
-  const lift = previousLoad - load
-  return lift > 0.5 ? voice.pops * clamp((revs - 0.45) / 0.4, 0, 1) : 0
+export function listening(camera: 'chase' | 'bonnet' | 'cinematic', vehicle: Vehicle) {
+  if (camera !== 'bonnet') return cameraMix[camera]
+  return vehicle === 'motorcycle' ? cameraMix.saddle : cameraMix.bonnet
 }
 
 export const tireSound = { squealStart: 0.1, squealFull: 0.45, rollingSpeed: 6 }
@@ -293,7 +147,7 @@ export interface ImpactVoice {
   debris: number
 }
 
-const vehicleWeight: Record<Vehicle, number> = {
+export const vehicleWeight: Record<Vehicle, number> = {
   touring: 1,
   roadster: 0.95,
   motorcycle: 0.6,
@@ -479,4 +333,130 @@ export function cryVoice(voice: CryVoice, scream: boolean, variation: number) {
 export function earshot(distance: number) {
   const reach = Math.max(0, distance) / 16
   return 1 / (1 + reach * reach)
+}
+
+export interface TyreWheel {
+  localX: number
+  contact: boolean
+  onRoad: boolean
+  sand: boolean
+  locked: boolean
+  slip: number
+  puddle: number
+  rollingSpeed: number
+  lateralSpeed: number
+}
+
+export interface TyreSignals {
+  left: number
+  right: number
+  spin: number
+  locked: number
+  tarmac: number
+  loose: number
+  sand: number
+  puddle: number
+}
+
+export function freshTyreSignals(): TyreSignals {
+  return { left: 0, right: 0, spin: 0, locked: 0, tarmac: 1, loose: 0, sand: 0, puddle: 0 }
+}
+
+export function tyreSignals(wheels: readonly TyreWheel[], out: TyreSignals) {
+  out.left = out.right = out.spin = out.locked = out.tarmac = out.loose = out.sand = out.puddle = 0
+  if (!wheels.length) return out
+  const share = 1 / wheels.length
+  for (const wheel of wheels) {
+    if (!wheel.contact) continue
+    if (!wheel.onRoad) {
+      out.loose += share
+      if (wheel.sand) out.sand += share
+      continue
+    }
+    out.tarmac += share
+    out.puddle += wheel.puddle * share
+    const sideways = Math.abs(wheel.lateralSpeed) / Math.max(1, Math.abs(wheel.rollingSpeed))
+    const lengthwise = Math.max(0, wheel.slip - sideways)
+    if (wheel.locked) out.locked = Math.max(out.locked, wheel.slip)
+    else {
+      out.spin = Math.max(out.spin, lengthwise)
+      if (wheel.localX <= 0) out.left = Math.max(out.left, wheel.slip)
+      if (wheel.localX >= 0) out.right = Math.max(out.right, wheel.slip)
+    }
+  }
+  return out
+}
+
+export function squealRoughness(slip: number, spin: number) {
+  const deep = smoothStep(clamp((slip - 0.3) / 0.5, 0, 1))
+  return clamp(0.12 + 0.45 * deep + 0.5 * clamp(spin / 0.4, 0, 1), 0, 0.85)
+}
+
+export function skidLevel(locked: number, speed: number) {
+  return smoothStep(clamp(locked / 0.5, 0, 1)) * clamp(Math.abs(speed) / 5, 0, 1)
+}
+
+export function wetLevel(weather: Weather, puddle: number) {
+  const film = weather === 'storm' ? 0.75 : weather === 'rain' ? 0.5 : 0
+  return clamp(film + 0.6 * clamp(puddle, 0, 1), 0, 1)
+}
+
+export function rainLevel(weather: Weather) {
+  return weather === 'storm' ? 1 : weather === 'rain' ? 0.6 : 0
+}
+
+export function looseGround(landscape: Landscape, season: Season, grassy: boolean) {
+  if (season === 'winter' && landscape !== 'desert' && landscape !== 'canyon')
+    return { gravel: 0.2, grass: 0.8 }
+  return grassy ? { gravel: 0.3, grass: 0.7 } : { gravel: 1, grass: 0 }
+}
+
+export function grassLevel(speed: number, slip: number) {
+  const rolling = clamp(Math.abs(speed) / 22, 0, 1)
+  return rolling ** 0.8 * (0.75 + 0.5 * clamp(slip, 0, 1))
+}
+
+export const roadJoints = {
+  spacing: 9,
+  level: { fresh: 0.2, worn: 0.6, broken: 1 } satisfies Record<RoadWear, number>,
+}
+
+export const suspensionThump = { quiet: 3.5, loud: 16, rest: 0.09 }
+
+export function thumpStrength(rate: number, landing: boolean) {
+  const { quiet, loud } = suspensionThump
+  const jolt = clamp((Math.abs(rate) - quiet) / (loud - quiet), 0, 1)
+  return landing ? Math.max(0.35, jolt) : jolt
+}
+
+export const soundSpeed = 343
+
+export function doppler(closing: number) {
+  return soundSpeed / (soundSpeed - clamp(closing, -120, 120))
+}
+
+export function echoPitch(speed: number) {
+  const pace = clamp(Math.abs(speed), 0, 120)
+  return (soundSpeed + pace) / (soundSpeed - pace)
+}
+
+export function passing(ahead: number, aside: number, speed: number, later = 0) {
+  const along = ahead - speed * later
+  const distance = Math.max(1, Math.hypot(along, aside))
+  return {
+    distance,
+    pitch: doppler((speed * along) / distance),
+    pan: clamp(aside / (Math.abs(along) + 4), -1, 1),
+    brightness: clamp(22000 / (1 + distance / 18), 1800, 20000),
+  }
+}
+
+export const hornVoices: Record<Vehicle, readonly [number, number]> = {
+  touring: [415, 494],
+  roadster: [440, 554],
+  hatchback: [466, 587],
+  supercar: [392, 494],
+  pickup: [349, 440],
+  motorcycle: [523, 523 * 1.19],
+  bus: [277, 349],
 }

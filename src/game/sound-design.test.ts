@@ -1,148 +1,37 @@
 import { describe, expect, it, test } from 'bun:test'
-import { engineProfiles } from './powertrain'
 import {
-  blowOff,
   boostSound,
   boostVoice,
   brakeSquealLevel,
   cryVoice,
+  doppler,
   earshot,
-  engineSpectrum,
-  engineTone,
-  engineVoices,
+  echoPitch,
+  freshTyreSignals,
   gravelGrains,
   gravelLevel,
   gravelRate,
+  hornVoices,
   impactVoice,
-  liftOffPop,
+  listening,
+  looseGround,
+  passing,
   roadLevel,
   scrapeLevel,
   scrubLevel,
-  spoolTurbo,
+  skidLevel,
   squealLevel,
   squealPitch,
+  squealRoughness,
+  type TyreWheel,
+  thumpStrength,
   tirePitch,
-  turboSpool,
-  turboVoice,
+  tyreSignals,
   wadeLevel,
+  wetLevel,
   windLayers,
   windLevel,
 } from './sound-design'
-import type { Vehicle } from './world'
-
-const vehicles = Object.keys(engineVoices) as Vehicle[]
-
-function dominantHarmonic(vehicle: Vehicle) {
-  const { real, imag } = engineSpectrum(engineVoices[vehicle])
-  let best = 0
-  let index = 0
-  for (let n = 1; n < real.length; n++) {
-    const magnitude = Math.hypot(real[n] ?? 0, imag[n] ?? 0)
-    if (magnitude > best) {
-      best = magnitude
-      index = n
-    }
-  }
-  return index
-}
-
-describe('engine voices', () => {
-  it.each(vehicles)('%s fires loudest at its cylinder order', (vehicle) => {
-    expect(dominantHarmonic(vehicle)).toBe(engineVoices[vehicle].cylinders)
-  })
-
-  it('gives every vehicle a distinct timbre', () => {
-    const signatures = new Set(
-      vehicles.map((vehicle) => {
-        const voice = engineVoices[vehicle]
-        return `${voice.cylinders}:${voice.rolloff}:${voice.unevenness}:${voice.brightness}`
-      }),
-    )
-    expect(signatures.size).toBe(vehicles.length)
-  })
-
-  it('keeps the spectrum free of a constant offset', () => {
-    for (const vehicle of vehicles) {
-      const { real, imag } = engineSpectrum(engineVoices[vehicle])
-      expect(real[0]).toBe(0)
-      expect(imag[0]).toBe(0)
-    }
-  })
-
-  it('makes the roadster burble more than the smooth tourer', () => {
-    expect(engineVoices.roadster.unevenness).toBeGreaterThan(engineVoices.touring.unevenness * 3)
-  })
-
-  it('only the diesel bus clatters and whistles loudly', () => {
-    expect(engineVoices.bus.clatter).toBeGreaterThan(0)
-    for (const vehicle of vehicles.filter((v) => v !== 'bus')) {
-      expect(engineVoices[vehicle].clatter).toBe(0)
-      expect(engineVoices[vehicle].turbo).toBeLessThan(engineVoices.bus.turbo)
-    }
-  })
-})
-
-describe('engine tone', () => {
-  it.each(vehicles)('%s fires at the true combustion rate', (vehicle) => {
-    const voice = engineVoices[vehicle]
-    const tone = engineTone(voice, engineProfiles[vehicle], 3000, 0.5)
-    expect(tone.firing).toBeCloseTo((3000 / 60) * (voice.cylinders / 2), 6)
-    expect(tone.cycle * voice.cylinders).toBeCloseTo(tone.firing, 6)
-  })
-
-  it.each(vehicles)('%s grows louder and brighter with throttle', (vehicle) => {
-    const voice = engineVoices[vehicle]
-    const profile = engineProfiles[vehicle]
-    const rpm = (profile.idle + profile.redline) / 2
-    const coasting = engineTone(voice, profile, rpm, 0)
-    const pulling = engineTone(voice, profile, rpm, 1)
-    expect(pulling.gain).toBeGreaterThan(coasting.gain)
-    expect(pulling.cutoff).toBeGreaterThan(coasting.cutoff)
-    expect(pulling.grit).toBeGreaterThanOrEqual(coasting.grit)
-  })
-
-  it.each(vehicles)('%s rises in pitch across the rev range', (vehicle) => {
-    const voice = engineVoices[vehicle]
-    const profile = engineProfiles[vehicle]
-    let previous = 0
-    for (let rpm = profile.idle; rpm <= profile.redline; rpm += 100) {
-      const tone = engineTone(voice, profile, rpm, 0.5)
-      expect(tone.firing).toBeGreaterThan(previous)
-      expect(tone.cutoff).toBeLessThanOrEqual(12000)
-      expect(tone.gain).toBeLessThanOrEqual(voice.volume)
-      previous = tone.firing
-    }
-  })
-
-  it('screams higher on the motorcycle than the bus can ever reach', () => {
-    const bike = engineTone(engineVoices.motorcycle, engineProfiles.motorcycle, 11000, 1)
-    const bus = engineTone(engineVoices.bus, engineProfiles.bus, engineProfiles.bus.redline, 1)
-    expect(bike.firing).toBeGreaterThan(bus.firing * 2)
-  })
-
-  it('spools the bus turbo with load and revs', () => {
-    const profile = engineProfiles.bus
-    const idle = engineTone(engineVoices.bus, profile, profile.idle, 0)
-    const boosting = engineTone(engineVoices.bus, profile, profile.redline, 1)
-    expect(idle.turbo).toBe(0)
-    expect(boosting.turbo).toBeGreaterThan(0.2)
-    expect(boosting.turboPitch).toBeGreaterThan(idle.turboPitch)
-  })
-})
-
-describe('lift-off pops', () => {
-  it('crackles when lifting off sharply at high revs on sporty engines', () => {
-    expect(liftOffPop(engineVoices.roadster, 0.85, 1, 0)).toBeGreaterThan(0)
-    expect(liftOffPop(engineVoices.motorcycle, 0.85, 1, 0)).toBeGreaterThan(0)
-  })
-
-  it('stays quiet for gentle lifts, low revs, or calm engines', () => {
-    expect(liftOffPop(engineVoices.roadster, 0.85, 0.4, 0.2)).toBe(0)
-    expect(liftOffPop(engineVoices.roadster, 0.3, 1, 0)).toBe(0)
-    expect(liftOffPop(engineVoices.touring, 0.9, 1, 0)).toBe(0)
-    expect(liftOffPop(engineVoices.bus, 0.9, 1, 0)).toBe(0)
-  })
-})
 
 describe('tire and road sounds', () => {
   it('squeals only past normal cornering slip and while moving on tarmac', () => {
@@ -274,78 +163,6 @@ test('screams are higher and longer than shouts and fade with distance', () => {
   expect(earshot(80)).toBeLessThan(0.05)
 })
 
-describe('engine breathing and load', () => {
-  it.each(vehicles)('%s draws induction noise only under load and louder with revs', (vehicle) => {
-    const voice = engineVoices[vehicle]
-    const profile = engineProfiles[vehicle]
-    const middle = (profile.idle + profile.redline) / 2
-    expect(engineTone(voice, profile, middle, 0).intake).toBe(0)
-    const pulling = engineTone(voice, profile, middle, 1)
-    expect(pulling.intake).toBeGreaterThan(0.2)
-    expect(engineTone(voice, profile, profile.redline, 1).intake).toBeGreaterThan(pulling.intake)
-    expect(pulling.intakeBand).toBeGreaterThanOrEqual(260)
-    expect(pulling.intakeBand).toBeLessThanOrEqual(2800)
-  })
-
-  it.each(vehicles)('%s burbles on the overrun and idles unevenly', (vehicle) => {
-    const voice = engineVoices[vehicle]
-    const profile = engineProfiles[vehicle]
-    const high = profile.idle + (profile.redline - profile.idle) * 0.8
-    expect(engineTone(voice, profile, high, 0).overrun).toBeGreaterThan(
-      engineTone(voice, profile, high, 1).overrun,
-    )
-    expect(engineTone(voice, profile, profile.idle, 0).overrun).toBe(0)
-    expect(engineTone(voice, profile, profile.idle, 0).flutter).toBeGreaterThan(
-      engineTone(voice, profile, profile.redline, 1).flutter * 2,
-    )
-    expect(engineTone(voice, profile, high, 1).bodyGain).toBeGreaterThan(
-      engineTone(voice, profile, high, 0).bodyGain,
-    )
-    expect(voice.body[1]).toBeGreaterThan(voice.body[0] * 2)
-  })
-
-  it('gives every engine its own body resonances', () => {
-    expect(new Set(vehicles.map((vehicle) => engineVoices[vehicle].body.join('/'))).size).toBe(
-      vehicles.length,
-    )
-  })
-})
-
-describe('turbocharger', () => {
-  it('spools up with lag under load and bleeds off faster when lifted', () => {
-    let spool = 0
-    for (let step = 0; step < 12; step++) spool = spoolTurbo(spool, 1, 0.8, 1 / 60)
-    expect(spool).toBeGreaterThan(0.2)
-    expect(spool).toBeLessThan(0.5)
-    for (let step = 0; step < 240; step++) spool = spoolTurbo(spool, 1, 0.8, 1 / 60)
-    expect(spool).toBeGreaterThan(0.97)
-    const full = spool
-    for (let step = 0; step < 12; step++) spool = spoolTurbo(spool, 0, 0.8, 1 / 60)
-    expect(spool).toBeLessThan(full * 0.5)
-    expect(turboSpool.fall).toBeLessThan(turboSpool.rise)
-    expect(spoolTurbo(0, 1, 0, 1)).toBe(0)
-  })
-
-  it('whistles higher and louder as pressure builds', () => {
-    const voice = engineVoices.hatchback
-    const low = turboVoice(voice, 0.2)
-    const high = turboVoice(voice, 1)
-    expect(high.pitch).toBeGreaterThan(low.pitch * 2)
-    expect(high.whistle).toBeGreaterThan(low.whistle * 10)
-    expect(turboVoice(voice, 0).whistle).toBe(0)
-    expect(turboVoice(engineVoices.supercar, 1).whistle).toBe(0)
-  })
-
-  it('vents through the blow-off valve only when a spooled turbo engine lifts', () => {
-    expect(blowOff(engineVoices.hatchback, 0.9, 1, 0)).toBeGreaterThan(0.5)
-    expect(blowOff(engineVoices.bus, 0.9, 1, 0)).toBeGreaterThan(0)
-    expect(blowOff(engineVoices.hatchback, 0.2, 1, 0)).toBe(0)
-    expect(blowOff(engineVoices.hatchback, 0.9, 0.6, 0.4)).toBe(0)
-    expect(blowOff(engineVoices.supercar, 1, 1, 0)).toBe(0)
-    expect(blowOff(engineVoices.roadster, 1, 1, 0)).toBe(0)
-  })
-})
-
 describe('tyres on tarmac and gravel', () => {
   it('scrubs before it squeals and drops in pitch as the slide deepens', () => {
     expect(scrubLevel(0.08, 25, false)).toBeGreaterThan(0)
@@ -409,5 +226,120 @@ describe('voices', () => {
       expect(scream.jitter).toBeGreaterThan(shout.jitter)
       expect(scream.attack).toBeGreaterThan(shout.attack)
     }
+  })
+})
+
+describe('tyre signals', () => {
+  const wheel = (changes: Partial<TyreWheel>): TyreWheel => ({
+    localX: 0,
+    contact: true,
+    onRoad: true,
+    sand: false,
+    locked: false,
+    slip: 0,
+    puddle: 0,
+    rollingSpeed: 20,
+    lateralSpeed: 0,
+    ...changes,
+  })
+
+  it('hears each side of the car and tells sliding from spinning and locking', () => {
+    const signals = tyreSignals(
+      [
+        wheel({ localX: -0.7, slip: 0.4, lateralSpeed: 8 }),
+        wheel({ localX: 0.7, slip: 0.1, lateralSpeed: 2 }),
+        wheel({ localX: -0.7, slip: 0.5 }),
+        wheel({ localX: 0.7, slip: 0.9, locked: true }),
+      ],
+      freshTyreSignals(),
+    )
+    expect(signals.left).toBeCloseTo(0.5, 6)
+    expect(signals.right).toBeCloseTo(0.1, 6)
+    expect(signals.spin).toBeCloseTo(0.5, 6)
+    expect(signals.locked).toBeCloseTo(0.9, 6)
+    expect(signals.tarmac).toBeCloseTo(1, 6)
+  })
+
+  it('shares the ground between tarmac, loose ground and sand and ignores airborne wheels', () => {
+    const signals = tyreSignals(
+      [
+        wheel({ puddle: 1 }),
+        wheel({ onRoad: false, slip: 1 }),
+        wheel({ onRoad: false, sand: true }),
+        wheel({ contact: false, slip: 1 }),
+      ],
+      freshTyreSignals(),
+    )
+    expect(signals.tarmac).toBeCloseTo(0.25, 6)
+    expect(signals.loose).toBeCloseTo(0.5, 6)
+    expect(signals.sand).toBeCloseTo(0.25, 6)
+    expect(signals.puddle).toBeCloseTo(0.25, 6)
+    expect(signals.left).toBe(0)
+    expect(tyreSignals([wheel({ localX: 0, slip: 0.3 })], signals).right).toBeCloseTo(0.3, 6)
+  })
+
+  it('roughens a squeal as the slide deepens or the wheels spin', () => {
+    expect(squealRoughness(0.6, 0)).toBeGreaterThan(squealRoughness(0.2, 0))
+    expect(squealRoughness(0.2, 0.4)).toBeGreaterThan(squealRoughness(0.2, 0))
+    expect(squealRoughness(1, 1)).toBeLessThanOrEqual(0.85)
+  })
+
+  it('skids only with locked wheels that are still travelling', () => {
+    expect(skidLevel(0, 20)).toBe(0)
+    expect(skidLevel(0.8, 0)).toBe(0)
+    expect(skidLevel(0.8, 20)).toBeCloseTo(1, 6)
+  })
+
+  it('wets the road in rain and deeper in puddles, and rides softly on grass and snow', () => {
+    expect(wetLevel('clear', 0)).toBe(0)
+    expect(wetLevel('rain', 0)).toBeGreaterThan(0.3)
+    expect(wetLevel('rain', 1)).toBeGreaterThan(wetLevel('rain', 0))
+    expect(wetLevel('storm', 1)).toBeLessThanOrEqual(1)
+    expect(looseGround('canyon', 'summer', false)).toEqual({ gravel: 1, grass: 0 })
+    expect(looseGround('highlands', 'summer', true).grass).toBeGreaterThan(0.5)
+    expect(looseGround('highlands', 'winter', true).gravel).toBeLessThan(
+      looseGround('highlands', 'summer', true).gravel,
+    )
+  })
+
+  it('thumps for a sharp jolt or a landing but not for a gentle ripple', () => {
+    expect(thumpStrength(1, false)).toBe(0)
+    expect(thumpStrength(10, false)).toBeGreaterThan(0.3)
+    expect(thumpStrength(-30, false)).toBe(1)
+    expect(thumpStrength(0, true)).toBeGreaterThan(0.3)
+  })
+})
+
+describe('listening position and passing sounds', () => {
+  it('hears mostly exhaust from behind and intake through a muffling cabin on the bonnet', () => {
+    const chase = listening('chase', 'touring')
+    const bonnet = listening('bonnet', 'touring')
+    expect(chase.exhaust).toBeGreaterThan(chase.bay * 2)
+    expect(bonnet.bay).toBeGreaterThan(bonnet.exhaust)
+    expect(bonnet.muffle).toBeLessThan(4000)
+    expect(chase.muffle).toBeGreaterThanOrEqual(20000)
+    expect(bonnet.cabin).toBeGreaterThan(chase.cabin)
+    expect(listening('bonnet', 'motorcycle').muffle).toBeGreaterThanOrEqual(20000)
+  })
+
+  it('raises the pitch of what approaches and lowers what recedes', () => {
+    expect(doppler(0)).toBe(1)
+    expect(doppler(34.3)).toBeCloseTo(1 / 0.9, 6)
+    expect(doppler(-34.3)).toBeCloseTo(1 / 1.1, 6)
+    expect(echoPitch(0)).toBe(1)
+    expect(echoPitch(30)).toBeGreaterThan(doppler(30))
+    const ahead = passing(40, 3, 30)
+    const behind = passing(40, 3, 30, 2.5)
+    expect(ahead.pitch).toBeGreaterThan(1.05)
+    expect(behind.pitch).toBeLessThan(0.95)
+    expect(passing(4, -6, 30).pan).toBeLessThan(-0.5)
+    expect(passing(4, 6, 30).pan).toBeGreaterThan(0.5)
+    expect(passing(90, 0, 0).brightness).toBeLessThan(passing(5, 0, 0).brightness)
+    expect(passing(0, 0, 30).distance).toBe(1)
+  })
+
+  it('gives the coach the deepest horn', () => {
+    for (const [vehicle, pitches] of Object.entries(hornVoices))
+      if (vehicle !== 'bus') expect(pitches[0]).toBeGreaterThan(hornVoices.bus[0])
   })
 })
