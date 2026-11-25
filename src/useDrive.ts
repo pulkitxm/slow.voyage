@@ -200,6 +200,7 @@ export function useDrive() {
     toggleMute,
     cycleJourney,
     cycleVehicle,
+    update,
   })
   handlers.current = {
     togglePhoto,
@@ -212,6 +213,7 @@ export function useDrive() {
     toggleMute,
     cycleJourney,
     cycleVehicle,
+    update,
   }
   useEffect(() => {
     if (!canvas.current) return
@@ -243,6 +245,10 @@ export function useDrive() {
         announce(`You found ${landmarkNames[kind]}. ${found} of ${total}.`)
       instance.onLap = (time, record) =>
         announce(`Lap in ${formatLap(time)}${record ? ', your best yet.' : '.'}`)
+      instance.onQuality = (quality) => {
+        handlers.current.update('quality', quality)
+        announce('Ultra detail eased to Full beauty to keep the drive smooth.')
+      }
       instance.onError = () =>
         setError('The renderer could not prepare the road. Reload to try again.')
       instance.onState = (state) => {

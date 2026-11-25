@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { decodeSettings } from './settings'
+import { decodeSettings, offerUltra } from './settings'
 import { defaults } from './world'
 
 describe('saved preferences', () => {
@@ -84,6 +84,20 @@ describe('saved preferences', () => {
       color: '#b65a44',
     }
     expect(decodeSettings(JSON.parse(JSON.stringify(preferences)))).toEqual(preferences)
+  })
+  test('every detail level survives storage and unknown levels fall back to the default', () => {
+    for (const quality of ['ultra', 'high', 'low'] as const)
+      expect(decodeSettings(JSON.parse(JSON.stringify({ ...defaults, quality }))).quality).toBe(
+        quality,
+      )
+    expect(decodeSettings({ quality: 'extreme' }).quality).toBe(defaults.quality)
+    expect(defaults.quality).toBe('ultra')
+  })
+  test('ultra is offered once to a saved full detail choice and never forced again', () => {
+    const saved = { ...defaults, quality: 'high' as const }
+    expect(offerUltra(saved, false).quality).toBe('ultra')
+    expect(offerUltra(saved, true).quality).toBe('high')
+    expect(offerUltra({ ...defaults, quality: 'low' }, false).quality).toBe('low')
   })
   test('recovers safely from absent or malformed storage', () => {
     for (const input of [undefined, null, [], 'invalid', 12])

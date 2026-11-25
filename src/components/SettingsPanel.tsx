@@ -13,6 +13,7 @@ import {
   daylight,
   landscapes,
   life,
+  qualities,
   roadModes,
   roadWear,
   seasons,
@@ -562,18 +563,22 @@ export function SettingsPanel({
             <section className="setting-section">
               <h3>Scenery detail</h3>
               <div className="segmented">
-                {(['low', 'high'] as const).map((item) => (
+                {qualities.map((item) => (
                   <button
                     type="button"
-                    key={item}
-                    className={settings.quality === item ? 'selected' : ''}
-                    onClick={() => update('quality', item)}
+                    key={item.id}
+                    className={settings.quality === item.id ? 'selected' : ''}
+                    aria-pressed={settings.quality === item.id}
+                    onClick={() => update('quality', item.id)}
                   >
-                    {item === 'high' ? 'Full beauty' : 'Easy on the engine'}
+                    {item.label}
                   </button>
                 ))}
               </div>
-              <p>Lower detail uses less battery and graphics power.</p>
+              <p>
+                Lower detail uses less battery and graphics power. Ultra adds richer light and
+                shade, and steps back by itself if the drive stops being smooth.
+              </p>
             </section>
             <section className="setting-section">
               <h3>Measure the journey</h3>

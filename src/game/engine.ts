@@ -16,12 +16,15 @@ import {
   SteeringHandover,
   steers,
 } from './controls'
-import { SceneCrossfade } from './crossfade'
+import { crossfadeTiming, SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
+import { FrameGovernor, governorPlan } from './governor'
 import {
   cinemaRelief,
   createGraphicsRenderer,
+  displayCapped,
   frameStrained,
+  GpuClock,
   graphicsBudget,
   renderWait,
   SoftwareGauge,
@@ -29,6 +32,7 @@ import {
   shadowReach,
   softwareRelief,
   textureDetail,
+  ultraReach,
 } from './graphics'
 import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
 import { landscapeProfiles } from './landscapes'
@@ -54,6 +58,7 @@ import { skyline } from './skyline'
 import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
+import type { UltraPipeline } from './ultra'
 import { vehicleMetrics } from './vehicles'
 import { Wake, wakeStrength } from './wake'
 import { Water } from './water'
@@ -125,6 +130,11 @@ export class RoadEngine {
   renderer: THREE.WebGLRenderer
   antialiasing: SoftwareAntialias | null
   cinema: CinematicPipeline | null = null
+  ultra: UltraPipeline | null = null
+  ultraKit: typeof import('./ultra') | null = null
+  ultraPending: Promise<void> | null = null
+  governor = new FrameGovernor()
+  gpuClock: GpuClock | null = null
   strainGauge = new StrainGauge()
   softwareGauge = new SoftwareGauge()
   handover = new SteeringHandover()
@@ -155,11 +165,21 @@ export class RoadEngine {
   software = false
   renderScale = 0
   onDiscover?: (kind: LandmarkKind, found: number, total: number) => void
+  onQuality?: (quality: Settings['quality']) => void
   lightingAt = 0
   reflectionAt = Number.NEGATIVE_INFINITY
   dark = false
   lightning = { next: 6, flash: 0, base: 0 }
   cinemaBlocked = false
+  budgetReadout = {
+    quality: 'high',
+    target: governorPlan.frame * 1000,
+    median: 0,
+    tail: 0,
+    scale: 1,
+    relief: 0,
+    gpu: 0,
+  }
   scene = new THREE.Scene()
   camera = new THREE.PerspectiveCamera(68, 1, 0.1, 3600)
   settings: Settings
@@ -487,6 +507,7 @@ export class RoadEngine {
   async prepare() {
     this.canvas.style.visibility = 'hidden'
     this.onProgress?.(0.04, 'stone')
+    await this.ultraPending
     await this.terrain.grassMaterial.rock.ready
     await this.terrain.boulders?.ready
     await this.terrain.foliage.ready
@@ -504,9 +525,10 @@ export class RoadEngine {
     this.sun.position.set(p.x + sunOffset.x, p.y + this.sunHeight, -p.s + sunOffset.z)
     this.sun.target.position.set(p.x, p.y, -p.s - 15)
     this.precipitation.rain.visible = this.precipitation.snow.visible = true
-    if (this.cinema) {
-      this.cinema.resize()
-      this.renderer.setRenderTarget(this.cinema.scene)
+    const pipeline = this.ultra ?? this.cinema
+    if (pipeline) {
+      pipeline.resize()
+      this.renderer.setRenderTarget(pipeline.scene)
     }
     this.onProgress?.(0.9, 'light')
     await this.renderer.compileAsync(this.scene, this.camera)
@@ -515,6 +537,10 @@ export class RoadEngine {
     this.onProgress?.(1, 'light')
     this.drawScene()
     this.renderer.getContext().finish()
+    if (this.ultra) {
+      this.cinema?.warm()
+      if (this.probe() > ultraReach.probe) this.easeQuality()
+    }
     this.precipitation.setAppearance(this.settings, atmosphereProfile(this.settings, this.dayClock))
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
   }
@@ -535,6 +561,7 @@ export class RoadEngine {
     this.assistance = assistance
     this.paused = false
     this.laps.reset(this.physics.s)
+    this.governor.hold()
     this.audio.start(this.settings.volume)
     this.physics.distance = 0
     if (assistance === 'off' || assistance === 'steer') this.physics.speed = 0
@@ -633,7 +660,7 @@ export class RoadEngine {
       roadChange ||
       settings.season !== this.settings.season ||
       settings.landscape !== this.settings.landscape ||
-      settings.quality !== this.settings.quality ||
+      budget.detail !== this.terrain.quality ||
       settings.seed !== this.settings.seed
     const vehicleChange = settings.vehicle !== this.settings.vehicle
     const assistanceChange = settings.autodriveMode !== this.settings.autodriveMode
@@ -646,9 +673,11 @@ export class RoadEngine {
     this.redraw = true
     if (environmentChange && this.rendered) this.crossfade.capture()
     this.strainGauge.hold()
+    this.governor.hold()
     if (settings.quality !== this.settings.quality) {
       this.renderScale = 0
       this.cinemaBlocked = false
+      this.governor.reset()
     }
     if (environmentChange) this.minimap.invalidate()
     this.settings = { ...settings }
@@ -696,6 +725,27 @@ export class RoadEngine {
     return budget.pixelRatio * (scales[this.renderScale] ?? 1)
   }
   configureCinema(budget: ReturnType<typeof graphicsBudget>) {
+    if (budget.ultra && !this.ultra && this.ultraKit) {
+      this.ultra = new this.ultraKit.UltraPipeline(this.renderer, this.scene, this.camera)
+      this.gpuClock ??= new GpuClock(this.renderer.getContext() as WebGL2RenderingContext)
+    }
+    if (budget.ultra && !this.ultraKit)
+      this.ultraPending ??= import('./ultra')
+        .then((kit) => {
+          this.ultraKit = kit
+          if (!this.disposed)
+            this.configureCinema(graphicsBudget(this.renderer, this.settings.quality))
+        })
+        .catch(() => {})
+        .finally(() => {
+          this.ultraPending = null
+        })
+    if (!budget.ultra && this.ultra) {
+      this.ultra.dispose()
+      this.ultra = null
+    }
+    this.ultra?.tune(this.governor.scale, this.governor.relief)
+    if (this.ultra) this.cinema?.rest()
     const cinematic = budget.cinematic && !this.cinemaBlocked
     if (cinematic && !this.cinema) this.cinema = new CinematicPipeline(this.renderer)
     if (!cinematic && this.cinema) {
@@ -703,7 +753,35 @@ export class RoadEngine {
       this.cinema = null
     }
     const solid = this.sky.material.uniforms.solid
-    if (solid) solid.value = this.cinema ? 0 : 1
+    if (solid) solid.value = this.cinema || this.ultra ? 0 : 1
+  }
+  probe() {
+    const context = this.renderer.getContext()
+    let quickest = Number.POSITIVE_INFINITY
+    for (let frame = 0; frame < 3; frame++) {
+      const before = performance.now()
+      this.drawScene()
+      context.finish()
+      quickest = Math.min(quickest, performance.now() - before)
+    }
+    return quickest / 1000
+  }
+  easeQuality() {
+    if (this.rendered) this.crossfade.capture(crossfadeTiming.reducedDuration * 2)
+    this.setSettings({ ...this.settings, quality: 'high' })
+    this.onQuality?.('high')
+  }
+  frameBudget() {
+    const { governor } = this
+    this.budgetReadout.quality = this.ultra ? 'ultra' : this.cinema ? 'high' : 'low'
+    this.budgetReadout.median = governor.median * 1000
+    this.budgetReadout.tail = governor.tail * 1000
+    this.budgetReadout.scale = this.ultra
+      ? governor.scale
+      : (cinemaRelief.scales[this.renderScale] ?? 1)
+    this.budgetReadout.relief = governor.relief
+    this.budgetReadout.gpu = governor.load * 1000
+    return this.budgetReadout
   }
   configureShadows(budget: ReturnType<typeof graphicsBudget>) {
     const shadow = this.sun.shadow
@@ -1008,13 +1086,19 @@ export class RoadEngine {
     this.framePace += (elapsed - this.framePace) * 0.05
     this.frameJitter += (Math.abs(elapsed - this.framePace) - this.frameJitter) * 0.05
     const strained = frameStrained(elapsed, this.framePace, this.frameJitter)
-    if (!this.software && this.started && !this.paused && !this.photo) {
-      const verdict = this.strainGauge.step(
-        elapsed,
-        strained,
-        this.terrain.rebuilding || this.crossfade.active || this.incoming !== null,
-        this.renderScale,
-      )
+    const driving = this.started && !this.paused && !this.photo
+    const busy = this.terrain.rebuilding || this.crossfade.active || this.incoming !== null
+    const governed = this.governor.step(
+      elapsed,
+      busy || !driving,
+      displayCapped(this.framePace, this.frameJitter),
+      this.ultra !== null,
+      this.gpuClock?.read(),
+    )
+    if (governed === 'adjust') this.ultra?.tune(this.governor.scale, this.governor.relief)
+    if (governed === 'fallback') this.easeQuality()
+    if (!this.software && !this.ultra && driving) {
+      const verdict = this.strainGauge.step(elapsed, strained, busy, this.renderScale)
       if (verdict) {
         const budget = graphicsBudget(this.renderer, this.settings.quality)
         if (verdict === 'raise') {
@@ -1224,20 +1308,23 @@ export class RoadEngine {
     return shown
   }
   drawScene() {
-    if (this.cinema) {
-      const air = this.cinema.air
+    const pipeline = this.ultra ?? this.cinema
+    if (pipeline) {
+      const air = pipeline.air
       air.sunDirection.copy(this.sun.position).sub(this.sun.target.position).normalize()
       air.sunColor.copy(this.sun.color).multiplyScalar(this.sun.intensity * 0.22)
       if (this.scene.fog) air.hazeColor.copy(this.scene.fog.color)
       const pace = Math.abs(this.physics.speed) / vehicleMetrics[this.settings.vehicle].maxSpeed
-      this.cinema.rush =
+      pipeline.rush =
         this.started && this.view.motion
           ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
           : 0
-      this.cinema.lensRain =
+      pipeline.lensRain =
         this.wetRoad && this.view.motion ? (this.settings.camera === 'bonnet' ? 1 : 0.35) : 0
-      this.cinema.lensTime = this.dayClock
-      this.cinema.render(this.scene, this.camera)
+      pipeline.lensTime = this.dayClock
+      if (this.ultra) this.gpuClock?.begin()
+      pipeline.render(this.scene, this.camera)
+      this.gpuClock?.end()
     } else this.renderer.render(this.scene, this.camera)
     this.antialiasing?.render(this.renderer)
   }
@@ -1287,6 +1374,8 @@ export class RoadEngine {
     this.audio.dispose()
     this.antialiasing?.dispose()
     this.cinema?.dispose()
+    this.ultra?.dispose()
+    this.gpuClock?.dispose()
     this.crossfade.dispose()
     this.renderer.dispose()
   }
