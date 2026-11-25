@@ -58,6 +58,11 @@ export class CinematicPipeline {
   )
   private occlusion = [buffer(THREE.UnsignedByteType), buffer(THREE.UnsignedByteType)]
   private size = new THREE.Vector2()
+  scale = 1
+  bare = false
+  private laidBare = false
+  private dark = blank(0)
+  private clear = blank(255)
   rush = 0
   lensRain = 0
   lensTime = 0
@@ -377,10 +382,16 @@ void main() {
 
   resize() {
     this.renderer.getDrawingBufferSize(this.size)
-    const width = Math.max(1, this.size.x)
-    const height = Math.max(1, this.size.y)
-    if (this.scene.width === width && this.scene.height === height) return
+    const width = Math.max(1, Math.round(this.size.x * this.scale))
+    const height = Math.max(1, Math.round(this.size.y * this.scale))
+    if (this.scene.width === width && this.scene.height === height && this.laidBare === this.bare)
+      return
+    this.laidBare = this.bare
     this.scene.setSize(width, height)
+    if (this.bare) {
+      for (const target of [...this.bloom, ...this.rise, ...this.occlusion]) target.setSize(1, 1)
+      return
+    }
     let w = width
     let h = height
     for (const [index, target] of this.bloom.entries()) {
@@ -436,6 +447,10 @@ void main() {
     const reset = renderer.info.autoReset
     renderer.info.autoReset = false
     try {
+      if (this.bare) {
+        this.compose(camera, this.dark, this.clear)
+        return
+      }
       const [first, ...lower] = this.bloom
       if (!first) return
       this.texel(this.bright, this.scene)
@@ -470,27 +485,31 @@ void main() {
       this.bind(this.soften, 'source', smooth.texture)
       this.soften.uniforms.step?.value.set(0, 1 / rough.height)
       this.draw(this.soften, rough)
-      const develop = this.develop.uniforms
-      this.bind(this.develop, 'source', this.scene.texture)
-      this.bind(this.develop, 'glow', glow.texture)
-      this.bind(this.develop, 'shade', rough.texture)
-      if (develop.aspect) develop.aspect.value = this.scene.width / this.scene.height
-      if (develop.rush) develop.rush.value = this.rush
-      this.bind(this.develop, 'depth', this.scene.depthTexture)
-      develop.unprojection?.value.copy(camera.projectionMatrixInverse)
-      develop.projection?.value.copy(camera.projectionMatrix)
-      develop.viewUp?.value.set(0, 1, 0).transformDirection(camera.matrixWorldInverse)
-      if (develop.lensRain) develop.lensRain.value = this.lensRain
-      if (develop.lensTime) develop.lensTime.value = this.lensTime
-      develop.cameraWorld?.value.copy(camera.matrixWorld)
-      develop.sunDirection?.value.copy(this.air.sunDirection)
-      develop.sunColor?.value.copy(this.air.sunColor)
-      develop.hazeColor?.value.copy(this.air.hazeColor)
-      this.draw(this.develop, null)
+      this.compose(camera, glow.texture, rough.texture)
     } finally {
       renderer.setRenderTarget(null)
       renderer.info.autoReset = reset
     }
+  }
+
+  private compose(camera: THREE.PerspectiveCamera, glow: THREE.Texture, shade: THREE.Texture) {
+    const develop = this.develop.uniforms
+    this.bind(this.develop, 'source', this.scene.texture)
+    this.bind(this.develop, 'glow', glow)
+    this.bind(this.develop, 'shade', shade)
+    if (develop.aspect) develop.aspect.value = this.scene.width / this.scene.height
+    if (develop.rush) develop.rush.value = this.rush
+    this.bind(this.develop, 'depth', this.scene.depthTexture)
+    develop.unprojection?.value.copy(camera.projectionMatrixInverse)
+    develop.projection?.value.copy(camera.projectionMatrix)
+    develop.viewUp?.value.set(0, 1, 0).transformDirection(camera.matrixWorldInverse)
+    if (develop.lensRain) develop.lensRain.value = this.lensRain
+    if (develop.lensTime) develop.lensTime.value = this.lensTime
+    develop.cameraWorld?.value.copy(camera.matrixWorld)
+    develop.sunDirection?.value.copy(this.air.sunDirection)
+    develop.sunColor?.value.copy(this.air.sunColor)
+    develop.hazeColor?.value.copy(this.air.hazeColor)
+    this.draw(this.develop, null)
   }
 
   dispose() {
@@ -507,5 +526,13 @@ void main() {
     ])
       material.dispose()
     this.quad.dispose()
+    this.dark.dispose()
+    this.clear.dispose()
   }
+}
+
+function blank(level: number) {
+  const texture = new THREE.DataTexture(new Uint8Array([level, level, level, 255]), 1, 1)
+  texture.needsUpdate = true
+  return texture
 }

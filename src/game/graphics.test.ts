@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import {
   cinemaRelief,
+  cinemaStepFor,
   displayCapped,
   frameStrained,
   renderPace,
@@ -144,4 +145,12 @@ test('a software renderer draws the scene less often while a panel is open so th
   expect(renderWait(false, true)).toBe(renderPace.panel)
   expect(renderPace.panel).toBeGreaterThan(softwareRelief.frame * 1000)
   expect(renderPace.panel).toBeLessThanOrEqual(500)
+})
+
+test('high quality starts at the resolution step nearest below the ultra scale it replaces', () => {
+  expect(cinemaStepFor(1)).toBe(0)
+  expect(cinemaStepFor(0.9)).toBe(1)
+  expect(cinemaStepFor(0.82)).toBe(1)
+  expect(cinemaStepFor(0.75)).toBe(2)
+  expect(cinemaStepFor(0.6)).toBe(cinemaRelief.scales.length - 1)
 })
