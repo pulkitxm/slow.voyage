@@ -49,7 +49,7 @@ import {
 import { MouseControls } from './mouse'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
-import { bulky, heft, reactionLayout } from './reactions'
+import { bulky, carFrame, heft, reactionLayout } from './reactions'
 import { puddleLevel } from './road-condition'
 import { fitShadowsToSurfaces } from './shadow-filter'
 import { SimulationClock } from './simulation-clock'
@@ -1238,7 +1238,15 @@ export class RoadEngine {
         }
         this.physics.impact = Math.max(this.physics.impact, Math.min(1, 0.3 + weight * 1.6))
         this.audio.thud(knock.distance, Math.min(1, weight * 3))
-        if (knock.kind === 'person') this.audio.cry(knock.voice, true, knock.distance)
+        if (knock.kind === 'person')
+          this.audio.cry(
+            knock.voice,
+            true,
+            knock.distance,
+            0,
+            carFrame(driver, knock.x, knock.s),
+            driver.speed,
+          )
         this.lifeAlarm = this.lifeClock
       }
       for (const kind of this.terrain.brush(driver)) {
@@ -1253,6 +1261,8 @@ export class RoadEngine {
           panicked,
           startled.distance,
           0.12 + index * (0.14 + Math.random() * 0.2),
+          carFrame(driver, startled.x, startled.s),
+          driver.speed,
         )
     }
     this.travel.set(-Math.sin(p.yaw) * p.speed, 0, -Math.cos(p.yaw) * p.speed)
@@ -1261,7 +1271,14 @@ export class RoadEngine {
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
     this.aimSun(p.x, p.y, -p.s - 15)
-    this.audio.update(p, input, this.settings, this.paused || this.photo || !this.started, dt)
+    this.audio.update(
+      p,
+      input,
+      this.settings,
+      this.paused || this.photo || !this.started,
+      dt,
+      this.dayClock,
+    )
     if (this.started) this.minimap.update(p)
     if (this.started) this.atlas.update(p)
     this.drawScene()
