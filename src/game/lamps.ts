@@ -99,9 +99,9 @@ void main() {
   #else
     float core = beamFacing * beamFacing;
   #endif
-  float falloff = smoothstep(0.0, 0.08, beamAlong) * pow(clamp(1.0 - beamAlong, 0.0, 1.0), 1.7) / (0.35 + beamAlong * 2.2);
+  float falloff = smoothstep(0.0, 0.2, beamAlong) * pow(clamp(1.0 - beamAlong, 0.0, 1.0), 1.5) / (0.5 + beamAlong * 1.6);
   float grounded = smoothstep(0.0, 0.55, beamFloor);
-  float glow = beamLevel * core * falloff * grounded * 0.55;
+  float glow = beamLevel * core * falloff * grounded * 0.4;
   if (glow < 0.0015) discard;
   gl_FragColor = vec4(vec3(1.0, 0.94, 0.84) * glow, 0.0);
 }`
