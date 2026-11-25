@@ -1,0 +1,39 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+title: "bug: "
+labels: [bug]
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Include expected and observed behavior. Screenshots or recordings help.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Reproduction
+      description: Provide exact steps, the settings you used, and a journey link from the
+        Journey tab when the problem is at a specific spot.
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: Browser and version
+      placeholder: Chrome 142
+    validations:
+      required: true
+  - type: input
+    attributes:
+      label: OS and device
+      placeholder: macOS 26 on a MacBook Air, or Android 16 on a Pixel 9
+    validations:
+      required: true
+  - type: dropdown
+    attributes:
+      label: Input
+      multiple: true
+      options:
+        - Keyboard
+        - Mouse driving
+        - Touch
+        - Controller
