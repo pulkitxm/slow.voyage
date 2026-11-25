@@ -161,14 +161,34 @@ of the whole loop.
   Every impact takes speed in proportion to how squarely it is met: a brush
   keeps nearly all of it, a quarter radian strike loses a fifth or more.
   never rides the rail.
-- Every sound is synthesised. Engines layer two slightly detuned harmonic
-  voices through body resonances of their own, breathe induction noise under
-  load, burble on the overrun and idle unevenly. Turbocharged engines whistle
-  as boost builds with a short lag and vent through a blow-off valve when the
-  driver lifts. Tyres scrub before they squeal and the squeal drops in pitch as
-  the slide deepens, gravel throws individual stones against the arches, wind
-  gains a whistle and buffeting at speed, and crashes carry a deep boom with
-  falling debris after a hard hit. Impacts and voices echo faintly off the land.
+- Every sound is synthesised in code, with no recordings. Each engine is
+  modelled from its layout: a cross-plane V8 in the tourer, a straight-six in
+  the roadster, a turbocharged four in the hatchback, a V12 in the supercar, a
+  pushrod V8 in the pickup, a 270 degree twin in the motorcycle and a
+  turbo-diesel six in the coach. Every cylinder fires its own exhaust pulse in
+  firing order, shaped by throttle and load and varying a little from cycle to
+  cycle, into tuned exhaust pipes, a muffler and body resonances, so the firing
+  frequency always equals the cylinder count times half the crank speed. Intake
+  roar, valve gear, diesel clatter, driveline whine and turbo whistle are a
+  separate engine-bay voice: the chase camera hears mostly exhaust, the bonnet
+  camera mostly intake and machinery through a muffling cabin. The limiter
+  cuts the engine in bursts, sporty engines crackle and pop on the overrun, and
+  boosted engines vent when the driver lifts.
+- Tyres roll with a spectrum set by speed and surface (dry or wet tarmac,
+  gravel, grass, sand), scrub before they squeal, squeal on the side that
+  slides with a pitch that wanders and roughens as the slide deepens, and skid
+  lower when a wheel locks. Gravel throws grains and pinging stones, the
+  suspension thumps over bumps and landings, and road joints tick at a fixed
+  spacing under the front then the rear axle.
+- Wind is turbulent and gusts, rain hisses outside and drums on glass and roof,
+  and the land answers through three generated impulse responses, open ground,
+  rock cutting and forest, mixed by what surrounds the car. Birds sing by day,
+  insects chirp at dusk, cicadas buzz in hot country, water laps or breaks on
+  nearby shores and waterfalls rush as they pass. Voices of walkers shift in
+  pitch as the car passes them, and the horn returns as a shifted echo.
+- The continuous voices run in an audio worklet off the main thread, with a
+  main thread fallback where worklets are unavailable, and a compressor and
+  limiter keep the mix from clipping.
 - Each walker shouts and screams in their own voice: men lower, rougher and
   with darker vowels, women higher and brighter.
 - Off the road, slopes steeper than about 45 degrees act as walls instead of

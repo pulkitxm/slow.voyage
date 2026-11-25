@@ -162,9 +162,20 @@ the capture. This viewer is available only in development.
 Review visual findings, change one related concern, and capture again with a new
 label. Verify handling changes with measured input-response and simulation checks.
 
+## Sound
+
+Every sound is synthesised live, with no recordings. An audio worklet models
+each engine from its cylinders, firing order and exhaust, and renders tyres,
+road, wind, rain and ambience off the main thread; reverberation comes from
+generated impulse responses. `bun scripts/sound-render.ts --out .review/sound`
+checks firing frequencies, offsets, parameter steps and render cost. Add
+`--url http://localhost:3002` with the development server running to render
+every vehicle through the full mix into WAV files and spectrograms there.
+
 ## Structure
 
 - `src/game`: world generation, geometry, dynamics, cameras, and audio.
+- `scripts/sound-render.ts`: offline sound renders, spectrograms, and checks.
 - `src/components`: dashboard controls, settings, and accessible native dialogs.
 - `src/useDrive.ts`: browser lifecycle, preferences, and interface state.
 - `worker/sw.ts`: the offline worker.
