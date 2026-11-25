@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import {
   cinemaRelief,
+  displayCapped,
   frameStrained,
   renderPace,
   renderWait,
@@ -21,6 +22,13 @@ test('slow frames count as strain unless the display is steadily capped', () => 
   expect(frameStrained(1 / 20, 1 / 20, 0.0002)).toBe(true)
   expect(cinemaRelief.scales[0]).toBe(1)
   expect([...cinemaRelief.scales].sort((a, b) => b - a)).toEqual([...cinemaRelief.scales])
+})
+
+test('only a steady thirty frames a second counts as a capped display', () => {
+  expect(displayCapped(1 / 30, 0.0004)).toBe(true)
+  expect(displayCapped(1 / 30, 0.004)).toBe(false)
+  expect(displayCapped(1 / 60, 0.0002)).toBe(false)
+  expect(displayCapped(1 / 24, 0.0002)).toBe(false)
 })
 
 function run(gauge: StrainGauge, seconds: number, frame: number, busy = false, scale = 0) {

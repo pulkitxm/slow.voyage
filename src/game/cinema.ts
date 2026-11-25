@@ -393,6 +393,11 @@ void main() {
       target.setSize(Math.max(1, Math.floor(width / 2)), Math.max(1, Math.floor(height / 2)))
   }
 
+  rest() {
+    this.scene.setSize(1, 1)
+    for (const target of [...this.bloom, ...this.rise, ...this.occlusion]) target.setSize(1, 1)
+  }
+
   private draw(material: THREE.ShaderMaterial, target: THREE.WebGLRenderTarget | null) {
     this.quad.material = material
     this.renderer.setRenderTarget(target)
@@ -407,6 +412,20 @@ void main() {
   private texel(material: THREE.ShaderMaterial, source: THREE.WebGLRenderTarget) {
     this.bind(material, 'source', source.texture)
     material.uniforms.texel?.value.set(1 / source.width, 1 / source.height)
+  }
+
+  warm() {
+    const renderer = this.renderer
+    const reset = renderer.info.autoReset
+    renderer.info.autoReset = false
+    for (const material of [this.bright, this.shrink, this.grow, this.shade, this.soften]) {
+      this.draw(material, this.occlusion[0] ?? null)
+    }
+    this.develop.colorWrite = false
+    this.draw(this.develop, null)
+    this.develop.colorWrite = true
+    renderer.setRenderTarget(null)
+    renderer.info.autoReset = reset
   }
 
   render(scene: THREE.Scene, camera: THREE.PerspectiveCamera) {

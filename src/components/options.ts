@@ -83,6 +83,11 @@ export const roadWear = [
   { id: 'worn', label: 'Well travelled' },
   { id: 'broken', label: 'Potholed' },
 ] as const
+export const qualities = [
+  { id: 'low', label: 'Easy on the engine' },
+  { id: 'high', label: 'Full beauty' },
+  { id: 'ultra', label: 'Ultra' },
+] as const
 export const life = [
   { id: 'none', label: 'Empty' },
   { id: 'quiet', label: 'Quiet' },

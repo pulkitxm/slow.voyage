@@ -59,7 +59,7 @@ export function decodeSettings(stored: unknown): Settings {
         motion: cameraMotions,
         transmission: transmissions,
         steeringAssist: steeringAssists,
-        quality: ['high', 'low'],
+        quality: ['ultra', 'high', 'low'],
         units: ['km', 'mi'],
         autodriveMode: ['full', 'steer', 'speed'],
         controllerMode: ['standard', 'custom'],
@@ -84,9 +84,18 @@ export function decodeSettings(stored: unknown): Settings {
   }
 }
 
+export function offerUltra(settings: Settings, offered: boolean): Settings {
+  return !offered && settings.quality === 'high' ? { ...settings, quality: 'ultra' } : settings
+}
+
 export function loadSettings(): Settings {
   try {
-    return decodeSettings(JSON.parse(localStorage.getItem('slow-voyage-settings') ?? 'null'))
+    const settings = decodeSettings(
+      JSON.parse(localStorage.getItem('slow-voyage-settings') ?? 'null'),
+    )
+    const offered = localStorage.getItem('slow-voyage-ultra') !== null
+    if (!offered) localStorage.setItem('slow-voyage-ultra', 'offered')
+    return offerUltra(settings, offered)
   } catch {
     return { ...defaults }
   }

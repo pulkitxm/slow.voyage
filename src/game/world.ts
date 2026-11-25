@@ -53,7 +53,7 @@ export interface Settings {
   steeringAssist: SteeringAssist
   color: string
   volume: number
-  quality: 'high' | 'low'
+  quality: 'ultra' | 'high' | 'low'
   units: 'km' | 'mi'
   grip: number
   power: number
@@ -84,7 +84,7 @@ export const defaults: Settings = {
   steeringAssist: 'off',
   color: '#a3211b',
   volume: 0.25,
-  quality: 'high',
+  quality: 'ultra',
   units: 'km',
   grip: 1,
   power: 1,
