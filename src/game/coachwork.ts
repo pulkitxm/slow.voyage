@@ -22,12 +22,7 @@ export const lensGlow = { tail: 0.32, head: 0.22 }
 export const coachworks: Partial<Record<Vehicle, Coachwork>> = {
   touring: { url: touringUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
   hatchback: { url: hatchbackUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
-  supercar: {
-    url: supercarUrl,
-    wheel: /^Wheel_[FR][LR]$/,
-    front: /_F[LR]$/,
-    paint: ['body'],
-  },
+  supercar: { url: supercarUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
   pickup: { url: pickupUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
 }
 
