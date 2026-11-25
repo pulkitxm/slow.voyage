@@ -2,999 +2,49 @@ import math
 
 import bmesh
 import bpy
-import numpy as np
-from mathutils import Euler, Matrix, Vector
+from mathutils import Matrix, Vector
 from mathutils.bvhtree import BVHTree
+from mathutils.interpolate import poly_3d_calc
 
 PALETTE = {
-    "body": {"color": "#9a9c9e", "roughness": 0.45, "metallic": 0.08},
-    "accent": {"color": "#e4dfcf", "roughness": 0.5, "metallic": 0.05},
-    "glass": {"color": "#1a2026", "roughness": 0.08, "metallic": 0.2, "alpha": 0.5},
-    "window_dark": {"color": "#12161a", "roughness": 0.1, "metallic": 0.2},
-    "trim_black": {"color": "#1c1f1e", "roughness": 0.68, "metallic": 0.0},
-    "chrome": {"color": "#c4cac6", "roughness": 0.28, "metallic": 0.85},
-    "underbody": {"color": "#121615", "roughness": 1.0, "metallic": 0.0},
-    "interior": {"color": "#3b342c", "roughness": 0.92, "metallic": 0.0, "double": True},
-    "seat": {"color": "#5a4a3a", "roughness": 0.88, "metallic": 0.0},
-    "tyre": {"color": "#1d1e1d", "roughness": 0.95, "metallic": 0.0},
-    "rim": {"color": "#b9bfc2", "roughness": 0.34, "metallic": 0.8},
-    "rim_white": {"color": "#e6e4da", "roughness": 0.5, "metallic": 0.1},
-    "rim_dark": {"color": "#2a2d2e", "roughness": 0.6, "metallic": 0.3},
-    "lens_head": {"color": "#e9ece6", "roughness": 0.16, "metallic": 0.1},
-    "lens_tail": {"color": "#8f1612", "roughness": 0.22, "metallic": 0.0},
-    "lens_amber": {"color": "#d8861c", "roughness": 0.25, "metallic": 0.0},
-    "lens_clear": {"color": "#dfe3e0", "roughness": 0.2, "metallic": 0.1},
-    "plate": {"color": "#edebdb", "roughness": 0.5, "metallic": 0.0},
+    "body": {"color": "#9a9c9e", "roughness": 0.32, "metallic": 0.1},
+    "accent": {"color": "#e6e0cf", "roughness": 0.4, "metallic": 0.05},
+    "glass": {"color": "#161c22", "roughness": 0.06, "metallic": 0.2, "alpha": 0.5},
+    "cover": {"color": "#cfd6da", "roughness": 0.05, "metallic": 0.1, "alpha": 0.28},
+    "trim_black": {"color": "#17191a", "roughness": 0.62, "metallic": 0.0},
+    "seam": {"color": "#070808", "roughness": 0.9, "metallic": 0.0},
+    "grille": {"color": "#0c0d0e", "roughness": 0.5, "metallic": 0.3},
+    "chrome": {"color": "#e4e8e8", "roughness": 0.2, "metallic": 0.82},
+    "steel": {"color": "#8a8f92", "roughness": 0.38, "metallic": 0.9},
+    "underbody": {"color": "#0e1010", "roughness": 1.0, "metallic": 0.0},
+    "interior": {"color": "#2b2723", "roughness": 0.92, "metallic": 0.0},
+    "seat": {"color": "#6a5038", "roughness": 0.85, "metallic": 0.0},
+    "tyre": {"color": "#161717", "roughness": 0.93, "metallic": 0.0},
+    "rim": {"color": "#ccd1d3", "roughness": 0.3, "metallic": 0.8},
+    "rim_dark": {"color": "#202325", "roughness": 0.55, "metallic": 0.5},
+    "rim_white": {"color": "#e8e6dc", "roughness": 0.45, "metallic": 0.1},
+    "lens_head": {"color": "#eef1ec", "roughness": 0.1, "metallic": 0.2},
+    "lens_tail": {"color": "#a01410", "roughness": 0.18, "metallic": 0.0},
+    "lens_amber": {"color": "#e08a18", "roughness": 0.2, "metallic": 0.0},
+    "lens_clear": {"color": "#e3e7e4", "roughness": 0.15, "metallic": 0.1},
+    "plate": {"color": "#efeddd", "roughness": 0.5, "metallic": 0.0},
+    "mirror": {"color": "#aeb8bd", "roughness": 0.04, "metallic": 1.0},
 }
+SLOTS = list(PALETTE)
+FLOOR = -1
+LID = 1000
+UP = Vector((0, 0, 1))
+LEFT = Vector((0, 1, 0))
+FORWARD = Vector((1, 0, 0))
 
-BAND_LAYOUT = (
-    ("floor", 2),
-    ("sill", 3),
-    ("side", 5),
-    ("shoulder", 3),
-    ("waistframe", 1),
-    ("upper", 3),
-    ("railframe", 1),
-    ("rail", 3),
-    ("topframe", 1),
-    ("topwall", 1),
-    ("top", 3),
-)
 
-STATION_DEFAULTS = {
-    "tuck": 0.045,
-    "shoulder": 0.03,
-    "sill_radius": 0.06,
-    "shoulder_radius": 0.035,
-    "roof_radius": 0.06,
-    "frame": 0.04,
-    "top_frame": 0.045,
-    "barrel": 0.012,
-    "drop": 0.0,
-    "bow": 0.0,
-    "crown": 0.0,
-}
+def slot(material):
+    return SLOTS.index(material)
 
 
 def linear(hex_color):
     channels = [int(hex_color[i : i + 2], 16) / 255 for i in (1, 3, 5)]
     return [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
-
-
-def monotone_curve(xs, ys):
-    xs = np.asarray(xs, dtype=float)
-    ys = np.asarray(ys, dtype=float)
-    steps = np.diff(xs)
-    slopes = np.diff(ys) / steps
-    tangents = np.zeros_like(ys)
-    tangents[0] = slopes[0]
-    tangents[-1] = slopes[-1]
-    for i in range(1, len(xs) - 1):
-        if slopes[i - 1] * slopes[i] > 0:
-            first = 2 * steps[i] + steps[i - 1]
-            second = steps[i] + 2 * steps[i - 1]
-            tangents[i] = (first + second) / (first / slopes[i - 1] + second / slopes[i])
-
-    def evaluate(x):
-        x = min(max(x, xs[0]), xs[-1])
-        i = int(min(max(np.searchsorted(xs, x) - 1, 0), len(xs) - 2))
-        h = steps[i]
-        t = (x - xs[i]) / h
-        return float(
-            (2 * t**3 - 3 * t**2 + 1) * ys[i]
-            + (t**3 - 2 * t**2 + t) * h * tangents[i]
-            + (-2 * t**3 + 3 * t**2) * ys[i + 1]
-            + (t**3 - t**2) * h * tangents[i + 1]
-        )
-
-    return evaluate
-
-
-class Loft:
-    def __init__(self, stations, defaults=None):
-        base = dict(STATION_DEFAULTS)
-        base.update(defaults or {})
-        resolved = []
-        for station in stations:
-            row = dict(base)
-            row.update(station)
-            if "inner" not in row:
-                radius = self.roof_radius(row)
-                row["inner"] = row["edge"] - radius - row["top_frame"]
-            resolved.append(row)
-        self.stations = resolved
-        self.front = resolved[0]["s"]
-        self.rear = resolved[-1]["s"]
-        positions = [row["s"] for row in resolved]
-        self.curves = {
-            key: monotone_curve(positions, [row[key] for row in resolved])
-            for key in resolved[0]
-            if key != "s"
-        }
-
-    @staticmethod
-    def roof_radius(row):
-        return max(0.004, min(row["roof_radius"], (row["top"] - row["belt"]) * 0.45))
-
-    def params(self, s):
-        return {key: curve(s) for key, curve in self.curves.items()}
-
-    def warp(self, x, s):
-        p = self.params(s)
-        return s + p["bow"] * (x / p["half"]) ** 2
-
-    def ring(self, s):
-        p = self.params(s)
-        half, floor, belt, edge, top = p["half"], p["floor"], p["belt"], p["edge"], p["top"]
-        points = []
-        sill_radius = min(p["sill_radius"], (belt - floor) * 0.4)
-        sill_x = half - p["tuck"]
-        for t in (0.0, 0.5, 1.0):
-            points.append((t * (sill_x - sill_radius), floor))
-        for k in (1, 2, 3):
-            angle = k / 3 * math.pi / 2
-            points.append(
-                (
-                    sill_x - sill_radius + sill_radius * math.sin(angle),
-                    floor + sill_radius - sill_radius * math.cos(angle),
-                )
-            )
-        shoulder_radius = min(p["shoulder_radius"], (belt - floor) * 0.3)
-        low = floor + sill_radius
-        high = belt - shoulder_radius
-        for k in range(1, 6):
-            t = k / 5
-            points.append((sill_x + p["tuck"] * (1 - (1 - t) ** 2.2), low + (high - low) * t))
-        inset = p["shoulder"]
-        for k in (1, 2, 3):
-            angle = k / 3 * math.pi / 2
-            points.append(
-                (half - inset + inset * math.cos(angle), high + shoulder_radius * math.sin(angle))
-            )
-        roof_radius = self.roof_radius(p)
-        base = np.array([half - inset, belt])
-        peak = np.array([edge, top - roof_radius])
-        length = float(np.linalg.norm(peak - base))
-        frame = min(p["frame"], length * 0.25) / max(length, 1e-6)
-        bulge = p["barrel"] * min(1.0, length / 0.3)
-        for t in (frame, frame + (1 - 2 * frame) / 3, frame + 2 * (1 - 2 * frame) / 3, 1 - frame, 1.0):
-            spot = base + (peak - base) * t
-            points.append((float(spot[0]) + bulge * 4 * t * (1 - t), float(spot[1])))
-        for k in (1, 2, 3):
-            angle = k / 3 * math.pi / 2
-            points.append(
-                (
-                    edge - roof_radius + roof_radius * math.cos(angle),
-                    top - roof_radius + roof_radius * math.sin(angle),
-                )
-            )
-        span = max(edge - roof_radius, 1e-4)
-        drop = p["drop"]
-        dropping = min(1.0, drop / 0.05)
-        crown = p["crown"]
-
-        def roof(x):
-            return top + crown * (1 - (x / span) ** 2)
-
-        first = min(p["inner"], span - 0.005)
-        second = first * (1 - 0.25 * (1 - dropping))
-        points.append((first, roof(first)))
-        for x in (second, second * 2 / 3, second / 3, 0.0):
-            points.append((x, top + crown * (1 - dropping) * (1 - (x / span) ** 2) - drop))
-        return points
-
-
-def band_names():
-    names = []
-    for name, count in BAND_LAYOUT:
-        names.extend([name] * count)
-    return names
-
-
-def sample_positions(loft, rules, extra, max_step):
-    marks = {round(row["s"], 5) for row in loft.stations}
-    for rule in rules:
-        marks.add(round(rule["from"], 5))
-        marks.add(round(rule["to"], 5))
-    for value in extra:
-        marks.add(round(value, 5))
-    marks = sorted(mark for mark in marks if loft.front <= mark <= loft.rear)
-    positions = []
-    for start, end in zip(marks, marks[1:]):
-        count = max(1, math.ceil((end - start) / max_step - 1e-6))
-        for k in range(count):
-            positions.append(start + (end - start) * k / count)
-    positions.append(marks[-1])
-    return positions
-
-
-class Model:
-    def __init__(self, name):
-        self.name = name
-        self.groups = {}
-        self.materials = list(PALETTE)
-        self.loft = None
-        self.tree = None
-        self.arches = []
-        self.wheels = []
-
-    def group(self, name):
-        return self.groups.setdefault(name, {"verts": [], "faces": [], "materials": []})
-
-    def absorb(self, bm, material, group="Body", mirror=False):
-        target = self.group(group)
-        for flip in (False, True) if mirror else (False,):
-            offset = len(target["verts"])
-            for vert in bm.verts:
-                co = vert.co
-                target["verts"].append((-co.x if flip else co.x, co.y, co.z))
-            bm.verts.index_update()
-            for face in bm.faces:
-                indices = [offset + vert.index for vert in face.verts]
-                target["faces"].append(indices[::-1] if flip else indices)
-                target["materials"].append(
-                    material if isinstance(material, str) else material[face.material_index]
-                )
-        bm.free()
-
-    def absorb_raw(self, verts, faces, material, group="Body", mirror=False):
-        target = self.group(group)
-        for flip in (False, True) if mirror else (False,):
-            offset = len(target["verts"])
-            for x, y, z in verts:
-                target["verts"].append((-x if flip else x, y, z))
-            for face in faces:
-                indices = [offset + i for i in face]
-                target["faces"].append(indices[::-1] if flip else indices)
-                target["materials"].append(material)
-
-    def build_shell(self, loft, rules, arches, max_step=0.075, cap_rings=(0.74, 0.48, 0.22), extra=()):
-        self.loft = loft
-        self.arches = arches
-        names = band_names()
-        full_bands = names + names[::-1]
-        positions = sample_positions(loft, rules, extra, max_step)
-        bm = bmesh.new()
-        rings = []
-        for s in positions:
-            half = loft.ring(s)
-            full = half + [(-x, z) for x, z in half[-2:0:-1]]
-            rings.append([bm.verts.new((x, s, z)) for x, z in full])
-        count = len(rings[0])
-
-        def material_for(band, s):
-            for rule in rules:
-                if band in rule["bands"] and rule["from"] - 1e-6 <= s <= rule["to"] + 1e-6:
-                    return rule["material"]
-            return "underbody" if band == "floor" else "body"
-
-        for j in range(len(rings) - 1):
-            middle = (positions[j] + positions[j + 1]) / 2
-            for k in range(count):
-                corners = [
-                    rings[j][k],
-                    rings[j][(k + 1) % count],
-                    rings[j + 1][(k + 1) % count],
-                    rings[j + 1][k],
-                ]
-                if len({tuple(round(c, 6) for c in vert.co) for vert in corners}) < 4:
-                    continue
-                face = bm.faces.new(corners)
-                face.material_index = self.materials.index(material_for(full_bands[k], middle))
-        body_index = self.materials.index("body")
-        for ring, end in ((rings[0], positions[0]), (rings[-1], positions[-1])):
-            heights = [vert.co.z for vert in ring]
-            middle = (min(heights) + max(heights)) / 2
-            outer = ring
-            for shrink in cap_rings:
-                inner = [
-                    bm.verts.new((vert.co.x * shrink, end, middle + (vert.co.z - middle) * shrink))
-                    for vert in ring
-                ]
-                for k in range(count):
-                    following = (k + 1) % count
-                    face = bm.faces.new([outer[k], outer[following], inner[following], inner[k]])
-                    face.material_index = body_index
-                outer = inner
-            centre = bm.verts.new((0, end, middle))
-            for k in range(count):
-                face = bm.faces.new([outer[k], outer[(k + 1) % count], centre])
-                face.material_index = body_index
-        bmesh.ops.remove_doubles(bm, verts=bm.verts[:], dist=1e-6)
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-        for vert in bm.verts:
-            vert.co.y = loft.warp(vert.co.x, vert.co.y)
-        bm.normal_update()
-        self.shell_copy = bm.copy()
-        self.tree = BVHTree.FromBMesh(self.shell_copy)
-        carved = self.carve(bm, arches)
-        self.absorb(carved, self.materials, "Body")
-
-    def carve(self, bm, arches):
-        if not arches:
-            return bm
-        cutter = bmesh.new()
-        for arch in arches:
-            for side in (-1, 1):
-                made = bmesh.ops.create_cone(
-                    cutter,
-                    cap_ends=True,
-                    segments=40,
-                    radius1=arch["radius"],
-                    radius2=arch["radius"],
-                    depth=arch["depth"],
-                )
-                turn = Matrix.Rotation(math.pi / 2, 4, "Y")
-                move = Matrix.Translation(
-                    (side * (arch["inset"] + arch["depth"] / 2), arch["s"], arch["height"])
-                )
-                bmesh.ops.transform(cutter, matrix=move @ turn, verts=made["verts"])
-        for face in cutter.faces:
-            face.material_index = self.materials.index("underbody")
-        body = self.temporary_object(bm, "shell")
-        tool = self.temporary_object(cutter, "cutter")
-        modifier = body.modifiers.new("arches", "BOOLEAN")
-        modifier.operation = "DIFFERENCE"
-        modifier.solver = "EXACT"
-        modifier.object = tool
-        graph = bpy.context.evaluated_depsgraph_get()
-        result = bmesh.new()
-        result.from_object(body, graph)
-        for helper in (body, tool):
-            data = helper.data
-            bpy.data.objects.remove(helper)
-            bpy.data.meshes.remove(data)
-        return result
-
-    def temporary_object(self, bm, name):
-        mesh = bpy.data.meshes.new(name)
-        bm.to_mesh(mesh)
-        bm.free()
-        for material in self.materials:
-            mesh.materials.append(material_named(material))
-        made = bpy.data.objects.new(name, mesh)
-        bpy.context.scene.collection.objects.link(made)
-        return made
-
-    def cast(self, axis, a, b):
-        far = 20.0
-        if axis == "front":
-            origin, direction = Vector((a, -far, b)), Vector((0, 1, 0))
-        elif axis == "rear":
-            origin, direction = Vector((a, far, b)), Vector((0, -1, 0))
-        elif axis == "side":
-            origin, direction = Vector((far, a, b)), Vector((-1, 0, 0))
-        else:
-            origin, direction = Vector((a, b, far)), Vector((0, 0, -1))
-        hit = self.tree.ray_cast(origin, direction)[0]
-        return hit, direction
-
-    def project(self, axis, a, b, lift=0.0):
-        hit, direction = self.cast(axis, a, b)
-        if hit is None:
-            raise ValueError(f"{self.name}: no surface on {axis} at {a:.3f}, {b:.3f}")
-        return hit - direction * lift
-
-    def decal(
-        self,
-        axis,
-        rect,
-        material,
-        lift=0.005,
-        cells=(4, 4),
-        shape="rect",
-        skirt=True,
-        group="Body",
-        mirror=False,
-        sink=0.004,
-    ):
-        a0, a1, b0, b1 = rect
-        columns, rows = cells
-        outer = []
-        inner = []
-        for i in range(columns + 1):
-            for j in range(rows + 1):
-                u = 2 * i / columns - 1
-                v = 2 * j / rows - 1
-                if shape == "round":
-                    u, v = u * math.sqrt(1 - v * v / 2), v * math.sqrt(1 - u * u / 2)
-                a = (a0 + a1) / 2 + u * (a1 - a0) / 2
-                b = (b0 + b1) / 2 + v * (b1 - b0) / 2
-                outer.append(tuple(self.project(axis, a, b, lift)))
-                if skirt:
-                    inner.append(tuple(self.project(axis, a, b, -sink)))
-
-        def index(i, j):
-            return i * (rows + 1) + j
-
-        reverse = axis in ("front", "top")
-        faces = []
-        for i in range(columns):
-            for j in range(rows):
-                quad = [index(i, j), index(i + 1, j), index(i + 1, j + 1), index(i, j + 1)]
-                faces.append(quad[::-1] if reverse else quad)
-        verts = list(outer)
-        if skirt:
-            base = len(outer)
-            verts.extend(inner)
-            loop = (
-                [index(i, 0) for i in range(columns)]
-                + [index(columns, j) for j in range(rows)]
-                + [index(i, rows) for i in range(columns, 0, -1)]
-                + [index(0, j) for j in range(rows, 0, -1)]
-            )
-            for k, start in enumerate(loop):
-                end = loop[(k + 1) % len(loop)]
-                quad = [end, start, start + base, end + base]
-                faces.append(quad[::-1] if reverse else quad)
-        self.absorb_raw(verts, faces, material, group, mirror)
-
-    def side_spans(self, s0, s1, z0, z1, margin=0.03):
-        spans = [(s0, s1)]
-        for arch in self.arches:
-            nearest = min(max(arch["height"], z0), z1)
-            reach = arch["radius"] + margin
-            gap = reach**2 - (nearest - arch["height"]) ** 2
-            if gap <= 0:
-                continue
-            width = math.sqrt(gap)
-            cut = (arch["s"] - width, arch["s"] + width)
-            trimmed = []
-            for start, end in spans:
-                if cut[1] <= start or cut[0] >= end:
-                    trimmed.append((start, end))
-                    continue
-                if cut[0] > start:
-                    trimmed.append((start, cut[0]))
-                if cut[1] < end:
-                    trimmed.append((cut[1], end))
-            spans = trimmed
-        return [span for span in spans if span[1] - span[0] > 0.02]
-
-    def side_strip(self, s0, s1, z0, z1, material, lift=0.006, step=0.12, margin=0.03, group="Body"):
-        for start, end in self.side_spans(s0, s1, z0, z1, margin):
-            cells = max(1, math.ceil((end - start) / step))
-            self.decal(
-                "side", (start, end, z0, z1), material, lift, (cells, 1), group=group, mirror=True
-            )
-
-    def arch_lips(self, material="body", width=0.035, lift=0.016, edge_lift=0.003, steps=28):
-        for arch in self.arches:
-            verts = []
-            usable = []
-            for k in range(steps + 1):
-                angle = math.pi * k / steps * 1.5 - math.pi * 0.25
-                row = []
-                for radius, raise_by in (
-                    (arch["radius"] + 0.004, lift),
-                    (arch["radius"] + width, edge_lift),
-                ):
-                    s = arch["s"] + radius * math.cos(angle)
-                    z = arch["height"] + radius * math.sin(angle)
-                    hit, direction = self.cast("side", s, z)
-                    if hit is None or hit.x < arch["inset"] + 0.1:
-                        row = None
-                        break
-                    row.append(tuple(hit - direction * raise_by))
-                usable.append(row is not None)
-                verts.append(row)
-            packed = []
-            faces = []
-            lookup = {}
-            for k in range(steps):
-                if not (usable[k] and usable[k + 1]):
-                    continue
-                for n in (k, k + 1):
-                    if n not in lookup:
-                        lookup[n] = len(packed)
-                        packed.extend(verts[n])
-                a, b = lookup[k], lookup[k + 1]
-                faces.append([a, a + 1, b + 1, b])
-                faces.append([a, b, (b, "in"), (a, "in")])
-            inner_lookup = {}
-            final_faces = []
-            for face in faces:
-                resolved = []
-                for item in face:
-                    if isinstance(item, tuple):
-                        source = item[0]
-                        if source not in inner_lookup:
-                            x, y, z = packed[source]
-                            inner_lookup[source] = len(packed)
-                            packed.append((x - lift - 0.02, y, z))
-                        resolved.append(inner_lookup[source])
-                    else:
-                        resolved.append(item)
-                final_faces.append(resolved)
-            self.absorb_raw(packed, final_faces, material, "Body", mirror=True)
-
-    def box(
-        self,
-        size,
-        at,
-        material,
-        rotation=(0, 0, 0),
-        bevel=0.0,
-        group="Body",
-        mirror=False,
-        taper=None,
-    ):
-        bm = bmesh.new()
-        bmesh.ops.create_cube(bm, size=1)
-        for vert in bm.verts:
-            vert.co.x *= size[0]
-            vert.co.y *= size[1]
-            vert.co.z *= size[2]
-            if taper:
-                amount = 1 - (1 - taper[1]) * (vert.co[taper[0]] / size[taper[0]] + 0.5)
-                for axis in range(3):
-                    if axis != taper[0] and axis in taper[2]:
-                        vert.co[axis] *= amount
-        if bevel:
-            bmesh.ops.bevel(
-                bm, geom=bm.edges[:], offset=bevel, segments=1, profile=0.5, affect="EDGES"
-            )
-        matrix = Matrix.Translation(at) @ Euler(rotation, "XYZ").to_matrix().to_4x4()
-        bmesh.ops.transform(bm, matrix=matrix, verts=bm.verts[:])
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-        self.absorb(bm, material, group, mirror)
-
-    def bar(self, start, end, width, thickness, material, group="Body", mirror=False, bevel=0.0):
-        start = Vector(start)
-        end = Vector(end)
-        axis = end - start
-        length = axis.length
-        forward = axis.normalized()
-        up = Vector((0, 0, 1))
-        if abs(forward.dot(up)) > 0.95:
-            up = Vector((0, 1, 0))
-        side = forward.cross(up).normalized()
-        lift = side.cross(forward).normalized()
-        bm = bmesh.new()
-        bmesh.ops.create_cube(bm, size=1)
-        for vert in bm.verts:
-            vert.co.x *= width
-            vert.co.y *= length
-            vert.co.z *= thickness
-        if bevel:
-            bmesh.ops.bevel(
-                bm, geom=bm.edges[:], offset=bevel, segments=1, profile=0.5, affect="EDGES"
-            )
-        frame = Matrix((side, forward, lift)).transposed().to_4x4()
-        frame.translation = (start + end) / 2
-        bmesh.ops.transform(bm, matrix=frame, verts=bm.verts[:])
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-        self.absorb(bm, material, group, mirror)
-
-    def cylinder(
-        self,
-        radius,
-        depth,
-        at,
-        material,
-        rotation=(0, 0, 0),
-        segments=16,
-        radius_end=None,
-        group="Body",
-        mirror=False,
-    ):
-        bm = bmesh.new()
-        bmesh.ops.create_cone(
-            bm,
-            cap_ends=True,
-            segments=segments,
-            radius1=radius,
-            radius2=radius if radius_end is None else radius_end,
-            depth=depth,
-        )
-        matrix = Matrix.Translation(at) @ Euler(rotation, "XYZ").to_matrix().to_4x4()
-        bmesh.ops.transform(bm, matrix=matrix, verts=bm.verts[:])
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-        self.absorb(bm, material, group, mirror)
-
-    def torus(self, major, minor, at, material, rotation=(0, 0, 0), segments=20, ring=6, group="Body"):
-        verts = []
-        faces = []
-        for i in range(segments):
-            around = 2 * math.pi * i / segments
-            for j in range(ring):
-                tube = 2 * math.pi * j / ring
-                reach = major + minor * math.cos(tube)
-                verts.append(
-                    (reach * math.cos(around), reach * math.sin(around), minor * math.sin(tube))
-                )
-        for i in range(segments):
-            for j in range(ring):
-                a = i * ring + j
-                b = ((i + 1) % segments) * ring + j
-                c = ((i + 1) % segments) * ring + (j + 1) % ring
-                d = i * ring + (j + 1) % ring
-                faces.append([a, b, c, d])
-        matrix = Matrix.Translation(at) @ Euler(rotation, "XYZ").to_matrix().to_4x4()
-        moved = [tuple(matrix @ Vector(v)) for v in verts]
-        self.absorb_raw(moved, faces, material, group)
-
-    def sweep(self, path, section, material, group="Body", up=(0, 0, 1)):
-        up = Vector(up)
-        path = [Vector(point) for point in path]
-        bm = bmesh.new()
-        rings = []
-        for i, point in enumerate(path):
-            before = path[max(i - 1, 0)]
-            after = path[min(i + 1, len(path) - 1)]
-            incoming = (point - before).normalized() if i > 0 else (after - point).normalized()
-            outgoing = (after - point).normalized() if i < len(path) - 1 else incoming
-            tangent = (incoming + outgoing).normalized()
-            outward = up.cross(tangent).normalized()
-            stretch = 1 / max(0.5, tangent.dot(outgoing))
-            rings.append(
-                [bm.verts.new(point + outward * u * stretch + up * v) for u, v in section]
-            )
-        count = len(section)
-        for i in range(len(rings) - 1):
-            for k in range(count):
-                bm.faces.new(
-                    [
-                        rings[i][k],
-                        rings[i][(k + 1) % count],
-                        rings[i + 1][(k + 1) % count],
-                        rings[i + 1][k],
-                    ]
-                )
-        bm.faces.new(rings[0])
-        bm.faces.new(rings[-1][::-1])
-        bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
-        self.absorb(bm, material, group)
-
-    def wrap_path(self, end, z, reach, inset=0.07, offset=0.0, steps=14, side_step=0.12):
-        axis = "front" if end < 0 else "rear"
-        probe = self.project(axis, 0, z)
-        nose = probe.y
-        direction = 1 if end < 0 else -1
-        limit = None
-        s = nose + direction * 0.02
-        while limit is None and abs(s - nose) < 1.0:
-            hit, _ = self.cast("side", s, z)
-            if hit is not None:
-                limit = hit.x
-            s += direction * 0.02
-        span = limit - inset
-        across = []
-        for k in range(steps + 1):
-            x = span * (1 - 2 * k / steps)
-            point = self.project(axis, x, z)
-            across.append(Vector((x, point.y - direction * offset, z)))
-        corner_s = across[0].y + direction * (inset + 0.02)
-        returns = []
-        count = max(1, round((reach - inset) / side_step))
-        for k in range(count + 1):
-            s = nose + direction * (reach - (reach - inset - 0.04) * k / count)
-            if (s - corner_s) * direction <= 0:
-                continue
-            hit, _ = self.cast("side", s, z)
-            if hit is None:
-                continue
-            returns.append(Vector((hit.x + offset, s, z)))
-        mirrored = [Vector((-p.x, p.y, p.z)) for p in returns[::-1]]
-        path = returns + across + mirrored
-        return path if end < 0 else path[::-1]
-
-    def bumper(self, end, z, reach, depth, height, material, embed=0.03, bevel=0.012, **path_options):
-        path = self.wrap_path(end, z, reach, **path_options)
-        low = -height / 2
-        high = height / 2
-        section = [
-            (-embed, low),
-            (depth - bevel, low),
-            (depth, low + bevel),
-            (depth, high - bevel),
-            (depth - bevel, high),
-            (-embed, high),
-        ]
-        self.sweep(path, section, material)
-
-    def lathe(self, profile, materials, segments=24):
-        verts = []
-        faces = []
-        face_materials = []
-        for i in range(segments):
-            angle = 2 * math.pi * i / segments
-            for radius, along in profile:
-                verts.append((along, radius * math.cos(angle), radius * math.sin(angle)))
-        count = len(profile)
-        for i in range(segments):
-            following = (i + 1) % segments
-            for k in range(count - 1):
-                if profile[k][0] < 1e-6 and profile[k + 1][0] < 1e-6:
-                    continue
-                faces.append(
-                    [i * count + k, following * count + k, following * count + k + 1, i * count + k + 1]
-                )
-                face_materials.append(materials[k])
-        return verts, faces, face_materials
-
-    def build_wheel(self, spec):
-        radius = spec["radius"]
-        width = spec["width"]
-        rim = spec.get("rim", radius * 0.64)
-        half = width / 2
-        shoulder = min(width * 0.22, radius - rim - 0.01)
-        tyre = [
-            (rim, -half * 0.86),
-            (rim + (radius - rim) * 0.55, -half),
-            (radius - shoulder * 0.45, -half * 0.94),
-            (radius, -half * 0.62),
-            (radius, half * 0.62),
-            (radius - shoulder * 0.45, half * 0.94),
-            (rim + (radius - rim) * 0.55, half),
-            (rim, half * 0.86),
-        ]
-        face = half * spec.get("face", 0.55)
-        dish = spec.get("dish", 0.03)
-        barrel = [
-            (rim, half * 0.86),
-            (rim * 0.93, half * 0.8),
-            (rim * 0.88, face - dish * 0.2),
-            (rim * 0.3, face - dish),
-            (0.0, face - dish),
-        ]
-        back = [(rim, -half * 0.86), (rim * 0.9, -half * 0.5), (0.0, -half * 0.5)]
-        wheel = bmesh.new()
-        names = ["tyre", spec.get("rim_material", "rim"), "rim_dark", "chrome"]
-
-        def include(verts, faces, face_materials, reverse=False):
-            made = [wheel.verts.new(v) for v in verts]
-            for indices, material in zip(faces, face_materials):
-                corners = [made[i] for i in indices]
-                if len(set(corners)) < 3:
-                    continue
-                unique = []
-                for corner in corners:
-                    if corner not in unique:
-                        unique.append(corner)
-                try:
-                    created = wheel.faces.new(unique[::-1] if reverse else unique)
-                except ValueError:
-                    continue
-                created.material_index = names.index(material)
-
-        include(*self.lathe(tyre, ["tyre"] * 7, spec.get("segments", 28)))
-        disc = "rim_dark" if spec.get("spokes") else names[1]
-        include(*self.lathe(barrel, [names[1], names[1], disc, disc], spec.get("segments", 28)))
-        include(*self.lathe(back, ["rim_dark", "rim_dark"], 16), reverse=True)
-        bmesh.ops.remove_doubles(wheel, verts=wheel.verts[:], dist=1e-5)
-        bmesh.ops.recalc_face_normals(wheel, faces=wheel.faces[:])
-
-        def attach(part, material):
-            offset_faces = len(wheel.faces)
-            made = {}
-            for vert in part.verts:
-                made[vert] = wheel.verts.new(vert.co)
-            for source in part.faces:
-                created = wheel.faces.new([made[v] for v in source.verts])
-                created.material_index = names.index(material)
-            part.free()
-            return offset_faces
-
-        spokes = spec.get("spokes", 0)
-        for k in range(spokes):
-            angle = 2 * math.pi * k / spokes
-            part = bmesh.new()
-            bmesh.ops.create_cube(part, size=1)
-            inner_width = spec.get("spoke_inner", 0.05)
-            outer_width = spec.get("spoke_outer", 0.07)
-            reach = rim * 0.9
-            for vert in part.verts:
-                t = vert.co.z + 0.5
-                vert.co.y *= inner_width + (outer_width - inner_width) * t
-                vert.co.z = rim * 0.12 + (reach - rim * 0.12) * t
-                vert.co.x = vert.co.x * 0.022 + face - dish * (1 - t * 0.8) + 0.006
-            bmesh.ops.transform(part, matrix=Matrix.Rotation(angle, 4, "X"), verts=part.verts[:])
-            bmesh.ops.recalc_face_normals(part, faces=part.faces[:])
-            attach(part, names[1])
-        holes = spec.get("holes", 0)
-        for k in range(holes):
-            angle = 2 * math.pi * (k + 0.5) / holes
-            part = bmesh.new()
-            bmesh.ops.create_cone(
-                part,
-                cap_ends=True,
-                segments=8,
-                radius1=spec.get("hole_radius", 0.022),
-                radius2=spec.get("hole_radius", 0.022),
-                depth=0.012,
-            )
-            ring = rim * spec.get("hole_ring", 0.62)
-            t = (ring - rim * 0.3) / (rim * 0.58)
-            along = face - dish + dish * 0.8 * t
-            matrix = (
-                Matrix.Rotation(angle, 4, "X")
-                @ Matrix.Translation((along, 0, ring))
-                @ Matrix.Rotation(math.pi / 2, 4, "Y")
-            )
-            bmesh.ops.transform(part, matrix=matrix, verts=part.verts[:])
-            bmesh.ops.recalc_face_normals(part, faces=part.faces[:])
-            attach(part, "rim_dark")
-        cap = bmesh.new()
-        bmesh.ops.create_cone(
-            cap,
-            cap_ends=True,
-            segments=12,
-            radius1=rim * spec.get("cap", 0.26),
-            radius2=rim * spec.get("cap", 0.26) * 0.7,
-            depth=0.03,
-        )
-        matrix = Matrix.Translation((face - dish + 0.014, 0, 0)) @ Matrix.Rotation(math.pi / 2, 4, "Y")
-        bmesh.ops.transform(cap, matrix=matrix, verts=cap.verts[:])
-        bmesh.ops.recalc_face_normals(cap, faces=cap.faces[:])
-        attach(cap, spec.get("cap_material", "chrome"))
-        return wheel, names
-
-    def interior(self, cabin):
-        front, rear = cabin["front"], cabin["rear"]
-        tub_front, tub_rear = cabin["tub_front"], cabin["tub_rear"]
-        shelf = cabin["shelf"]
-        width = cabin["width"]
-        floor = cabin["floor"]
-        rear_shelf = cabin.get("rear_shelf", shelf)
-        verts = [
-            (-width, front, shelf),
-            (width, front, shelf),
-            (width, tub_front, shelf),
-            (-width, tub_front, shelf),
-            (-width, tub_front, floor),
-            (width, tub_front, floor),
-            (width, tub_rear, floor),
-            (-width, tub_rear, floor),
-            (-width, tub_rear, rear_shelf),
-            (width, tub_rear, rear_shelf),
-            (width, rear, rear_shelf),
-            (-width, rear, rear_shelf),
-            (-width, tub_front, shelf),
-            (-width, tub_rear, shelf),
-            (width, tub_front, shelf),
-            (width, tub_rear, shelf),
-        ]
-        faces = [
-            [0, 1, 2, 3],
-            [3, 2, 5, 4],
-            [4, 5, 6, 7],
-            [7, 6, 9, 8],
-            [8, 9, 10, 11],
-            [12, 4, 7, 13],
-            [15, 6, 5, 14],
-        ]
-        self.absorb_raw(verts, faces, "interior")
-        dash_depth = cabin.get("dash_depth", 0.3)
-        self.box(
-            (width * 2 - 0.02, dash_depth, 0.2),
-            (0, tub_front + dash_depth / 2 - 0.04, shelf - 0.06),
-            "interior",
-            bevel=0.03,
-        )
-        seat_z = floor + cabin.get("seat_height", 0.2)
-        for row in cabin["seats"]:
-            for x in row["x"]:
-                wide = row.get("width", 0.46)
-                self.box((wide, 0.48, 0.14), (x, row["s"], seat_z), "seat", bevel=0.035)
-                self.box(
-                    (wide, 0.13, row.get("back", 0.56)),
-                    (x, row["s"] + 0.27, seat_z + row.get("back", 0.56) / 2),
-                    "seat",
-                    rotation=(-0.2, 0, 0),
-                    bevel=0.035,
-                )
-                if row.get("headrest", True):
-                    self.box(
-                        (wide * 0.5, 0.09, 0.16),
-                        (x, row["s"] + 0.35, seat_z + row.get("back", 0.56) + 0.1),
-                        "seat",
-                        rotation=(-0.2, 0, 0),
-                        bevel=0.03,
-                    )
-        wheel_at = cabin["steering"]
-        self.torus(0.17, 0.016, wheel_at, "trim_black", rotation=(-1.15, 0, 0), segments=18, ring=5)
-        self.bar(
-            wheel_at,
-            (wheel_at[0], wheel_at[1] - 0.25, wheel_at[2] - 0.1),
-            0.035,
-            0.035,
-            "trim_black",
-        )
-        self.bar(
-            (wheel_at[0] - 0.16, wheel_at[1], wheel_at[2] + 0.01),
-            (wheel_at[0] + 0.16, wheel_at[1], wheel_at[2] + 0.01),
-            0.03,
-            0.012,
-            "trim_black",
-        )
-
-    def liner(self, front, rear, above, offset=0.008):
-        body = self.groups["Body"]
-        added_verts = []
-        added_faces = []
-        lookup = {}
-        blocked = {"glass", "underbody"}
-        for face, material in zip(list(body["faces"]), list(body["materials"])):
-            if material in blocked:
-                continue
-            corners = [body["verts"][i] for i in face]
-            if not all(front <= y <= rear and z >= above for _, y, z in corners):
-                continue
-            centre = Vector(np.mean(corners, axis=0))
-            normal = Vector((0, 0, 0))
-            for a, b in zip(corners, corners[1:] + corners[:1]):
-                normal += Vector(a).cross(Vector(b))
-            if normal.length < 1e-9:
-                continue
-            normal.normalize()
-            indices = []
-            for i in face:
-                if i not in lookup:
-                    lookup[i] = len(added_verts)
-                    added_verts.append([Vector(body["verts"][i]), Vector((0, 0, 0))])
-                added_verts[lookup[i]][1] += normal
-                indices.append(lookup[i])
-            added_faces.append(indices[::-1])
-            del centre
-        moved = []
-        for position, normal in added_verts:
-            direction = normal.normalized() if normal.length > 1e-9 else normal
-            moved.append(tuple(position - direction * offset))
-        self.absorb_raw(moved, added_faces, "interior")
-
-    def place_wheels(self, spec, axles, track):
-        wheel, names = self.build_wheel(spec)
-        mesh = bpy.data.meshes.new(f"{self.name}_wheel")
-        bmesh.ops.triangulate(wheel, faces=wheel.faces[:])
-        wheel.to_mesh(mesh)
-        wheel.free()
-        for name in names:
-            mesh.materials.append(material_named(name))
-        finish_mesh(mesh)
-        made = []
-        for label, s in (("F", axles[0]), ("R", axles[1])):
-            for side, x in (("L", -track / 2), ("R", track / 2)):
-                item = bpy.data.objects.new(f"Wheel_{label}{side}", mesh)
-                item.location = (x, s, spec["radius"])
-                if x < 0:
-                    item.rotation_euler = (0, 0, math.pi)
-                bpy.context.scene.collection.objects.link(item)
-                made.append(item)
-        self.wheels = made
-        return made
-
-    def finish(self):
-        made = []
-        for name, group in self.groups.items():
-            used = []
-            for material in group["materials"]:
-                if material not in used:
-                    used.append(material)
-            mesh = bpy.data.meshes.new(name)
-            mesh.from_pydata(group["verts"], [], group["faces"])
-            for material in used:
-                mesh.materials.append(material_named(material))
-            mesh.polygons.foreach_set(
-                "material_index", [used.index(material) for material in group["materials"]]
-            )
-            bm = bmesh.new()
-            bm.from_mesh(mesh)
-            bmesh.ops.triangulate(bm, faces=bm.faces[:], quad_method="BEAUTY", ngon_method="BEAUTY")
-            bm.to_mesh(mesh)
-            bm.free()
-            finish_mesh(mesh)
-            item = bpy.data.objects.new(name, mesh)
-            bpy.context.scene.collection.objects.link(item)
-            made.append(item)
-        return made + self.wheels
-
-
-def finish_mesh(mesh, angle=38):
-    mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
-    mesh.update()
-    mesh.set_sharp_from_angle(angle=math.radians(angle))
-    mesh.update()
 
 
 def material_named(name):
@@ -1011,23 +61,1023 @@ def material_named(name):
     shader.inputs["Roughness"].default_value = recipe["roughness"]
     shader.inputs["Metallic"].default_value = recipe["metallic"]
     shader.inputs["Alpha"].default_value = alpha
-    material.use_backface_culling = not recipe.get("double", False)
+    material.use_backface_culling = True
     if alpha < 1:
         material.blend_method = "BLEND"
         material.surface_render_method = "BLENDED"
     return material
 
 
-def wheel_arches(axles, track, radius, tyre_width, steering, travel, clearance, reach=0.5):
-    sweep = radius * math.sin(steering) + tyre_width * 0.5 * math.cos(steering)
-    inset = track * 0.5 - sweep - 0.02
+def curve(points):
+    points = sorted(points)
+    xs = [p[0] for p in points]
+    ys = [p[1] for p in points]
+    count = len(xs)
+    slopes = [(ys[i + 1] - ys[i]) / (xs[i + 1] - xs[i]) for i in range(count - 1)]
+    tangents = [slopes[0]]
+    for i in range(1, count - 1):
+        a, b = slopes[i - 1], slopes[i]
+        tangents.append(0.0 if a * b <= 0 else 2 * a * b / (a + b))
+    tangents.append(slopes[-1])
+
+    def evaluate(x):
+        if x <= xs[0]:
+            return ys[0]
+        if x >= xs[-1]:
+            return ys[-1]
+        i = 0
+        while x > xs[i + 1]:
+            i += 1
+        span = xs[i + 1] - xs[i]
+        t = (x - xs[i]) / span
+        t2, t3 = t * t, t * t * t
+        return (
+            (2 * t3 - 3 * t2 + 1) * ys[i]
+            + (t3 - 2 * t2 + t) * span * tangents[i]
+            + (-2 * t3 + 3 * t2) * ys[i + 1]
+            + (t3 - t2) * span * tangents[i + 1]
+        )
+
+    return evaluate
+
+
+def polyline(points):
+    points = sorted(points)
+
+    def evaluate(x):
+        if x <= points[0][0]:
+            return points[0][1]
+        if x >= points[-1][0]:
+            return points[-1][1]
+        for (x0, y0), (x1, y1) in zip(points, points[1:]):
+            if x <= x1:
+                return y0 + (y1 - y0) * (x - x0) / (x1 - x0)
+
+    return evaluate
+
+
+def bump(x, centre, radius):
+    t = abs(x - centre) / radius
+    return 0.0 if t >= 1 else 0.5 + 0.5 * math.cos(math.pi * t)
+
+
+def outward(station):
+    kind = station[0]
+    if kind == "side":
+        return Vector((0, 1, 0))
+    if kind == "front":
+        return Vector((1, 0, 0))
+    if kind == "rear":
+        return Vector((-1, 0, 0))
+    sign = 1 if kind == "front_corner" else -1
+    return Vector((sign * math.cos(station[1]), math.sin(station[1]), 0))
+
+
+class End:
+    def __init__(self, tip, bow=0.05, flat=0.7, power=2.4):
+        self.tip = tip
+        self.bow = bow
+        self.flat = flat
+        self.power = power
+
+
+class Line:
+    def __init__(self, width, height, keys, front, rear, sharp=False):
+        self.width = width
+        self.height = height
+        self.keys = keys
+        self.front = front
+        self.rear = rear
+        self.sharp = sharp
+
+    def end_point(self, end, anchor, a, turn):
+        width = self.width(anchor)
+        flat = end.flat * width
+        direction = 1 if end.tip > anchor else -1
+        edge = end.tip - direction * end.bow
+        if a is not None:
+            return end.tip - direction * end.bow * a * a, a * flat
+        power = 2 / end.power
+        cosine = max(0.0, math.cos(turn)) ** power
+        sine = max(0.0, math.sin(turn)) ** power
+        return anchor + (edge - anchor) * cosine, flat + (width - flat) * sine
+
+    def point(self, station):
+        kind = station[0]
+        if kind == "side":
+            k, u = station[1], station[2]
+            x = self.keys[k] + (self.keys[k + 1] - self.keys[k]) * u
+            y = self.width(x)
+        elif kind == "front":
+            x, y = self.end_point(self.front, self.keys[0], station[1], None)
+        elif kind == "front_corner":
+            x, y = self.end_point(self.front, self.keys[0], None, station[1])
+        elif kind == "rear_corner":
+            x, y = self.end_point(self.rear, self.keys[-1], None, station[1])
+        else:
+            x, y = self.end_point(self.rear, self.keys[-1], station[1], None)
+        return Vector((x, y, self.height(x, y)))
+
+
+class Blend:
+    def __init__(self, low, high, amount, bulge=0.0, sharp=False):
+        self.low = low
+        self.high = high
+        self.amount = amount
+        self.bulge = bulge
+        self.sharp = sharp
+
+    def point(self, station):
+        a = self.low.point(station)
+        b = self.high.point(station)
+        return a.lerp(b, self.amount) + outward(station) * self.bulge
+
+
+class Hull:
+    def __init__(self, lines, lid, floor=None, fascia=6, corner=4, step=0.12, lid_rows=5, floor_rows=2):
+        self.lines = lines
+        self.lid = lid
+        self.floor = floor
+        self.lid_rows = lid_rows
+        self.floor_rows = floor_rows
+        keys = next(line.keys for line in lines if isinstance(line, Line))
+        stations = [("front", i / fascia) for i in range(fascia)]
+        stations += [("front_corner", math.pi / 2 * i / corner) for i in range(corner)]
+        for k in range(len(keys) - 1):
+            pieces = max(1, math.ceil(abs(keys[k] - keys[k + 1]) / step - 1e-6))
+            stations += [("side", k, i / pieces) for i in range(pieces)]
+        stations += [("rear_corner", math.pi / 2 * (1 - i / corner)) for i in range(corner + 1)]
+        stations += [("rear", 1 - i / fascia) for i in range(1, fascia + 1)]
+        self.stations = stations
+        self.grid = [[line.point(station) for station in stations] for line in lines]
+
+    def indices(self, test):
+        return [i for i, station in enumerate(self.stations) if test(station, self.grid[-1][i])]
+
+    def front_indices(self, back):
+        return self.indices(lambda station, point: station[0] in ("front", "front_corner") or (station[0] == "side" and point.x >= back))
+
+    def rear_indices(self, ahead):
+        return self.indices(lambda station, point: station[0] in ("rear", "rear_corner") or (station[0] == "side" and point.x <= ahead))
+
+    def position(self, level, index):
+        low = min(int(level), len(self.lines) - 2)
+        return self.grid[low][index].lerp(self.grid[low + 1][index], level - low)
+
+    def path(self, level, indices, offset=0.0, lift=0.0, mirrored=True):
+        points = [self.position(level, i) for i in indices]
+        normals = []
+        for n, index in enumerate(indices):
+            before = points[max(0, n - 1)]
+            after = points[min(len(points) - 1, n + 1)]
+            tangent = after - before
+            normal = Vector((tangent.y, -tangent.x, 0))
+            if points[n].y < 1e-6 or normal.length < 1e-9:
+                normal = outward(self.stations[index])
+            normals.append(normal.normalized())
+        points = [p + n * offset + UP * lift for p, n in zip(points, normals)]
+        if not mirrored:
+            return points, normals
+        flip = Vector((1, -1, 1))
+        if points[0].y < 1e-6:
+            left_points, left_normals = points[::-1], normals[::-1]
+            right_points = [p * flip for p in points[1:]]
+            right_normals = [n * flip for n in normals[1:]]
+        else:
+            left_points, left_normals = points, normals
+            right_points = [p * flip for p in points[-2::-1]]
+            right_normals = [n * flip for n in normals[-2::-1]]
+        return left_points + right_points, left_normals + right_normals
+
+    def build(self, paint, floor_material="underbody"):
+        bm = bmesh.new()
+        band_layer = bm.faces.layers.int.new("band")
+        station_layer = bm.faces.layers.int.new("station")
+        rows = []
+        labels = []
+        bottom = self.grid[0]
+        for r in range(self.floor_rows):
+            f = r / self.floor_rows
+            row = []
+            for p in bottom:
+                z = self.floor(p.x, p.y * f) if self.floor else p.z
+                row.append(Vector((p.x, p.y * f, z)))
+            rows.append(row)
+            labels.append(FLOOR)
+        for j, line_points in enumerate(self.grid):
+            rows.append(line_points)
+            labels.append(j)
+        labels[-1] = LID
+        top = self.grid[-1]
+        for r in range(1, self.lid_rows + 1):
+            f = 1 - r / self.lid_rows
+            rows.append([Vector((p.x, p.y * f, self.lid(p.x, p.y * f))) for p in top])
+            labels.append(LID)
+        verts = [[bm.verts.new(p) for p in row] for row in rows]
+        for r in range(len(rows) - 1):
+            label = labels[r]
+            for i in range(len(self.stations) - 1):
+                loop = (verts[r][i], verts[r][i + 1], verts[r + 1][i + 1], verts[r + 1][i])
+                face = bm.faces.new(loop)
+                face[band_layer] = label
+                face[station_layer] = i
+                if label == FLOOR:
+                    material = floor_material
+                else:
+                    material = paint(label, self.stations[i], (rows[r][i] + rows[r + 1][i + 1]) / 2)
+                face.material_index = slot(material)
+                face.smooth = True
+        bm.edges.ensure_lookup_table()
+        for j, line in enumerate(self.lines):
+            if not line.sharp:
+                continue
+            row = verts[self.floor_rows + j]
+            for i in range(len(row) - 1):
+                edge = bm.edges.get((row[i], row[i + 1]))
+                if edge:
+                    edge.smooth = False
+        geometry = bm.verts[:] + bm.edges[:] + bm.faces[:]
+        bmesh.ops.mirror(bm, geom=geometry, axis="Y", merge_dist=-1)
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        bmesh.ops.dissolve_degenerate(bm, edges=bm.edges, dist=1e-6)
+        bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+        bm.normal_update()
+        if sum(face.calc_center_median().dot(face.normal) * face.calc_area() for face in bm.faces) < 0:
+            bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
+        return bm
+
+
+def tagged(bm, bands, test, hull):
+    band_layer = bm.faces.layers.int["band"]
+    station_layer = bm.faces.layers.int["station"]
     return [
-        {
-            "s": s,
-            "height": radius + travel * 0.35,
-            "radius": radius + clearance,
-            "inset": inset,
-            "depth": track * 0.5 + reach - inset,
-        }
-        for s in axles
+        face
+        for face in bm.faces
+        if face[band_layer] in bands and test(hull.stations[face[station_layer]])
     ]
+
+
+def recess(bm, faces, thickness, depth, rim, floor):
+    result = bmesh.ops.inset_region(
+        bm, faces=faces, thickness=thickness, depth=-depth, use_even_offset=True, use_boundary=True
+    )
+    for face in result["faces"]:
+        face.material_index = slot(rim)
+    for face in faces:
+        if face.is_valid:
+            face.material_index = slot(floor)
+    for face in faces:
+        if not face.is_valid:
+            continue
+        for edge in face.edges:
+            if any(other.material_index != face.material_index for other in edge.link_faces):
+                edge.smooth = False
+
+
+def oriented(bm, hint):
+    for face in bm.faces:
+        if face.normal.dot(hint) < 0:
+            face.normal_flip()
+    return bm
+
+
+def closed(bm):
+    bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-6)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    for face in bm.faces:
+        face.smooth = True
+    return bm
+
+
+def hexahedron(corners, material):
+    bm = bmesh.new()
+    verts = [bm.verts.new(c) for c in corners]
+    for loop in ((0, 1, 2, 3), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+        bm.faces.new([verts[i] for i in loop]).material_index = slot(material)
+    return closed(bm)
+
+
+def box(centre, size, material, rotation=None, bevel=0.0, taper=1.0):
+    half = Vector(size) / 2
+    corners = []
+    for z in (-1, 1):
+        scale = taper if z > 0 else 1.0
+        for x, y in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+            corner = Vector((x * half.x * scale, y * half.y * scale, z * half.z))
+            if rotation is not None:
+                corner = rotation @ corner
+            corners.append(Vector(centre) + corner)
+    bm = hexahedron(corners, material)
+    if bevel > 0:
+        bmesh.ops.bevel(bm, geom=bm.edges[:], offset=bevel, segments=1, affect="EDGES", profile=0.5)
+        for face in bm.faces:
+            face.material_index = slot(material)
+            face.smooth = True
+    return bm
+
+
+def bar(start, end, width, thickness, material, up=UP, bevel=0.0):
+    start = Vector(start)
+    end = Vector(end)
+    along = end - start
+    side = along.cross(up).normalized()
+    normal = side.cross(along).normalized()
+    rotation = Matrix((along.normalized(), side, normal)).transposed()
+    return box((start + end) / 2, (along.length, width, thickness), material, rotation=rotation, bevel=bevel)
+
+
+def frame(axis):
+    axis = Vector(axis).normalized()
+    helper = UP if abs(axis.z) < 0.9 else FORWARD
+    u = axis.cross(helper).normalized()
+    v = axis.cross(u).normalized()
+    return axis, u, v
+
+
+def lathe(profile, material, origin=(0, 0, 0), axis=(0, 1, 0), segments=24, loop=True):
+    axis, u, v = frame(axis)
+    origin = Vector(origin)
+    bm = bmesh.new()
+    materials = material if isinstance(material, (list, tuple)) else [material] * len(profile)
+    rings = []
+    for radius, along in profile:
+        centre = origin + axis * along
+        if radius < 1e-7:
+            rings.append([bm.verts.new(centre)] * segments)
+            continue
+        ring = []
+        for s in range(segments):
+            angle = 2 * math.pi * s / segments
+            ring.append(bm.verts.new(centre + (u * math.cos(angle) + v * math.sin(angle)) * radius))
+        rings.append(ring)
+    count = len(profile) if loop else len(profile) - 1
+    for p in range(count):
+        a = rings[p]
+        b = rings[(p + 1) % len(profile)]
+        for s in range(segments):
+            t = (s + 1) % segments
+            loop_verts = []
+            for vert in (a[s], a[t], b[t], b[s]):
+                if vert not in loop_verts:
+                    loop_verts.append(vert)
+            if len(loop_verts) < 3:
+                continue
+            try:
+                bm.faces.new(loop_verts).material_index = slot(materials[p])
+            except ValueError:
+                pass
+    return closed(bm)
+
+
+def cylinder(start, end, radius, material, segments=14, end_radius=None):
+    start = Vector(start)
+    end = Vector(end)
+    length = (end - start).length
+    tip = radius if end_radius is None else end_radius
+    return lathe(
+        [(0, 0), (radius, 0), (tip, length), (0, length)],
+        material,
+        origin=start,
+        axis=end - start,
+        segments=segments,
+    )
+
+
+def sweep(points, outs, ups, profile, material, caps=True):
+    bm = bmesh.new()
+    rings = []
+    for p, out, up in zip(points, outs, ups):
+        rings.append([bm.verts.new(p + out * a + up * b) for a, b in profile])
+    count = len(profile)
+    for r in range(len(rings) - 1):
+        for s in range(count):
+            t = (s + 1) % count
+            bm.faces.new((rings[r][s], rings[r][t], rings[r + 1][t], rings[r + 1][s])).material_index = slot(material)
+    if caps:
+        bm.faces.new(rings[0]).material_index = slot(material)
+        bm.faces.new(rings[-1]).material_index = slot(material)
+    return closed(bm)
+
+
+def bar_profile(depth, height, chamfer):
+    half = height / 2
+    return [
+        (-0.03, -half),
+        (depth - chamfer, -half),
+        (depth, -half + chamfer),
+        (depth, half - chamfer),
+        (depth - chamfer, half),
+        (-0.03, half),
+    ]
+
+
+class Pocket:
+    def __init__(self, corners, normal):
+        self.corners = corners
+        self.normal = normal
+
+    def point(self, a, b, lift=0.0):
+        p00, p10, p11, p01 = self.corners
+        low = p00.lerp(p10, a)
+        high = p01.lerp(p11, a)
+        return low.lerp(high, b) + self.normal * lift
+
+    def size(self):
+        p00, p10, p11, p01 = self.corners
+        return (p10 - p00).length, (p01 - p00).length
+
+    def slab(self, a0, a1, b0, b1, h0, h1, material):
+        corners = [self.point(a, b, h) for h in (h0, h1) for a, b in ((a0, b0), (a1, b0), (a1, b1), (a0, b1))]
+        return hexahedron(corners, material)
+
+    def disc(self, a, b, profile, material, segments=20):
+        return lathe(profile, material, origin=self.point(a, b), axis=self.normal, segments=segments)
+
+    def panel(self, a0, a1, b0, b1, lift, material):
+        bm = bmesh.new()
+        loop = [bm.verts.new(self.point(a, b, lift)) for a, b in ((a0, b0), (a1, b0), (a1, b1), (a0, b1))]
+        bm.faces.new(loop).material_index = slot(material)
+        return oriented(bm, self.normal)
+
+
+class Model:
+    def __init__(self, name):
+        self.name = name
+        self.parts = {}
+        self.wheels = []
+        self.extra = []
+
+    def part(self, group):
+        if group not in self.parts:
+            self.parts[group] = bmesh.new()
+        return self.parts[group]
+
+    def absorb(self, source, group="Body", mirror=False, both=False):
+        target = self.part(group)
+        passes = [False, True] if both else [mirror]
+        for flipped in passes:
+            mapping = {}
+            for vert in source.verts:
+                co = vert.co.copy()
+                if flipped:
+                    co.y = -co.y
+                mapping[vert] = target.verts.new(co)
+            for face in source.faces:
+                loop = [mapping[v] for v in face.verts]
+                if flipped:
+                    loop.reverse()
+                try:
+                    created = target.faces.new(loop)
+                except ValueError:
+                    continue
+                created.material_index = face.material_index
+                created.smooth = True
+            for edge in source.edges:
+                if not edge.smooth:
+                    made = target.edges.get((mapping[edge.verts[0]], mapping[edge.verts[1]]))
+                    if made:
+                        made.smooth = False
+        source.free()
+
+    def add(self, source, group="Body"):
+        self.absorb(source, group, both=True)
+
+    def finish(self, angle=34):
+        objects = []
+        threshold = math.radians(angle)
+        for group, bm in self.parts.items():
+            for edge in bm.edges:
+                if len(edge.link_faces) == 2 and edge.calc_face_angle(0) > threshold:
+                    edge.smooth = False
+            bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4])
+            mesh = bpy.data.meshes.new(group)
+            bm.to_mesh(mesh)
+            bm.free()
+            for name in SLOTS:
+                mesh.materials.append(material_named(name))
+            item = bpy.data.objects.new(group, mesh)
+            bpy.context.scene.collection.objects.link(item)
+            objects.append(item)
+        for name, mesh in self.extra:
+            item = bpy.data.objects.new(name, mesh)
+            bpy.context.scene.collection.objects.link(item)
+            objects.append(item)
+        for name, location, mesh in self.wheels:
+            item = bpy.data.objects.new(name, mesh)
+            item.location = location
+            bpy.context.scene.collection.objects.link(item)
+            objects.append(item)
+        return objects
+
+
+def mesh_object(bm, name):
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    for material in SLOTS:
+        mesh.materials.append(material_named(material))
+    item = bpy.data.objects.new(name, mesh)
+    bpy.context.scene.collection.objects.link(item)
+    return item
+
+
+def subtract(target, cutters):
+    if not cutters:
+        return target
+    body = mesh_object(target, "carve_target")
+    helpers = []
+    for index, cutter in enumerate(cutters):
+        bmesh.ops.triangulate(cutter, faces=cutter.faces[:])
+        tool = mesh_object(cutter, f"carve_tool_{index}")
+        cutter.free()
+        helpers.append(tool)
+        modifier = body.modifiers.new(f"carve_{index}", "BOOLEAN")
+        modifier.operation = "DIFFERENCE"
+        modifier.solver = "EXACT"
+        modifier.material_mode = "INDEX"
+        modifier.object = tool
+    graph = bpy.context.evaluated_depsgraph_get()
+    graph.update()
+    result = bmesh.new()
+    result.from_object(body, graph)
+    for item in [body, *helpers]:
+        mesh = item.data
+        bpy.data.objects.remove(item)
+        bpy.data.meshes.remove(mesh)
+    target.free()
+    return result
+
+
+def prism(outline, y0, y1, material):
+    bm = bmesh.new()
+    near = [bm.verts.new((x, y0, z)) for x, z in outline]
+    far = [bm.verts.new((x, y1, z)) for x, z in outline]
+    count = len(outline)
+    for i in range(count):
+        j = (i + 1) % count
+        bm.faces.new((near[i], near[j], far[j], far[i])).material_index = slot(material)
+    bm.faces.new(near).material_index = slot(material)
+    bm.faces.new(far).material_index = slot(material)
+    return closed(bm)
+
+
+def tyre_profile(radius, rim, half, grooves, groove_depth):
+    wall = radius - rim
+    tread = half - 0.032
+    points = [
+        (rim - 0.008, -(half - 0.03)),
+        (rim + 0.006, -(half - 0.01)),
+        (rim + 0.32 * wall, -half),
+        (rim + 0.68 * wall, -half),
+        (radius - 0.022, -(half - 0.012)),
+        (radius - 0.004, -tread),
+    ]
+    for g in range(grooves):
+        centre = -tread + 2 * tread * (g + 1) / (grooves + 1)
+        gap = min(0.011, tread / (grooves + 1) * 0.35)
+        points += [
+            (radius, centre - gap - 0.003),
+            (radius - groove_depth, centre - gap),
+            (radius - groove_depth, centre + gap),
+            (radius, centre + gap + 0.003),
+        ]
+    points += [(r, -y) for r, y in points[5::-1]]
+    return points
+
+
+def wheel(spec):
+    radius = spec["radius"]
+    half = spec["width"] / 2
+    rim = spec["rim"]
+    dish = spec.get("dish", 0.035)
+    style = spec.get("style", "spoke")
+    face_metal = spec.get("metal", "rim")
+    segments = spec.get("segments", 36)
+    bm = bmesh.new()
+
+    def include(part):
+        offset = len(bm.verts)
+        mapping = {}
+        for vert in part.verts:
+            mapping[vert] = bm.verts.new(vert.co)
+        for face in part.faces:
+            try:
+                made = bm.faces.new([mapping[v] for v in face.verts])
+            except ValueError:
+                continue
+            made.material_index = face.material_index
+            made.smooth = True
+        part.free()
+        return offset
+
+    include(lathe(tyre_profile(radius, rim, half, spec.get("grooves", 3), spec.get("groove_depth", 0.009)), "tyre", segments=segments))
+    back = -(half - 0.015)
+    barrel = rim - 0.028
+    face = half - dish
+    include(
+        lathe(
+            [
+                (0, back + 0.03),
+                (barrel, back + 0.03),
+                (barrel, face - 0.02),
+                (rim - 0.02, half - 0.02),
+                (rim - 0.012, half - 0.006),
+                (rim + 0.008, half - 0.006),
+                (rim + 0.008, half - 0.024),
+                (rim, back),
+                (0, back),
+            ],
+            ["rim_dark", spec.get("barrel", face_metal), face_metal, spec.get("lip", face_metal), spec.get("lip", face_metal), "rim_dark", "rim_dark", "rim_dark", "rim_dark"],
+            segments=segments,
+        )
+    )
+    include(lathe([(0, back + 0.05), (rim * 0.62, back + 0.05), (rim * 0.62, back + 0.075), (0, back + 0.075)], "steel", segments=24))
+    if style == "steel":
+        outer = barrel + 0.004
+        include(
+            lathe(
+                [
+                    (0, face - 0.03),
+                    (outer, face - 0.03),
+                    (outer, face - 0.012),
+                    (outer * 0.8, face + 0.004),
+                    (outer * 0.5, face + 0.004),
+                    (outer * 0.4, face + 0.02),
+                    (0, face + 0.02),
+                ],
+                face_metal,
+                segments=segments,
+            )
+        )
+        holes = spec.get("spokes", 8)
+        for n in range(holes):
+            angle = 2 * math.pi * n / holes
+            centre = Vector((math.cos(angle) * outer * 0.66, face - 0.004, math.sin(angle) * outer * 0.66))
+            include(lathe([(0, 0), (outer * 0.11, 0), (outer * 0.11, 0.0135), (0, 0.0135)], "rim_dark", origin=centre, segments=10))
+        include(lathe([(0, face + 0.01), (outer * 0.3, face + 0.01), (outer * 0.27, face + 0.035), (outer * 0.14, face + 0.048), (0, face + 0.05)], "chrome", segments=18))
+        for n in range(6):
+            angle = 2 * math.pi * (n + 0.5) / 6
+            centre = Vector((math.cos(angle) * outer * 0.36, face + 0.018, math.sin(angle) * outer * 0.36))
+            include(lathe([(0, 0), (0.012, 0), (0.012, 0.014), (0, 0.014)], "chrome", origin=centre, segments=6))
+    else:
+        count = spec.get("spokes", 5)
+        twin = spec.get("twin", 0.0)
+        root = spec.get("root", 0.05)
+        tip = spec.get("tip", 0.035)
+        thick = spec.get("thick", 0.028)
+        lean = spec.get("lean", 0.012)
+        hub = spec.get("hub", 0.07)
+        reach = barrel + 0.006
+        for n in range(count):
+            for side in ((-1, 1) if twin else (0,)):
+                angle = 2 * math.pi * n / count
+                inner_angle = angle + side * twin * 0.35
+                outer_angle = angle + side * twin
+                corners = []
+                for depth in (-thick, 0.0):
+                    for r, a, w, y in (
+                        (hub * 0.6, inner_angle, root, face),
+                        (reach, outer_angle, tip, face + lean),
+                    ):
+                        radial = Vector((math.cos(a), 0, math.sin(a)))
+                        tangent = Vector((-math.sin(a), 0, math.cos(a)))
+                        squeeze = 0.7 if depth < 0 else 1.0
+                        for sign in (-1, 1):
+                            corners.append(radial * r + tangent * sign * w / 2 * squeeze + LEFT * (y + depth))
+                order = [corners[i] for i in (0, 1, 3, 2, 4, 5, 7, 6)]
+                include(hexahedron(order, face_metal))
+        include(lathe([(0, face - 0.035), (hub, face - 0.035), (hub, face + 0.004), (hub * 0.7, face + 0.014), (0, face + 0.014)], face_metal, segments=18))
+        include(lathe([(0, face + 0.012), (hub * 0.45, face + 0.012), (hub * 0.4, face + 0.02), (0, face + 0.02)], spec.get("cap", "rim_dark"), segments=12))
+        nuts = spec.get("nuts", 5)
+        for n in range(nuts):
+            angle = 2 * math.pi * (n + 0.5) / nuts
+            centre = Vector((math.cos(angle) * hub * 0.72, face + 0.004, math.sin(angle) * hub * 0.72))
+            include(lathe([(0, 0), (0.009, 0), (0.009, 0.012), (0, 0.012)], "steel", origin=centre, segments=6))
+    lugs = spec.get("lugs", 0)
+    for n in range(lugs):
+        angle = 2 * math.pi * n / lugs
+        for side in (-1, 1):
+            shift = angle + (0.5 * math.pi / lugs if side > 0 else 0)
+            rotation = Matrix.Rotation(-shift, 4, "Y")
+            centre = rotation @ Vector((radius - 0.02, side * (half - 0.03), 0))
+            include(box(centre, (0.034, 0.05, 0.05), "tyre", rotation=rotation.to_3x3()))
+    threshold = math.radians(30)
+    for edge in bm.edges:
+        if len(edge.link_faces) == 2 and edge.calc_face_angle(0) > threshold:
+            edge.smooth = False
+    return bm
+
+
+def wheel_meshes(spec, name):
+    left = wheel(spec)
+    left_mesh = bpy.data.meshes.new(f"{name}_left")
+    left.to_mesh(left_mesh)
+    for vert in left.verts:
+        vert.co.y = -vert.co.y
+    bmesh.ops.reverse_faces(left, faces=left.faces[:])
+    right_mesh = bpy.data.meshes.new(f"{name}_right")
+    left.to_mesh(right_mesh)
+    left.free()
+    for mesh in (left_mesh, right_mesh):
+        for material in SLOTS:
+            mesh.materials.append(material_named(material))
+    return left_mesh, right_mesh
+
+
+class Car:
+    def __init__(self, name, wheelbase, track, front_wheel, rear_wheel=None):
+        self.model = Model(name)
+        self.axle = wheelbase / 2
+        self.track = track
+        self.front_wheel = front_wheel
+        self.rear_wheel = rear_wheel or front_wheel
+        self.cutters = []
+        self.hull = None
+        self.shell = None
+        self.tree = None
+
+    def body(self, hull, paint):
+        self.hull = hull
+        self.shell = hull.build(paint)
+        self.tree = BVHTree.FromBMesh(self.shell)
+
+    def cast(self, origin, direction):
+        location, normal, _, _ = self.tree.ray_cast(Vector(origin), Vector(direction))
+        if location is None:
+            raise ValueError(f"{self.model.name}: ray from {tuple(origin)} missed the body")
+        return location, normal
+
+    def side(self, x, z):
+        return self.cast((x, 4, z), (0, -1, 0))
+
+    def nose(self, y, z):
+        return self.cast((8, y, z), (-1, 0, 0))
+
+    def tail(self, y, z):
+        return self.cast((-8, y, z), (1, 0, 0))
+
+    def top(self, x, y):
+        return self.cast((x, y, 5), (0, 0, -1))
+
+    def pocket(self, caster, u, v, depth, material, mirror=True, proud=0.5):
+        hits = [caster(a, b)[0] for a, b in ((u[0], v[0]), (u[1], v[0]), (u[1], v[1]), (u[0], v[1]))]
+        normal = (hits[1] - hits[0]).cross(hits[3] - hits[0]).normalized()
+        centre_normal = caster((u[0] + u[1]) / 2, (v[0] + v[1]) / 2)[1]
+        if normal.dot(centre_normal) < 0:
+            normal = -normal
+        floor = [h - normal * depth for h in hits]
+        roof = [h + normal * proud for h in hits]
+        cutter = hexahedron(floor + roof, material)
+        self.cutters.append(cutter)
+        if mirror:
+            flip = Vector((1, -1, 1))
+            self.cutters.append(hexahedron([p * flip for p in floor + roof], material))
+        return Pocket(floor, normal)
+
+    def carve(self, cutter):
+        self.cutters.append(cutter)
+
+    def arches(self, gap, inner=0.11, material="underbody", rear_gap=None):
+        self.arch_list = []
+        for sign, spec, clearance in ((1, self.front_wheel, gap), (-1, self.rear_wheel, rear_gap or gap)):
+            centre = sign * self.axle
+            hub = spec["radius"]
+            reach = hub + clearance
+            outline = [(centre + reach, -0.3)]
+            steps = 24
+            for s in range(steps + 1):
+                angle = math.pi * s / steps
+                outline.append((centre + reach * math.cos(angle), hub + reach * math.sin(angle)))
+            outline.append((centre - reach, -0.3))
+            near = self.track / 2 - spec["width"] / 2 - inner
+            for flip in (1, -1):
+                self.cutters.append(prism(outline, flip * near, flip * 3.0, material))
+            self.arch_list.append((centre, hub, reach))
+
+    def arch_lips(self, width=0.03, proud=0.012, material="body", floor=0.2, widths=None):
+        for n, (centre, hub, reach) in enumerate(self.arch_list):
+            lip_width = widths[n] if widths else width
+            path = []
+            steps = 26
+            low = floor
+            drop = max(1, int((hub - low) / 0.06))
+            for s in range(drop):
+                path.append((centre + reach, low + (hub - low) * s / drop, FORWARD))
+            for s in range(steps + 1):
+                angle = math.pi * s / steps
+                radial = Vector((math.cos(angle), 0, math.sin(angle)))
+                path.append((centre + reach * math.cos(angle), hub + reach * math.sin(angle), radial))
+            for s in range(drop - 1, -1, -1):
+                path.append((centre - reach, low + (hub - low) * s / drop, -FORWARD))
+            points, outs, ups = [], [], []
+            for x, z, radial in path:
+                probe = Vector((x, 0, z)) + radial * 0.012
+                try:
+                    hit = self.side(probe.x, probe.z)[0]
+                except ValueError:
+                    continue
+                points.append(Vector((x, hit.y, z)))
+                outs.append(LEFT)
+                ups.append(radial)
+            profile = [(-0.03, -0.004), (proud, -0.004), (proud, lip_width * 0.55), (0.0, lip_width), (-0.03, lip_width)]
+            self.model.add(sweep(points, outs, ups, profile, material))
+
+    def cut(self, angle=34):
+        reference = bpy.data.meshes.new("reference")
+        self.shell.to_mesh(reference)
+        corners = [Vector(item.vector) for item in reference.corner_normals]
+        panels = []
+        for polygon in reference.polygons:
+            loops = list(polygon.loop_indices)
+            panels.append(([reference.vertices[reference.loops[i].vertex_index].co.copy() for i in loops], [corners[i] for i in loops]))
+        bpy.data.meshes.remove(reference)
+        carved = subtract(self.shell, self.cutters)
+        self.cutters = []
+        threshold = math.radians(angle)
+        for edge in carved.edges:
+            if len(edge.link_faces) == 2 and edge.calc_face_angle(0) > threshold:
+                edge.smooth = False
+        for face in carved.faces:
+            face.smooth = True
+        mesh = bpy.data.meshes.new("Coachwork")
+        carved.to_mesh(mesh)
+        carved.free()
+        normals = [(0.0, 0.0, 0.0)] * len(mesh.loops)
+        for polygon in mesh.polygons:
+            _, normal, index, distance = self.tree.find_nearest(polygon.center)
+            if index is None or distance > 2e-4 or polygon.normal.dot(normal) < 0.9:
+                continue
+            coords, shading = panels[index]
+            for loop_index in polygon.loop_indices:
+                point = mesh.vertices[mesh.loops[loop_index].vertex_index].co
+                weights = poly_3d_calc(coords, point)
+                blended = Vector()
+                for weight, direction in zip(weights, shading):
+                    blended += direction * weight
+                if blended.length > 1e-6:
+                    normals[loop_index] = tuple(blended.normalized())
+        mesh.normals_split_custom_set(normals)
+        for name in SLOTS:
+            mesh.materials.append(material_named(name))
+        self.model.extra.append(("Coachwork", mesh))
+
+    def rail(self, level, indices, profile, material, offset=0.0, lift=0.0, hull=None, mirrored=True):
+        hull = hull or self.hull
+        points, normals = hull.path(level, indices, offset, lift, mirrored)
+        part = sweep(points, normals, [UP] * len(points), profile, material)
+        if mirrored:
+            self.model.absorb(part)
+        else:
+            self.model.add(part)
+
+    def seam(self, points, caster, width=0.008, lift=0.0025, material="seam", mirror=True):
+        bm = bmesh.new()
+        hits = []
+        for point in points:
+            try:
+                hits.append(caster(*point))
+            except ValueError:
+                continue
+        if len(hits) < 2:
+            return
+        rows = []
+        for n, (location, normal) in enumerate(hits):
+            before = hits[max(0, n - 1)][0]
+            after = hits[min(len(hits) - 1, n + 1)][0]
+            across = (after - before).cross(normal).normalized() * width / 2
+            base = location + normal * lift
+            rows.append((bm.verts.new(base - across), bm.verts.new(base + across)))
+        for a, b in zip(rows, rows[1:]):
+            face = bm.faces.new((a[0], a[1], b[1], b[0]))
+            face.material_index = slot(material)
+            if face.normal.dot(hits[0][1]) < 0:
+                face.normal_flip()
+        if mirror:
+            self.model.add(bm)
+        else:
+            self.model.absorb(bm)
+
+    def stroke(self, start, end, caster, steps=10, **options):
+        points = [tuple(start[i] + (end[i] - start[i]) * s / steps for i in range(2)) for s in range(steps + 1)]
+        self.seam(points, caster, **options)
+
+    def decal(self, caster, u, v, material, lift=0.004, steps=(4, 2), group="Body", mirror=True, thickness=0.0):
+        bm = bmesh.new()
+        grid = []
+        normal_sum = Vector()
+        for i in range(steps[0] + 1):
+            row = []
+            for j in range(steps[1] + 1):
+                a = u[0] + (u[1] - u[0]) * i / steps[0]
+                b = v[0] + (v[1] - v[0]) * j / steps[1]
+                location, normal = caster(a, b)
+                normal_sum += normal
+                row.append(bm.verts.new(location + normal * lift))
+            grid.append(row)
+        for i in range(steps[0]):
+            for j in range(steps[1]):
+                bm.faces.new((grid[i][j], grid[i + 1][j], grid[i + 1][j + 1], grid[i][j + 1])).material_index = slot(material)
+        oriented(bm, normal_sum)
+        if thickness > 0:
+            boundary = [e for e in bm.edges if len(e.link_faces) == 1]
+            made = bmesh.ops.extrude_edge_only(bm, edges=boundary)
+            shift = normal_sum.normalized() * -thickness
+            for item in made["geom"]:
+                if isinstance(item, bmesh.types.BMVert):
+                    item.co += shift
+            for face in bm.faces:
+                face.material_index = slot(material)
+            bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+            probe = max(bm.faces, key=lambda f: f.calc_area())
+            if probe.normal.dot(normal_sum) < 0:
+                bmesh.ops.reverse_faces(bm, faces=bm.faces[:])
+        if mirror:
+            self.model.add(bm, group)
+        else:
+            self.model.absorb(bm, group)
+
+    def greenhouse(self, hull, glass_keys, glass_bands, pillar="body", roof="body", frame=0.02, depth=0.012, fixed=()):
+        def paint(band, station, point):
+            return roof if band == LID else pillar
+
+        bm = hull.build(paint, floor_material="interior")
+        bm.normal_update()
+        band_layer = bm.faces.layers.int["band"]
+        for face in bm.faces:
+            if face[band_layer] == FLOOR:
+                face.normal_flip()
+
+        def is_glass(station):
+            if station[0] in ("front", "rear"):
+                return True
+            return station[0] == "side" and station[1] in glass_keys
+
+        panes = tagged(bm, glass_bands, is_glass, hull)
+        pane_set = set(panes)
+        shell = [f for f in bm.faces if f not in pane_set and f[band_layer] != FLOOR]
+        lining = bmesh.ops.duplicate(bm, geom=shell)
+        liner_faces = [item for item in lining["geom"] if isinstance(item, bmesh.types.BMFace)]
+        for face in liner_faces:
+            face.material_index = slot("interior")
+        for vert in {v for face in liner_faces for v in face.verts}:
+            vert.co -= vert.normal * 0.008
+        bmesh.ops.reverse_faces(bm, faces=liner_faces)
+        recess(bm, panes, frame, depth, "trim_black", "glass")
+        self.cabin = hull
+        self.model.absorb(bm, "Body")
+
+    def place_wheels(self):
+        half = self.track / 2
+        front_left, front_right = wheel_meshes(self.front_wheel, "front_wheel")
+        if self.rear_wheel is self.front_wheel:
+            rear_left, rear_right = front_left, front_right
+        else:
+            rear_left, rear_right = wheel_meshes(self.rear_wheel, "rear_wheel")
+        self.model.wheels = [
+            ("Wheel_FL", (self.axle, half, self.front_wheel["radius"]), front_left),
+            ("Wheel_FR", (self.axle, -half, self.front_wheel["radius"]), front_right),
+            ("Wheel_RL", (-self.axle, half, self.rear_wheel["radius"]), rear_left),
+            ("Wheel_RR", (-self.axle, -half, self.rear_wheel["radius"]), rear_right),
+        ]
+
+    def seats(self, x, floor, spread, height=0.16, width=0.46, rear_bench=None, material="seat"):
+        tilt = Matrix.Rotation(math.radians(-12), 3, "Y")
+        for sign in (1, -1):
+            y = sign * spread
+            self.model.absorb(box((x, y, floor + height / 2 - 0.02), (0.11, width, height + 0.04), material, rotation=tilt, bevel=0.025, taper=0.88))
+            self.model.absorb(box((x - 0.035, y, floor + height + 0.065), (0.085, width * 0.52, 0.11), material, rotation=tilt, bevel=0.025))
+        if rear_bench is not None:
+            self.model.absorb(box((rear_bench, 0, floor + height * 0.35), (0.11, spread * 2 + width, height * 0.8), material, rotation=tilt, bevel=0.025))
+
+    def dashboard(self, x, floor, width, wheel_y, height=0.06, depth=0.24):
+        self.model.absorb(box((x, 0, floor + height / 2), (depth, width, height), "interior", bevel=0.02))
+        self.model.absorb(box((x - 0.04, wheel_y, floor + height + 0.015), (0.16, 0.3, 0.04), "interior", bevel=0.012))
+        column = Vector((x - depth / 2 - 0.16, wheel_y, floor + height * 0.75))
+        axis = Vector((-1, 0, 0.42)).normalized()
+        self.model.absorb(cylinder(column + axis * -0.2, column, 0.022, "trim_black", segments=8))
+        ring = [(0.165 + 0.014 * math.cos(a), 0.014 * math.sin(a)) for a in [2 * math.pi * k / 6 for k in range(6)]]
+        self.model.absorb(lathe(ring, "trim_black", origin=column, axis=axis, segments=18))
+        _, u, v = frame(axis)
+        for spoke in (u, -u, v):
+            self.model.absorb(cylinder(column, column + spoke * 0.16, 0.011, "trim_black", segments=6))
+
+    def mirrors(self, x, z, material="body", size=(0.07, 0.17, 0.105), reach=0.07, stalk="trim_black"):
+        hit = self.side(x, z)[0]
+        centre = Vector((x, hit.y + reach + size[1] / 2, z + 0.03))
+        self.model.add(box(centre, size, material, bevel=0.018))
+        self.model.add(box(centre + Vector((-size[0] / 2 - 0.001, 0, 0)), (0.004, size[1] - 0.03, size[2] - 0.03), "mirror"))
+        self.model.add(box((x, hit.y + reach / 2, z + 0.005), (0.045, reach + 0.04, 0.03), stalk, bevel=0.008))
+
+    def handles(self, x, z, material="chrome", size=(0.12, 0.02, 0.026)):
+        hit, normal = self.side(x, z)
+        self.model.add(box(hit + normal * 0.006, (size[0] + 0.03, 0.006, size[2] + 0.024), "seam"))
+        self.model.add(box(hit + normal * (size[1] / 2 + 0.002), size, material, bevel=0.006))
+
+    def wipers(self, hull, inner=1, outer=4, low=1.12, high=1.3):
+        lift = Vector((0.012, 0, 0.014))
+        start = hull.position(low, outer) + lift
+        end = hull.position(high, inner) + lift
+        self.model.add(bar(start, end, 0.022, 0.012, "trim_black", up=Vector((0.5, 0, 1))))
+        self.model.add(cylinder(start - lift * 1.5, start + lift, 0.016, "trim_black", segments=8))
+
+    def vent(self, x, y, depth=0.03):
+        return self.pocket(self.top, x, y, depth, "grille")

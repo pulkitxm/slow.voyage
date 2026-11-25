@@ -6,18 +6,18 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import bpy
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 from carkit import linear, material_named
 from designs import DESIGNS
 
 VIEWS = {
-    "front": (-36, 15, 1.75),
-    "rear": (148, 20, 1.75),
-    "side": (-90, 4, 1.75),
+    "front": (-36, 14, 1.75),
+    "rear": (148, 16, 1.75),
+    "side": (-90, 3, 1.75),
     "top": (-60, 55, 1.9),
-    "nose": (-12, 8, 1.0),
-    "tail": (168, 10, 1.0),
+    "nose": (-14, 8, 1.15),
+    "tail": (166, 10, 1.15),
 }
 
 
@@ -28,6 +28,7 @@ def arguments():
     parser.add_argument("--only", nargs="*")
     parser.add_argument("--views", nargs="*", default=["front", "rear"])
     parser.add_argument("--samples", type=int, default=24)
+    parser.add_argument("--width", type=int, default=1280)
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
 
 
@@ -57,13 +58,13 @@ def export(objects, path):
     )
 
 
-def stage(scene, paint, samples):
+def stage(scene, paint, samples, width):
     scene.render.engine = "CYCLES"
     scene.cycles.device = "CPU"
     scene.cycles.samples = samples
     scene.cycles.use_denoising = True
-    scene.render.resolution_x = 1280
-    scene.render.resolution_y = 720
+    scene.render.resolution_x = width
+    scene.render.resolution_y = width * 9 // 16
     scene.render.film_transparent = False
     scene.view_settings.view_transform = "Standard"
     world = bpy.data.worlds.new("sky")
@@ -104,9 +105,7 @@ def stage(scene, paint, samples):
 def aim(camera, heading, pitch, distance, target):
     yaw = math.radians(heading)
     tilt = math.radians(pitch)
-    offset = Vector(
-        (math.sin(yaw) * math.cos(tilt), -math.cos(yaw) * math.cos(tilt), math.sin(tilt))
-    )
+    offset = Vector((math.sin(yaw) * math.cos(tilt), -math.cos(yaw) * math.cos(tilt), math.sin(tilt)))
     camera.location = target + offset * distance
     camera.rotation_euler = (target - camera.location).to_track_quat("-Z", "Y").to_euler()
 
@@ -116,18 +115,31 @@ def main():
     os.makedirs(options.output, exist_ok=True)
     for name in options.only or list(DESIGNS):
         scene = reset()
-        model, paint = DESIGNS[name]()
-        objects = model.finish()
-        triangles = sum(len(item.data.polygons) for item in objects if not item.name.startswith("Wheel_"))
-        triangles += 4 * len(model.wheels[0].data.polygons)
-        print(f"built {name}: {triangles} triangles")
+        car, paint = DESIGNS[name]()
+        objects = car.model.finish()
+        turn = Matrix.Rotation(-math.pi / 2, 4, "Z")
+        for mesh in {item.data for item in objects}:
+            mesh.transform(turn)
+        for item in objects:
+            item.location = turn @ item.location
+        triangles = 0
+        low = Vector((1e9, 1e9, 1e9))
+        high = -low
+        for item in objects:
+            item.data.calc_loop_triangles()
+            triangles += len(item.data.loop_triangles)
+            for vert in item.data.vertices:
+                point = item.matrix_basis @ vert.co
+                low = Vector(map(min, low, point))
+                high = Vector(map(max, high, point))
+        print(f"built {name}: {triangles} triangles, bounds {tuple(round(v, 3) for v in low)} {tuple(round(v, 3) for v in high)}")
         export(objects, os.path.join(options.output, f"{name}.glb"))
         if not options.previews:
             continue
         os.makedirs(options.previews, exist_ok=True)
-        camera = stage(scene, paint, options.samples)
-        length = model.loft.rear - model.loft.front
-        target = Vector((0, (model.loft.rear + model.loft.front) / 2, 0.6))
+        camera = stage(scene, paint, options.samples, options.width)
+        length = high.y - low.y
+        target = Vector((0, (high.y + low.y) / 2, 0.55))
         for view in options.views:
             heading, pitch, reach = VIEWS[view]
             aim(camera, heading, pitch, length * reach, target)
