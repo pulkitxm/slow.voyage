@@ -28,6 +28,30 @@ export const coachworks: Partial<Record<Vehicle, Coachwork>> = {
 
 let loader: GLTFLoader | null = null
 
+function lampSpots(shell: THREE.Object3D, frame: THREE.Object3D, name: RegExp) {
+  const toFrame = frame.matrixWorld.clone().invert()
+  const point = new THREE.Vector3()
+  const sides = [new THREE.Vector3(), new THREE.Vector3()]
+  const counts = [0, 0]
+  shell.traverse((part) => {
+    if (!(part instanceof THREE.Mesh) || !name.test(part.name)) return
+    const placement = toFrame.clone().multiply(part.matrixWorld)
+    const position = part.geometry.getAttribute('position')
+    for (let index = 0; index < position.count; index++) {
+      point.fromBufferAttribute(position, index).applyMatrix4(placement)
+      const side = point.x < 0 ? 0 : 1
+      sides[side]?.add(point)
+      counts[side] = (counts[side] ?? 0) + 1
+    }
+  })
+  if (!counts[0] || !counts[1]) return null
+  return sides.map((sum, side) => sum.divideScalar(counts[side] ?? 1).toArray()) as [
+    number,
+    number,
+    number,
+  ][]
+}
+
 export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: () => void) {
   const spec = coachworks[vehicle]
   const exterior = model.exterior
@@ -174,6 +198,11 @@ export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: ()
         part.material = glow
         ;(rear ? tails : heads).push(glow)
       })
+      model.group.updateMatrixWorld(true)
+      const headSpots = lampSpots(shell, model.group, /^Headlights/)
+      const tailSpots = lampSpots(shell, model.group, /^Taillights/)
+      if (headSpots) model.headlightPositions = headSpots
+      if (tailSpots) model.tailLightPositions = tailSpots
       const drive = model.update.bind(model)
       model.update = (wheelStates, braking, night, speed) => {
         drive(wheelStates, braking, night, speed)

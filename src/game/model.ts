@@ -13,6 +13,7 @@ export interface VehicleModel {
   wheels: readonly THREE.Group[]
   body: THREE.MeshStandardMaterial
   headlightPositions: [number, number, number][]
+  tailLightPositions?: [number, number, number][]
   setExteriorVisible(visible: boolean): void
   update(wheels: readonly WheelState[], braking: boolean, night: boolean, speed: number): void
   dispose(): void
