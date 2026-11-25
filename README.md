@@ -64,7 +64,10 @@ Local pre-commit checks remain mandatory.
 Touch devices have steering and pedal buttons. Settings include seven vehicles,
 seven landscapes, three seasons, six skies including a live day cycle, five kinds
 of weather, paint, camera, grip, power, sound, detail, and units. Preferences are
-stored on the device.
+stored on the device. Detail has three levels: Easy on the engine, Full beauty,
+and Ultra. Ultra is the default on hardware that can hold it at 60 frames a
+second, and it lowers its own resolution and effects, or steps back to Full
+beauty, when frames run slow.
 
 The Journey tab also chooses the road itself. Winding Roads is the full road
 with every bend. Endless Straight holds one heading for the whole lap while the
@@ -166,4 +169,5 @@ label. Verify handling changes with measured input-response and simulation check
 - `src/useDrive.ts`: browser lifecycle, preferences, and interface state.
 - `worker/sw.ts`: the offline worker.
 - `scripts/offline.ts`: content-addressed precache generation and worker bundling.
+- `scripts/frame-times.ts`: median and 95th percentile frame times per detail level.
 - `tests/offline.test.ts`: production worker tests against an unavailable origin.

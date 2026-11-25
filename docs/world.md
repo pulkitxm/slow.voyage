@@ -89,6 +89,31 @@ of the whole loop.
   not treated as slow. Stalls while scenery, season, light or vehicle change are
   not counted, one long stall counts as a single short frame, and a lowered
   resolution steps back up after a long run of smooth frames.
+- Detail has three levels. Ultra, the default where the hardware allows it,
+  renders the same scene through `src/game/ultra.ts`: an HDR target, half
+  resolution ambient occlusion, bloom from highlights brighter than the scene
+  white, a neutral tone curve, a soft vignette, and morphological antialiasing
+  on top of multisampling. The speed streaks, lens drops, wet road mirror, and
+  distance haze are kept. A device gets Ultra when it supports float colour
+  buffers, four sample multisampling, and 8192 pixel textures, and when a few
+  timed frames at load finish inside the budget.
+- Ultra is held to 60 frames a second by `src/game/governor.ts`. Where the
+  browser offers timer queries it reads the time the graphics card spends on
+  each frame, so stalls on the processor are never blamed on the picture.
+  Elsewhere it watches the rolling median and the slowest tenth of the last 30
+  frame intervals. When a frame costs more than four fifths of the budget it
+  lowers the 3D resolution in steps down to 0.6 of the display, then drops
+  ambient occlusion, then bloom, and finally moves the preference to Full
+  beauty with a short crossfade. Headroom wins everything back in the reverse
+  order, and a raise that brings the strain back doubles the wait before the
+  next try. Without timer queries a display capped at 30 Hz is tested once at
+  the lowest cost and then left at full quality.
+- `bun scripts/frame-times.ts 20 --angle=vulkan` drives on autodrive at
+  1600 by 900 and prints the median and 95th percentile frame time for Full
+  beauty and Ultra. Add `--uncapped` to lift the display pacing and see the
+  real cost of a frame. In development `voyage.frameBudget()` in the console
+  returns the current level, render scale, shed effects, frame times, and
+  graphics card time.
 - Landscapes are profiles in `src/game/landscapes.ts`. Forest, canyon, and
   northern lakes were added to highlands, alpine, and desert.
 - Skies include dawn, dusk, and a live cycle through a full day every twelve
