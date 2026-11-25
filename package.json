@@ -2,6 +2,16 @@
   "name": "slow.voyage",
   "private": true,
   "type": "module",
+  "license": "MIT",
+  "author": "Pulkit (https://github.com/pulkitxm)",
+  "homepage": "https://slow.voyage",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pulkitxm/slow.voyage.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pulkitxm/slow.voyage/issues"
+  },
   "scripts": {
     "dev": "bun run --bun vite --host 0.0.0.0 --port 3002 --strictPort",
     "build": "bun run --bun vite build && bun scripts/seo.ts && bun scripts/offline.ts",
