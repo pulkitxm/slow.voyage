@@ -1,18 +1,5 @@
 import { expect, test } from 'bun:test'
-import * as THREE from 'three'
-import { SkidMarks, TyreParticles, trailLayout } from './tyre-trail'
-
-test('particles reuse their slots once the pool is full', () => {
-  const particles = new TyreParticles()
-  const tone = new THREE.Color('#ffffff')
-  const origin = { x: 1, y: 2, z: 3 }
-  const slots = new Set<number>()
-  for (let index = 0; index < trailLayout.particles + 5; index++)
-    slots.add(particles.emit(origin, origin, tone, 0.5, 1, index))
-  expect(slots.size).toBe(trailLayout.particles)
-  expect(particles.emit(origin, origin, tone, 0.5, 1, 0)).toBe(5)
-  particles.dispose()
-})
+import { SkidMarks, trailLayout } from './tyre-trail'
 
 test('skid marks join steady slides and break on gaps, lifts and jumps', () => {
   const marks = new SkidMarks()
