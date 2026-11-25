@@ -122,6 +122,11 @@ export const cinemaRelief = {
   recovery: 12,
 }
 
+export function cinemaStepFor(scale: number) {
+  const index = cinemaRelief.scales.findIndex((value) => value <= scale + 0.001)
+  return index < 0 ? cinemaRelief.scales.length - 1 : index
+}
+
 export type StrainVerdict = 'lower' | 'raise' | null
 
 export class StrainGauge {

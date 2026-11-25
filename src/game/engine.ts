@@ -18,9 +18,10 @@ import {
 } from './controls'
 import { crossfadeTiming, SceneCrossfade } from './crossfade'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
-import { FrameGovernor, governorPlan } from './governor'
+import { FrameGovernor, governorPlan, reliefLevels } from './governor'
 import {
   cinemaRelief,
+  cinemaStepFor,
   createGraphicsRenderer,
   displayCapped,
   frameStrained,
@@ -74,6 +75,7 @@ import { WorldMap } from './world-map'
 
 const paintBudget = 11
 const paintDepth = 0.7
+const retireDelay = 90
 
 function contactShadow() {
   const canvas = document.createElement('canvas')
@@ -164,6 +166,9 @@ export class RoadEngine {
   onProgress?: (fraction: number, stage: 'stone' | 'hills' | 'light') => void
   software = false
   renderScale = 0
+  carriedScale = 0
+  retired: UltraPipeline | null = null
+  retiredFrames = 0
   onDiscover?: (kind: LandmarkKind, found: number, total: number) => void
   onQuality?: (quality: Settings['quality']) => void
   lightingAt = 0
@@ -675,7 +680,8 @@ export class RoadEngine {
     this.strainGauge.hold()
     this.governor.hold()
     if (settings.quality !== this.settings.quality) {
-      this.renderScale = 0
+      this.renderScale = this.carriedScale
+      this.carriedScale = 0
       this.cinemaBlocked = false
       this.governor.reset()
     }
@@ -713,16 +719,21 @@ export class RoadEngine {
     }
     this.car.body.color.set(settings.color).multiplyScalar(paintDepth)
     this.incoming?.body.color.set(settings.color).multiplyScalar(paintDepth)
-    const ratio = this.pixelRatio(budget)
-    if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio)
     this.configureCinema(budget)
+    this.applyRenderScale(budget)
     this.configureShadows(budget)
     this.applyLighting()
     if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
   }
   pixelRatio(budget: ReturnType<typeof graphicsBudget>) {
-    const scales = budget.software ? softwareRelief.scales : cinemaRelief.scales
-    return budget.pixelRatio * (scales[this.renderScale] ?? 1)
+    if (budget.software) return budget.pixelRatio * (softwareRelief.scales[this.renderScale] ?? 1)
+    if (budget.cinematic) return budget.pixelRatio
+    return budget.pixelRatio * (cinemaRelief.scales[this.renderScale] ?? 1)
+  }
+  applyRenderScale(budget: ReturnType<typeof graphicsBudget>) {
+    const ratio = this.pixelRatio(budget)
+    if (this.renderer.getPixelRatio() !== ratio) this.renderer.setPixelRatio(ratio)
+    if (this.cinema) this.cinema.scale = cinemaRelief.scales[this.renderScale] ?? 1
   }
   configureCinema(budget: ReturnType<typeof graphicsBudget>) {
     if (budget.ultra && !this.ultra && this.ultraKit) {
@@ -741,13 +752,16 @@ export class RoadEngine {
           this.ultraPending = null
         })
     if (!budget.ultra && this.ultra) {
-      this.ultra.dispose()
+      this.retired?.dispose()
+      this.retired = this.ultra
+      this.retiredFrames = retireDelay
       this.ultra = null
     }
     this.ultra?.tune(this.governor.scale, this.governor.relief)
     if (this.ultra) this.cinema?.rest()
-    const cinematic = budget.cinematic && !this.cinemaBlocked
+    const cinematic = budget.cinematic
     if (cinematic && !this.cinema) this.cinema = new CinematicPipeline(this.renderer)
+    if (this.cinema) this.cinema.bare = this.cinemaBlocked
     if (!cinematic && this.cinema) {
       this.cinema.dispose()
       this.cinema = null
@@ -766,8 +780,9 @@ export class RoadEngine {
     }
     return quickest / 1000
   }
-  easeQuality() {
-    if (this.rendered) this.crossfade.capture(crossfadeTiming.reducedDuration * 2)
+  easeQuality(governed = false) {
+    if (governed) this.carriedScale = cinemaStepFor(this.governor.scale)
+    else if (this.rendered) this.crossfade.capture(crossfadeTiming.reducedDuration * 2)
     this.setSettings({ ...this.settings, quality: 'high' })
     this.onQuality?.('high')
   }
@@ -1095,22 +1110,31 @@ export class RoadEngine {
       this.ultra !== null,
       this.gpuClock?.read(),
     )
-    if (governed === 'adjust') this.ultra?.tune(this.governor.scale, this.governor.relief)
-    if (governed === 'fallback') this.easeQuality()
+    if (governed === 'adjust') {
+      this.ultra?.tune(this.governor.scale, this.governor.relief)
+      if (this.governor.relief === reliefLevels.plain && this.cinema) {
+        this.cinema.scale = cinemaRelief.scales[cinemaStepFor(this.governor.scale)] ?? 1
+        this.cinema.resize()
+      } else if (this.ultra) this.cinema?.rest()
+    }
+    if (governed === 'fallback') this.easeQuality(true)
+    if (this.retired && --this.retiredFrames <= 0) {
+      this.retired.dispose()
+      this.retired = null
+    }
     if (!this.software && !this.ultra && driving) {
       const verdict = this.strainGauge.step(elapsed, strained, busy, this.renderScale)
       if (verdict) {
         const budget = graphicsBudget(this.renderer, this.settings.quality)
         if (verdict === 'raise') {
           this.renderScale--
-          this.renderer.setPixelRatio(this.pixelRatio(budget))
         } else if (this.renderScale < cinemaRelief.scales.length - 1) {
           this.renderScale++
-          this.renderer.setPixelRatio(this.pixelRatio(budget))
         } else {
           this.cinemaBlocked = true
           this.configureCinema(budget)
         }
+        this.applyRenderScale(budget)
       }
     }
     if (this.software && this.started && !this.paused && !this.photo) {
@@ -1392,6 +1416,7 @@ export class RoadEngine {
     this.antialiasing?.dispose()
     this.cinema?.dispose()
     this.ultra?.dispose()
+    this.retired?.dispose()
     this.gpuClock?.dispose()
     this.crossfade.dispose()
     this.renderer.dispose()
