@@ -2,6 +2,7 @@ import type { ControllerBindings, ControllerMode } from './controller-bindings'
 import { roadCurve, smoothStep, terrainField } from './field'
 import { groundSurface } from './ground-grid'
 import { type Landscape, landscapeProfiles, passEasing, terraced } from './landscapes'
+import { openSurface } from './open-grid'
 import { roadCoordinates, roadLayout } from './road'
 import { potholeDepth, type RoadWear } from './road-condition'
 
@@ -194,18 +195,15 @@ export class World {
     const onRoad = Math.abs(distance) <= roadLayout.halfWidth
     const grade = road.dy / (1 + road.dx * road.dx)
     if (!onRoad) {
-      const ground = groundSurface(this, x, s)
-      if (ground) return { ...ground, onRoad, sand: this.sandy(ground.height, distance) }
+      const ground = groundSurface(this, x, s) ?? openSurface(this, x, s)
+      return { ...ground, onRoad, sand: this.sandy(ground.height, distance) }
     }
-    const height = onRoad
-      ? road.y - potholeDepth(this.settings.roadWear, along, distance)
-      : this.height(x, s)
     return {
-      height,
+      height: road.y - potholeDepth(this.settings.roadWear, along, distance),
       onRoad,
-      sand: !onRoad && this.sandy(height, distance),
-      slopeX: onRoad ? grade * road.dx : (this.height(x + 0.2, s) - this.height(x - 0.2, s)) / 0.4,
-      slopeS: onRoad ? grade : (this.height(x, s + 0.2) - this.height(x, s - 0.2)) / 0.4,
+      sand: false,
+      slopeX: grade * road.dx,
+      slopeS: grade,
     }
   }
 }

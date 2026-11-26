@@ -7,7 +7,6 @@ import { clamp, type Settings, shoreHeight, type World } from './world'
 export const minimapLayout = {
   size: 188,
   radius: 82,
-  rim: 89,
   range: 1600,
   carDrop: 0.22,
   cells: 96,
@@ -199,7 +198,7 @@ export class Minimap {
   private draw(pose: MapPose) {
     const context = this.context
     if (!context) return
-    const { size, radius, rim, range, carDrop, cells, cell, roadSpan, roadStep, guideDistance } =
+    const { size, radius, range, carDrop, cells, cell, roadSpan, roadStep, guideDistance } =
       minimapLayout
     const center = size / 2
     const zoom = radius / range

@@ -12,7 +12,7 @@ export interface LandscapeProfile {
   shore: boolean
   snowLine: number | null
   treeLine: number | null
-  woodland: { threshold: number; evergreen: number; start: number; reach: number } | null
+  woodland: { threshold: number; evergreen: number; start: number } | null
   roadside: { trees: number; shrubs: number; conifers: number; narrow: number }
   grass: number
   ground: { base: string; light: string } | null
@@ -44,7 +44,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     shore: true,
     snowLine: null,
     treeLine: null,
-    woodland: { threshold: 0.08, evergreen: 0.3, start: 60, reach: 650 },
+    woodland: { threshold: 0.08, evergreen: 0.3, start: 60 },
     roadside: { trees: 28, shrubs: 180, conifers: 0.3, narrow: 0.15 },
     grass: 10000,
     ground: null,
@@ -67,7 +67,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     shore: true,
     snowLine: 120,
     treeLine: 220,
-    woodland: { threshold: -0.02, evergreen: 0.7, start: 60, reach: 650 },
+    woodland: { threshold: -0.02, evergreen: 0.7, start: 60 },
     roadside: { trees: 28, shrubs: 180, conifers: 0.7, narrow: 0.15 },
     grass: 10000,
     ground: null,
@@ -120,7 +120,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     shore: true,
     snowLine: null,
     treeLine: null,
-    woodland: { threshold: -0.42, evergreen: 0.82, start: 24, reach: 420 },
+    woodland: { threshold: -0.42, evergreen: 0.82, start: 24 },
     roadside: { trees: 44, shrubs: 220, conifers: 0.8, narrow: 0.1 },
     grass: 9000,
     ground: null,
@@ -173,7 +173,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     shore: true,
     snowLine: 62,
     treeLine: 54,
-    woodland: { threshold: 0.2, evergreen: 0.9, start: 40, reach: 500 },
+    woodland: { threshold: 0.2, evergreen: 0.9, start: 40 },
     roadside: { trees: 12, shrubs: 120, conifers: 0.85, narrow: 0.1 },
     grass: 7000,
     ground: { base: '#8a8f58', light: '#b4b077' },
@@ -203,7 +203,7 @@ export const landscapeProfiles: Record<Landscape, LandscapeProfile> = {
     shore: true,
     snowLine: null,
     treeLine: null,
-    woodland: { threshold: -0.6, evergreen: 0.04, start: 16, reach: 520 },
+    woodland: { threshold: -0.6, evergreen: 0.04, start: 16 },
     roadside: { trees: 56, shrubs: 400, conifers: 0, narrow: 0.3 },
     grass: 14000,
     ground: { base: '#4c7a33', light: '#7aa646' },

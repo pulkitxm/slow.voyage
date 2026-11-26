@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test'
 import {
   coniferBuild,
-  createWoodland,
   roadsidePlantHeight,
   woodlandCoverage,
   woodlandDensity,
+  woodlandTrees,
 } from './woodland'
 import { defaults, World } from './world'
 
@@ -19,22 +19,26 @@ test.each(['highlands', 'alpine'] as const)(
   },
 )
 
+function section(world: World, tile: number, thin = 1) {
+  return woodlandTrees(world, world.road(tile * 120 + 60).x - 640, tile * 120, 1280, 120, thin)
+}
+
 test('woodland is deterministic and preserves tree positions across seasons', () => {
   const world = new World({ ...defaults })
-  const summer = createWoodland(world, 3, 'high')
+  const summer = section(world, 3)
   expect(summer.length).toBeGreaterThan(0)
-  expect(createWoodland(world, 3, 'high')).toEqual(summer)
+  expect(section(world, 3)).toEqual(summer)
   world.settings.season = 'winter'
-  expect(createWoodland(world, 3, 'high')).toEqual(summer)
+  expect(section(world, 3)).toEqual(summer)
   world.settings.seed = 73
-  expect(createWoodland(world, 3, 'high')).not.toEqual(summer)
+  expect(section(world, 3)).not.toEqual(summer)
 })
 
 test('low detail retains a stable subset of the same woodland', () => {
   for (const tile of [-5, 3, 7]) {
     const world = new World({ ...defaults })
-    const high = createWoodland(world, tile, 'high')
-    const low = createWoodland(world, tile, 'low')
+    const high = section(world, tile)
+    const low = section(world, tile, 3)
     const positions = new Map(high.map((tree) => [`${tree.x}:${tree.s}`, tree]))
     expect(low.length).toBeLessThan(high.length)
     for (const tree of low) expect(positions.get(`${tree.x}:${tree.s}`)).toEqual(tree)
@@ -68,7 +72,7 @@ test('shared grove coverage stays bounded and leaves deserts clear', () => {
 test('tree placement leaves the corridor open and rejects water and steep faces', () => {
   const world = new World({ ...defaults, landscape: 'alpine' })
   for (const tile of [-2, 0, 3])
-    for (const tree of createWoodland(world, tile, 'high')) {
+    for (const tree of section(world, tile)) {
       const surface = world.surface(tree.x, tree.s)
       expect(Math.abs(tree.x - world.road(tree.s).x) - tree.width / 2).toBeGreaterThan(45)
       expect(surface.height).toBeGreaterThanOrEqual(0.7)
@@ -77,21 +81,21 @@ test('tree placement leaves the corridor open and rejects water and steep faces'
       expect(tree.s).toBeLessThan((tile + 1) * 120)
     }
   world.height = () => -1
-  expect(createWoodland(world, 0, 'high')).toEqual([])
+  expect(section(world, 0)).toEqual([])
 })
 
 test('deserts and exposed alpine peaks do not acquire dense woodland', () => {
-  expect(createWoodland(new World({ ...defaults, landscape: 'desert' }), 0, 'high')).toEqual([])
+  expect(section(new World({ ...defaults, landscape: 'desert' }), 0)).toEqual([])
   const alpine = new World({ ...defaults, landscape: 'alpine' })
   alpine.height = () => 230
-  expect(createWoodland(alpine, 0, 'high')).toEqual([])
+  expect(section(alpine, 0)).toEqual([])
 })
 
 test('adjacent and distant terrain sections retain bounded distinct tree sets', () => {
   const world = new World({ ...defaults })
   const seen = new Set<string>()
   for (const tile of [-2, -1, 0, 1, 2, 8333]) {
-    const trees = createWoodland(world, tile, 'high')
+    const trees = section(world, tile)
     expect(trees.length).toBeLessThanOrEqual(2500)
     for (const tree of trees) {
       const key = `${tree.x}:${tree.s}`
@@ -106,7 +110,7 @@ test('firs stand at the proportions of the photographed tree instead of a squeez
   const world = new World({ ...defaults, landscape: 'forest' })
   let firs = 0
   for (const tile of [2, 3, 5, 8]) {
-    for (const tree of createWoodland(world, tile, 'high')) {
+    for (const tree of section(world, tile)) {
       if (tree.variant !== 4) continue
       firs++
       const build = tree.width / tree.height

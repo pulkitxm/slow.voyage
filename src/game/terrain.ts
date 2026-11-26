@@ -1,8 +1,8 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { asphaltTexture } from './asphalt'
-import { Boulders, planBoulders, planPlants } from './boulders'
-import { CanopyIndex, canopyCover, canopyShade, shadeStops, shadeTone, tuftLight } from './canopy'
+import { type Boulder, Boulders, planBoulders, planPlants } from './boulders'
+import { CanopyIndex, canopyShade, shadeStops, shadeTone, tuftLight } from './canopy'
 import { type Trunk, trunkRadius } from './collision'
 import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
 import { grassGeometry, grassLighting, grassTexture } from './grass'
@@ -18,6 +18,9 @@ import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { landmarkFootprints, landmarkGeometry, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
+import { openSurface } from './open-grid'
+import { OpenGround } from './open-ground'
+import { OpenScenery } from './open-scenery'
 import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
 import { carFrame, type Driver } from './reactions'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
@@ -27,6 +30,7 @@ import { chevrons, chevronTexture, delineators } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
 import { loadRoadSurface } from './rock'
 import { receiveUnbiasedShadows } from './shadow-receiver'
+import { StaticGroup } from './static-group'
 import {
   cragFootprint,
   cragGeometry,
@@ -35,10 +39,13 @@ import {
   waterfallMaterial,
   waterfallsNear,
 } from './waterfalls'
-import { coniferBuild, createWoodland, roadsidePlantHeight } from './woodland'
+import { coniferBuild, roadsidePlantHeight, woodlandTrees } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 const grassViewDistance = { full: 45, end: 120 }
+const canopyReach = 64
+const stoneReach = { behind: 1, ahead: 5 }
+const poolReach = { behind: 1, ahead: 3 }
 const plantRootRecess = 0.1
 
 function placeGrassOnGround(matrix: THREE.Matrix4, ground: GroundSampler) {
@@ -95,8 +102,9 @@ export const tileStreaming = {
   rebuildBehind: 15,
   rebuildAhead: 130,
   jump: 2,
-  groundBatch: 8,
-  grassBatch: 2500,
+  groundBatch: 2,
+  grassBatch: 400,
+  treeBatch: 30,
 }
 
 interface TileBuild {
@@ -137,7 +145,7 @@ function bush(mesh: THREE.InstancedMesh, index: number, x: number, s: number, wi
 export class Terrain {
   tiles = new Map<number, THREE.Group>()
   trunks = new Map<number, Trunk[]>()
-  pools = new Map<number, number[]>()
+  pools = new Map<number, CanopyIndex>()
   unhurried = false
   private softs = new Map<number, Soft[]>()
   builds = new Map<number, TileBuild>()
@@ -145,6 +153,9 @@ export class Terrain {
   materials: THREE.Material[] = []
   sharedGeometries: THREE.BufferGeometry[] = []
   grassMaterial: MeadowMaterial
+  openMaterial: MeadowMaterial
+  open: OpenGround
+  scenery: OpenScenery
   roadMaterial: THREE.MeshStandardMaterial
   edgeMaterial = new THREE.MeshStandardMaterial({ color: '#eeeedd', roughness: 1 })
   railMaterial = new THREE.MeshStandardMaterial({
@@ -213,8 +224,30 @@ export class Terrain {
       roughness: 0.6,
     })
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings, software)
+    this.openMaterial = new MeadowMaterial(
+      this.groundTexture,
+      world.settings,
+      software,
+      this.grassMaterial,
+    )
+    this.open = new OpenGround(
+      world,
+      this.openMaterial,
+      () => terrainColors(this.world.settings),
+      tileStreaming.groundBatch,
+    )
+    this.open.group.userData.label = 'open-ground'
+    scene.add(this.open.group)
     this.foliage = new Foliage(world.settings.season, software)
     this.tintFoliage(world.settings)
+    this.scenery = new OpenScenery(
+      world,
+      this.foliage,
+      this.shadeMaterial ? { material: this.shadeMaterial, disc: this.shadeDisc } : null,
+      quality,
+    )
+    this.scenery.group.userData.label = 'open-scenery'
+    scene.add(this.scenery.group)
     this.bladeTexture = grassTexture()
     this.bladeMaterial = new THREE.MeshStandardMaterial({
       map: this.bladeTexture,
@@ -286,6 +319,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     scene.add(this.fallWarmUp)
     this.roadPhoto = software ? null : loadRoadSurface()
     this.boulders = software ? null : new Boulders()
+    if (this.boulders) scene.add(this.boulders.group)
     this.roadSurface = new RoadSurface(
       this.asphalt,
       this.roadPhoto,
@@ -306,6 +340,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       bounds.max.y ** 2 * 0.18 * Math.hypot(1, 0.6)
     this.materials = [
       this.grassMaterial,
+      this.openMaterial,
       this.roadMaterial,
       this.edgeMaterial,
       this.railMaterial,
@@ -338,6 +373,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       scene.add(this.meadow.mesh)
     }
   }
+  openAt = (x: number, s: number) => openSurface(this.world, x, s)
   samplerAt(s: number) {
     const id = Math.floor(s / groundLayout.tileLength)
     const group = this.tiles.get(id)
@@ -348,6 +384,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         ground.geometry,
         id * groundLayout.tileLength,
         group.userData.groundRows,
+        this.openAt,
       )
     return group.userData.sampler as GroundSampler
   }
@@ -400,7 +437,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     )
     ground.name = 'ground'
     group.userData.groundRows = rows
-    const groundSurface = new GroundSampler(ground.geometry, start, rows)
+    const groundSurface = new GroundSampler(ground.geometry, start, rows, this.openAt)
     yield
     const road = roadStrip(
       this.world,
@@ -608,7 +645,10 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         groundLayout.tileLength,
         random(Math.imul(id, 613) + settings.seed * 211 + 5),
       ).filter((boulder) => !waterfallClearing(falls, boulder.x, boulder.s))
-      this.boulders.add(group, scattered, (x, s) => groundSurface.sample(x, s))
+      group.userData.stones = {
+        list: [...scattered],
+        ground: (x: number, s: number) => groundSurface.sample(x, s),
+      }
       for (const boulder of scattered)
         trunks.push({ x: boulder.x, s: boulder.s, radius: boulder.radius })
       const planted = planPlants(
@@ -623,14 +663,19 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
             (rock) => Math.hypot(rock.x - plant.x, rock.s - plant.s) < rock.radius + 0.8,
           ),
       )
-      this.boulders.add(group, planted, (x, s) => groundSurface.sample(x, s))
+      group.userData.stones.list.push(...planted)
       for (const plant of planted)
         if (plant.radius > 0) trunks.push({ x: plant.x, s: plant.s, radius: plant.radius })
     }
     yield
-    const woodland = createWoodland(this.world, id, this.quality).filter(
-      (tree) => !waterfallClearing(falls, tree.x, tree.s),
-    )
+    const beside = this.world.road(start + groundLayout.tileLength / 2).x
+    const overhead = woodlandTrees(
+      this.world,
+      beside - canopyReach,
+      start,
+      canopyReach * 2,
+      groundLayout.tileLength,
+    ).filter((tree) => !waterfallClearing(falls, tree.x, tree.s))
     if (profile.palms && settings.season !== 'winter') {
       const palmCount = low ? Math.round(profile.palms / 2) : profile.palms
       const fernCount = Math.round(palmCount * palmLayout.ferns)
@@ -688,17 +733,13 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       if (!geometry) continue
       const shrub = variant >= 2 && variant < 4
       const count = vegetationCounts[variant] ?? 0
-      const forest = woodland.filter((tree) => tree.variant === variant)
-      if (!count && !forest.length) continue
-      const trees = new THREE.InstancedMesh(
-        geometry,
-        this.foliage.treeMaterial,
-        count + forest.length,
-      )
+      if (!count) continue
+      const trees = new THREE.InstancedMesh(geometry, this.foliage.treeMaterial, count)
       let placed = 0
       for (let i = 0; i < count; i++) {
         const cluster = clusters[Math.floor(rng() * clusters.length)]
         if (!cluster) continue
+        if (i && i % tileStreaming.treeBatch === 0) yield
         const clustered = rng() < 0.8
         const s = clustered
           ? clamp(cluster.s + (rng() - 0.5) * 38, start, start + groundLayout.tileLength)
@@ -732,19 +773,6 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         if (variant === evergreenTile) color.multiply(relief)
         trees.setColorAt(placed++, color)
       }
-      for (const tree of forest) {
-        matrix.position.set(tree.x, groundSurface.sample(tree.x, tree.s) - plantRootRecess, -tree.s)
-        matrix.rotation.set(0, tree.yaw, 0)
-        matrix.scale.set(tree.width, tree.height, tree.width)
-        if (!shrub) trunks.push({ x: tree.x, s: tree.s, radius: trunkRadius(tree.width) })
-        else softs.push(bush(trees, placed, tree.x, tree.s, tree.width))
-        shades.push(tree.x, tree.s, tree.width)
-        matrix.updateMatrix()
-        trees.setMatrixAt(placed, matrix.matrix)
-        treeTint(color, tree.shade, (tree.x * 0.37) % 1, (tree.s * 0.53) % 1)
-        if (variant === evergreenTile) color.multiply(relief)
-        trees.setColorAt(placed++, color)
-      }
       trees.count = placed
       trees.castShadow = true
       trees.customDepthMaterial = this.foliage.shadowMaterial
@@ -752,7 +780,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       yield
     }
     if (this.shadeMaterial && shades.length) {
-      this.pools.set(id, shades)
+      this.pools.set(id, new CanopyIndex(shades))
       const pools = new THREE.InstancedMesh(this.shadeDisc, this.shadeMaterial, shades.length / 3)
       pools.name = 'shade'
       pools.renderOrder = 1
@@ -778,7 +806,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         ? Math.min(2800, profile.grass)
         : profile.grass
     const grass = new THREE.InstancedMesh(this.blade, this.bladeMaterial, count)
-    const canopy = this.shadeMaterial ? new CanopyIndex(shades) : null
+    const canopy = this.shadeMaterial
+      ? new CanopyIndex([...shades, ...overhead.flatMap((tree) => [tree.x, tree.s, tree.width])])
+      : null
     grass.name = 'meadow'
     grass.receiveShadow = true
     grass.frustumCulled = false
@@ -821,6 +851,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     group.add(grass)
     this.tiles.set(id, group)
     this.trunks.set(id, trunks)
+    this.settleStones(id, group)
     this.scene.add(group)
   }
   update(s: number, time: number, cameraS: number, x = this.world.road(s).x) {
@@ -848,7 +879,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       if (this.tiles.has(id)) continue
       let build = this.builds.get(id)
       if (!build) {
-        const group = new THREE.Group()
+        const group = new StaticGroup()
         build = { group, steps: this.buildTile(id, rowsFor(id), group) }
         this.builds.set(id, build)
       }
@@ -862,8 +893,21 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         this.builds.delete(id)
       }
     }
+    this.open.field.update(x, s)
+    this.scenery.update(x, s)
     this.stream()
     for (const [id, group] of this.tiles) {
+      this.settleStones(id, group)
+      const gap = id - current
+      const close = Math.abs(gap) <= 1
+      if (group.userData.close !== close) {
+        group.userData.close = close
+        for (const child of group.children)
+          if (child instanceof THREE.InstancedMesh && child.customDepthMaterial)
+            child.castShadow = close
+      }
+      const shade = group.getObjectByName('shade')
+      if (shade) shade.visible = gap >= -poolReach.behind && gap <= poolReach.ahead
       const rows = rowsFor(id)
       if (group.userData.groundRows !== rows) {
         const ground = group.getObjectByName('ground')
@@ -879,7 +923,12 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           )
           group.userData.groundRows = rows
           group.userData.sampler = undefined
-          const sampler = new GroundSampler(ground.geometry, id * groundLayout.tileLength, rows)
+          const sampler = new GroundSampler(
+            ground.geometry,
+            id * groundLayout.tileLength,
+            rows,
+            this.openAt,
+          )
           const matrix = new THREE.Matrix4()
           const grass = group.getObjectByName('meadow')
           if (grass instanceof THREE.InstancedMesh) {
@@ -914,6 +963,16 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           (id + 1) * groundLayout.tileLength > cameraS - grassViewDistance.end
     }
     this.meadow?.update(x, s)
+    let from = current
+    let to = current
+    while (this.tiles.has(from - 1)) from--
+    while (this.tiles.has(to + 1)) to++
+    if (this.tiles.has(current))
+      this.openMaterial.corridorSpan.value.set(
+        from * groundLayout.tileLength,
+        (to + 1) * groundLayout.tileLength,
+      )
+    else this.openMaterial.corridorSpan.value.set(1, 0)
   }
   tintFoliage(settings: Settings) {
     const material = this.foliage.treeMaterial
@@ -926,7 +985,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.glowMaterial.color.setScalar(dark ? 3.2 : 1.1)
     this.reflectorMaterial.emissiveIntensity = dark ? 1.8 : 0.25
   }
-  prime(s: number, budget: number) {
+  prime(s: number, budget: number, x = this.world.road(s).x) {
     const current = Math.floor(s / groundLayout.tileLength)
     const ahead = this.quality === 'low' ? 8 : 14
     const deadline = performance.now() + budget
@@ -938,7 +997,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       }
       let build = this.builds.get(id)
       if (!build) {
-        const group = new THREE.Group()
+        const group = new StaticGroup()
         build = { group, steps: this.buildTile(id, groundLayout.fullRows, group) }
         this.builds.set(id, build)
       }
@@ -950,20 +1009,27 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       }
       if (performance.now() >= deadline) break
     }
-    return ready / (ahead + 5)
+    const strips = ahead + 5
+    if (ready < strips) return ready / (strips + 1)
+    this.open.field.update(x, s)
+    this.scenery.update(x, s)
+    return this.open.field.work(deadline) && this.scenery.field.work(deadline)
+      ? 1
+      : strips / (strips + 1)
   }
   shadeAt(x: number, s: number) {
     const tile = Math.floor(s / groundLayout.tileLength)
     let open = 1
     for (let id = tile - 1; id <= tile + 1; id++) {
       const pools = this.pools.get(id)
-      if (pools) open *= 1 - canopyCover(pools, x, s)
+      if (pools) open *= 1 - pools.cover(x, s)
     }
-    return 1 - open
+    return 1 - open * (1 - this.scenery.shadeAt(x, s))
   }
-  *trunksNear(s: number) {
+  *trunksNear(s: number, x: number) {
     const tile = Math.floor(s / groundLayout.tileLength)
     for (let id = tile - 1; id <= tile + 1; id++) yield* this.trunks.get(id) ?? []
+    yield* this.scenery.trunksNear(x, s)
   }
   stream() {
     if (!this.builds.size) this.rebuilding = false
@@ -974,7 +1040,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           : tileStreaming.softwareRefresh
         : tileStreaming.refreshBudget
       : tileStreaming.budget
-    const deadline = performance.now() + budget
+    const began = performance.now()
+    const waiting = this.open.field.pending + this.scenery.field.pending
+    const deadline = began + (waiting ? budget / 2 : budget)
     const priority = (id: number) =>
       id >= this.current ? id - this.current : (this.current - id) * 3
     for (const [id, build] of [...this.builds].sort((a, b) => priority(a[0]) - priority(b[0]))) {
@@ -984,24 +1052,39 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           break
         }
       }
-      if (performance.now() >= deadline) return
+      if (performance.now() >= deadline) break
     }
+    if (!this.open.field.work(began + budget)) return
+    if (!this.scenery.field.work(began + budget)) return
+    if (this.builds.size) return
     const group = this.retired.pop()
     if (group) this.disposeGroup(group)
   }
+  settleStones(id: number, group: THREE.Group) {
+    const stones = group.userData.stones as
+      | { list: Boulder[]; ground: (x: number, s: number) => number; near?: boolean | null }
+      | undefined
+    const gap = id - this.current
+    const near = gap < -stoneReach.behind || gap > stoneReach.ahead ? null : Math.abs(gap) <= 1
+    if (!stones || !this.boulders || stones.near === near) return
+    group.userData.release?.()
+    stones.near = near
+    group.userData.release =
+      near === null ? undefined : this.boulders.add(stones.list, stones.ground, near)
+  }
   disposeGroup(group: THREE.Group) {
+    group.userData.release?.()
+    group.userData.release = undefined
     group.traverse((o) => {
       if (o instanceof THREE.InstancedMesh) o.dispose()
-      if (
-        o instanceof THREE.Mesh &&
-        !this.sharedGeometries.includes(o.geometry) &&
-        !this.boulders?.owns(o.geometry)
-      )
+      if (o instanceof THREE.Mesh && !this.sharedGeometries.includes(o.geometry))
         o.geometry.dispose()
     })
   }
   removeTile(id: number, group: THREE.Group) {
     this.scene.remove(group)
+    group.userData.release?.()
+    group.userData.release = undefined
     this.retired.push(group)
     this.tiles.delete(id)
     this.trunks.delete(id)
@@ -1010,12 +1093,15 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
   }
   clear() {
     for (const [id, group] of this.tiles) this.removeTile(id, group)
+    this.open.field.clear()
+    this.scenery.field.clear()
     for (const build of this.builds.values()) this.disposeGroup(build.group)
     this.builds.clear()
     for (const group of this.retired.splice(0)) this.disposeGroup(group)
   }
   refresh(settings: Settings, quality: Settings['quality']) {
     this.quality = quality
+    this.scenery.quality = quality
     this.clear()
     this.rebuilding = true
     this.foliage.update(settings.season)
@@ -1042,6 +1128,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.bladeTexture.dispose()
     this.foliage.dispose()
     this.asphalt.dispose()
+    if (this.boulders) this.scene.remove(this.boulders.group)
     this.boulders?.dispose()
     this.roadPhoto?.albedo.dispose()
     this.roadPhoto?.normal.dispose()
@@ -1049,5 +1136,6 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.fallWarmUp.removeFromParent()
     this.fallWarmUp.geometry.dispose()
     this.groundTexture.dispose()
+    this.scene.remove(this.open.group, this.scenery.group)
   }
 }

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { createWoodland } from './woodland'
+import { woodlandTrees } from './woodland'
 import { defaults, World } from './world'
 
 test('road generation is deterministic at arbitrary distances and query orders', () => {
@@ -73,8 +73,8 @@ test('the road, terrain and woodland never repeat', () => {
     }
   }
   const world = new World({ ...defaults })
-  const first = createWoodland(world, 3, 'high')
-  const second = createWoodland(world, 103, 'high')
+  const first = woodlandTrees(world, -640, 360, 1280, 120)
+  const second = woodlandTrees(world, -640, 12360, 1280, 120)
   expect(first.length).toBeGreaterThan(0)
   expect(second.map((tree) => tree.x)).not.toEqual(first.map((tree) => tree.x))
 })

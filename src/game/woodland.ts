@@ -1,13 +1,16 @@
 import { acrossSpan, alongSpan, latticeValue, smoothStep } from './field'
 import { landscapeProfiles } from './landscapes'
-import { clamp, type Landscape, random, type Settings, type World } from './world'
+import { clamp, type Landscape, random, type World } from './world'
 
 export const coniferBuild = { slim: 0.6, spread: 0.2 }
+
+export const woodlandLattice = { cell: 8, jitter: 5 } as const
 
 export interface WoodlandTree {
   variant: 0 | 1 | 4 | 5
   x: number
   s: number
+  ground: number
   height: number
   width: number
   yaw: number
@@ -44,29 +47,29 @@ export function woodlandCoverage(x: number, s: number, seed: number, landscape: 
   return smoothStep(clamp((woodlandDensity(x, s, seed) - woodland.threshold + 0.18) / 0.36, 0, 1))
 }
 
-export function createWoodland(world: World, tile: number, quality: Settings['quality']) {
+export function woodlandTrees(
+  world: World,
+  left: number,
+  near: number,
+  width: number,
+  length: number,
+  thin = 1,
+) {
   const trees: WoodlandTree[] = []
   const profile = landscapeProfiles[world.settings.landscape]
   const woodland = profile.woodland
   if (!woodland) return trees
-  const low = quality === 'low'
   const seed = world.settings.seed
-  for (let row = tile * 15; row < (tile + 1) * 15; row++) {
-    if (low && row % 3 !== 0) continue
-    const center = world.road(row * 8 + 4).x
-    const first = Math.floor((center - woodland.reach) / 8)
-    const last = Math.ceil((center + woodland.reach) / 8)
-    for (let column = first; column <= last; column++) {
-      if (low && column % 3 !== 0) continue
+  const { cell, jitter } = woodlandLattice
+  const lastRow = Math.ceil((near + length) / cell)
+  const lastColumn = Math.ceil((left + width) / cell)
+  for (let row = Math.floor(near / cell); row < lastRow; row++) {
+    for (let column = Math.floor(left / cell); column < lastColumn; column++) {
+      if (thin > 1 && (latticeValue(column, row, seed + 7717) + 1) * thin >= 2) continue
       const rng = random(Math.imul(row, 94537) ^ Math.imul(column, 62969) ^ seed)
-      const x = column * 8 + 4 + (rng() - 0.5) * 5
-      const s = row * 8 + 4 + (rng() - 0.5) * 5
-      const distance = Math.abs(x - world.road(s).x)
-      if (
-        distance < woodland.start ||
-        distance > (low ? (woodland.reach * 36) / 65 : woodland.reach)
-      )
-        continue
+      const x = (column + 0.5) * cell + (rng() - 0.5) * jitter
+      const s = (row + 0.5) * cell + (rng() - 0.5) * jitter
+      if (Math.abs(x - world.road(s).x) < woodland.start) continue
       const coverage = woodlandCoverage(x, s, seed, world.settings.landscape)
       if (rng() > coverage) continue
       const surface = world.surface(x, s)
@@ -91,6 +94,7 @@ export function createWoodland(world: World, tile: number, quality: Settings['qu
         variant,
         x,
         s,
+        ground: surface.height,
         height,
         width,
         yaw: rng() * Math.PI,

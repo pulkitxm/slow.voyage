@@ -460,8 +460,8 @@ export class RoadEngine {
     }
     const terrain = this.terrain
     const life = this.life
-    this.physics.trunks = function* (s) {
-      yield* terrain.trunksNear(s)
+    this.physics.trunks = function* (s, x) {
+      yield* terrain.trunksNear(s, x)
       if (life) yield* life.obstacles(s)
     }
     this.atmosphere = new Atmosphere(this.renderer, budget.software)
@@ -548,7 +548,9 @@ export class RoadEngine {
     return new Promise<void>((resolve) => {
       const stroke = () => {
         if (this.disposed) return resolve()
-        const painted = this.software ? 1 : this.terrain.prime(this.physics.s, paintBudget)
+        const painted = this.software
+          ? 1
+          : this.terrain.prime(this.physics.s, paintBudget, this.physics.x)
         this.onProgress?.(0.1 + painted * 0.78, 'hills')
         if (painted >= 1) resolve()
         else requestAnimationFrame(stroke)

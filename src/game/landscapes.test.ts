@@ -32,7 +32,7 @@ test.each(landscapeIds)('%s is a saved choice and carries a complete profile', (
   const profile = landscapeProfiles[landscape]
   expect(profile.relief).toBeGreaterThan(0)
   expect(profile.roadside.conifers + profile.roadside.narrow).toBeLessThanOrEqual(1)
-  if (profile.woodland) expect(profile.woodland.start).toBeLessThan(profile.woodland.reach)
+  if (profile.woodland) expect(profile.woodland.start).toBeGreaterThan(10)
 })
 
 test.each(['forest', 'canyon', 'fjord', 'jungle'] as const)(
