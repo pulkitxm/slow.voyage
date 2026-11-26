@@ -4,11 +4,15 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js'
 import hatchbackUrl from '../assets/models/cars/hatchback.glb?url'
 import pickupUrl from '../assets/models/cars/pickup.glb?url'
 import supercarUrl from '../assets/models/cars/supercar.glb?url'
+import supercarGrandUrl from '../assets/models/cars/supercar-grand.glb?url'
+import supercarLongtailUrl from '../assets/models/cars/supercar-longtail.glb?url'
+import supercarTrackUrl from '../assets/models/cars/supercar-track.glb?url'
 import touringUrl from '../assets/models/cars/touring.glb?url'
 import type { VehicleModel } from './model'
 import { glassFace, reflectSkyline } from './skyline'
+import type { SupercarModel } from './supercars'
 import { vehicleMetrics } from './vehicles'
-import type { Vehicle } from './world'
+import type { Settings, Vehicle } from './world'
 
 interface Coachwork {
   url: string
@@ -24,6 +28,19 @@ export const coachworks: Partial<Record<Vehicle, Coachwork>> = {
   hatchback: { url: hatchbackUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
   supercar: { url: supercarUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
   pickup: { url: pickupUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
+}
+
+export const supercarCoachworks: Record<SupercarModel, string> = {
+  classic: supercarUrl,
+  grand: supercarGrandUrl,
+  longtail: supercarLongtailUrl,
+  track: supercarTrackUrl,
+}
+
+export function coachworkFor(settings: Pick<Settings, 'vehicle' | 'supercarModel'>) {
+  const spec = coachworks[settings.vehicle]
+  if (!spec || settings.vehicle !== 'supercar') return spec
+  return { ...spec, url: supercarCoachworks[settings.supercarModel] }
 }
 
 let loader: GLTFLoader | null = null
@@ -52,8 +69,13 @@ function lampSpots(shell: THREE.Object3D, frame: THREE.Object3D, name: RegExp) {
   ][]
 }
 
-export function dressVehicle(model: VehicleModel, vehicle: Vehicle, onReady?: () => void) {
-  const spec = coachworks[vehicle]
+export function dressVehicle(
+  model: VehicleModel,
+  settings: Pick<Settings, 'vehicle' | 'supercarModel'>,
+  onReady?: () => void,
+) {
+  const vehicle = settings.vehicle
+  const spec = coachworkFor(settings)
   const exterior = model.exterior
   if (!spec || !exterior) return false
   loader ??= new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)

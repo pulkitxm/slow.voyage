@@ -11,9 +11,14 @@ Highly inspired by [slowroads.io](https://slowroads.io/) (big fan of the game!!)
 ## What is in it
 
 Seven landscapes, from alpine passes and red canyons to northern lakes and monsoon
-jungle. Seven vehicles, from a grand tourer and a supercar to a pickup, a motorcycle
-and a coach. Three seasons, six skies including a live day cycle, weather from clear to fog and
-storms, autodrive, a photo mode and a map of the whole loop.
+jungle. Seven vehicles, from a grand tourer and a choice of four supercars to a
+pickup, a motorcycle and a coach. Three seasons, six skies including a live day
+cycle, weather from clear to fog and storms, autodrive, a photo mode and a map of
+the whole loop.
+
+Cars slowly get dirty as you drive, and roadside garages wash them, respray them,
+fit new wheels and swap the exhaust while two mechanics do the work in front of
+you. Lift off at high revs and the exhaust crackles and pops.
 
 ## How we built it
 

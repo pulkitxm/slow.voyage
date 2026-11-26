@@ -6,6 +6,7 @@ import { CanopyIndex, canopyCover, canopyShade, shadeStops, shadeTone, tuftLight
 import { type Trunk, trunkRadius } from './collision'
 import { loopCells, loopIndex, worldLoop } from './field'
 import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
+import { garageClearing } from './garages'
 import { grassGeometry, grassLighting, grassTexture } from './grass'
 import {
   groundGeometry,
@@ -661,7 +662,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         groundLayout.tileLength,
         random(loopIndex(id, loopCells(groundLayout.tileLength)) * 613 + settings.seed * 211 + 5),
       ).filter(
-        (boulder) => !waterfallClearing(lapWaterfalls(this.world), lap, boulder.x, boulder.s),
+        (boulder) =>
+          !waterfallClearing(lapWaterfalls(this.world), lap, boulder.x, boulder.s) &&
+          !garageClearing(this.world, boulder.x, boulder.s),
       )
       this.boulders.add(group, scattered, (x, s) => groundSurface.sample(x, s))
       for (const boulder of scattered)
@@ -674,6 +677,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       ).filter(
         (plant) =>
           !waterfallClearing(lapWaterfalls(this.world), lap, plant.x, plant.s) &&
+          !garageClearing(this.world, plant.x, plant.s) &&
           !scattered.some(
             (rock) => Math.hypot(rock.x - plant.x, rock.s - plant.s) < rock.radius + 0.8,
           ),
@@ -685,7 +689,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     yield
     const falls = lapWaterfalls(this.world)
     const woodland = createWoodland(this.world, id, this.quality).filter(
-      (tree) => !waterfallClearing(falls, lap, tree.x, tree.s),
+      (tree) =>
+        !waterfallClearing(falls, lap, tree.x, tree.s) &&
+        !garageClearing(this.world, tree.x, tree.s),
     )
     if (profile.palms && settings.season !== 'winter') {
       const palmCount = low ? Math.round(profile.palms / 2) : profile.palms
@@ -703,7 +709,12 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           const yaw = rng() * Math.PI * 2
           const point = roadPoint(this.world.road(s), s, side * (palm ? reach : reach * 0.6))
           const ground = roadsidePlantHeight(this.world, point.x, point.s)
-          if (ground === null || waterfallClearing(falls, lap, point.x, point.s)) continue
+          if (
+            ground === null ||
+            waterfallClearing(falls, lap, point.x, point.s) ||
+            garageClearing(this.world, point.x, point.s)
+          )
+            continue
           pose.position.set(point.x, ground - 0.05, -point.s)
           pose.rotation.set(0, yaw, 0)
           pose.scale.setScalar(size)
@@ -764,6 +775,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           : (rng() > 0.5 ? 1 : -1) * (8 + rng() ** 1.6 * 350)
         if (Math.abs(d) < (shrub ? 7 : 12)) continue
         const x = this.world.road(s).x + d
+        if (garageClearing(this.world, x, s)) continue
         const elevation = roadsidePlantHeight(this.world, x, s)
         if (elevation === null) continue
         const h = shrub ? 2 + rng() * 4 : variant >= 4 ? 6 + rng() * 6 : 5 + rng() * 4
@@ -847,6 +859,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           (roadLayout.halfWidth + roadLayout.shoulder + 0.15 + vergeStart(s) + rng() ** 2.2 * 23)
       const road = this.world.road(s)
       const x = road.x + d
+      if (garageClearing(this.world, x, s)) continue
       const roadsideDistance = Math.abs(roadCoordinates(this.world, x, s).distance)
       if (roadsideDistance < roadLayout.halfWidth + roadLayout.shoulder) continue
       const elevation = groundSurface.sample(x, s)

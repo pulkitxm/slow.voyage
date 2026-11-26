@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
 import type { ControllerStatus } from '../game/gamepad'
+import { type SupercarModel, supercarModels, supercarTrims } from '../game/supercars'
 import { vehicleNames } from '../game/vehicles'
 import type { Settings } from '../game/world'
 import { ControllerMapping } from './ControllerMapping'
@@ -21,6 +22,41 @@ import {
   vehicles,
   weather,
 } from './options'
+
+const silhouettes: Record<
+  SupercarModel,
+  { body: string; wheels: [number, number]; extra?: string }
+> = {
+  classic: { body: 'M6 27 L9 20 L40 16 L58 9 L78 9 L100 17 L114 20 L116 27 Z', wheels: [28, 94] },
+  grand: { body: 'M5 27 L7 19 L30 16 L44 9 L64 8 L76 15 L111 18 L116 27 Z', wheels: [26, 94] },
+  longtail: { body: 'M2 26 L5 21 L36 18 L54 10 L70 9 L86 14 L111 20 L115 26 Z', wheels: [34, 95] },
+  track: {
+    body: 'M7 27 L9 19 L40 16 L58 9 L77 9 L99 17 L114 21 L117 27 Z',
+    wheels: [28, 95],
+    extra: 'M6 8 L26 8 L26 10.5 L6 10.5 Z M15 10 L17 10 L19 17 L17 17 Z',
+  },
+}
+
+function Silhouette({ model }: { model: SupercarModel }) {
+  const shape = silhouettes[model]
+  return (
+    <svg viewBox="0 0 120 34" width="96" height="27" aria-hidden="true">
+      <path d={shape.body} fill="currentColor" opacity="0.85" />
+      {shape.extra && <path d={shape.extra} fill="currentColor" opacity="0.85" />}
+      {shape.wheels.map((x) => (
+        <circle
+          key={x}
+          cx={x}
+          cy="27"
+          r="6"
+          fill="currentColor"
+          stroke="#f5f5eb"
+          strokeWidth="1.6"
+        />
+      ))}
+    </svg>
+  )
+}
 
 export type SettingsTab = 'journey' | 'vehicle' | 'controls' | 'display'
 interface Props {
@@ -261,6 +297,30 @@ export function SettingsPanel({
                 ))}
               </div>
             </section>
+            {settings.vehicle === 'supercar' && (
+              <section className="setting-section">
+                <h3>Choose your supercar</h3>
+                <div className="supercar-options">
+                  {supercarModels.map((model) => (
+                    <button
+                      type="button"
+                      key={model}
+                      className={settings.supercarModel === model ? 'selected' : ''}
+                      aria-pressed={settings.supercarModel === model}
+                      onClick={() => update('supercarModel', model)}
+                    >
+                      <Silhouette model={model} />
+                      <span>
+                        <strong>{supercarTrims[model].name}</strong>
+                        <small>{supercarTrims[model].engine}</small>
+                      </span>
+                      {settings.supercarModel === model && <Check size={14} />}
+                    </button>
+                  ))}
+                </div>
+                <p>{supercarTrims[settings.supercarModel].tagline}</p>
+              </section>
+            )}
             <section className="setting-section">
               <h3>A little color</h3>
               <div className="swatches">

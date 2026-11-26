@@ -19,6 +19,7 @@ import {
 import { crossfadeTiming, SceneCrossfade } from './crossfade'
 import { effectsLevel, RoadEffects } from './effects'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
+import type { GarageJob, GarageStatus } from './garage-session'
 import { FrameGovernor, governorPlan, reliefLevels } from './governor'
 import {
   cinemaRelief,
@@ -65,6 +66,7 @@ import type { UltraPipeline } from './ultra'
 import { vehicleMetrics } from './vehicles'
 import { Wake, wakeStrength } from './wake'
 import { Water } from './water'
+import { Workshop } from './workshop'
 import {
   type AssistanceMode,
   angleDifference,
@@ -76,6 +78,14 @@ import {
 import { WorldMap } from './world-map'
 
 const paintBudget = 11
+
+function storage() {
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
 const paintDepth = 0.7
 const retireDelay = 90
 
@@ -111,6 +121,7 @@ function contactShadow() {
   mesh.frustumCulled = false
   return mesh
 }
+export const garageFraming = { narrow: 640, side: 190, lift: 0.22 }
 export const lightingPace = { step: 0.5, reflection: 6 }
 export const stormFlash = { shortest: 5, longest: 14, strength: 9, decay: 7 }
 
@@ -129,6 +140,9 @@ export interface DriveState extends Telemetry {
   photo: boolean
   found: number
   landmarks: number
+  garageNear: boolean
+  garage: GarageStatus
+  grime: number
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
@@ -232,6 +246,9 @@ export class RoadEngine {
   lifeAlarm = -10
   shiftQueue = 0
   lastPace = 0
+  workshop: Workshop
+  bayLit = false
+  viewShift = { x: 0, y: 0 }
   sunReach = new THREE.Vector3()
   sunToward = new THREE.Vector3()
   sunAcross = new THREE.Vector3()
@@ -260,16 +277,27 @@ export class RoadEngine {
       | 'vehicleNext'
       | 'vehiclePrevious'
       | 'photo'
-      | 'map',
+      | 'map'
+      | 'garage'
+      | 'garageLeave',
   ) => void
   resize = () => {
     this.redraw = true
+    this.viewShift.x = this.viewShift.y = -1
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
   }
   keyDown = (event: KeyboardEvent) => {
     if (!this.rendered) return
+    if (this.workshop.session.active) {
+      if (this.controlsBlocked && event.code !== 'Escape') return
+      if (['Escape', 'KeyO'].includes(event.code) && !event.repeat) {
+        event.preventDefault()
+        this.onAction?.('garageLeave')
+      }
+      return
+    }
     if (this.photo) {
       if (['Escape', 'KeyT'].includes(event.code)) this.onAction?.('photo')
       if (['Enter', 'Space'].includes(event.code)) this.screenshot()
@@ -310,6 +338,7 @@ export class RoadEngine {
     if (event.code === 'KeyR') this.reset()
     if (event.code === 'KeyT' && this.started) this.onAction?.('photo')
     if (event.code === 'KeyN' && this.started) this.onAction?.('map')
+    if (event.code === 'KeyO' && this.started) this.onAction?.('garage')
     if (event.code === 'KeyB') this.audio.hornHeld = this.started
     if (event.code === 'KeyX') this.view.rear = this.started
   }
@@ -475,20 +504,35 @@ export class RoadEngine {
     }
     const terrain = this.terrain
     const life = this.life
+    const garages = () => this.workshop?.sites
     this.physics.trunks = function* (s) {
       yield* terrain.trunksNear(s)
+      const sites = garages()
+      if (sites) yield* sites.trunksNear(s)
       if (life) yield* life.obstacles(s)
     }
     this.atmosphere = new Atmosphere(this.renderer, budget.software)
     this.precipitation = new Precipitation(this.scene)
+    this.workshop = new Workshop(
+      this.scene,
+      this.world,
+      this.physics,
+      this.audio,
+      () => this.car,
+      () => this.settings,
+      storage(),
+    )
     this.car = createVehicleModel(this.settings, budget.software)
+    this.workshop.outfit(this.car)
     const noise = this.terrain.grassMaterial.fieldUniforms.fieldNoiseMap
     this.lamps = new Lamps()
-    if (!budget.software)
-      dressVehicle(this.car, this.settings.vehicle, () => {
-        this.configureHeadlights()
-        this.applyLighting()
-      })
+    const dressed = () => {
+      this.workshop.dressed(this.car)
+      this.configureHeadlights()
+      this.applyLighting()
+    }
+    if (budget.software || !dressVehicle(this.car, this.settings, dressed))
+      this.workshop.dressed(this.car)
     this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
     this.scene.add(this.car.group, this.contact)
     this.canvas.dataset.vehicleShown = this.settings.vehicle
@@ -644,6 +688,9 @@ export class RoadEngine {
       fps: this.frameRate,
       controller: this.controllerStatus,
       mouseSteering: this.mouse.steer,
+      garageNear: this.started && this.workshop.near,
+      garage: this.workshop.session.status(),
+      grime: this.workshop.grimeLevel,
     })
   }
   setPhoto(photo: boolean) {
@@ -658,7 +705,59 @@ export class RoadEngine {
     this.view.center()
     this.view.snap()
   }
+  enterGarage() {
+    if (!this.started || this.paused || this.photo) return false
+    const entered = this.workshop.enter()
+    if (entered) {
+      this.blur()
+      this.emitState()
+    }
+    return entered
+  }
+  garageJob(job: GarageJob) {
+    const chosen = this.workshop.choose(job)
+    this.emitState()
+    return chosen
+  }
+  leaveGarage() {
+    const leaving = this.workshop.leave()
+    this.emitState()
+    return leaving
+  }
+  frameAround(garaged: boolean) {
+    const width = window.innerWidth
+    const height = window.innerHeight
+    const wide = width > garageFraming.narrow
+    const shift = garaged ? (wide ? garageFraming.side : 0) : 0
+    const lift = garaged && !wide ? height * garageFraming.lift : 0
+    if (shift === this.viewShift.x && lift === this.viewShift.y) return
+    this.viewShift.x = shift
+    this.viewShift.y = lift
+    if (shift || lift) this.camera.setViewOffset(width, height, shift, lift, width, height)
+    else this.camera.clearViewOffset()
+  }
+  lightBay(inside: boolean) {
+    if (inside === this.bayLit) {
+      if (inside) this.spill.intensity = 4.5
+      return
+    }
+    this.bayLit = inside
+    if (inside) {
+      this.spill.position.set(0, 3.4, 0.4)
+      this.spill.target.position.set(0, 0, 0)
+      this.spill.angle = 1.05
+      this.spill.penumbra = 0.8
+      this.spill.distance = 9
+      this.spill.intensity = 4.5
+    } else {
+      this.spill.angle = 0.4
+      this.spill.penumbra = 1
+      this.spill.distance = 60
+      this.configureHeadlights()
+    }
+  }
   reset() {
+    if (this.workshop.session.active) return
     this.handover.cancel()
     this.mouse.reset()
     this.physics.reset()
@@ -677,7 +776,14 @@ export class RoadEngine {
       settings.landscape !== this.settings.landscape ||
       budget.detail !== this.terrain.quality ||
       settings.seed !== this.settings.seed
-    const vehicleChange = settings.vehicle !== this.settings.vehicle
+    const vehicleChange =
+      settings.vehicle !== this.settings.vehicle ||
+      (settings.vehicle === 'supercar' && settings.supercarModel !== this.settings.supercarModel)
+    const wheelChange =
+      settings.wheelStyle !== this.settings.wheelStyle ||
+      settings.rimFinish !== this.settings.rimFinish
+    const groundChange =
+      settings.landscape !== this.settings.landscape || settings.season !== this.settings.season
     const assistanceChange = settings.autodriveMode !== this.settings.autodriveMode
     const mouseChange = settings.mouseEnabled !== this.settings.mouseEnabled
     const cameraChange = settings.camera !== this.settings.camera
@@ -701,6 +807,8 @@ export class RoadEngine {
     if (roadChange || vehicleChange) this.laps.reset(this.physics.s)
     if (roadChange) this.minimap.found.clear()
     if (roadChange) this.skids.clear()
+    if (roadChange) this.workshop.refresh()
+    if (groundChange && !vehicleChange) this.workshop.matchVehicle()
     if (roadChange) {
       const speed = this.physics.speed
       this.physics.reset()
@@ -715,20 +823,24 @@ export class RoadEngine {
     if (refresh) this.terrain.refresh(this.settings, budget.detail)
     if (vehicleChange) {
       this.incoming?.dispose()
+      if (this.workshop.session.active) this.workshop.refresh()
       const next = createVehicleModel(this.settings, budget.software)
+      this.workshop.outfit(next)
       this.incoming = next
       const ready = () => {
         if (this.disposed || this.incoming !== next) return
         this.incoming = null
+        this.workshop.dressed(next)
         this.mountVehicle(next)
       }
-      const dressing = !budget.software && dressVehicle(next, this.settings.vehicle, ready)
+      const dressing = !budget.software && dressVehicle(next, this.settings, ready)
       if (!dressing) ready()
       this.physics.suspension.configure(settings.vehicle)
       this.physics.suspension.reset(this.physics)
     }
     this.car.body.color.set(settings.color).multiplyScalar(paintDepth)
     this.incoming?.body.color.set(settings.color).multiplyScalar(paintDepth)
+    if (wheelChange && !vehicleChange) this.workshop.restyle()
     this.configureCinema(budget)
     this.applyRenderScale(budget)
     this.configureShadows(budget)
@@ -1161,6 +1273,7 @@ export class RoadEngine {
       !this.paused &&
       !this.photo &&
       !document.hidden &&
+      !this.workshop.session.active &&
       (!this.controlsBlocked || !this.started || this.assistance === 'full')
     ) {
       this.simulation.advance(elapsed, (step) => {
@@ -1219,9 +1332,26 @@ export class RoadEngine {
     const braking = input.brake > 0 || input.regenBrake > 0
     const lamps = this.lampLevel
     this.car.update(p.suspension.wheels, braking, lamps > 0.05, p.speed)
+    const garaged = this.workshop.update(
+      this.paused ? 0 : Math.min(elapsed, 0.25),
+      p.s,
+      clamp(lamps, 0, 1),
+      this.car,
+      () => {
+        this.physics.speed = 0
+        this.view.snap()
+      },
+    )
+    this.workshop.drive(
+      this.paused || this.photo ? 0 : dt,
+      input,
+      this.started && !this.paused && !this.photo && !garaged,
+    )
     const beams = (this.headlights[0]?.intensity ?? 0) / 210
     this.spill.intensity = beams * 2.4
     this.tailGlow.intensity = beams * (braking ? 4 : 1.1)
+    this.lightBay(garaged && this.workshop.session.inside)
+    this.contact.visible = !garaged
     const tail = braking ? 0.5 + lamps * 0.5 : lamps * 0.4
     this.lamps.update(
       lamps,
@@ -1245,7 +1375,7 @@ export class RoadEngine {
       light.tailLevel.value = tail * 1.6
     }
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
-    this.car.setExteriorVisible(cameraMode !== 'bonnet')
+    this.car.setExteriorVisible(cameraMode !== 'bonnet' || garaged)
     this.car.body.envMapIntensity = (cameraMode === 'bonnet' ? 0.3 : 0.16) * this.atmosphere.level
     skyline.strength.value = cameraMode === 'bonnet' ? 0.3 : 0.7
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
@@ -1253,6 +1383,11 @@ export class RoadEngine {
     this.view.impact = p.impact
     this.view.frozen = this.paused || this.photo
     this.view.update(p, this.world, cameraMode, dt)
+    if (garaged) {
+      this.camera.position.copy(this.workshop.session.camera)
+      this.camera.lookAt(this.workshop.session.look)
+    }
+    this.frameAround(garaged)
     if (!this.paused && !this.photo) this.lifeClock += dt
     if (this.life) {
       const driver = this.driver
@@ -1330,6 +1465,8 @@ export class RoadEngine {
     )
     if (this.started) this.minimap.update(p)
     if (this.started) this.atlas.update(p)
+    this.car.group.updateMatrixWorld()
+    this.workshop.frame(this.car)
     this.drawScene()
     this.crossfade.rendered()
     if (!this.rendered) this.canvas.style.visibility = ''
@@ -1426,6 +1563,7 @@ export class RoadEngine {
     this.car.dispose()
     this.incoming?.dispose()
     this.effects?.dispose()
+    this.workshop.dispose()
     this.lamps.dispose()
     this.wake?.dispose()
     this.skids.dispose()

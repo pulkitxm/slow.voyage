@@ -28,6 +28,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['B', 'Horn'],
             ['Q / E', 'Previous / next scenery, or shift down / up with the manual gearbox'],
             ['V / Shift V', 'Next / previous vehicle'],
+            ['O', 'Pull into a roadside garage'],
             ['M', 'Mute / unmute sound'],
             ['U', 'Toggle mouse driving'],
             ['R', 'Return to the road'],

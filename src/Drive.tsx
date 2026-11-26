@@ -24,8 +24,10 @@ import {
   Truck,
   Volume2,
   VolumeX,
+  Warehouse,
   Zap,
 } from 'lucide-react'
+import { GaragePanel } from './components/GaragePanel'
 import { Help } from './components/Help'
 import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
@@ -92,7 +94,11 @@ export function Drive() {
     atlasCanvas,
     fullscreen,
     touch,
+    enterGarage,
+    leaveGarage,
+    garageJob,
   } = useDrive()
+  const garaged = state.garage.phase !== 'idle'
   const VehicleIcon = vehicleIcons[settings.vehicle]
   const speed = Math.abs(state.speed) * (settings.units === 'km' ? 3.6 : 2.23694)
   const distance = state.distance / (settings.units === 'km' ? 1000 : 1609.344)
@@ -101,7 +107,7 @@ export function Drive() {
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
   return (
     <main
-      className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''} ${state.photo ? 'is-photo' : ''}`}
+      className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''} ${state.photo ? 'is-photo' : ''} ${garaged ? 'is-garage' : ''}`}
       data-controller={state.controller}
       data-landscape={settings.landscape}
       data-season={settings.season}
@@ -111,6 +117,8 @@ export function Drive() {
       data-camera={settings.camera}
       data-steering={state.steering.toFixed(4)}
       data-boost={state.boost}
+      data-garage={state.garage.phase}
+      data-grime={state.grime.toFixed(3)}
     >
       <canvas
         ref={canvas}
@@ -510,6 +518,24 @@ export function Drive() {
             <kbd>Esc</kbd> back to the road
           </button>
         </div>
+      )}
+      {started && state.garageNear && !garaged && !panel && !state.paused && !state.photo && (
+        <button type="button" className="garage-prompt" onClick={enterGarage}>
+          <Warehouse size={16} />
+          <span>
+            Roadside garage <small>wash, paint, wheels and exhaust</small>
+          </span>
+          <kbd>O</kbd>
+        </button>
+      )}
+      {started && garaged && (
+        <GaragePanel
+          settings={settings}
+          status={state.garage}
+          grime={state.grime}
+          onJob={garageJob}
+          onLeave={leaveGarage}
+        />
       )}
       {help && <Help onClose={() => setHelp(false)} />}
       {error && (

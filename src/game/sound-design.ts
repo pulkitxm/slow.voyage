@@ -8,6 +8,7 @@ export const mixLevels = {
   master: 1.6,
   engine: 0.25,
   pops: 1,
+  workshop: 0.5,
   road: 0.16,
   gravel: 0.22,
   rumble: 0.3,

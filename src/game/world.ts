@@ -87,7 +87,7 @@ export const defaults: Settings = {
   supercarModel: 'classic',
   wheelStyle: 'factory',
   rimFinish: 'silver',
-  exhaust: 'stock',
+  exhaust: 'sport',
   camera: 'chase',
   motion: 'full',
   transmission: 'automatic',
