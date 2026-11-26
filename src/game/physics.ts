@@ -10,7 +10,7 @@ import {
   wadingDrag,
 } from './collision'
 import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
-import { forwardDriveForce } from './drive'
+import { forwardDriveForce, reverseDriveForce } from './drive'
 import { surfaceGrip } from './grip'
 import { NitroTank, nitroForce } from './nitro'
 import { engineProfiles, Gearbox } from './powertrain'
@@ -196,7 +196,7 @@ export class CarPhysics {
         ),
         surface.onRoad,
         -Math.sin(this.yaw) * surface.slopeX + Math.cos(this.yaw) * surface.slopeS,
-        reverseDriveFactor(this.speed, this.driveForce, metrics.jerk),
+        reverseDriveFactor(this.speed, this.driveForce, metrics),
       ),
       steer: clamp(steer, -1, 1),
       steeringSource: 'automatic',
@@ -227,7 +227,7 @@ export class CarPhysics {
     const reversing = reverseCommand && this.speed < directionChangeSpeed
     const forwardBraking =
       input.throttle > 0 && input.brake === 0 && this.speed < -directionChangeSpeed
-    const reverseGovernor = reverseDriveFactor(this.speed, this.driveForce, vehicle.jerk)
+    const reverseGovernor = reverseDriveFactor(this.speed, this.driveForce, vehicle)
     const brake = Math.max(
       reversing ? 0 : input.brake,
       forwardBraking ? input.throttle : 0,
@@ -238,7 +238,7 @@ export class CarPhysics {
       dt,
     )
     const targetForce = reverseCommand
-      ? -input.brake * vehicle.reverse * 0.5 * reverseGovernor
+      ? -reverseDriveForce(input.brake, vehicle, settings.power, reverseGovernor)
       : (forwardDriveForce(v, input.throttle, this.boosting, vehicle, settings.power) +
           (this.boosting ? input.throttle * nitroForce(v, vehicle, settings.power) : 0)) *
         pull
