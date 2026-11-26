@@ -24,13 +24,17 @@ uniform vec3 lampOrigin;
 uniform vec3 lampAim;
 uniform float lampLevel;
 uniform vec3 tailOrigin;
+uniform vec3 tailAcross;
 uniform float tailLevel;
+uniform vec3 drift;
+uniform float pixel;
 varying vec4 puffTone;
 varying vec4 puffShape;
 varying vec3 puffLamp;
 varying vec3 puffSun;
 varying vec3 puffView;
 varying float puffFloor;
+varying float puffSmear;
 void main() {
   float age = time - start.w;
   float spent = age / motion.w;
@@ -41,7 +45,7 @@ void main() {
   float kind = floor(shape.z);
   float seed = fract(shape.z);
   bool streak = kind > 2.5;
-  float drag = kind < 0.5 ? 1.4 : kind < 1.5 ? 1.3 : kind < 2.5 ? 2.4 : kind < 3.5 ? 0.5 : 0.35;
+  float drag = kind < 0.5 ? 1.4 : kind < 1.5 ? 1.3 : kind < 2.5 ? 4.5 : kind < 3.5 ? 0.9 : 0.35;
   vec3 settle = streak ? vec3(0.0) : wind;
   float carried = (1.0 - exp(-drag * age)) / drag;
   vec3 place = start.xyz + settle * age + (motion.xyz - settle) * carried;
@@ -67,26 +71,50 @@ void main() {
       fade = 0.0;
     }
   } else {
-    float lift = kind < 0.5 ? 0.7 : kind < 1.5 ? 0.22 : 0.05;
+    float lift = kind < 0.5 ? 0.7 : kind < 1.5 ? 0.22 : 0.35;
     place.y += lift * age;
   }
   vec4 centre = modelViewMatrix * vec4(place, 1.0);
   vec2 corner = position.xy;
   vec2 offset;
   float radius;
-  if (streak) {
+  float fine = 1.0;
+  puffSmear = 0.0;
+  vec2 aim = vec2(0.0, 1.0);
+  float pace = 0.0;
+  if (kind > 1.5 && kind < 3.5) {
+    vec3 sight = normalize(centre.xyz);
+    vec3 swept = (viewMatrix * vec4(velocity - drift, 0.0)).xyz;
+    swept -= sight * dot(swept, sight);
+    pace = length(swept.xy);
+    aim = swept.xy / max(pace, 0.0001);
+  }
+  if (kind > 3.5) {
     vec2 flow = (viewMatrix * vec4(velocity, 0.0)).xy;
-    float pace = length(flow);
-    vec2 aim = flow / max(pace, 0.0001);
-    float reach = clamp(pace * (kind > 3.5 ? 0.05 : 0.03), shape.x * 4.0, kind > 3.5 ? 1.2 : 0.5);
+    pace = length(flow);
+    aim = flow / max(pace, 0.0001);
+    float reach = clamp(pace * 0.05, shape.x * 4.0, 1.2);
     offset = aim * (corner.y * reach) + vec2(aim.y, -aim.x) * (corner.x * shape.x);
+    radius = reach;
+  } else if (streak) {
+    float girth = max(shape.x, -centre.z * pixel * 0.75);
+    float reach = clamp(pace * 0.011, girth, 0.2);
+    fine = shape.x / girth;
+    offset = aim * (corner.y * reach) + vec2(aim.y, -aim.x) * (corner.x * girth);
     radius = reach;
   } else {
     radius = shape.x * (0.45 + shape.y * (kind < 0.5 ? sqrt(spent) : 1.0 - exp(-age * 2.2)));
-    float turn = seed * 6.2832 + age * (seed - 0.5) * 1.4;
-    float c = cos(turn);
-    float s = sin(turn);
-    offset = mat2(c, s, -s, c) * corner * radius;
+    if (kind > 1.5) {
+      float smear = min(pace * 0.03 * exp(-age * 4.0), radius * 6.0);
+      offset = aim * (corner.y * (radius + smear)) + vec2(aim.y, -aim.x) * (corner.x * radius);
+      puffSmear = smear / (radius + smear);
+      fine = pow(1.0 - puffSmear, 0.35) * pow(shape.x * 0.45 / radius, 1.1);
+    } else {
+      float turn = seed * 6.2832 + age * (seed - 0.5) * 1.4;
+      float c = cos(turn);
+      float s = sin(turn);
+      offset = mat2(c, s, -s, c) * corner * radius;
+    }
   }
   vec4 mvPosition = centre;
   mvPosition.xy += offset;
@@ -95,16 +123,26 @@ void main() {
   vec3 up = vec3(viewMatrix[0][1], viewMatrix[1][1], viewMatrix[2][1]);
   float height = place.y + right.y * offset.x + up.y * offset.y - ground;
   puffFloor = streak ? 1.0 : smoothstep(-0.05, radius * 0.4, height);
-  float bloom = kind < 2.5 ? smoothstep(0.0, kind < 0.5 ? 0.05 : 0.12, spent) * pow(1.0 - spent, kind < 0.5 ? 1.5 : 1.9) : (1.0 - spent);
-  float near = streak ? 1.0 : smoothstep(0.4, 3.0, -centre.z - radius * 0.3);
-  puffTone = vec4(tone.rgb, tone.a * bloom * fade * near);
+  float bloom = kind < 1.5
+    ? smoothstep(0.0, kind < 0.5 ? 0.05 : 0.12, spent) * pow(1.0 - spent, kind < 0.5 ? 1.5 : 1.9)
+    : kind < 2.5
+      ? smoothstep(0.0, 0.03, spent) * pow(1.0 - spent, 1.2)
+      : kind < 3.5 ? (1.0 - spent) * (1.0 - spent) : (1.0 - spent);
+  float near = streak ? 1.0 : kind > 1.5 ? smoothstep(0.6, 3.2, -centre.z) : smoothstep(0.4, 3.0, -centre.z - radius * 0.3);
+  puffTone = vec4(tone.rgb, tone.a * bloom * fade * near * fine);
+  if (puffTone.a < 0.003) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    return;
+  }
   puffShape = vec4(corner, kind, seed + age * 0.05);
   vec3 fromLamp = place - lampOrigin;
   float lampReach = length(fromLamp);
   float beam = smoothstep(0.8, 0.96, dot(fromLamp / max(lampReach, 0.001), lampAim));
   vec3 fromTail = place - tailOrigin;
+  fromTail -= tailAcross * clamp(dot(fromTail, tailAcross) / max(dot(tailAcross, tailAcross), 0.0001), -1.0, 1.0);
+  float tailReach = dot(fromTail, fromTail);
   puffLamp = vec3(1.0, 0.92, 0.8) * lampLevel * beam / (1.0 + lampReach * lampReach * 0.012)
-    + vec3(1.0, 0.07, 0.03) * tailLevel / (1.0 + dot(fromTail, fromTail) * 0.9);
+    + vec3(1.0, 0.07, 0.03) * tailLevel * 0.3 / (1.0 + tailReach * tailReach * 4.0);
   puffSun = normalize((viewMatrix * vec4(sunDirection, 0.0)).xyz);
   puffView = normalize(centre.xyz);
   #include <fog_vertex>
@@ -116,12 +154,14 @@ uniform sampler2D noiseMap;
 uniform vec3 sunColor;
 uniform vec3 skyColor;
 uniform vec3 groundColor;
+uniform vec3 hazeColor;
 varying vec4 puffTone;
 varying vec4 puffShape;
 varying vec3 puffLamp;
 varying vec3 puffSun;
 varying vec3 puffView;
 varying float puffFloor;
+varying float puffSmear;
 void main() {
   vec2 corner = puffShape.xy;
   float kind = puffShape.z;
@@ -138,22 +178,29 @@ void main() {
       color = puffTone.rgb * mix(vec3(0.7, 0.32, 0.12), vec3(1.0, 0.9, 0.75), head * head);
       glow = 1.0;
     } else {
-      color = puffTone.rgb * (skyColor * 1.1 + sunColor * 0.4 + puffLamp * 0.6);
+      color = puffTone.rgb * (hazeColor * 1.7 + puffLamp * 0.6);
       alpha *= 0.85;
     }
   } else {
     float spread = dot(corner, corner);
     if (spread > 1.0) discard;
     vec2 swirl = corner * 0.025 + vec2(puffShape.w * 1.7, puffShape.w * 0.9);
-    float billow = texture2D(noiseMap, swirl).r * 0.62 + texture2D(noiseMap, swirl * 2.7 + 0.31).r * 0.38;
+    float grain = texture2D(noiseMap, kind > 1.5 ? vec2(corner.x * 0.11, corner.y * 0.012) + swirl.yx * 3.0 : swirl * 2.7 + 0.31).r;
+    float billow = texture2D(noiseMap, swirl).r * 0.62 + grain * 0.38;
     float body = (1.0 - spread) * (0.2 + billow * 1.6);
-    alpha = puffTone.a * smoothstep(0.12, 0.8, body) * puffFloor;
+    float dense = kind > 1.5
+      ? (1.0 - spread) * (1.0 - spread) * mix(0.5 + billow, 0.35 + grain * grain * 1.9, puffSmear)
+      : smoothstep(0.12, 0.8, body);
+    alpha = puffTone.a * dense * puffFloor;
     vec3 normal = normalize(vec3(corner + (billow - 0.5) * 0.7, sqrt(1.0 - spread) + 0.15));
     float facing = dot(normal, puffSun);
     float sunlit = clamp(facing * 0.6 + 0.4, 0.0, 1.0) * (0.55 + 0.45 * billow);
     float scatter = pow(max(0.0, dot(puffView, puffSun)), 5.0) * (kind < 0.5 ? 0.9 : 0.5);
     vec3 dome = mix(groundColor, skyColor, normal.y * 0.5 + 0.5);
-    color = puffTone.rgb * (sunColor * (0.3 + 0.7 * sunlit + scatter) + dome * 1.8 + puffLamp * (0.6 + 0.4 * billow));
+    vec3 lit = kind > 1.5
+      ? hazeColor * (0.85 + 0.4 * sunlit) + sunColor * scatter
+      : sunColor * (0.3 + 0.7 * sunlit + scatter) + dome * 1.8;
+    color = puffTone.rgb * (lit + puffLamp * (0.6 + 0.4 * billow));
   }
   if (alpha < 0.003) discard;
   #ifdef USE_FOG
@@ -207,11 +254,15 @@ export class Particles {
         sunColor: { value: new THREE.Color() },
         skyColor: { value: new THREE.Color() },
         groundColor: { value: new THREE.Color() },
+        hazeColor: { value: new THREE.Color() },
         lampOrigin: { value: new THREE.Vector3() },
         lampAim: { value: new THREE.Vector3(0, 0, -1) },
         lampLevel: { value: 0 },
         tailOrigin: { value: new THREE.Vector3() },
+        tailAcross: { value: new THREE.Vector3() },
         tailLevel: { value: 0 },
+        drift: { value: new THREE.Vector3() },
+        pixel: { value: 0.001 },
       },
     ])
     this.uniforms.noiseMap = noise
@@ -241,11 +292,15 @@ export class Particles {
       sunColor: { value: THREE.Color }
       skyColor: { value: THREE.Color }
       groundColor: { value: THREE.Color }
+      hazeColor: { value: THREE.Color }
       lampOrigin: { value: THREE.Vector3 }
       lampAim: { value: THREE.Vector3 }
       lampLevel: { value: number }
       tailOrigin: { value: THREE.Vector3 }
+      tailAcross: { value: THREE.Vector3 }
       tailLevel: { value: number }
+      drift: { value: THREE.Vector3 }
+      pixel: { value: number }
     }
   }
 

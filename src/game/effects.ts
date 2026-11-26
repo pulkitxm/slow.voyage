@@ -13,6 +13,9 @@ export const effectsLayout = {
   dustFull: 24,
   sprayStart: 7,
   sprayFull: 30,
+  dropStart: 10,
+  dropFull: 22,
+  frontSpray: 0.4,
   sparkScrape: 2,
   sparkHold: 0.35,
 } as const
@@ -27,7 +30,8 @@ const dustTones: Record<Landscape, string> = {
   jungle: '#977c5c',
 }
 
-const plumeRates = { smoke: 70, dust: 50, spray: 60, splash: 60 } as const
+const plumeRates = { smoke: 70, dust: 50, spray: 300, splash: 340 } as const
+const dropRates = { spray: 600, splash: 800 } as const
 
 const winds: Record<Settings['weather'], number> = {
   clear: 1.1,
@@ -45,6 +49,7 @@ export function effectsLevel(software: boolean, quality: Settings['quality'], ul
 export interface Plume {
   kind: 'smoke' | 'dust' | 'spray' | 'splash' | null
   strength: number
+  water: number
 }
 
 export function wheelPlume(
@@ -55,10 +60,12 @@ export function wheelPlume(
 ) {
   out.kind = null
   out.strength = 0
+  out.water = 0
   if (!wheel.contact) return out
   if (ground.wading) {
     out.kind = 'splash'
     out.strength = Math.min(1, speed / 14)
+    out.water = 1
     return out
   }
   if (!wheel.onRoad) {
@@ -83,7 +90,8 @@ export function wheelPlume(
     (speed - effectsLayout.sprayStart) / (effectsLayout.sprayFull - effectsLayout.sprayStart)
   if (ground.wet && pace > 0) {
     out.kind = 'spray'
-    out.strength = Math.min(1, pace) ** 0.8 * (0.65 + Math.min(1, wheel.puddle * 1.5) * 0.5)
+    out.water = Math.min(1, wheel.puddle * 1.5)
+    out.strength = Math.min(1, pace) ** 0.8 * (0.65 + out.water * 0.5)
     out.strength += Math.max(0, spin) * 0.4
   }
   return out
@@ -92,7 +100,8 @@ export function wheelPlume(
 export class RoadEffects {
   particles: Particles
   private carry = new Float32Array(16)
-  private plume: Plume = { kind: null, strength: 0 }
+  private dropCarry = new Float32Array(16)
+  private plume: Plume = { kind: null, strength: 0, water: 0 }
   private dust = new THREE.Color()
   private verge = new THREE.Color()
   private pale = new THREE.Color('#f6efe2')
@@ -148,7 +157,7 @@ export class RoadEffects {
       const wheel = wheels[index]
       if (!wheel) continue
       if (!active) {
-        this.carry[index] = 0
+        this.carry[index] = this.dropCarry[index] = 0
         continue
       }
       let cover = 0
@@ -165,6 +174,12 @@ export class RoadEffects {
         wading: p.wading > 0,
         cover,
       })
+      if (plume.kind === 'spray' || plume.kind === 'splash') {
+        const share = wheel.front && wheels.length > 2 ? effectsLayout.frontSpray : 1
+        this.spray(index, wheel, plume.kind, plume.strength, plume.water, share, p, seconds, dt)
+        continue
+      }
+      this.dropCarry[index] = 0
       if (!plume.kind) {
         this.carry[index] = 0
         continue
@@ -215,50 +230,100 @@ export class RoadEffects {
             Math.min(0.7, 0.34 + plume.strength * 0.3),
             seconds,
           )
-        } else {
-          const splash = plume.kind === 'splash'
-          particles.emit(
-            particleKind.mist,
-            x + r1 * 0.35,
-            y + 0.25,
-            z + r2 * 0.35,
-            moveX * 0.55 + r1 * 1.2 + rightX * outward * 0.7,
-            0.5 + r3 * 0.9,
-            moveZ * 0.55 + r2 * 1.2 + rightZ * outward * 0.7,
-            1.2 + r3 * 1,
-            0.42,
-            splash ? 2.6 : 3.6,
-            0.25,
-            this.mist,
-            splash ? 0.32 : 0.12 + plume.strength * 0.12,
-            seconds,
-          )
-          for (let drop = 0; drop < 2; drop++) {
-            const d1 = Math.random() - 0.5
-            const d2 = Math.random()
-            particles.emit(
-              particleKind.drop,
-              x + d1 * 0.3,
-              y + 0.3,
-              z - d1 * 0.3,
-              moveX * (0.58 + d2 * 0.12) + rightX * outward * (0.4 + d2 * 1.2) + d1,
-              (1.2 + d2 * 2.6) * (0.4 + plume.strength * 0.6),
-              moveZ * (0.58 + d2 * 0.12) + rightZ * outward * (0.4 + d2 * 1.2) - d1,
-              0.9,
-              0.028,
-              0,
-              0.3,
-              this.drop,
-              0.7,
-              seconds,
-            )
-          }
         }
       }
       this.carry[index] = carry
     }
     this.sparks(p, active, moveX, moveZ, seconds, dt)
     particles.update(seconds)
+  }
+
+  private spray(
+    index: number,
+    wheel: WheelState,
+    kind: 'spray' | 'splash',
+    strength: number,
+    water: number,
+    share: number,
+    p: CarPhysics,
+    seconds: number,
+    dt: number,
+  ) {
+    const particles = this.particles
+    const rightX = Math.cos(p.yaw)
+    const rightZ = -Math.sin(p.yaw)
+    const moveX = -Math.sin(p.yaw) * p.speed + rightX * p.lateralSpeed
+    const moveZ = -Math.cos(p.yaw) * p.speed + rightZ * p.lateralSpeed
+    const speed = Math.hypot(moveX, moveZ)
+    const pace = Math.min(1, speed / effectsLayout.sprayFull)
+    const throwing = 0.3 + pace * 0.7
+    const heel = 0.16 / Math.max(speed, 1)
+    const x = wheel.x - moveX * heel
+    const z = -wheel.s - moveZ * heel
+    const y = wheel.ground
+    const outward = Math.sign(wheel.localX)
+    const level = strength * share * particles.rate * dt
+    const fill = 1 / Math.sqrt(particles.rate)
+    let carry = (this.carry[index] ?? 0) + plumeRates[kind] * level
+    while (carry >= 1) {
+      carry -= 1
+      const lag = Math.random() * dt
+      const r1 = Math.random() - 0.5
+      const r2 = Math.random() - 0.5
+      const r3 = Math.random()
+      const keep = 0.3 + Math.random() * 0.3
+      const fan = (outward || Math.sign(r1)) * (0.15 + r3 * (0.9 + water * 1.2))
+      const lift = 0.05 + r3 * r3 * 0.3
+      particles.emit(
+        particleKind.mist,
+        x - moveX * lag + r1 * 0.14,
+        y + lift,
+        z - moveZ * lag + r2 * 0.14,
+        moveX * keep + rightX * fan + r1 * 1.6,
+        (1.2 + Math.random() * 4.2) * throwing * (1 + water * 0.3),
+        moveZ * keep + rightZ * fan + r2 * 1.6,
+        0.55 + Math.random() * 0.95,
+        (0.17 + water * 0.04) * Math.sqrt(fill),
+        3.6,
+        lift,
+        this.mist,
+        Math.min(1, (0.45 + strength * 0.3) * fill),
+        seconds - lag,
+      )
+    }
+    this.carry[index] = carry
+    const fast =
+      kind === 'splash'
+        ? 1
+        : (speed - effectsLayout.dropStart) / (effectsLayout.dropFull - effectsLayout.dropStart)
+    let drops =
+      (this.dropCarry[index] ?? 0) + dropRates[kind] * level * Math.min(1, Math.max(0, fast))
+    while (drops >= 1) {
+      drops -= 1
+      const lag = Math.random() * dt
+      const d1 = Math.random() - 0.5
+      const d2 = Math.random()
+      const d3 = Math.random()
+      const keep = 0.5 + d3 * 0.35
+      const fan = (outward || Math.sign(d1)) * (0.2 + d2 * (1.1 + water * 3.2)) + d1 * 0.7
+      particles.emit(
+        particleKind.drop,
+        x - moveX * lag + rightX * d1 * 0.2,
+        y + 0.05,
+        z - moveZ * lag + rightZ * d1 * 0.2,
+        moveX * keep + rightX * fan,
+        (0.7 + d3 * d3 * 4.4) * throwing * (1 + water * 0.7),
+        moveZ * keep + rightZ * fan,
+        0.12 + d3 * 0.22,
+        0.005 + d2 * 0.004,
+        0,
+        0.05,
+        this.drop,
+        0.8,
+        seconds - lag,
+      )
+    }
+    this.dropCarry[index] = drops
   }
 
   private sparks(

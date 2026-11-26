@@ -1,12 +1,15 @@
 import { expect, test } from 'bun:test'
-import { effectsLevel, type Plume, wheelPlume } from './effects'
+import { effectsLayout, effectsLevel, type Plume, RoadEffects, wheelPlume } from './effects'
 import { beamHaze } from './lamps'
+import { particleKind } from './particles'
+import type { CarPhysics } from './physics'
+import { defaults, type World } from './world'
 
 const wheel = { onRoad: true, sand: false, slip: 0, locked: false, puddle: 0, contact: true }
 const dry = { wet: false, snowy: false, wading: false, cover: 0.8 }
 
 function plume(overrides: Partial<typeof wheel>, speed: number, ground = dry) {
-  const out: Plume = { kind: null, strength: 0 }
+  const out: Plume = { kind: null, strength: 0, water: 0 }
   return wheelPlume(out, { ...wheel, ...overrides }, speed, ground)
 }
 
@@ -43,7 +46,75 @@ test('wet roads throw spray that builds with speed and standing water', () => {
   expect(light.kind).toBe('spray')
   expect(plume({}, 28, wet).strength).toBeGreaterThan(light.strength)
   expect(plume({ puddle: 0.6 }, 18, wet).strength).toBeGreaterThan(light.strength)
+  expect(light.water).toBe(0)
+  expect(plume({ puddle: 0.6 }, 18, wet).water).toBeGreaterThan(0.5)
+  expect(plume({ onRoad: false }, 10, { ...wet, wading: true }).water).toBe(1)
   expect(plume({ contact: false }, 28, wet).kind).toBe(null)
+})
+
+function sprayed(speed: number, puddle = 0) {
+  const effects = new RoadEffects({ value: null })
+  effects.setLevel('ultra')
+  effects.setScene({ ...defaults, weather: 'rain' }, true)
+  const wheels = [-1, 1].flatMap((localX) =>
+    [true, false].map((front) => ({
+      ...wheel,
+      puddle,
+      front,
+      localX,
+      x: localX * 0.8,
+      s: front ? 1.3 : -1.3,
+      ground: 0,
+    })),
+  )
+  const car = { speed, lateralSpeed: 0, yaw: 0, wading: 0, hits: 0, scrape: 0 }
+  const physics = { ...car, suspension: { wheels } } as unknown as CarPhysics
+  for (let frame = 1; frame <= 30; frame++) {
+    for (const each of wheels) each.s = (each.front ? 1.3 : -1.3) + (speed * frame) / 60
+    effects.update(physics, {} as World, true, frame / 60, 1 / 60)
+  }
+  const data = (effects.particles as unknown as { data: Float32Array }).data
+  const thrown: { kind: number; front: boolean; back: number; out: number; up: number }[] = []
+  for (let at = 0; at < data.length; at += 16) {
+    if ((data[at + 3] ?? 0) < 0) continue
+    const behind = (data[at + 2] ?? 0) + speed * (data[at + 3] ?? 0)
+    const front = behind < 0
+    thrown.push({
+      kind: Math.floor(data[at + 14] ?? 0),
+      front,
+      back: behind + (front ? 1.3 : -1.3),
+      out: Math.abs(data[at] ?? 0) - 0.8,
+      up: data[at + 1] ?? 0,
+    })
+  }
+  effects.dispose()
+  return thrown
+}
+
+test('spray leaves the back of each contact patch, mostly from the rear tyres', () => {
+  const thrown = sprayed(26)
+  const mist = thrown.filter((particle) => particle.kind === particleKind.mist)
+  const drops = thrown.filter((particle) => particle.kind === particleKind.drop)
+  expect(mist.length).toBeGreaterThan(40)
+  expect(drops.length).toBeGreaterThan(40)
+  for (const particle of thrown) {
+    expect(particle.back).toBeGreaterThan(-0.1)
+    expect(particle.back).toBeLessThan(0.45)
+    expect(Math.abs(particle.out)).toBeLessThan(0.25)
+    expect(particle.up).toBeGreaterThan(0)
+    expect(particle.up).toBeLessThan(0.4)
+  }
+  const front = mist.filter((particle) => particle.front).length
+  expect(front).toBeGreaterThan(0)
+  expect(front).toBeLessThan((mist.length - front) * 0.7)
+})
+
+test('droplets fly only at speed and standing water throws more of everything', () => {
+  const slow = sprayed(effectsLayout.dropStart - 1)
+  expect(slow.some((particle) => particle.kind === particleKind.mist)).toBe(true)
+  expect(slow.some((particle) => particle.kind === particleKind.drop)).toBe(false)
+  expect(sprayed(effectsLayout.sprayStart - 1)).toHaveLength(0)
+  expect(sprayed(26, 1).length).toBeGreaterThan(sprayed(26).length * 1.3)
 })
 
 test('beams thicken in fog and rain', () => {

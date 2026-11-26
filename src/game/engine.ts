@@ -162,6 +162,7 @@ export class RoadEngine {
   private skyTone = new THREE.Color()
   private lampFront = new THREE.Vector3()
   private lampBack = new THREE.Vector3()
+  private lampSpread = 0
   laps = new LapClock()
   photo = false
   onLap?: (time: number, record: boolean) => void
@@ -874,6 +875,7 @@ export class RoadEngine {
     this.lamps.fit(heads, tails)
     this.lampFront.set(0, nose[1], nose[2] - 0.3)
     this.lampBack.set(0, tails[0]?.[1] ?? 0.8, (tails[0]?.[2] ?? reach.rear) + 0.3)
+    this.lampSpread = Math.abs(tails[0]?.[0] ?? 0)
     this.car.group.add(this.lamps.group)
   }
   applyLighting(drifting = false) {
@@ -905,6 +907,11 @@ export class RoadEngine {
         .lerp(this.neutralFill, 0.6)
         .multiplyScalar((profile.ambient * (profile.night ? 0.95 : 0.34)) / Math.PI + 0.02)
       light.groundColor.value.copy(light.skyColor.value).multiplyScalar(0.55)
+      const haze = light.hazeColor.value.set(profile.horizon)
+      haze
+        .lerp(this.skyTone.setScalar((haze.r + haze.g + haze.b) / 3), 0.5)
+        .multiplyScalar(1.5)
+        .addScalar(0.06)
     }
     this.beamHaze = beamHaze(profile.fog, profile.wet || profile.snow, night)
     this.terrain.setNight(night)
@@ -1231,6 +1238,10 @@ export class RoadEngine {
       light.lampAim.value.set(0, -0.05, -1).transformDirection(group.matrixWorld)
       light.lampLevel.value = lamps * 3
       light.tailOrigin.value.copy(this.lampBack).applyMatrix4(group.matrixWorld)
+      light.tailAcross.value
+        .set(1, 0, 0)
+        .transformDirection(group.matrixWorld)
+        .multiplyScalar(this.lampSpread)
       light.tailLevel.value = tail * 1.6
     }
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
@@ -1300,6 +1311,11 @@ export class RoadEngine {
     }
     this.travel.set(-Math.sin(p.yaw) * p.speed, 0, -Math.cos(p.yaw) * p.speed)
     this.precipitation.update(this.camera, this.canvas.height, time / 1000, this.travel)
+    if (this.effects) {
+      const light = this.effects.particles.light
+      light.drift.value.copy(this.travel)
+      light.pixel.value = this.precipitation.pixel.value
+    }
     this.terrain.update(p.s, time / 1000, -this.camera.position.z, p.x)
     this.sky.position.copy(this.camera.position)
     if (this.sky.material.uniforms.time) this.sky.material.uniforms.time.value = time / 1000
