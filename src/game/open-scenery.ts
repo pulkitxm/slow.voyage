@@ -47,7 +47,7 @@ export class OpenScenery {
   ) {
     this.field = new LodField<Grove>(
       sceneryLayout,
-      (node) => this.grow(node),
+      (node) => this.plant(node),
       (grove, visible) => {
         grove.group.visible = visible
       },
@@ -59,6 +59,12 @@ export class OpenScenery {
         })
       },
     )
+  }
+
+  private *plant(node: OpenNode): Generator<undefined, Grove, undefined> {
+    const grove = yield* this.grow(node)
+    this.group.add(grove.group)
+    return grove
   }
 
   private *grow(node: OpenNode): Generator<undefined, Grove, undefined> {
@@ -95,7 +101,6 @@ export class OpenScenery {
       yield
     }
     grove.group.visible = false
-    this.group.add(grove.group)
     const cardGeometry = this.foliage.distantTreeGeometries[0]
     if (!trees.length || !cardGeometry) return grove
     const pose = new THREE.Object3D()
