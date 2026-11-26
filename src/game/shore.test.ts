@@ -18,7 +18,10 @@ test('the meadow shader wears bare earth into the grass, darkens a wet shore ban
   expect(shader.fragmentShader).toContain(
     'fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7',
   )
-  expect(shader.fragmentShader).toMatch(/float foamWidth = min\(0\.035, max\(fwidth\(fieldHeight\)/)
+  expect(shader.fragmentShader).toMatch(/float foamWidth = min\(0\.035, max\(fieldHeightWidth/)
+  expect(
+    shader.fragmentShader.indexOf('float fieldHeightWidth = fwidth(fieldHeight)'),
+  ).toBeLessThan(shader.fragmentShader.indexOf('if (fieldHeight < 1.4)'))
   expect(shader.fragmentShader).toContain('float fieldBare')
   expect(shader.fragmentShader).toContain(
     'fieldSoil * sampledDiffuseColor.rgb * 1.15, fieldBare * 0.72',
@@ -27,7 +30,7 @@ test('the meadow shader wears bare earth into the grass, darkens a wet shore ban
     shader.fragmentShader.indexOf('float rockBlend'),
   )
   expect(material.customProgramCacheKey()).toBe(
-    'triplanar-rock-road-cuts-varied-shore-worn-crisp-verge',
+    'triplanar-rock-road-cuts-varied-shore-worn-crisp-verge-gated',
   )
   Reflect.deleteProperty(globalThis, 'document')
 })
@@ -79,8 +82,40 @@ test('the software ground skips its bump and close detail lookups without changi
   expect(plain.material.defines?.FIELD_PLAIN).toBe('')
   expect(full.material.defines?.FIELD_PLAIN).toBeUndefined()
   expect(plain.shader.fragmentShader).toBe(full.shader.fragmentShader)
-  expect(plain.shader.fragmentShader).toMatch(/#ifndef FIELD_PLAIN\nfloat fieldGrain/)
+  expect(plain.shader.fragmentShader).toMatch(
+    /#ifndef FIELD_PLAIN\nif \(fieldClose > 0\.0\) \{\n {2}float fieldGrain/,
+  )
   expect(plain.shader.fragmentShader).toMatch(/#ifdef USE_BUMPMAP\nnormal = perturbNormalArb/)
+  Reflect.deleteProperty(globalThis, 'document')
+})
+
+test('rock, bank, gravel and shore lookups run only where they can show', () => {
+  Reflect.set(globalThis, 'document', {
+    createElementNS: () => ({ addEventListener() {}, removeEventListener() {}, style: {} }),
+  })
+  const material = new MeadowMaterial(new THREE.Texture(), defaults, false)
+  const shader = {
+    uniforms: {},
+    vertexShader: THREE.ShaderLib.standard.vertexShader,
+    fragmentShader: THREE.ShaderLib.standard.fragmentShader,
+  } as unknown as THREE.WebGLProgramParametersWithUniforms
+  material.onBeforeCompile(shader, {} as THREE.WebGLRenderer)
+  const source = shader.fragmentShader
+  const inside = (gate: string, lookup: string) => {
+    const from = source.indexOf(gate)
+    expect(from).toBeGreaterThan(-1)
+    const at = source.indexOf(lookup, from)
+    expect(at).toBeGreaterThan(from)
+    expect(source.indexOf('\n}', from)).toBeGreaterThan(at)
+    expect(source.indexOf(lookup)).toBe(at)
+  }
+  inside('if (cutFace > 0.0) {', 'bankPatch = fieldVariationAt')
+  inside('if (rockBlend > 0.0) {', 'rockMapAt(fieldRockColorMap, rockUvX)')
+  inside('if (rockBlend > 0.0) {\n  vec3 rockNormalX', 'rockMapAt(fieldRockMap, rockUvX)')
+  inside('if (fieldHeight < 1.4) {', 'float foamWidth')
+  const gate = /if \(fieldRoadDistance < ([\d.]+)\) \{/.exec(source)
+  expect(Number(gate?.[1])).toBeGreaterThanOrEqual(0.85 + 0.175 + verge.rag / 2)
+  inside(gate?.[0] ?? 'missing', 'float gravelBlend')
   Reflect.deleteProperty(globalThis, 'document')
 })
 

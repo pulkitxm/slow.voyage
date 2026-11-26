@@ -1,16 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { worldLoop } from './field'
-import { lapLandmarks } from './landmarks'
+import { landmarksBetween } from './landmarks'
 import { landscapeIds } from './landscapes'
 import { CarPhysics } from './physics'
 import { guardrailAt, roadCoordinates, roadLayout } from './road'
 import { chevrons, roadCurvature } from './roadside'
-import { lapWaterfalls } from './waterfalls'
+import { stretchWaterfalls } from './waterfalls'
 import { defaults, type RoadMode, roadModes, World } from './world'
+
+const stretch = 12000
 
 function sharpest(world: World) {
   let curvature = 0
-  for (let s = 0; s < worldLoop.length; s += 5)
+  for (let s = 0; s < stretch; s += 5)
     curvature = Math.max(curvature, Math.abs(roadCurvature(world, s)))
   return curvature
 }
@@ -18,7 +19,7 @@ function sharpest(world: World) {
 function railShare(world: World, side: number) {
   let railed = 0
   let total = 0
-  for (let s = 0; s < worldLoop.length; s += roadLayout.railSegmentLength) {
+  for (let s = 0; s < stretch; s += roadLayout.railSegmentLength) {
     total++
     if (guardrailAt(world, s, side)) railed++
   }
@@ -30,7 +31,7 @@ describe('road modes', () => {
     for (const landscape of landscapeIds) {
       const world = new World({ ...defaults, landscape, roadMode: 'straight' })
       const heights = new Set<number>()
-      for (let s = 0; s < worldLoop.length; s += 50) {
+      for (let s = 0; s < stretch; s += 50) {
         const road = world.road(s)
         expect(Math.abs(road.yaw)).toBe(0)
         expect(Math.abs(road.dx)).toBe(0)
@@ -38,7 +39,7 @@ describe('road modes', () => {
         heights.add(Math.round(world.height(60, s)))
       }
       expect(heights.size).toBeGreaterThan(5)
-      expect(chevrons(world, 0, worldLoop.length).feet.length).toBe(0)
+      expect(chevrons(world, 0, stretch).feet.length).toBe(0)
     }
   })
 
@@ -50,7 +51,7 @@ describe('road modes', () => {
       expect(calm).toBeLessThan(winding * 0.4)
       let turn = 0
       const world = new World({ ...defaults, seed, roadMode: 'calm' })
-      for (let s = 0; s < worldLoop.length; s += 25)
+      for (let s = 0; s < stretch; s += 25)
         turn += Math.abs(world.road(s + 25).yaw - world.road(s).yaw)
       expect(turn).toBeGreaterThan(1)
     }
@@ -69,21 +70,15 @@ describe('road modes', () => {
     expect(count('calm')).toBeLessThan(count('winding') * 0.7)
   })
 
-  test.each(roadModes)('%s repeats every lap and keeps rails and open verges', (roadMode) => {
+  test.each(roadModes)('%s keeps rails, open verges and landmarks along the road', (roadMode) => {
     for (const landscape of landscapeIds) {
       const world = new World({ ...defaults, landscape, roadMode })
-      for (const s of [0, 1234, 7777]) {
-        const here = world.road(s)
-        const lap = world.road(s + worldLoop.length)
-        expect(lap.x).toBeCloseTo(here.x, 6)
-        expect(lap.y).toBeCloseTo(here.y, 6)
-      }
       for (const side of [-1, 1]) {
         const share = railShare(world, side)
         expect(share).toBeLessThan(0.8)
       }
-      expect(lapLandmarks(world).length).toBeGreaterThan(4)
-      lapWaterfalls(world)
+      expect(landmarksBetween(world, 0, stretch).length).toBeGreaterThan(4)
+      stretchWaterfalls(world, 0)
     }
   })
 
@@ -110,10 +105,10 @@ describe('road modes', () => {
   test('landmarks and waterfalls follow the road of the chosen mode', () => {
     const winding = new World({ ...defaults, landscape: 'fjord' })
     const straight = new World({ ...defaults, landscape: 'fjord', roadMode: 'straight' })
-    const a = lapLandmarks(winding).map((mark) => mark.x)
-    const b = lapLandmarks(straight).map((mark) => mark.x)
+    const a = landmarksBetween(winding, 0, stretch).map((mark) => mark.x)
+    const b = landmarksBetween(straight, 0, stretch).map((mark) => mark.x)
     expect(a).not.toEqual(b)
-    for (const mark of lapLandmarks(straight))
+    for (const mark of landmarksBetween(straight, 0, stretch))
       expect(Math.abs(roadCoordinates(straight, mark.x, mark.s).distance)).toBeGreaterThan(20)
   })
 })

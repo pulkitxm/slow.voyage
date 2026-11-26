@@ -2,7 +2,8 @@ import * as THREE from 'three'
 import { sharpness } from './graphics'
 import { groundLayout, groundOffsets } from './ground-grid'
 import { landscapeProfiles } from './landscapes'
-import { roadCoordinates, roadLayout } from './road'
+import { openLayout } from './open-grid'
+import { type RoadSample, roadCoordinates, roadLayout } from './road'
 import { loadGroundDetail, loadRockSurface } from './rock'
 import { woodlandCoverage } from './woodland'
 import { clamp, random, type Settings, shoreHeight, type World } from './world'
@@ -21,6 +22,96 @@ export function groundGeometry(
   }
 }
 
+export class GroundWriter {
+  count = 0
+  private positions: number[] = []
+  private normals: number[] = []
+  private colors: number[] = []
+  private uv: number[] = []
+  private roadDistances: number[] = []
+  private groveCover: number[] = []
+  private bankHeights: number[] = []
+  private color = new THREE.Color()
+  private normal = new THREE.Vector3()
+  private shore: THREE.Color
+  private snow = new THREE.Color('#dae0dc')
+
+  constructor(
+    private world: World,
+    private base: THREE.Color,
+    private light: THREE.Color,
+  ) {
+    this.shore = new THREE.Color(world.settings.season === 'winter' ? '#dde3dc' : '#c5c1a3')
+  }
+
+  vertex(x: number, s: number, road: RoadSample, distance: number) {
+    const world = this.world
+    const settings = world.settings
+    const profile = landscapeProfiles[settings.landscape]
+    const elevation = world.height(x, s)
+    this.positions.push(x, elevation, -s)
+    const normal = this.normal
+      .set(
+        -(world.height(x + 0.2, s) - world.height(x - 0.2, s)) / 0.4,
+        1,
+        (world.height(x, s + 0.2) - world.height(x, s - 0.2)) / 0.4,
+      )
+      .normalize()
+    this.normals.push(normal.x, normal.y, normal.z)
+    const frame = Math.abs(distance) < 20 ? roadCoordinates(world, x, s) : null
+    this.roadDistances.push(Math.abs(frame?.distance ?? distance) - roadLayout.halfWidth)
+    this.bankHeights.push(elevation - (frame?.road.y ?? road.y))
+    this.uv.push(x / 7, s / 7)
+    const variation =
+      0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055
+    const color = this.color.copy(this.base).lerp(this.light, variation)
+    if (elevation < shoreHeight && profile.shore)
+      color.lerp(this.shore, clamp((shoreHeight - elevation) / 1.5, 0, 1))
+    if (profile.snowLine !== null && elevation > profile.snowLine)
+      color.lerp(this.snow, clamp((elevation - profile.snowLine) / 80, 0, 1))
+    this.colors.push(color.r, color.g, color.b)
+    let forest = 0
+    if (profile.woodland && elevation > 0.7) {
+      const grove = woodlandCoverage(x, s, settings.seed, settings.landscape)
+      const verge = clamp((Math.abs(distance) - 45) / 30, 0, 1)
+      const treeLine =
+        profile.treeLine === null ? 1 : clamp((profile.treeLine - elevation) / 60, 0, 1)
+      forest = grove * verge * treeLine
+    }
+    this.groveCover.push(forest)
+    return this.count++
+  }
+
+  skirt(index: number, drop: number) {
+    const at = index * 3
+    this.positions.push(
+      this.positions[at] ?? 0,
+      (this.positions[at + 1] ?? 0) - drop,
+      this.positions[at + 2] ?? 0,
+    )
+    this.normals.push(this.normals[at] ?? 0, this.normals[at + 1] ?? 1, this.normals[at + 2] ?? 0)
+    this.colors.push(this.colors[at] ?? 0, this.colors[at + 1] ?? 0, this.colors[at + 2] ?? 0)
+    this.uv.push(this.uv[index * 2] ?? 0, this.uv[index * 2 + 1] ?? 0)
+    this.roadDistances.push(this.roadDistances[index] ?? 0)
+    this.groveCover.push(this.groveCover[index] ?? 0)
+    this.bankHeights.push(this.bankHeights[index] ?? 0)
+    return this.count++
+  }
+
+  geometry(indices: number[]) {
+    const ground = new THREE.BufferGeometry()
+    ground.setAttribute('position', new THREE.Float32BufferAttribute(this.positions, 3))
+    ground.setAttribute('normal', new THREE.Float32BufferAttribute(this.normals, 3))
+    ground.setAttribute('color', new THREE.Float32BufferAttribute(this.colors, 3))
+    ground.setAttribute('uv', new THREE.Float32BufferAttribute(this.uv, 2))
+    ground.setAttribute('roadDistance', new THREE.Float32BufferAttribute(this.roadDistances, 1))
+    ground.setAttribute('groveCover', new THREE.Float32BufferAttribute(this.groveCover, 1))
+    ground.setAttribute('bankHeight', new THREE.Float32BufferAttribute(this.bankHeights, 1))
+    ground.setIndex(indices)
+    return ground
+  }
+}
+
 export function* groundRows(
   world: World,
   start: number,
@@ -29,81 +120,23 @@ export function* groundRows(
   rows: number,
   batch: number,
 ): Generator<undefined, THREE.BufferGeometry, undefined> {
-  const positions: number[] = [],
-    indices: number[] = [],
-    colors: number[] = [],
-    normals: number[] = [],
-    roadDistances: number[] = [],
-    groveCover: number[] = [],
-    bankHeights: number[] = [],
-    uv: number[] = []
-  const settings = world.settings
-  const profile = landscapeProfiles[settings.landscape]
-  const color = new THREE.Color()
-  const shore = new THREE.Color(settings.season === 'winter' ? '#dde3dc' : '#c5c1a3')
-  const snow = new THREE.Color('#dae0dc')
-  const normal = new THREE.Vector3()
+  const writer = new GroundWriter(world, base, light)
+  const indices: number[] = []
+  const columns = groundOffsets.length
   for (let row = 0; row <= rows; row++) {
     if (row && row % batch === 0) yield
     const s = start + (row * groundLayout.tileLength) / rows
     const road = world.road(s)
-    for (let col = 0; col < groundOffsets.length; col++) {
+    for (let col = 0; col < columns; col++) {
       const distance = groundOffsets[col] ?? 0
-      const x = road.x + distance
-      const elevation = world.height(x, s)
-      positions.push(x, elevation, -s)
-      normal
-        .set(
-          -(world.height(x + 0.2, s) - world.height(x - 0.2, s)) / 0.4,
-          1,
-          (world.height(x, s + 0.2) - world.height(x, s - 0.2)) / 0.4,
-        )
-        .normalize()
-      normals.push(normal.x, normal.y, normal.z)
-      const frame = Math.abs(distance) < 20 ? roadCoordinates(world, x, s) : null
-      roadDistances.push(Math.abs(frame?.distance ?? distance) - roadLayout.halfWidth)
-      bankHeights.push(elevation - (frame?.road.y ?? road.y))
-      uv.push(x / 7, s / 7)
-      const variation =
-        0.32 + Math.sin(x * 0.038 + s * 0.017) * 0.14 + Math.cos(x * 0.08 - s * 0.08) * 0.055
-      color.copy(base).lerp(light, variation)
-      if (elevation < shoreHeight && profile.shore)
-        color.lerp(shore, clamp((shoreHeight - elevation) / 1.5, 0, 1))
-      if (profile.snowLine !== null && elevation > profile.snowLine)
-        color.lerp(snow, clamp((elevation - profile.snowLine) / 80, 0, 1))
-      colors.push(color.r, color.g, color.b)
-      let forest = 0
-      if (profile.woodland && elevation > 0.7) {
-        const grove = woodlandCoverage(x, s, settings.seed, settings.landscape)
-        const verge = clamp((Math.abs(distance) - 45) / 30, 0, 1)
-        const treeLine =
-          profile.treeLine === null ? 1 : clamp((profile.treeLine - elevation) / 60, 0, 1)
-        forest = grove * verge * treeLine
-      }
-      groveCover.push(forest)
-      if (row < rows && col < groundOffsets.length - 1) {
-        const n = row * groundOffsets.length + col
-        indices.push(
-          n,
-          n + 1,
-          n + groundOffsets.length,
-          n + 1,
-          n + groundOffsets.length + 1,
-          n + groundOffsets.length,
-        )
+      writer.vertex(road.x + distance, s, road, distance)
+      if (row < rows && col < columns - 1) {
+        const n = row * columns + col
+        indices.push(n, n + 1, n + columns, n + 1, n + columns + 1, n + columns)
       }
     }
   }
-  const ground = new THREE.BufferGeometry()
-  ground.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  ground.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
-  ground.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-  ground.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
-  ground.setAttribute('roadDistance', new THREE.Float32BufferAttribute(roadDistances, 1))
-  ground.setAttribute('groveCover', new THREE.Float32BufferAttribute(groveCover, 1))
-  ground.setAttribute('bankHeight', new THREE.Float32BufferAttribute(bankHeights, 1))
-  ground.setIndex(indices)
-  return ground
+  return writer.geometry(indices)
 }
 
 export const rockFacing = { sharpness: 12 }
@@ -190,9 +223,8 @@ function meadowNoiseTexture() {
   texture.needsUpdate = true
   return texture
 }
-export class MeadowMaterial extends THREE.MeshStandardMaterial {
-  rock = loadRockSurface()
-  fieldUniforms = {
+function fieldUniforms(rock: ReturnType<typeof loadRockSurface>) {
+  return {
     fieldNoiseMap: { value: meadowNoiseTexture() },
     fieldDetailMap: { value: loadGroundDetail() },
     fieldDetail: { value: 1 },
@@ -202,11 +234,23 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
     fieldRock: { value: new THREE.Color() },
     fieldSoil: { value: new THREE.Color() },
     fieldGravel: { value: new THREE.Color() },
-    fieldRockMap: { value: this.rock.normal },
-    fieldRockColorMap: { value: this.rock.albedo },
+    fieldRockMap: { value: rock.normal },
+    fieldRockColorMap: { value: rock.albedo },
     fieldRockLayers: { value: 2 },
   }
-  constructor(texture: THREE.Texture, settings: Settings, software: boolean) {
+}
+
+export class MeadowMaterial extends THREE.MeshStandardMaterial {
+  rock: ReturnType<typeof loadRockSurface>
+  fieldUniforms: ReturnType<typeof fieldUniforms>
+  corridorSpan = { value: new THREE.Vector2(1, 0) }
+  private open: boolean
+  constructor(
+    texture: THREE.Texture,
+    settings: Settings,
+    software: boolean,
+    corridor?: MeadowMaterial,
+  ) {
     super({
       map: texture,
       bumpMap: software ? null : texture,
@@ -214,19 +258,27 @@ export class MeadowMaterial extends THREE.MeshStandardMaterial {
       vertexColors: true,
       roughness: 1,
     })
+    this.open = corridor !== undefined
+    this.rock = corridor?.rock ?? loadRockSurface()
+    this.fieldUniforms = corridor?.fieldUniforms ?? fieldUniforms(this.rock)
     if (software) this.defines = { ...this.defines, FIELD_PLAIN: '' }
+    if (this.open) this.defines = { ...this.defines, FIELD_OPEN: '' }
     this.normalMap = software ? null : this.fieldUniforms.fieldRockMap.value
     this.fieldUniforms.fieldRockLayers.value = software ? 1 : 2
     this.fieldUniforms.fieldDetail.value = software ? 0 : 1
     this.setAppearance(settings)
     this.onBeforeCompile = (shader) => {
-      Object.assign(shader.uniforms, this.fieldUniforms)
+      Object.assign(shader.uniforms, this.fieldUniforms, { corridorSpan: this.corridorSpan })
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
         `#include <common>
 attribute float roadDistance;
 attribute float groveCover;
 attribute float bankHeight;
+#ifdef FIELD_OPEN
+attribute float corridorOffset;
+varying float fieldCorridorOffset;
+#endif
 varying vec2 fieldPosition;
 varying vec3 fieldNormal;
 varying float fieldHeight;
@@ -244,7 +296,10 @@ fieldHeight = (modelMatrix * vec4(position, 1.0)).y;
 fieldBankHeight = bankHeight;
 fieldRoadDistance = roadDistance;
 fieldGroveCover = groveCover;
-fieldSlope = clamp((1.0 - abs(fieldNormal.y)) * 2.0, 0.0, 1.0);`,
+fieldSlope = clamp((1.0 - abs(fieldNormal.y)) * 2.0, 0.0, 1.0);
+#ifdef FIELD_OPEN
+fieldCorridorOffset = corridorOffset;
+#endif`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
@@ -256,6 +311,10 @@ varying float fieldBankHeight;
 varying float fieldRoadDistance;
 varying float fieldGroveCover;
 varying float fieldSlope;
+#ifdef FIELD_OPEN
+varying float fieldCorridorOffset;
+uniform vec2 corridorSpan;
+#endif
 uniform vec3 fieldDryGrass;
 uniform float fieldDryness;
 uniform vec3 fieldMeadowShade;
@@ -277,6 +336,9 @@ vec3 rockMapAt(sampler2D surfaceMap, vec2 uv) {
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <color_fragment>',
         `#include <color_fragment>
+#ifdef FIELD_OPEN
+if (abs(fieldCorridorOffset) < ${(groundLayout.reach - openLayout.overlap).toFixed(1)} && -fieldPosition.y > corridorSpan.x && -fieldPosition.y < corridorSpan.y) discard;
+#endif
 float fieldVariation = fieldVariationAt(fieldPosition);
 float dryBlend = smoothstep(0.35, 0.7, fieldVariation) * fieldDryness;
 diffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb, dryBlend);
@@ -286,9 +348,13 @@ float fieldReach = length(vViewPosition);
 float fieldClose = (1.0 - smoothstep(18.0, 80.0, fieldReach)) * fieldDetail;
 float fieldFar = smoothstep(30.0, 90.0, fieldReach) * (1.0 - smoothstep(260.0, 520.0, fieldReach)) * fieldDetail;
 #ifndef FIELD_PLAIN
-float fieldGrain = texture2D(fieldDetailMap, fieldPosition * 0.42).g * 0.6 + texture2D(fieldDetailMap, fieldPosition * 0.11 + vec2(0.37, 0.61)).g * 0.4;
-diffuseColor.rgb *= mix(1.0, 0.45 + fieldGrain * 1.1, fieldClose * 0.75);
-diffuseColor.rgb *= mix(1.0, 0.62 + texture2D(fieldDetailMap, fieldPosition * 0.031 + vec2(0.13, 0.71)).g * 0.76, fieldFar * 0.6);
+if (fieldClose > 0.0) {
+  float fieldGrain = texture2D(fieldDetailMap, fieldPosition * 0.42).g * 0.6 + texture2D(fieldDetailMap, fieldPosition * 0.11 + vec2(0.37, 0.61)).g * 0.4;
+  diffuseColor.rgb *= mix(1.0, 0.45 + fieldGrain * 1.1, fieldClose * 0.75);
+}
+if (fieldFar > 0.0) {
+  diffuseColor.rgb *= mix(1.0, 0.62 + texture2D(fieldDetailMap, fieldPosition * 0.031 + vec2(0.13, 0.71)).g * 0.76, fieldFar * 0.6);
+}
 #endif
 diffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldPosition * 0.13 + vec2(17.3, 61.9)));
 diffuseColor.rgb *= 0.93 + fieldVariationAt(fieldPosition * 11.0 + vec2(3.1, 8.7)) * 0.14;
@@ -303,41 +369,54 @@ float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fi
 float cutFace = smoothstep(0.06, 0.32, fieldSlope)
   * (1.0 - smoothstep(6.0, 13.0, fieldRoadDistance))
   * smoothstep(0.15, 1.8, fieldBankHeight);
-float bankPatch = fieldVariationAt(fieldPosition * 2.4 + vec2(19.1, 3.7));
-float grassPocket = (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * smoothstep(0.25, 0.55, bankPatch);
-cutFace *= 1.0 - grassPocket * 0.88;
+float bankPatch = 0.0;
+if (cutFace > 0.0) {
+  bankPatch = fieldVariationAt(fieldPosition * 2.4 + vec2(19.1, 3.7));
+  float grassPocket = (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * smoothstep(0.25, 0.55, bankPatch);
+  cutFace *= 1.0 - grassPocket * 0.88;
+}
 rockBlend = max(rockBlend, cutFace);
-float rockGrain = fieldVariationAt(fieldPosition * 80.0);
 vec3 rockWeights = pow(abs(normalize(fieldNormal)), vec3(${rockFacing.sharpness.toFixed(1)}));
 rockWeights /= dot(rockWeights, vec3(1.0));
-float rockWarp = (fieldVariationAt(fieldPosition * 4.0) - 0.5) * 0.2;
-vec2 rockUvX = vec2(fieldPosition.y, fieldHeight) / 3.6 + rockWarp;
-vec2 rockUvY = fieldPosition / 3.6 + rockWarp;
-vec2 rockUvZ = vec2(fieldPosition.x, fieldHeight) / 3.6 + rockWarp;
-vec3 rockAlbedo = rockMapAt(fieldRockColorMap, rockUvX) * rockWeights.x
-  + rockMapAt(fieldRockColorMap, rockUvY) * rockWeights.y
-  + rockMapAt(fieldRockColorMap, rockUvZ) * rockWeights.z;
-float earthBlend = cutFace * (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * bankPatch;
-vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockAlbedo / vec3(0.2314, 0.1465, 0.0838) * (0.8 + rockGrain * 0.2);
-diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
+vec2 rockUvX = vec2(0.0);
+vec2 rockUvY = vec2(0.0);
+vec2 rockUvZ = vec2(0.0);
+if (rockBlend > 0.0) {
+  float rockGrain = fieldVariationAt(fieldPosition * 80.0);
+  float rockWarp = (fieldVariationAt(fieldPosition * 4.0) - 0.5) * 0.2;
+  rockUvX = vec2(fieldPosition.y, fieldHeight) / 3.6 + rockWarp;
+  rockUvY = fieldPosition / 3.6 + rockWarp;
+  rockUvZ = vec2(fieldPosition.x, fieldHeight) / 3.6 + rockWarp;
+  vec3 rockAlbedo = rockMapAt(fieldRockColorMap, rockUvX) * rockWeights.x
+    + rockMapAt(fieldRockColorMap, rockUvY) * rockWeights.y
+    + rockMapAt(fieldRockColorMap, rockUvZ) * rockWeights.z;
+  float earthBlend = cutFace * (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * bankPatch;
+  vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockAlbedo / vec3(0.2314, 0.1465, 0.0838) * (0.8 + rockGrain * 0.2);
+  diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
+}
+if (fieldRoadDistance < ${(0.85 + 0.175 + verge.rag / 2 + 0.1).toFixed(2)}) {
 #ifdef FIELD_PLAIN
-float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
-vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb;
+  float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
+  vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb;
 #else
-float gravelRag = texture2D(fieldNoiseMap, (fieldPosition * ${verge.ragScale.toFixed(2)} + 0.5) / 128.0).r - 0.5;
-float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35 + gravelRag * ${verge.rag.toFixed(2)});
-float gravelGrain = texture2D(fieldDetailMap, fieldPosition * ${verge.grainScale.toFixed(2)}).g;
-float gravelStone = texture2D(fieldNoiseMap, (fieldPosition * ${verge.stoneScale.toFixed(1)} + 0.5) / 128.0).r;
-vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb * (${(1 - verge.grain / 2).toFixed(2)} + gravelGrain * ${verge.grain.toFixed(2)}) * (${(1 - verge.stone / 2).toFixed(2)} + gravelStone * ${verge.stone.toFixed(2)});
-gravelTone = mix(gravelTone, fieldSoil * sampledDiffuseColor.rgb, smoothstep(0.45, 0.85, fieldRoadDistance + gravelRag * ${verge.rag.toFixed(2)}) * 0.45);
+  float gravelRag = texture2D(fieldNoiseMap, (fieldPosition * ${verge.ragScale.toFixed(2)} + 0.5) / 128.0).r - 0.5;
+  float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35 + gravelRag * ${verge.rag.toFixed(2)});
+  float gravelGrain = texture2D(fieldDetailMap, fieldPosition * ${verge.grainScale.toFixed(2)}).g;
+  float gravelStone = texture2D(fieldNoiseMap, (fieldPosition * ${verge.stoneScale.toFixed(1)} + 0.5) / 128.0).r;
+  vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb * (${(1 - verge.grain / 2).toFixed(2)} + gravelGrain * ${verge.grain.toFixed(2)}) * (${(1 - verge.stone / 2).toFixed(2)} + gravelStone * ${verge.stone.toFixed(2)});
+  gravelTone = mix(gravelTone, fieldSoil * sampledDiffuseColor.rgb, smoothstep(0.45, 0.85, fieldRoadDistance + gravelRag * ${verge.rag.toFixed(2)}) * 0.45);
 #endif
-diffuseColor.rgb = mix(diffuseColor.rgb, gravelTone, gravelBlend);
+  diffuseColor.rgb = mix(diffuseColor.rgb, gravelTone, gravelBlend);
+}
 diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSlope)) * 0.32;
-float shoreWet = (1.0 - smoothstep(0.04, 0.85 + fieldVariation * 0.5, fieldHeight)) * step(-0.4, fieldHeight);
-diffuseColor.rgb = mix(diffuseColor.rgb, fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7);
-float foamWidth = min(0.035, max(fwidth(fieldHeight) * 1.5, 0.004) * (1.0 + fieldVariationAt(fieldPosition * 6.0 + vec2(2.9, 7.3))));
-float foamLine = (1.0 - smoothstep(0.0, foamWidth, abs(fieldHeight - foamWidth * 0.5))) * step(-0.4, fieldHeight);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);`,
+float fieldHeightWidth = fwidth(fieldHeight);
+if (fieldHeight < 1.4) {
+  float shoreWet = (1.0 - smoothstep(0.04, 0.85 + fieldVariation * 0.5, fieldHeight)) * step(-0.4, fieldHeight);
+  diffuseColor.rgb = mix(diffuseColor.rgb, fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7);
+  float foamWidth = min(0.035, max(fieldHeightWidth * 1.5, 0.004) * (1.0 + fieldVariationAt(fieldPosition * 6.0 + vec2(2.9, 7.3))));
+  float foamLine = (1.0 - smoothstep(0.0, foamWidth, abs(fieldHeight - foamWidth * 0.5))) * step(-0.4, fieldHeight);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);
+}`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_maps>',
@@ -345,11 +424,13 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);`
 normal = perturbNormalArb(-vViewPosition, normal, dHdxy_fwd(), faceDirection);
 #endif
 #ifdef USE_NORMALMAP_TANGENTSPACE
-vec3 rockNormalX = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvX) * (rockMapAt(fieldRockMap, rockUvX) * 2.0 - 1.0);
-vec3 rockNormalY = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvY) * (rockMapAt(fieldRockMap, rockUvY) * 2.0 - 1.0);
-vec3 rockNormalZ = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvZ) * (rockMapAt(fieldRockMap, rockUvZ) * 2.0 - 1.0);
-vec3 rockNormal = normalize(rockNormalX * rockWeights.x + rockNormalY * rockWeights.y + rockNormalZ * rockWeights.z);
-normal = normalize(mix(normal, rockNormal, rockBlend));
+if (rockBlend > 0.0) {
+  vec3 rockNormalX = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvX) * (rockMapAt(fieldRockMap, rockUvX) * 2.0 - 1.0);
+  vec3 rockNormalY = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvY) * (rockMapAt(fieldRockMap, rockUvY) * 2.0 - 1.0);
+  vec3 rockNormalZ = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvZ) * (rockMapAt(fieldRockMap, rockUvZ) * 2.0 - 1.0);
+  vec3 rockNormal = normalize(rockNormalX * rockWeights.x + rockNormalY * rockWeights.y + rockNormalZ * rockWeights.z);
+  normal = normalize(mix(normal, rockNormal, rockBlend));
+}
 #endif`,
       )
     }
@@ -375,13 +456,14 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return 'triplanar-rock-road-cuts-varied-shore-worn-crisp-verge'
+    return `triplanar-rock-road-cuts-varied-shore-worn-crisp-verge-gated${this.open ? '-open' : ''}`
   }
   override dispose() {
+    super.dispose()
+    if (this.open) return
     this.fieldUniforms.fieldNoiseMap.value.dispose()
     this.fieldUniforms.fieldDetailMap.value.dispose()
     this.fieldUniforms.fieldRockMap.value.dispose()
     this.fieldUniforms.fieldRockColorMap.value.dispose()
-    super.dispose()
   }
 }

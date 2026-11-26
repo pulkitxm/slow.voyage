@@ -11,7 +11,6 @@ import {
   type Species,
   species,
 } from './creatures'
-import { loopCells, loopIndex } from './field'
 import { type Landscape, landscapeIds } from './landscapes'
 import {
   alarm,
@@ -382,14 +381,13 @@ export function placeMember(
   world: World,
   plan: Plan,
   member: Member,
-  lap: number,
   time: number,
   car: { x: number; s: number },
 ): Placed {
   if (member.kind === 'person') {
     const travelled = time * member.pace + member.phase
     const walk = stroll(travelled - member.along)
-    const s = plan.base + lap + 8 + walk.along
+    const s = plan.base + 8 + walk.along
     const road = world.road(s)
     const out = member.across + walk.out
     const centre = roadPoint(road, s, plan.side * out)
@@ -420,7 +418,7 @@ export function placeMember(
       member,
     }
   }
-  const s = plan.base + lap + member.along
+  const s = plan.base + member.along
   const road = world.road(s)
   const home = roadPoint(road, s, plan.side * member.across)
   const path = wander(member, time)
@@ -656,23 +654,28 @@ export class Life {
     this.stage?.begin()
     const counts = new Map<Creature, number>()
     if (settings.life !== 'none') {
-      const cells = loopCells(lifeLayout.slot)
       const first = Math.floor((car.s - lifeLayout.behind) / lifeLayout.slot)
       const last = Math.floor((car.s + lifeLayout.ahead) / lifeLayout.slot)
+      for (const [slot, plan] of this.plans) {
+        if (slot >= first - 4 && slot <= last + 4) continue
+        this.plans.delete(slot)
+        for (const member of plan?.members ?? []) {
+          this.fates.delete(member)
+          this.trails.delete(member)
+        }
+      }
       for (let slot = first; slot <= last; slot++) {
-        const wrapped = loopIndex(slot, cells)
-        let plan = this.plans.get(wrapped)
+        let plan = this.plans.get(slot)
         if (plan === undefined) {
-          plan = planSlot(this.world, wrapped, settings.life)
-          this.plans.set(wrapped, plan)
+          plan = planSlot(this.world, slot, settings.life)
+          this.plans.set(slot, plan)
         }
         if (!plan || (plan.walkers && !(daytime && calm))) continue
-        const lap = (slot - wrapped) * lifeLayout.slot
         for (const member of plan.members) {
           const troupe = this.troupes.get(member.kind)
           const index = counts.get(member.kind) ?? 0
           if (!troupe || index >= lifeLayout.capacity) continue
-          const spot = placeMember(this.world, plan, member, lap, time, car)
+          const spot = placeMember(this.world, plan, member, time, car)
           const reach = creatureRadius[member.kind] * member.scale
           let fate = this.fates.get(member)
           const near = Math.hypot(spot.x - car.x, spot.s - car.s)
