@@ -348,9 +348,13 @@ float fieldReach = length(vViewPosition);
 float fieldClose = (1.0 - smoothstep(18.0, 80.0, fieldReach)) * fieldDetail;
 float fieldFar = smoothstep(30.0, 90.0, fieldReach) * (1.0 - smoothstep(260.0, 520.0, fieldReach)) * fieldDetail;
 #ifndef FIELD_PLAIN
-float fieldGrain = texture2D(fieldDetailMap, fieldPosition * 0.42).g * 0.6 + texture2D(fieldDetailMap, fieldPosition * 0.11 + vec2(0.37, 0.61)).g * 0.4;
-diffuseColor.rgb *= mix(1.0, 0.45 + fieldGrain * 1.1, fieldClose * 0.75);
-diffuseColor.rgb *= mix(1.0, 0.62 + texture2D(fieldDetailMap, fieldPosition * 0.031 + vec2(0.13, 0.71)).g * 0.76, fieldFar * 0.6);
+if (fieldClose > 0.0) {
+  float fieldGrain = texture2D(fieldDetailMap, fieldPosition * 0.42).g * 0.6 + texture2D(fieldDetailMap, fieldPosition * 0.11 + vec2(0.37, 0.61)).g * 0.4;
+  diffuseColor.rgb *= mix(1.0, 0.45 + fieldGrain * 1.1, fieldClose * 0.75);
+}
+if (fieldFar > 0.0) {
+  diffuseColor.rgb *= mix(1.0, 0.62 + texture2D(fieldDetailMap, fieldPosition * 0.031 + vec2(0.13, 0.71)).g * 0.76, fieldFar * 0.6);
+}
 #endif
 diffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldPosition * 0.13 + vec2(17.3, 61.9)));
 diffuseColor.rgb *= 0.93 + fieldVariationAt(fieldPosition * 11.0 + vec2(3.1, 8.7)) * 0.14;
@@ -365,41 +369,54 @@ float rockBlend = smoothstep(0.24, 0.62, fieldSlope) * smoothstep(0.24, 0.66, fi
 float cutFace = smoothstep(0.06, 0.32, fieldSlope)
   * (1.0 - smoothstep(6.0, 13.0, fieldRoadDistance))
   * smoothstep(0.15, 1.8, fieldBankHeight);
-float bankPatch = fieldVariationAt(fieldPosition * 2.4 + vec2(19.1, 3.7));
-float grassPocket = (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * smoothstep(0.25, 0.55, bankPatch);
-cutFace *= 1.0 - grassPocket * 0.88;
+float bankPatch = 0.0;
+if (cutFace > 0.0) {
+  bankPatch = fieldVariationAt(fieldPosition * 2.4 + vec2(19.1, 3.7));
+  float grassPocket = (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * smoothstep(0.25, 0.55, bankPatch);
+  cutFace *= 1.0 - grassPocket * 0.88;
+}
 rockBlend = max(rockBlend, cutFace);
-float rockGrain = fieldVariationAt(fieldPosition * 80.0);
 vec3 rockWeights = pow(abs(normalize(fieldNormal)), vec3(${rockFacing.sharpness.toFixed(1)}));
 rockWeights /= dot(rockWeights, vec3(1.0));
-float rockWarp = (fieldVariationAt(fieldPosition * 4.0) - 0.5) * 0.2;
-vec2 rockUvX = vec2(fieldPosition.y, fieldHeight) / 3.6 + rockWarp;
-vec2 rockUvY = fieldPosition / 3.6 + rockWarp;
-vec2 rockUvZ = vec2(fieldPosition.x, fieldHeight) / 3.6 + rockWarp;
-vec3 rockAlbedo = rockMapAt(fieldRockColorMap, rockUvX) * rockWeights.x
-  + rockMapAt(fieldRockColorMap, rockUvY) * rockWeights.y
-  + rockMapAt(fieldRockColorMap, rockUvZ) * rockWeights.z;
-float earthBlend = cutFace * (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * bankPatch;
-vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockAlbedo / vec3(0.2314, 0.1465, 0.0838) * (0.8 + rockGrain * 0.2);
-diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
+vec2 rockUvX = vec2(0.0);
+vec2 rockUvY = vec2(0.0);
+vec2 rockUvZ = vec2(0.0);
+if (rockBlend > 0.0) {
+  float rockGrain = fieldVariationAt(fieldPosition * 80.0);
+  float rockWarp = (fieldVariationAt(fieldPosition * 4.0) - 0.5) * 0.2;
+  rockUvX = vec2(fieldPosition.y, fieldHeight) / 3.6 + rockWarp;
+  rockUvY = fieldPosition / 3.6 + rockWarp;
+  rockUvZ = vec2(fieldPosition.x, fieldHeight) / 3.6 + rockWarp;
+  vec3 rockAlbedo = rockMapAt(fieldRockColorMap, rockUvX) * rockWeights.x
+    + rockMapAt(fieldRockColorMap, rockUvY) * rockWeights.y
+    + rockMapAt(fieldRockColorMap, rockUvZ) * rockWeights.z;
+  float earthBlend = cutFace * (1.0 - smoothstep(0.3, 0.75, fieldSlope)) * bankPatch;
+  vec3 rockColor = mix(fieldRock, fieldSoil, earthBlend) * rockAlbedo / vec3(0.2314, 0.1465, 0.0838) * (0.8 + rockGrain * 0.2);
+  diffuseColor.rgb = mix(diffuseColor.rgb, rockColor * sampledDiffuseColor.rgb, rockBlend);
+}
+if (fieldRoadDistance < ${(0.85 + 0.175 + verge.rag / 2 + 0.1).toFixed(2)}) {
 #ifdef FIELD_PLAIN
-float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
-vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb;
+  float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35);
+  vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb;
 #else
-float gravelRag = texture2D(fieldNoiseMap, (fieldPosition * ${verge.ragScale.toFixed(2)} + 0.5) / 128.0).r - 0.5;
-float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35 + gravelRag * ${verge.rag.toFixed(2)});
-float gravelGrain = texture2D(fieldDetailMap, fieldPosition * ${verge.grainScale.toFixed(2)}).g;
-float gravelStone = texture2D(fieldNoiseMap, (fieldPosition * ${verge.stoneScale.toFixed(1)} + 0.5) / 128.0).r;
-vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb * (${(1 - verge.grain / 2).toFixed(2)} + gravelGrain * ${verge.grain.toFixed(2)}) * (${(1 - verge.stone / 2).toFixed(2)} + gravelStone * ${verge.stone.toFixed(2)});
-gravelTone = mix(gravelTone, fieldSoil * sampledDiffuseColor.rgb, smoothstep(0.45, 0.85, fieldRoadDistance + gravelRag * ${verge.rag.toFixed(2)}) * 0.45);
+  float gravelRag = texture2D(fieldNoiseMap, (fieldPosition * ${verge.ragScale.toFixed(2)} + 0.5) / 128.0).r - 0.5;
+  float gravelBlend = 1.0 - smoothstep(0.05, 0.85, fieldRoadDistance + (fieldVariation - 0.5) * 0.35 + gravelRag * ${verge.rag.toFixed(2)});
+  float gravelGrain = texture2D(fieldDetailMap, fieldPosition * ${verge.grainScale.toFixed(2)}).g;
+  float gravelStone = texture2D(fieldNoiseMap, (fieldPosition * ${verge.stoneScale.toFixed(1)} + 0.5) / 128.0).r;
+  vec3 gravelTone = fieldGravel * sampledDiffuseColor.rgb * (${(1 - verge.grain / 2).toFixed(2)} + gravelGrain * ${verge.grain.toFixed(2)}) * (${(1 - verge.stone / 2).toFixed(2)} + gravelStone * ${verge.stone.toFixed(2)});
+  gravelTone = mix(gravelTone, fieldSoil * sampledDiffuseColor.rgb, smoothstep(0.45, 0.85, fieldRoadDistance + gravelRag * ${verge.rag.toFixed(2)}) * 0.45);
 #endif
-diffuseColor.rgb = mix(diffuseColor.rgb, gravelTone, gravelBlend);
+  diffuseColor.rgb = mix(diffuseColor.rgb, gravelTone, gravelBlend);
+}
 diffuseColor.rgb *= 1.0 - fieldGroveCover * (1.0 - smoothstep(0.4, 0.65, fieldSlope)) * 0.32;
-float shoreWet = (1.0 - smoothstep(0.04, 0.85 + fieldVariation * 0.5, fieldHeight)) * step(-0.4, fieldHeight);
-diffuseColor.rgb = mix(diffuseColor.rgb, fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7);
-float foamWidth = min(0.035, max(fwidth(fieldHeight) * 1.5, 0.004) * (1.0 + fieldVariationAt(fieldPosition * 6.0 + vec2(2.9, 7.3))));
-float foamLine = (1.0 - smoothstep(0.0, foamWidth, abs(fieldHeight - foamWidth * 0.5))) * step(-0.4, fieldHeight);
-diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);`,
+float fieldHeightWidth = fwidth(fieldHeight);
+if (fieldHeight < 1.4) {
+  float shoreWet = (1.0 - smoothstep(0.04, 0.85 + fieldVariation * 0.5, fieldHeight)) * step(-0.4, fieldHeight);
+  diffuseColor.rgb = mix(diffuseColor.rgb, fieldSoil * sampledDiffuseColor.rgb * 0.55, shoreWet * 0.7);
+  float foamWidth = min(0.035, max(fieldHeightWidth * 1.5, 0.004) * (1.0 + fieldVariationAt(fieldPosition * 6.0 + vec2(2.9, 7.3))));
+  float foamLine = (1.0 - smoothstep(0.0, foamWidth, abs(fieldHeight - foamWidth * 0.5))) * step(-0.4, fieldHeight);
+  diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);
+}`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_maps>',
@@ -407,11 +424,13 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.86, 0.9, 0.9), foamLine * 0.4);`
 normal = perturbNormalArb(-vViewPosition, normal, dHdxy_fwd(), faceDirection);
 #endif
 #ifdef USE_NORMALMAP_TANGENTSPACE
-vec3 rockNormalX = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvX) * (rockMapAt(fieldRockMap, rockUvX) * 2.0 - 1.0);
-vec3 rockNormalY = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvY) * (rockMapAt(fieldRockMap, rockUvY) * 2.0 - 1.0);
-vec3 rockNormalZ = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvZ) * (rockMapAt(fieldRockMap, rockUvZ) * 2.0 - 1.0);
-vec3 rockNormal = normalize(rockNormalX * rockWeights.x + rockNormalY * rockWeights.y + rockNormalZ * rockWeights.z);
-normal = normalize(mix(normal, rockNormal, rockBlend));
+if (rockBlend > 0.0) {
+  vec3 rockNormalX = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvX) * (rockMapAt(fieldRockMap, rockUvX) * 2.0 - 1.0);
+  vec3 rockNormalY = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvY) * (rockMapAt(fieldRockMap, rockUvY) * 2.0 - 1.0);
+  vec3 rockNormalZ = getTangentFrame(-vViewPosition, nonPerturbedNormal, rockUvZ) * (rockMapAt(fieldRockMap, rockUvZ) * 2.0 - 1.0);
+  vec3 rockNormal = normalize(rockNormalX * rockWeights.x + rockNormalY * rockWeights.y + rockNormalZ * rockWeights.z);
+  normal = normalize(mix(normal, rockNormal, rockBlend));
+}
 #endif`,
       )
     }
@@ -437,7 +456,7 @@ normal = normalize(mix(normal, rockNormal, rockBlend));
     this.fieldUniforms.fieldGravel.value.set(winter ? '#c1c9c6' : field ? field.gravel : '#a9a99b')
   }
   override customProgramCacheKey() {
-    return `triplanar-rock-road-cuts-varied-shore-worn-crisp-verge${this.open ? '-open' : ''}`
+    return `triplanar-rock-road-cuts-varied-shore-worn-crisp-verge-gated${this.open ? '-open' : ''}`
   }
   override dispose() {
     super.dispose()

@@ -265,7 +265,7 @@ export class Terrain {
       shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float windTime;\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;',
+        `#include <common>\nuniform float windTime;\nvarying vec3 fieldGrassField;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;\n${meadowNoise}`,
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <defaultnormal_vertex>',
@@ -279,7 +279,7 @@ fieldGrassNormal = normalMatrix * grassNormal * vec3(0.0, 1.0, 0.0);`,
         '#include <begin_vertex>',
         `#include <begin_vertex>
 vec3 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-fieldGrassPosition = root.xz;
+fieldGrassField = vec3(fieldVariationAt(root.xz), fieldMeadowAt(root.xz), fieldVariationAt(root.xz * 0.13 + vec2(17.3, 61.9)));
 fieldGrassVariation = fract(sin(dot(root.xz, vec2(12.9898, 78.233))) * 43758.5453);
 float wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);
 transformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;
@@ -288,7 +288,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        `#include <common>\nvarying vec2 fieldGrassPosition;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\nuniform vec3 fieldMeadowShade;\n${meadowNoise}`,
+        '#include <common>\nvarying vec3 fieldGrassField;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\nuniform vec3 fieldMeadowShade;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_begin>',
@@ -296,14 +296,14 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <alphatest_fragment>',
-        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldVariationAt(fieldGrassPosition)) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldMeadowAt(fieldGrassPosition));\ndiffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldVariationAt(fieldGrassPosition * 0.13 + vec2(17.3, 61.9))) * 1.25;',
+        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldGrassField.x) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldGrassField.y);\ndiffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldGrassField.z) * 1.25;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
         grassLighting,
       )
     }
-    this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-shaded-meadow'
+    this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-shaded-meadow-rooted'
     this.asphalt = asphaltTexture()
     this.fallMaterial = waterfallMaterial(
       this.grassMaterial.fieldUniforms.fieldNoiseMap,
