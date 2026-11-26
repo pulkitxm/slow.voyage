@@ -49,7 +49,7 @@ def main():
         for name in names:
             spec = SPECIES[name]
             plant = plants.conifer(spec) if spec["kind"] == "conifer" else plants.broadleaf(spec)
-            scene = staging.reset(32)
+            scene = staging.reset(128)
             staging.bark_object(scene, plant, spec.get("bark", 1.0))
             leaves = staging.leaf_object(scene, plant)
             target = LEVELS["leafed" if spec["bare"] else "evergreen"]
