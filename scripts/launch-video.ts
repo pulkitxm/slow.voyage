@@ -314,6 +314,8 @@ async function renderSoundtrack(path: string) {
     await run([
       'bun',
       'scripts/sound-render.ts',
+      '--url',
+      base,
       '--out',
       sounds,
       '--vehicles',
@@ -358,85 +360,64 @@ async function renderSoundtrack(path: string) {
 }
 
 await mkdir(out, { recursive: true })
-const master = `${out}/slow-voyage-launch-${scale >= 2 ? '4k' : '1080p'}-master.mp4`
+const label = scale >= 2 ? '4k' : '1080p'
+const master = `${out}/slow-voyage-launch-${label}-silent.mp4`
 const soundtrack = `${out}/soundtrack.wav`
+const encode = (input: string, output: string, extra: string[]) =>
+  run([
+    'ffmpeg',
+    '-loglevel',
+    'error',
+    '-y',
+    '-i',
+    input,
+    ...extra,
+    '-movflags',
+    '+faststart',
+    output,
+  ])
 if (!process.argv.includes('--sound-only')) await renderPicture(master)
 await renderSoundtrack(soundtrack)
-await run([
-  'ffmpeg',
-  '-loglevel',
-  'error',
-  '-y',
-  '-i',
-  master,
-  '-i',
-  soundtrack,
-  '-map',
-  '0:v',
-  '-map',
-  '1:a',
+const withSound = ['-i', soundtrack, '-map', '0:v', '-map', '1:a', '-shortest']
+await encode(master, `${out}/slow-voyage-launch-${label}.mp4`, [
+  ...withSound,
   '-c:v',
   'copy',
   '-c:a',
   'aac',
   '-b:a',
   '256k',
-  '-shortest',
-  '-movflags',
-  '+faststart',
-  `${out}/slow-voyage-launch-${scale >= 2 ? '4k' : '1080p-master'}.mp4`,
 ])
-await run([
-  'ffmpeg',
-  '-loglevel',
-  'error',
-  '-y',
-  '-i',
-  master,
-  '-i',
-  soundtrack,
-  '-map',
-  '0:v',
-  '-map',
-  '1:a',
-  '-vf',
-  'scale=1920:1080:flags=lanczos',
-  '-c:v',
-  'libx264',
-  '-preset',
-  'slow',
-  '-crf',
-  '18',
-  '-maxrate',
-  '25M',
-  '-bufsize',
-  '50M',
-  '-pix_fmt',
-  'yuv420p',
-  '-profile:v',
-  'high',
-  '-c:a',
-  'aac',
-  '-b:a',
-  '192k',
-  '-shortest',
-  '-movflags',
-  '+faststart',
-  `${out}/slow-voyage-launch-1080p.mp4`,
-])
-await run([
-  'ffmpeg',
-  '-loglevel',
-  'error',
-  '-y',
-  '-i',
-  `${out}/slow-voyage-launch-1080p.mp4`,
-  '-map',
-  '0:v',
-  '-c:v',
-  'copy',
-  '-movflags',
-  '+faststart',
-  `${out}/slow-voyage-launch-1080p-silent.mp4`,
-])
+if (label === '4k') {
+  const social = `${out}/slow-voyage-launch-1080p.mp4`
+  await encode(master, social, [
+    ...withSound,
+    '-vf',
+    'scale=1920:1080:flags=lanczos',
+    '-c:v',
+    'libx264',
+    '-preset',
+    'slow',
+    '-crf',
+    '18',
+    '-maxrate',
+    '25M',
+    '-bufsize',
+    '50M',
+    '-pix_fmt',
+    'yuv420p',
+    '-profile:v',
+    'high',
+    '-c:a',
+    'aac',
+    '-b:a',
+    '192k',
+  ])
+  await encode(social, `${out}/slow-voyage-launch-1080p-silent.mp4`, [
+    '-map',
+    '0:v',
+    '-c:v',
+    'copy',
+  ])
+}
 console.log(`Launch video: ${out}`)
