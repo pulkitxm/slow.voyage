@@ -55,7 +55,7 @@ export interface EngineSpec {
   litres: number
   power: number
   torque: number
-  found: string
+  cars: readonly (readonly [maker: string, model: string])[]
   feel: string
   profile: Omit<EngineProfile, 'gearTops' | 'shiftSeconds'>
   boost: Boost | null
@@ -120,7 +120,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 1.8,
     power: 85,
     torque: 280,
-    found: 'Ford Focus and Mondeo TDCi',
+    cars: [
+      ['Ford', 'Focus TDCi'],
+      ['Ford', 'Mondeo TDCi'],
+      ['Ford', 'C-Max TDCi'],
+      ['Ford', 'Galaxy TDCi'],
+      ['Ford', 'Transit Connect'],
+    ],
     feel: 'A clattering idle, a wave of low-down torque once the turbo wakes, and nothing left past 4,000.',
     profile: {
       idle: 800,
@@ -174,7 +180,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 2,
     power: 180,
     torque: 370,
-    found: 'Volkswagen Golf GTI',
+    cars: [
+      ['Volkswagen', 'Golf GTI'],
+      ['Škoda', 'Octavia RS'],
+      ['SEAT', 'León Cupra'],
+      ['Audi', 'A3 2.0 TFSI'],
+      ['Volkswagen', 'Tiguan 2.0 TSI'],
+    ],
     feel: 'Flat, eager torque from 1,600 rpm, a turbo whistle and a crackle on every upshift.',
     profile: {
       idle: 820,
@@ -206,7 +218,7 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 2,
     power: 176,
     torque: 208,
-    found: 'Honda S2000',
+    cars: [['Honda', 'S2000']],
     feel: 'Docile below 6,000, then the cam changes over and it howls to 9,000.',
     profile: {
       idle: 950,
@@ -260,7 +272,7 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 1.3,
     power: 170,
     torque: 211,
-    found: 'Mazda RX-8',
+    cars: [['Mazda', 'RX-8']],
     feel: 'No valves and no pistons. A lumpy brap at idle, a smooth buzzing wail to 9,000.',
     profile: {
       idle: 900,
@@ -314,7 +326,12 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 2.5,
     power: 294,
     torque: 480,
-    found: 'Audi RS 3',
+    cars: [
+      ['Audi', 'RS 3'],
+      ['Audi', 'TT RS'],
+      ['Audi', 'RS Q3'],
+      ['Cupra', 'Formentor VZ5'],
+    ],
     feel: 'The odd-numbered warble of a rally car, a big turbo shove and a bark when you lift.',
     profile: {
       idle: 850,
@@ -368,7 +385,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 3,
     power: 375,
     torque: 650,
-    found: 'BMW M3 and M4',
+    cars: [
+      ['BMW', 'M3'],
+      ['BMW', 'M4'],
+      ['BMW', 'M2'],
+      ['BMW', 'X3 M'],
+      ['BMW', 'X4 M'],
+    ],
     feel: 'Silky and relentless, with a hard metallic edge near the 7,200 rpm limiter.',
     profile: {
       idle: 750,
@@ -401,7 +424,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 4,
     power: 375,
     torque: 470,
-    found: 'Porsche 911 GT3',
+    cars: [
+      ['Porsche', '911 GT3'],
+      ['Porsche', '911 GT3 Touring'],
+      ['Porsche', '911 Speedster'],
+      ['Porsche', '718 Cayman GT4 RS'],
+      ['Porsche', '718 Spyder RS'],
+    ],
     feel: 'Mechanical and raw. It hardens and shrieks all the way to 9,000 rpm.',
     profile: {
       idle: 900,
@@ -455,7 +484,12 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 5,
     power: 343,
     torque: 570,
-    found: 'Ford Mustang GT',
+    cars: [
+      ['Ford', 'Mustang GT'],
+      ['Ford', 'Mustang Bullitt'],
+      ['Ford', 'Mustang Mach 1'],
+      ['Ford', 'F-150 5.0'],
+    ],
     feel: 'The classic loping burble at idle and a deep, rising roar to 7,500.',
     profile: {
       idle: 700,
@@ -489,7 +523,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 6.2,
     power: 527,
     torque: 881,
-    found: 'Dodge Challenger SRT Hellcat',
+    cars: [
+      ['Dodge', 'Challenger SRT Hellcat'],
+      ['Dodge', 'Charger SRT Hellcat'],
+      ['Dodge', 'Durango SRT Hellcat'],
+      ['Jeep', 'Grand Cherokee Trackhawk'],
+      ['Ram', '1500 TRX'],
+    ],
     feel: 'Instant, enormous torque at any revs, a thundering V8 and the scream of the blower on top.',
     profile: {
       idle: 700,
@@ -526,7 +566,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 3.9,
     power: 530,
     torque: 770,
-    found: 'Ferrari F8 Tributo',
+    cars: [
+      ['Ferrari', 'F8 Tributo'],
+      ['Ferrari', '488 GTB'],
+      ['Ferrari', '488 Pista'],
+      ['Ferrari', 'Roma'],
+      ['Ferrari', 'Portofino'],
+    ],
     feel: 'A flat-plane crank makes it scream like two fours. The turbos hit hard and it pulls to 8,000.',
     profile: {
       idle: 1000,
@@ -580,7 +626,11 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 5.2,
     power: 470,
     torque: 600,
-    found: 'Lamborghini Huracán and Audi R8',
+    cars: [
+      ['Lamborghini', 'Huracán'],
+      ['Lamborghini', 'Huracán STO'],
+      ['Audi', 'R8 V10'],
+    ],
     feel: 'A hard-edged, racing V10 howl with crackles on the overrun and revs to 8,700.',
     profile: {
       idle: 1000,
@@ -634,7 +684,12 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 6.5,
     power: 566,
     torque: 720,
-    found: 'Lamborghini Aventador SVJ',
+    cars: [
+      ['Lamborghini', 'Aventador SVJ'],
+      ['Lamborghini', 'Aventador S'],
+      ['Lamborghini', 'Sián'],
+      ['Lamborghini', 'Countach LPI 800-4'],
+    ],
     feel: 'Smooth as a turbine low down, then a soaring, operatic shriek all the way to 8,700.',
     profile: {
       idle: 1000,
@@ -667,7 +722,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 8,
     power: 1103,
     torque: 1600,
-    found: 'Bugatti Chiron',
+    cars: [
+      ['Bugatti', 'Chiron'],
+      ['Bugatti', 'Chiron Super Sport 300+'],
+      ['Bugatti', 'Divo'],
+      ['Bugatti', 'Centodieci'],
+      ['Bugatti', 'Veyron'],
+    ],
     feel: 'Sixteen cylinders and four turbos. A deep, rushing whoosh and an unending shove.',
     profile: {
       idle: 750,
@@ -722,7 +783,12 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 1,
     power: 92,
     torque: 200,
-    found: 'Ford Fiesta EcoBoost',
+    cars: [
+      ['Ford', 'Fiesta EcoBoost'],
+      ['Ford', 'Focus EcoBoost'],
+      ['Ford', 'EcoSport'],
+      ['Ford', 'Puma'],
+    ],
     feel: 'An off-beat three-cylinder thrum, a small turbo that wakes up early and a willing rev to 6,500.',
     profile: {
       idle: 850,
@@ -776,7 +842,13 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 3,
     power: 210,
     torque: 600,
-    found: 'Audi A6, Q7 and Volkswagen Touareg',
+    cars: [
+      ['Audi', 'A6 3.0 TDI'],
+      ['Audi', 'A8 3.0 TDI'],
+      ['Audi', 'Q7 3.0 TDI'],
+      ['Volkswagen', 'Touareg V6 TDI'],
+      ['Porsche', 'Cayenne Diesel'],
+    ],
     feel: 'A deep, muted diesel growl, a muscular wall of torque from 1,500 rpm and a soft whistle.',
     profile: {
       idle: 700,
@@ -830,7 +902,11 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 2.6,
     power: 206,
     torque: 392,
-    found: 'Nissan Skyline GT-R (R34)',
+    cars: [
+      ['Nissan', 'Skyline GT-R (R34)'],
+      ['Nissan', 'Skyline GT-R (R33)'],
+      ['Nissan', 'Skyline GT-R (R32)'],
+    ],
     feel: 'A smooth, metallic straight-six that comes alive on boost, with the flutter of a tuned blow-off.',
     profile: {
       idle: 900,
@@ -869,7 +945,10 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 2.5,
     power: 224,
     torque: 407,
-    found: 'Subaru WRX STI',
+    cars: [
+      ['Subaru', 'WRX STI'],
+      ['Subaru', 'Impreza WRX STI'],
+    ],
     feel: 'The rally burble. Unequal headers give it an off-beat rumble at every rev, and a big turbo shove past 3,500.',
     profile: {
       idle: 800,
@@ -924,7 +1003,10 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 7,
     power: 376,
     torque: 637,
-    found: 'Chevrolet Corvette Z06 (C6)',
+    cars: [
+      ['Chevrolet', 'Corvette Z06 (C6)'],
+      ['Chevrolet', 'Camaro Z/28'],
+    ],
     feel: 'Seven litres of lumpy-cammed thunder. Torque everywhere and a hard, metallic bark at 7,000.',
     profile: {
       idle: 650,
@@ -960,7 +1042,10 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 3.8,
     power: 419,
     torque: 637,
-    found: 'Nissan GT-R (R35)',
+    cars: [
+      ['Nissan', 'GT-R (R35)'],
+      ['Nissan', 'GT-R NISMO'],
+    ],
     feel: 'Gruff and mechanical, with a rushing turbo whoosh and the whine of the transaxle under load.',
     profile: {
       idle: 800,
@@ -1014,7 +1099,14 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 4,
     power: 430,
     torque: 700,
-    found: 'Mercedes-AMG GT R',
+    cars: [
+      ['Mercedes-AMG', 'GT R'],
+      ['Mercedes-AMG', 'GT'],
+      ['Mercedes-AMG', 'C 63'],
+      ['Mercedes-AMG', 'E 63'],
+      ['Aston Martin', 'Vantage'],
+      ['Aston Martin', 'DB11 V8'],
+    ],
     feel: 'A thunderous cross-plane V8 with the turbos inside the vee, savage shove and a fusillade of crackles on the overrun.',
     profile: {
       idle: 750,
@@ -1049,7 +1141,11 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 4.5,
     power: 419,
     torque: 540,
-    found: 'Ferrari 458 Italia',
+    cars: [
+      ['Ferrari', '458 Italia'],
+      ['Ferrari', '458 Spider'],
+      ['Ferrari', '458 Speciale'],
+    ],
     feel: 'The last great atmospheric Ferrari V8. A hard, rising shriek that only gets better all the way to 9,000.',
     profile: {
       idle: 1000,
@@ -1103,7 +1199,11 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 6.1,
     power: 461,
     torque: 650,
-    found: 'McLaren F1',
+    cars: [
+      ['McLaren', 'F1'],
+      ['McLaren', 'F1 LM'],
+      ['McLaren', 'F1 GTR'],
+    ],
     feel: 'The classic 1990s supercar V12. Deep and silky low down, hardening into a pure, metallic wail.',
     profile: {
       idle: 800,
@@ -1141,7 +1241,10 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 2.6,
     power: 515,
     torque: 608,
-    found: 'Mazda 787B, Le Mans winner',
+    cars: [
+      ['Mazda', '787B'],
+      ['Mazda', '787'],
+    ],
     feel: 'Four rotors through an open race exhaust. A savage, buzzing shriek unlike anything with pistons.',
     profile: {
       idle: 1300,
@@ -1195,7 +1298,11 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
     litres: 3,
     power: 690,
     torque: 350,
-    found: 'Formula 1 cars of the early 2000s',
+    cars: [
+      ['Ferrari', 'F2004'],
+      ['Williams', 'FW26 BMW'],
+      ['McLaren', 'MP4-20 Mercedes'],
+    ],
     feel: 'Pneumatic valves, straight-cut gears and 19,000 rpm. Nothing on the road has ever screamed like this.',
     profile: {
       idle: 4200,
@@ -1244,6 +1351,12 @@ export const engineCatalog: Record<SwapEngine, EngineSpec> = {
 }
 
 export const swapEngines = engineIds.filter((id): id is SwapEngine => id !== 'stock')
+
+export const carName = ([maker, model]: readonly [string, string]) => `${maker} ${model}`
+
+export const engineCars = swapEngines.flatMap((id) =>
+  engineCatalog[id].cars.map((car) => ({ id, maker: car[0], model: car[1], name: carName(car) })),
+)
 
 export function horsepower(kilowatts: number) {
   return Math.round(kilowatts * 1.3596)

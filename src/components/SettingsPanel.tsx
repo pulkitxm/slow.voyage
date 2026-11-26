@@ -1,8 +1,24 @@
-import { AudioLines, Camera, Check, Link2, RotateCcw, ShieldCheck, X } from 'lucide-react'
-import { useEffect } from 'react'
+import {
+  AudioLines,
+  Camera,
+  Check,
+  ChevronDown,
+  Link2,
+  RotateCcw,
+  Search,
+  ShieldCheck,
+  X,
+} from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
-import { type EngineFamily, engineFamilies } from '../game/engine-catalog'
+import {
+  carName,
+  type EngineFamily,
+  engineCars,
+  engineFamilies,
+  type SwapEngine,
+} from '../game/engine-catalog'
 import { engineSounds } from '../game/engine-sound'
 import { engineCatalog, horsepower, stockPower, swapEngines, swappable } from '../game/engines'
 import type { ControllerStatus } from '../game/gamepad'
@@ -638,74 +654,410 @@ export function SettingsPanel({
 }
 
 const rpm = (value: number) => value.toLocaleString('en-US')
+const plain = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+
+interface Choice {
+  key: string
+  title: string
+  badge?: string
+  detail?: string
+  note?: string
+  search: string
+}
+interface ChoiceGroup {
+  label: string
+  choices: Choice[]
+}
+
+function Dropdown({
+  label,
+  groups,
+  selected,
+  onSelect,
+  disabled = false,
+  placeholder,
+}: {
+  label: string
+  groups: ChoiceGroup[]
+  selected: string | null
+  onSelect: (key: string) => void
+  disabled?: boolean
+  placeholder: string
+}) {
+  const id = useId()
+  const [expanded, setExpanded] = useState(false)
+  const [query, setQuery] = useState('')
+  const holder = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const search = useRef<HTMLInputElement>(null)
+  const menu = useRef<HTMLDivElement>(null)
+  const total = groups.reduce((sum, group) => sum + group.choices.length, 0)
+  const searchable = total > 8
+  const close = (refocus = true) => {
+    setExpanded(false)
+    setQuery('')
+    if (refocus) trigger.current?.focus()
+  }
+  const closer = useRef(close)
+  closer.current = close
+  useEffect(() => {
+    if (!expanded) return
+    const frame = requestAnimationFrame(() => {
+      holder.current?.scrollIntoView({ block: 'nearest' })
+      const list = menu.current
+      const picked = list?.querySelector<HTMLElement>('.engine-option.selected')
+      if (list && picked) {
+        const offset = picked.getBoundingClientRect().top - list.getBoundingClientRect().top
+        list.scrollTop += offset - (list.clientHeight - picked.offsetHeight) / 2
+      }
+      if (search.current && matchMedia('(pointer: fine)').matches) search.current.focus()
+      else (picked ?? list?.querySelector<HTMLElement>('.engine-option'))?.focus()
+    })
+    const options = () =>
+      Array.from(menu.current?.querySelectorAll<HTMLElement>('.engine-option') ?? [])
+    const away = (event: Event) => {
+      if (holder.current && !holder.current.contains(event.target as Node)) closer.current(false)
+    }
+    const keys = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !holder.current) return
+      const focused = document.activeElement
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        if (search.current?.value) setQuery('')
+        else closer.current()
+        return
+      }
+      if (!holder.current.contains(focused)) return
+      const list = options()
+      const at = list.indexOf(focused as HTMLElement)
+      const move = (index: number) => {
+        event.preventDefault()
+        list[Math.max(0, Math.min(list.length - 1, index))]?.focus()
+      }
+      if (event.key === 'ArrowDown') {
+        if (at < 0) {
+          const picked = list.findIndex((item) => item.classList.contains('selected'))
+          move(search.current?.value || picked < 0 ? 0 : picked)
+        } else move(at + 1)
+      } else if (event.key === 'ArrowUp') {
+        if (at === 0 && search.current) {
+          event.preventDefault()
+          search.current.focus()
+        } else if (at > 0) move(at - 1)
+      } else if (event.key === 'Home' && at >= 0) move(0)
+      else if (event.key === 'End' && at >= 0) move(list.length - 1)
+      else if (
+        at >= 0 &&
+        search.current &&
+        event.key.length === 1 &&
+        event.key !== ' ' &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey
+      )
+        search.current.focus()
+    }
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('focusin', away)
+    document.addEventListener('keydown', keys, true)
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('focusin', away)
+      document.removeEventListener('keydown', keys, true)
+    }
+  }, [expanded])
+  useEffect(() => {
+    if (menu.current && query) menu.current.scrollTop = 0
+  }, [query])
+  const every = groups.flatMap((group) => group.choices)
+  const current = every.find((choice) => choice.key === selected) ?? null
+  const words = plain(query).split(/\s+/).filter(Boolean)
+  const shown = groups
+    .map((group) => ({
+      ...group,
+      choices: group.choices.filter((choice) =>
+        words.every((word) => choice.search.includes(word)),
+      ),
+    }))
+    .filter((group) => group.choices.length)
+  const found = shown.reduce((sum, group) => sum + group.choices.length, 0)
+  const choose = (key: string) => {
+    onSelect(key)
+    close()
+  }
+  const face = (choice: Choice) => (
+    <>
+      {choice.badge && <span className="engine-badge">{choice.badge}</span>}
+      <span>
+        <strong>{choice.title}</strong>
+        {choice.detail && <small>{choice.detail}</small>}
+        {choice.note && <small className="engine-note">{choice.note}</small>}
+      </span>
+    </>
+  )
+  return (
+    <div className="engine-dropdown" ref={holder}>
+      <span className="engine-label" id={`${id}-label`}>
+        {label}
+      </span>
+      <button
+        type="button"
+        ref={trigger}
+        className="landscape-option engine-option engine-current"
+        aria-expanded={expanded}
+        aria-controls={`${id}-menu`}
+        aria-labelledby={`${id}-label ${id}-value`}
+        disabled={disabled || total === 0}
+        onClick={() => (expanded ? close() : setExpanded(true))}
+      >
+        <span id={`${id}-value`} className="engine-face">
+          {current ? face(current) : <span className="engine-placeholder">{placeholder}</span>}
+        </span>
+        <ChevronDown size={16} className={expanded ? 'engine-chevron open' : 'engine-chevron'} />
+      </button>
+      {expanded && (
+        <div className="engine-popover" id={`${id}-menu`}>
+          {searchable && (
+            <label className="engine-search">
+              <Search size={14} />
+              <input
+                ref={search}
+                type="search"
+                value={query}
+                placeholder={`Search ${label.toLowerCase()}s`}
+                aria-label={`Search ${label.toLowerCase()}s`}
+                onChange={(event) => setQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return
+                  const first = menu.current?.querySelector<HTMLElement>('.engine-option')
+                  if (!first) return
+                  event.preventDefault()
+                  first.click()
+                }}
+              />
+              <span className="engine-count" aria-live="polite">
+                {found} {found === 1 ? 'match' : 'matches'}
+              </span>
+            </label>
+          )}
+          <div className="engine-menu" ref={menu}>
+            {shown.map((group) => (
+              <div key={group.label} className="engine-family">
+                {group.label && <h4>{group.label}</h4>}
+                {group.choices.map((choice) => (
+                  <button
+                    type="button"
+                    key={choice.key}
+                    aria-pressed={choice.key === selected}
+                    className={`landscape-option engine-option ${choice.key === selected ? 'selected' : ''}`}
+                    onClick={() => choose(choice.key)}
+                  >
+                    {face(choice)}
+                    {choice.key === selected && <Check size={15} />}
+                  </button>
+                ))}
+              </div>
+            ))}
+            {!found && <p className="engine-empty">Nothing matches "{query}".</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+const asBuilt = 'stock'
 
 function EngineChoice({ settings, update }: Pick<Props, 'settings' | 'update'>) {
   const vehicle = settings.vehicle
-  const open = swappable(vehicle)
-  const chosen = open ? settings.engine : 'stock'
+  const view = settings.engineView
+  const swaps = swappable(vehicle)
+  const chosen = swaps ? settings.engine : 'stock'
+  const [maker, setMaker] = useState<string | null>(null)
+  const name = vehicleNames[vehicle]
   const stock = engineSounds[vehicle]
-  const option = (
-    id: EngineId,
-    badge: string,
-    name: string,
-    detail: string,
-    found: string,
-    feel: string,
-  ) => (
-    <button
-      type="button"
-      key={id}
-      aria-pressed={chosen === id}
-      disabled={!open && id !== 'stock'}
-      className={`landscape-option engine-option ${chosen === id ? 'selected' : ''}`}
-      onClick={() => update('engine', id)}
-    >
-      <span className="engine-badge">{badge}</span>
-      <span>
-        <strong>{name}</strong>
-        <small>{detail}</small>
-        <small>{found}</small>
-        {chosen === id && <small className="engine-feel">{feel}</small>}
-      </span>
-      {chosen === id && <Check size={15} />}
-    </button>
-  )
+  const carsOf = (id: EngineId) => engineCars.filter((car) => car.id === id)
+  const ownCar =
+    carsOf(chosen).find((car) => car.name === settings.engineCar) ?? carsOf(chosen)[0] ?? null
+  const shownMaker = maker ?? ownCar?.maker ?? asBuilt
+  const figures = (id: SwapEngine) => {
+    const spec = engineCatalog[id]
+    return `${horsepower(spec.power)} hp · ${spec.torque} Nm · ${rpm(spec.profile.redline)} rpm`
+  }
+  const stockChoice: Choice = {
+    key: asBuilt,
+    badge: 'Stock',
+    title: `${name} as built`,
+    detail: `${stock.layout} · ${horsepower(stockPower[vehicle])} hp · ${rpm(engineProfiles[vehicle].redline)} rpm`,
+    search: plain(`stock as built original ${name} ${stock.layout}`),
+  }
+  const fit = (id: EngineId, car: string) => {
+    update('engine', id)
+    update('engineCar', car)
+  }
+  const engineGroups: ChoiceGroup[] = [
+    { label: 'This vehicle', choices: [stockChoice] },
+    ...(Object.keys(engineFamilies) as EngineFamily[]).map((family) => ({
+      label: engineFamilies[family],
+      choices: swapEngines
+        .filter((id) => engineCatalog[id].family === family)
+        .map((id) => {
+          const spec = engineCatalog[id]
+          const cars = spec.cars.map(carName)
+          return {
+            key: id,
+            badge: spec.badge,
+            title: spec.name,
+            detail: figures(id),
+            note: `${cars.length} ${cars.length === 1 ? 'car' : 'cars'}: ${cars.join(', ')}`,
+            search: plain(`${spec.name} ${spec.layout} ${spec.badge} ${cars.join(' ')}`),
+          }
+        }),
+    })),
+  ]
+  const carChoice = (car: (typeof engineCars)[number], withMaker: boolean): Choice => {
+    const spec = engineCatalog[car.id]
+    return {
+      key: car.name,
+      badge: spec.badge,
+      title: withMaker ? car.name : car.model,
+      detail: `${spec.name} · ${figures(car.id)}`,
+      note: spec.layout,
+      search: plain(`${car.name} ${spec.name} ${spec.layout}`),
+    }
+  }
+  const makers = [...new Set(engineCars.map((car) => car.maker))].sort((a, b) => a.localeCompare(b))
+  const makerGroups: ChoiceGroup[] = [
+    {
+      label: 'This vehicle',
+      choices: [
+        {
+          key: asBuilt,
+          title: 'As built',
+          detail: `${name}, ${stock.layout}`,
+          search: 'as built stock',
+        },
+      ],
+    },
+    {
+      label: 'Makers',
+      choices: makers.map((each) => {
+        const own = engineCars.filter((car) => car.maker === each)
+        const engines = [...new Set(own.map((car) => engineCatalog[car.id].name))]
+        return {
+          key: each,
+          title: each,
+          detail: `${own.length} ${own.length === 1 ? 'car' : 'cars'}`,
+          note: engines.join(', '),
+          search: plain(`${each} ${own.map((car) => car.model).join(' ')} ${engines.join(' ')}`),
+        }
+      }),
+    },
+  ]
+  const pickMaker = (key: string) => {
+    setMaker(key)
+    if (key === asBuilt) return fit('stock', '')
+    const first = engineCars.find((car) => car.maker === key)
+    if (first && first.maker !== ownCar?.maker) fit(first.id, first.name)
+  }
+  const pickCar = (key: string) => {
+    if (key === asBuilt) return fit('stock', '')
+    const car = engineCars.find((each) => each.name === key)
+    if (car) fit(car.id, car.name)
+  }
+  const spec = chosen === 'stock' ? null : engineCatalog[chosen]
   return (
     <section className="setting-section">
       <h3>Under the bonnet</h3>
-      <p>
-        {open
-          ? 'Swap in any engine. Each brings its own sound, power, revs, gearing and turbo lag, and starts up when you change it at a standstill. Press Z for neutral to rev it in place.'
-          : 'The motorcycle keeps its own twin. Choose a car, the pickup or the bus to swap engines. Press Z for neutral to rev it in place.'}
-      </p>
-      <div className="engine-options">
-        {option(
-          'stock',
-          'Stock',
-          `As built: ${stock.layout}`,
-          `${horsepower(stockPower[vehicle])} hp · ${rpm(engineProfiles[vehicle].redline)} rpm`,
-          `The engine this ${vehicleNames[vehicle].toLowerCase()} was made with.`,
-          'The sound and pull this vehicle was tuned around.',
-        )}
-        {(Object.keys(engineFamilies) as EngineFamily[]).map((family) => (
-          <div key={family} className="engine-family">
-            <h4>{engineFamilies[family]}</h4>
-            {swapEngines
-              .filter((id) => engineCatalog[id].family === family)
-              .map((id) => {
-                const spec = engineCatalog[id]
-                return option(
-                  id,
-                  spec.badge,
-                  spec.name,
-                  `${horsepower(spec.power)} hp · ${spec.torque} Nm · ${rpm(spec.profile.redline)} rpm`,
-                  spec.found,
-                  `${spec.layout}, ${spec.litres.toFixed(1)} litres. ${spec.feel}`,
-                )
-              })}
-          </div>
+      <div className="segmented">
+        {(['car', 'engine'] as const).map((item) => (
+          <button
+            type="button"
+            key={item}
+            className={view === item ? 'selected' : ''}
+            aria-pressed={view === item}
+            onClick={() => {
+              setMaker(null)
+              update('engineView', item)
+            }}
+          >
+            {item === 'engine' ? 'Engines' : 'Cars'}
+          </button>
         ))}
       </div>
+      <div className="engine-pickers">
+        {view === 'engine' ? (
+          <>
+            <Dropdown
+              label="Engine"
+              groups={engineGroups}
+              selected={chosen}
+              disabled={!swaps}
+              placeholder="Choose an engine"
+              onSelect={(key) => {
+                const id = key as EngineId
+                fit(id, carsOf(id)[0]?.name ?? '')
+              }}
+            />
+            <Dropdown
+              label="Car"
+              groups={
+                chosen === 'stock'
+                  ? [{ label: '', choices: [stockChoice] }]
+                  : [{ label: '', choices: carsOf(chosen).map((car) => carChoice(car, true)) }]
+              }
+              selected={ownCar?.name ?? asBuilt}
+              disabled={!swaps || chosen === 'stock'}
+              placeholder="Choose a car"
+              onSelect={pickCar}
+            />
+          </>
+        ) : (
+          <>
+            <Dropdown
+              label="Maker"
+              groups={makerGroups}
+              selected={shownMaker}
+              disabled={!swaps}
+              placeholder="Choose a maker"
+              onSelect={pickMaker}
+            />
+            <Dropdown
+              label="Car"
+              groups={
+                shownMaker === asBuilt
+                  ? [{ label: '', choices: [stockChoice] }]
+                  : [
+                      {
+                        label: '',
+                        choices: engineCars
+                          .filter((car) => car.maker === shownMaker)
+                          .map((car) => carChoice(car, false)),
+                      },
+                    ]
+              }
+              selected={chosen === 'stock' ? asBuilt : (ownCar?.name ?? null)}
+              disabled={!swaps || shownMaker === asBuilt}
+              placeholder={`Choose a ${shownMaker}`}
+              onSelect={pickCar}
+            />
+          </>
+        )}
+      </div>
+      <p>
+        {!swaps
+          ? 'The motorcycle keeps its own twin. Choose a car, the pickup or the bus to swap engines. Press Z for neutral to rev it in place.'
+          : spec
+            ? `${spec.layout}, ${spec.litres.toFixed(1)} litres. ${spec.feel} Figures are for the ${carName(
+                spec.cars[0] ?? ['', ''],
+              ).trim()}. Press Z for neutral to rev it in place.`
+            : `The sound and pull this ${name.toLowerCase()} was tuned around. Press Z for neutral to rev it in place.`}
+      </p>
     </section>
   )
 }

@@ -50,6 +50,8 @@ export interface Settings {
   blood: boolean
   vehicle: Vehicle
   engine: EngineId
+  engineView: 'car' | 'engine'
+  engineCar: string
   camera: CameraMode
   motion: CameraMotion
   transmission: Transmission
@@ -82,6 +84,8 @@ export const defaults: Settings = {
   blood: true,
   vehicle: 'touring',
   engine: 'stock',
+  engineView: 'car',
+  engineCar: '',
   camera: 'chase',
   motion: 'full',
   transmission: 'automatic',

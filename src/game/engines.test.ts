@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { carName, engineCars } from './engine-catalog'
 import { EngineVoice, engineSounds, soundVehicles } from './engine-sound'
 import {
   boostPull,
@@ -188,6 +189,37 @@ describe('driving a swapped engine', () => {
 })
 
 describe('engine settings and sound', () => {
+  it('remembers whether engines are browsed by engine or by car', () => {
+    expect(defaults.engineView).toBe('car')
+    expect(decodeSettings({ engineView: 'engine' }).engineView).toBe('engine')
+    expect(decodeSettings({ engineView: 'truck' }).engineView).toBe('car')
+  })
+  it('names every car each engine went into, with no car listed twice', () => {
+    const everyCar = engineCars.map((car) => car.name)
+    for (const id of swapEngines) expect(engineCatalog[id].cars.length).toBeGreaterThan(0)
+    expect(new Set(everyCar).size).toBe(everyCar.length)
+    expect(engineCatalog.blown62.cars.map(carName)).toContain('Ram 1500 TRX')
+    expect(engineCatalog.w1680.cars.map(carName)).toContain('Bugatti Veyron')
+    expect(everyCar.length).toBeGreaterThan(swapEngines.length * 2)
+    for (const car of engineCars) {
+      expect(car.maker.length).toBeGreaterThan(1)
+      expect(car.model.length).toBeGreaterThan(0)
+      expect(car.name.startsWith(`${car.maker} `)).toBe(true)
+    }
+  })
+  it('groups cars under makers that hold several engines', () => {
+    const ferrari = engineCars.filter((car) => car.maker === 'Ferrari')
+    expect(new Set(ferrari.map((car) => car.id))).toEqual(new Set(['flat39', 'italia45', 'f1v10']))
+    expect(new Set(engineCars.map((car) => car.maker)).size).toBeGreaterThan(15)
+  })
+  it('remembers the chosen car only when it carries the chosen engine', () => {
+    expect(defaults.engineCar).toBe('')
+    expect(decodeSettings({ engine: 'blown62', engineCar: 'Ram 1500 TRX' }).engineCar).toBe(
+      'Ram 1500 TRX',
+    )
+    expect(decodeSettings({ engine: 'w1680', engineCar: 'Ram 1500 TRX' }).engineCar).toBe('')
+    expect(decodeSettings({ engine: 'blown62', engineCar: 'Ram 9000' }).engineCar).toBe('')
+  })
   it('stores a chosen engine and rejects unknown ones', () => {
     expect(defaults.engine).toBe('stock')
     expect(decodeSettings({ engine: 'v1052' }).engine).toBe('v1052')
