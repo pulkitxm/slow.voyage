@@ -4,7 +4,6 @@ import { asphaltTexture } from './asphalt'
 import { Boulders, planBoulders, planPlants } from './boulders'
 import { CanopyIndex, canopyCover, canopyShade, shadeStops, shadeTone, tuftLight } from './canopy'
 import { type Trunk, trunkRadius } from './collision'
-import { loopCells, loopIndex, worldLoop } from './field'
 import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
 import { grassGeometry, grassLighting, grassTexture } from './grass'
 import {
@@ -17,24 +16,24 @@ import {
 } from './ground'
 import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
-import { landmarkFootprints, landmarkGeometry, lapLandmarks } from './landmarks'
+import { landmarkFootprints, landmarkGeometry, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
 import { carFrame, type Driver } from './reactions'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
 import { RoadSurface } from './road-surface'
-import { bannerTexture, chevrons, chevronTexture, delineators, startGantry } from './roadside'
+import { chevrons, chevronTexture, delineators } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
 import { loadRoadSurface } from './rock'
 import { receiveUnbiasedShadows } from './shadow-receiver'
 import {
   cragFootprint,
   cragGeometry,
-  lapWaterfalls,
   waterfallClearing,
   waterfallGeometry,
   waterfallMaterial,
+  waterfallsNear,
 } from './waterfalls'
 import { coniferBuild, createWoodland, roadsidePlantHeight } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
@@ -87,37 +86,6 @@ function shadeTexture() {
   context.fillRect(0, 0, 64, 64)
   return new THREE.CanvasTexture(canvas)
 }
-export const seamTwins = { show: 150, hide: 100 }
-
-function twinMesh(source: THREE.Mesh) {
-  let twin: THREE.Mesh
-  if (source instanceof THREE.InstancedMesh) {
-    const instances = new THREE.InstancedMesh(source.geometry, source.material, 0)
-    instances.instanceMatrix = source.instanceMatrix
-    instances.instanceColor = source.instanceColor
-    instances.count = source.count
-    twin = instances
-  } else twin = new THREE.Mesh(source.geometry, source.material)
-  twin.name = source.name
-  twin.castShadow = source.castShadow
-  twin.customDepthMaterial = source.customDepthMaterial
-  twin.receiveShadow = source.receiveShadow
-  twin.frustumCulled = source.frustumCulled
-  twin.userData.source = source
-  return twin
-}
-
-function twinMatches(twin: THREE.Object3D | undefined, source: THREE.Object3D) {
-  return (
-    twin instanceof THREE.Mesh &&
-    source instanceof THREE.Mesh &&
-    twin.userData.source === source &&
-    twin.geometry === source.geometry &&
-    (!(source instanceof THREE.InstancedMesh) ||
-      (twin instanceof THREE.InstancedMesh && twin.count === source.count))
-  )
-}
-
 export const tileStreaming = {
   lead: 2,
   budget: 3,
@@ -168,9 +136,6 @@ function bush(mesh: THREE.InstancedMesh, index: number, x: number, s: number, wi
 
 export class Terrain {
   tiles = new Map<number, THREE.Group>()
-  twins = new Map<number, THREE.Group>()
-  seamSide = 0
-  private lastX = 0
   trunks = new Map<number, Trunk[]>()
   pools = new Map<number, number[]>()
   unhurried = false
@@ -209,7 +174,6 @@ export class Terrain {
   shadeMaterial: THREE.MeshBasicMaterial | null = null
   shadeDisc = new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2)
   chevronMaterial: THREE.MeshStandardMaterial
-  bannerMaterial: THREE.MeshStandardMaterial
   foliage: Foliage
   bladeMaterial: THREE.MeshStandardMaterial
   blade: THREE.BufferGeometry
@@ -247,11 +211,6 @@ export class Terrain {
       map: chevronTexture(),
       side: THREE.DoubleSide,
       roughness: 0.6,
-    })
-    this.bannerMaterial = new THREE.MeshStandardMaterial({
-      map: bannerTexture(),
-      side: THREE.DoubleSide,
-      roughness: 0.8,
     })
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings, software)
     this.foliage = new Foliage(world.settings.season, software)
@@ -356,7 +315,6 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       this.fallMaterial,
       this.palmMaterial,
       this.chevronMaterial,
-      this.bannerMaterial,
       this.bladeMaterial,
     ]
     for (const material of this.materials) receiveUnbiasedShadows(material)
@@ -432,9 +390,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
   *buildTile(id: number, rows: number, group: THREE.Group): Generator<undefined, void, undefined> {
     const start = id * groundLayout.tileLength,
       settings = this.world.settings
-    const rng = random(
-      loopIndex(id, loopCells(groundLayout.tileLength)) * 967 + settings.seed * 137,
-    )
+    const rng = random(Math.imul(id, 967) + settings.seed * 137)
     const { base, light } = terrainColors(settings)
     const color = new THREE.Color()
     const ground = this.addMesh(
@@ -593,12 +549,6 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     const signs = chevrons(this.world, start, groundLayout.tileLength)
     const frame = [...posts.posts, ...signs.posts]
     for (const foot of signs.feet) trunks.push({ ...foot, radius: 0.09 })
-    if (loopIndex(id, loopCells(groundLayout.tileLength)) === 0) {
-      const gantry = startGantry(this.world, start)
-      frame.push(...gantry.frame)
-      this.addMesh(group, gantry.banner, this.bannerMaterial)
-      for (const foot of gantry.feet) trunks.push({ ...foot, radius: 0.2 })
-    }
     const softs: Soft[] = []
     const stakes = this.addBatch(group, frame, this.furnitureMaterial)
     const studs = this.addBatch(group, posts.reflectors, this.reflectorMaterial)
@@ -633,36 +583,31 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         })
     this.softs.set(id, softs)
     this.addBatch(group, signs.panels, this.chevronMaterial)
-    const lap = Math.floor(start / worldLoop.length) * worldLoop.length
-    for (const fall of lapWaterfalls(this.world)) {
-      const s = fall.s + lap
-      if (s < start || s >= start + groundLayout.tileLength) continue
-      const water = this.addMesh(group, waterfallGeometry(this.world, fall, lap), this.fallMaterial)
+    const falls = waterfallsNear(this.world, start + groundLayout.tileLength / 2)
+    for (const fall of falls) {
+      if (fall.s < start || fall.s >= start + groundLayout.tileLength) continue
+      const water = this.addMesh(group, waterfallGeometry(this.world, fall), this.fallMaterial)
       water.renderOrder = 2
       this.addMesh(
         group,
-        cragGeometry(this.world, fall, lap, profile.field?.rock ?? '#807d74'),
+        cragGeometry(this.world, fall, profile.field?.rock ?? '#807d74'),
         this.landmarkMaterial,
       ).castShadow = true
-      trunks.push(...cragFootprint(fall, lap))
+      trunks.push(...cragFootprint(fall))
     }
-    for (const landmark of lapLandmarks(this.world)) {
-      const s = landmark.s + lap
-      if (s < start || s >= start + groundLayout.tileLength) continue
-      const built = landmarkGeometry({ ...landmark, s })
+    for (const landmark of landmarksBetween(this.world, start, start + groundLayout.tileLength)) {
+      const built = landmarkGeometry(landmark)
       if (built.body) this.addMesh(group, built.body, this.landmarkMaterial).castShadow = true
       if (built.glow) this.addMesh(group, built.glow, this.glowMaterial)
-      trunks.push({ x: landmark.x, s, radius: landmarkFootprints[landmark.kind] })
+      trunks.push({ x: landmark.x, s: landmark.s, radius: landmarkFootprints[landmark.kind] })
     }
     if (this.boulders?.loaded) {
       const scattered = planBoulders(
         this.world,
         start,
         groundLayout.tileLength,
-        random(loopIndex(id, loopCells(groundLayout.tileLength)) * 613 + settings.seed * 211 + 5),
-      ).filter(
-        (boulder) => !waterfallClearing(lapWaterfalls(this.world), lap, boulder.x, boulder.s),
-      )
+        random(Math.imul(id, 613) + settings.seed * 211 + 5),
+      ).filter((boulder) => !waterfallClearing(falls, boulder.x, boulder.s))
       this.boulders.add(group, scattered, (x, s) => groundSurface.sample(x, s))
       for (const boulder of scattered)
         trunks.push({ x: boulder.x, s: boulder.s, radius: boulder.radius })
@@ -670,10 +615,10 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         this.world,
         start,
         groundLayout.tileLength,
-        random(loopIndex(id, loopCells(groundLayout.tileLength)) * 389 + settings.seed * 97 + 11),
+        random(Math.imul(id, 389) + settings.seed * 97 + 11),
       ).filter(
         (plant) =>
-          !waterfallClearing(lapWaterfalls(this.world), lap, plant.x, plant.s) &&
+          !waterfallClearing(falls, plant.x, plant.s) &&
           !scattered.some(
             (rock) => Math.hypot(rock.x - plant.x, rock.s - plant.s) < rock.radius + 0.8,
           ),
@@ -683,9 +628,8 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         if (plant.radius > 0) trunks.push({ x: plant.x, s: plant.s, radius: plant.radius })
     }
     yield
-    const falls = lapWaterfalls(this.world)
     const woodland = createWoodland(this.world, id, this.quality).filter(
-      (tree) => !waterfallClearing(falls, lap, tree.x, tree.s),
+      (tree) => !waterfallClearing(falls, tree.x, tree.s),
     )
     if (profile.palms && settings.season !== 'winter') {
       const palmCount = low ? Math.round(profile.palms / 2) : profile.palms
@@ -703,7 +647,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           const yaw = rng() * Math.PI * 2
           const point = roadPoint(this.world.road(s), s, side * (palm ? reach : reach * 0.6))
           const ground = roadsidePlantHeight(this.world, point.x, point.s)
-          if (ground === null || waterfallClearing(falls, lap, point.x, point.s)) continue
+          if (ground === null || waterfallClearing(falls, point.x, point.s)) continue
           pose.position.set(point.x, ground - 0.05, -point.s)
           pose.rotation.set(0, yaw, 0)
           pose.scale.setScalar(size)
@@ -969,13 +913,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           id * groundLayout.tileLength < cameraS + grassViewDistance.end &&
           (id + 1) * groundLayout.tileLength > cameraS - grassViewDistance.end
     }
-    const offset = x - this.world.road(s).x
-    if (Math.abs(offset) > seamTwins.show) this.seamSide = Math.sign(offset)
-    else if (Math.abs(offset) < seamTwins.hide) this.seamSide = 0
-    this.syncTwins()
-    const wrapped = Math.abs(x - this.lastX) > worldLoop.width / 2
-    this.lastX = x
-    this.meadow?.update(x, s, wrapped)
+    this.meadow?.update(x, s)
   }
   tintFoliage(settings: Settings) {
     const material = this.foliage.treeMaterial
@@ -987,40 +925,6 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.foliage.treeMaterial.emissiveIntensity = dark ? 0.1 : 1
     this.glowMaterial.color.setScalar(dark ? 3.2 : 1.1)
     this.reflectorMaterial.emissiveIntensity = dark ? 1.8 : 0.25
-  }
-  syncTwins() {
-    for (const [id, twin] of this.twins) {
-      if (this.tiles.get(id) === twin.userData.source) continue
-      this.scene.remove(twin)
-      this.twins.delete(id)
-    }
-    if (!this.seamSide) {
-      for (const twin of this.twins.values()) twin.visible = false
-      return
-    }
-    for (const [id, group] of this.tiles) {
-      let twin = this.twins.get(id)
-      if (!twin) {
-        twin = new THREE.Group()
-        twin.userData.source = group
-        this.twins.set(id, twin)
-        this.scene.add(twin)
-      }
-      twin.visible = true
-      twin.position.x = this.seamSide * worldLoop.width
-      const current =
-        twin.children.length === group.children.length &&
-        group.children.every((source, index) => twinMatches(twin.children[index], source))
-      if (!current) {
-        twin.clear()
-        for (const source of group.children)
-          if (source instanceof THREE.Mesh) twin.add(twinMesh(source))
-      }
-      for (const [index, source] of group.children.entries()) {
-        const copy = twin.children[index]
-        if (copy) copy.visible = source.visible
-      }
-    }
   }
   prime(s: number, budget: number) {
     const current = Math.floor(s / groundLayout.tileLength)
@@ -1105,8 +1009,6 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.softs.delete(id)
   }
   clear() {
-    for (const twin of this.twins.values()) this.scene.remove(twin)
-    this.twins.clear()
     for (const [id, group] of this.tiles) this.removeTile(id, group)
     for (const build of this.builds.values()) this.disposeGroup(build.group)
     this.builds.clear()
@@ -1136,7 +1038,6 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.shadeMaterial?.dispose()
     this.shadeDisc.dispose()
     this.chevronMaterial.map?.dispose()
-    this.bannerMaterial.map?.dispose()
     this.blade.dispose()
     this.bladeTexture.dispose()
     this.foliage.dispose()

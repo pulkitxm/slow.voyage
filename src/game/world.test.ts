@@ -1,6 +1,4 @@
 import { expect, test } from 'bun:test'
-import { worldLoop } from './field'
-import { groundLayout, groundOffsets } from './ground-grid'
 import { createWoodland } from './woodland'
 import { defaults, World } from './world'
 
@@ -54,73 +52,42 @@ test('distant road sections do not repeat the initial curve', () => {
     expect([0, 50, 100, 150].map((s) => world.road(s + offset).dx)).not.toEqual(initial)
 })
 
-test('the road, terrain and woodland repeat exactly after one lap', () => {
+test('the road, terrain and woodland never repeat', () => {
   for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
     for (const seed of [42, 7, 90210]) {
       const world = new World({ ...defaults, landscape, seed })
-      for (const s of [-5400, 0, 37.5, 1199.99, 6000, 11999]) {
-        for (const laps of [1, -2, 5]) {
-          const shifted = s + laps * worldLoop.length
+      for (const shift of [12000, -24000, 60000, 1200000]) {
+        let same = 0
+        const samples = [-5400, 0, 37.5, 1199.99, 6000, 11999]
+        for (const s of samples) {
           const road = world.road(s)
-          const again = world.road(shifted)
-          expect(again.x).toBeCloseTo(road.x, 6)
-          expect(again.y).toBeCloseTo(road.y, 6)
-          expect(again.dx).toBeCloseTo(road.dx, 9)
-          expect(again.dy).toBeCloseTo(road.dy, 9)
-          for (const offset of [-900, -40, 12, 300, 1400])
-            expect(world.height(road.x + offset, shifted)).toBeCloseTo(
-              world.height(road.x + offset, s),
-              5,
-            )
+          const again = world.road(s + shift)
+          if (Math.abs(again.x - road.x) < 0.01 && Math.abs(again.y - road.y) < 0.01) same++
         }
+        expect(same).toBeLessThan(2)
       }
+      const heights = (shiftX: number, shiftS: number) =>
+        [-900, -40, 300, 1400].map((offset) => world.height(offset + shiftX, 800 + shiftS))
+      expect(heights(3000, 0)).not.toEqual(heights(0, 0))
+      expect(heights(0, 12000)).not.toEqual(heights(0, 0))
     }
   }
   const world = new World({ ...defaults })
-  const tiles = worldLoop.length / groundLayout.tileLength
   const first = createWoodland(world, 3, 'high')
-  const second = createWoodland(world, 3 + tiles, 'high')
+  const second = createWoodland(world, 103, 'high')
   expect(first.length).toBeGreaterThan(0)
-  expect(second.length).toBe(first.length)
-  for (const [index, tree] of first.entries()) {
-    expect(second[index]?.x).toBeCloseTo(tree.x, 6)
-    expect((second[index]?.s ?? 0) - worldLoop.length).toBeCloseTo(tree.s, 6)
-    expect(second[index]?.variant).toBe(tree.variant)
-  }
+  expect(second.map((tree) => tree.x)).not.toEqual(first.map((tree) => tree.x))
 })
 
-test('the lap length holds whole terrain tiles and control cells', () => {
-  expect(worldLoop.length % groundLayout.tileLength).toBe(0)
-  expect(worldLoop.length % 1000).toBe(0)
-})
-
-test('terrain joins itself across the side of the world', () => {
+test('terrain stays continuous far from the road in every direction', () => {
   for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
-    for (const seed of [42, 7, 90210]) {
-      const world = new World({ ...defaults, landscape, seed })
-      for (const s of [0, 310, 2750, 6400, 11810]) {
-        const center = world.road(s).x
-        const half = worldLoop.width / 2
-        const left = world.surface(center - half + 0.001, s)
-        const right = world.surface(center + half - 0.001, s)
-        expect(Math.abs(left.height - right.height)).toBeLessThan(0.01)
-        const seam = center + half
-        const inside = (world.height(seam, s) - world.height(seam - 0.05, s)) / 0.05
-        const beyond = (world.height(seam + 0.05, s) - world.height(seam, s)) / 0.05
-        expect(Math.abs(inside - beyond)).toBeLessThan(0.005)
-        for (const offset of [-1200, -300, 0, 45, 900, 1499])
-          for (const turns of [-2, 1, 3])
-            expect(world.height(center + offset + turns * worldLoop.width, s)).toBeCloseTo(
-              world.height(center + offset, s),
-              6,
-            )
+    const world = new World({ ...defaults, landscape })
+    for (const s of [0, 310, 2750, 640000, -11810])
+      for (const x of [-25000, -1500, 1500, 4000, 90000]) {
+        const inside = (world.height(x, s) - world.height(x - 0.05, s)) / 0.05
+        const beyond = (world.height(x + 0.05, s) - world.height(x, s)) / 0.05
+        expect(Number.isFinite(world.height(x, s))).toBe(true)
+        expect(Math.abs(inside - beyond)).toBeLessThan(0.02)
       }
-    }
   }
-})
-
-test('the outermost ground column sits exactly on the side seam', () => {
-  expect(groundOffsets[0]).toBe(-worldLoop.width / 2)
-  expect(groundOffsets[groundOffsets.length - 1]).toBe(worldLoop.width / 2)
-  expect(worldLoop.width % 1000).toBe(0)
 })

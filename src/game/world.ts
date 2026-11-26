@@ -1,5 +1,5 @@
 import type { ControllerBindings, ControllerMode } from './controller-bindings'
-import { roadCurve, smoothStep, terrainField, worldLoop, wrapOffset } from './field'
+import { roadCurve, smoothStep, terrainField } from './field'
 import { groundSurface } from './ground-grid'
 import { type Landscape, landscapeProfiles, passEasing, terraced } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
@@ -142,14 +142,10 @@ export class World {
     const dy = rise.derivative * riseScale + crest.derivative * crestScale
     return { x, y, dx, dy, yaw: Math.atan2(-dx, 1) }
   }
-  canonical(x: number, s: number) {
-    const center = this.road(s).x
-    return center + wrapOffset(x - center)
-  }
   height(position: number, s: number) {
     const center = this.road(s)
-    const offset = wrapOffset(position - center.x)
-    const x = center.x + offset
+    const x = position
+    const offset = x - center.x
     const corridor = 1 - smoothStep(clamp((Math.abs(offset) - 8) / 12, 0, 1))
     const frame = corridor ? roadCoordinates(this, x, s) : null
     const road = frame?.road ?? center
@@ -170,7 +166,7 @@ export class World {
     const basin = 1 - smoothStep(clamp((distance - coastBasin.start) / coastBasin.fade, 0, 1))
     const coast =
       Math.min(110, Math.max(0, distance - roadLayout.halfWidth) * 0.26) * coastFactor * basin
-    const easing = passEasing(s, worldLoop.length, profile.passes, this.settings.seed, smoothStep)
+    const easing = passEasing(s, profile.passSpacing, this.settings.seed, smoothStep)
     const relief = terraced(hills * profile.relief * easing, profile.terrace, smoothStep) - coast
     const cut = smoothStep(clamp((relief - 0.6) / 3, 0, 1))
     const blend = smoothStep(
@@ -193,8 +189,7 @@ export class World {
     )
   }
 
-  surface(position: number, s: number) {
-    const x = this.canonical(position, s)
+  surface(x: number, s: number) {
     const { road, distance, s: along } = roadCoordinates(this, x, s)
     const onRoad = Math.abs(distance) <= roadLayout.halfWidth
     const grade = road.dy / (1 + road.dx * road.dx)

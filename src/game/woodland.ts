@@ -1,4 +1,4 @@
-import { latticeValue, loopCells, loopColumns, loopIndex, smoothStep, worldLoop } from './field'
+import { acrossSpan, alongSpan, latticeValue, smoothStep } from './field'
 import { landscapeProfiles } from './landscapes'
 import { clamp, type Landscape, random, type Settings, type World } from './world'
 
@@ -22,20 +22,15 @@ export function roadsidePlantHeight(world: World, x: number, s: number) {
 }
 
 function noise(x: number, s: number, scale: number, seed: number) {
-  const rows = loopCells(scale)
-  const columns = loopColumns(scale)
-  const u = (x * columns) / worldLoop.width
-  const v = (s * rows) / worldLoop.length
+  const u = x / acrossSpan(scale)
+  const v = s / alongSpan(scale)
   const strip = Math.floor(u)
   const cell = Math.floor(v)
   const tx = smoothStep(u - strip)
   const ts = smoothStep(v - cell)
-  const column = loopIndex(strip, columns)
-  const beside = loopIndex(strip + 1, columns)
-  const row = loopIndex(cell, rows)
-  const next = loopIndex(cell + 1, rows)
-  const near = latticeValue(column, row, seed) * (1 - tx) + latticeValue(beside, row, seed) * tx
-  const far = latticeValue(column, next, seed) * (1 - tx) + latticeValue(beside, next, seed) * tx
+  const near = latticeValue(strip, cell, seed) * (1 - tx) + latticeValue(strip + 1, cell, seed) * tx
+  const far =
+    latticeValue(strip, cell + 1, seed) * (1 - tx) + latticeValue(strip + 1, cell + 1, seed) * tx
   return near * (1 - ts) + far * ts
 }
 
@@ -63,9 +58,7 @@ export function createWoodland(world: World, tile: number, quality: Settings['qu
     const last = Math.ceil((center + woodland.reach) / 8)
     for (let column = first; column <= last; column++) {
       if (low && column % 3 !== 0) continue
-      const rng = random(
-        Math.imul(loopIndex(row, loopCells(8)), 94537) ^ Math.imul(column, 62969) ^ seed,
-      )
+      const rng = random(Math.imul(row, 94537) ^ Math.imul(column, 62969) ^ seed)
       const x = column * 8 + 4 + (rng() - 0.5) * 5
       const s = row * 8 + 4 + (rng() - 0.5) * 5
       const distance = Math.abs(x - world.road(s).x)

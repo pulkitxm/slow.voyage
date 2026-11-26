@@ -206,7 +206,6 @@ export class CarPhysics {
   }
   update(dt: number, input: Input, settings: Settings) {
     const vehicle = vehicleMetrics[settings.vehicle]
-    this.x = this.world.canonical(this.x, this.s)
     if (this.suspension.vehicle !== settings.vehicle) {
       this.suspension.configure(settings.vehicle)
       this.suspension.reset(this)

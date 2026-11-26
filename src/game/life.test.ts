@@ -1,11 +1,10 @@
 import { expect, test } from 'bun:test'
-import { loopCells } from './field'
 import { landscapeIds } from './landscapes'
 import { lifeLayout, placeMember, planSlot, stroll, wander, wanderLayout } from './life'
 import { roadCoordinates, roadLayout } from './road'
 import { defaults, shoreHeight, World } from './world'
 
-const cells = loopCells(lifeLayout.slot)
+const cells = Math.round(12000 / lifeLayout.slot)
 
 function plans(world: World, level: 'quiet' | 'lively') {
   return Array.from({ length: cells }, (_, slot) => planSlot(world, slot, level)).filter(
@@ -42,7 +41,7 @@ test('nobody walks or grazes on the carriageway or in the water', () => {
       for (const member of plan.members)
         for (const time of [0, 7.3, 31, 96.5, 240]) {
           const far = { x: world.road(0).x + 900, s: -900 }
-          const spot = placeMember(world, plan, member, 0, time, far)
+          const spot = placeMember(world, plan, member, time, far)
           const offset = Math.abs(roadCoordinates(world, spot.x, spot.s).distance)
           expect(offset).toBeGreaterThan(roadLayout.halfWidth + 0.9)
           expect(spot.y).toBeGreaterThan(shoreHeight)
@@ -56,8 +55,8 @@ test('walkers step further from the road as a car draws near', () => {
   const plan = plans(world, 'lively').find((candidate) => candidate.walkers)
   const member = plan?.members[0]
   if (!plan || !member) throw new Error('No walkers were planned')
-  const away = placeMember(world, plan, member, 0, 12, { x: 0, s: -5000 })
-  const passing = placeMember(world, plan, member, 0, 12, { x: away.x, s: away.s })
+  const away = placeMember(world, plan, member, 12, { x: 0, s: -5000 })
+  const passing = placeMember(world, plan, member, 12, { x: away.x, s: away.s })
   const offset = (spot: { x: number; s: number }) =>
     Math.abs(roadCoordinates(world, spot.x, spot.s).distance)
   expect(offset(passing)).toBeGreaterThan(offset(away) + 1)
@@ -125,8 +124,8 @@ test('a placed animal strides only while it moves', () => {
     if (plan.walkers) continue
     for (const member of plan.members.slice(0, 2))
       for (let time = 0; time < 60; time += 0.7) {
-        const spot = placeMember(world, plan, member, 0, time, far)
-        const next = placeMember(world, plan, member, 0, time + 0.05, far)
+        const spot = placeMember(world, plan, member, time, far)
+        const next = placeMember(world, plan, member, time + 0.05, far)
         const covered = Math.hypot(next.x - spot.x, next.s - spot.s) / 0.05
         if (spot.stride > 0.08) {
           expect(spot.pace).toBeGreaterThan(0.02)
@@ -162,9 +161,9 @@ test('walkers turn round on a small walked arc instead of flipping on the spot',
   const member = plan?.members[0]
   if (!plan || !member) throw new Error('No walkers were planned')
   const far = { x: world.road(0).x + 900, s: -900 }
-  let last = placeMember(world, plan, member, 0, 0, far)
+  let last = placeMember(world, plan, member, 0, far)
   for (let time = 0.05; time < (lap / member.pace) * 1.1; time += 0.05) {
-    const spot = placeMember(world, plan, member, 0, time, far)
+    const spot = placeMember(world, plan, member, time, far)
     const covered = Math.hypot(spot.x - last.x, spot.s - last.s) / 0.05
     expect(covered).toBeGreaterThan(member.pace * 0.6)
     expect(covered).toBeLessThan(member.pace * 1.4)

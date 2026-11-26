@@ -13,7 +13,6 @@ import {
   CircleHelp,
   Expand,
   Keyboard,
-  Map as MapIcon,
   Motorbike,
   Mountain,
   Pause,
@@ -32,8 +31,6 @@ import { Modal } from './components/Modal'
 import { daylight, landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
-import { worldLoop } from './game/field'
-import { formatLap } from './game/laps'
 import { minimapLayout } from './game/minimap'
 import { vehicleNames } from './game/vehicles'
 import type { Vehicle } from './game/world'
@@ -87,9 +84,6 @@ export function Drive() {
     togglePhoto,
     toggleMute,
     copyLink,
-    atlas,
-    setAtlas,
-    atlasCanvas,
     fullscreen,
     touch,
   } = useDrive()
@@ -267,23 +261,11 @@ export function Drive() {
           <aside className="minimap" aria-label="Map of the road around you">
             <canvas ref={minimap} />
             <div className="minimap-caption">
-              <span>LAP {state.lap}</span>
               <span>
-                {(state.lapDistance / mapUnit).toFixed(1)} /{' '}
-                {(worldLoop.length / mapUnit).toFixed(1)} {settings.units}
+                NEXT {(minimapLayout.range / mapUnit).toFixed(1)} {settings.units}
               </span>
-              {state.lapTime !== null && <span>{formatLap(state.lapTime)}</span>}
+              {state.found > 0 && <span>FOUND {state.found}</span>}
             </div>
-            {(state.landmarks > 0 || state.bestLap !== null) && (
-              <div className="minimap-best">
-                {state.landmarks > 0 && (
-                  <span>
-                    FOUND {state.found}/{state.landmarks}
-                  </span>
-                )}
-                {state.bestLap !== null && <span>BEST {formatLap(state.bestLap)}</span>}
-              </div>
-            )}
             {state.roadDistance > minimapLayout.guideDistance && (
               <div className="road-finder">
                 ROAD{' '}
@@ -348,13 +330,6 @@ export function Drive() {
               </IconButton>
               <IconButton label="Photo mode" onClick={togglePhoto}>
                 <Aperture />
-              </IconButton>
-              <IconButton
-                label={atlas ? 'Hide the world map' : 'Show the world map'}
-                active={atlas}
-                onClick={() => setAtlas((current) => !current)}
-              >
-                <MapIcon />
               </IconButton>
               <IconButton
                 label={`Switch vehicle (${vehicleNames[settings.vehicle]})`}
@@ -482,22 +457,6 @@ export function Drive() {
             </button>
           </section>
         </Modal>
-      )}
-      {started && atlas && !state.photo && (
-        <section className="world-map" aria-label="Map of the whole world">
-          <header>
-            <span>THE WHOLE LOOP</span>
-            <span>
-              {(worldLoop.length / mapUnit).toFixed(1)} {settings.units} around,{' '}
-              {(worldLoop.width / mapUnit).toFixed(1)} {settings.units} across. Every edge joins the
-              opposite one.
-            </span>
-            <button type="button" onClick={() => setAtlas(false)}>
-              <kbd>N</kbd> close
-            </button>
-          </header>
-          <canvas ref={atlasCanvas} />
-        </section>
       )}
       {state.photo && (
         <div className="photo-hint" role="status">

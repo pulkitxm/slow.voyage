@@ -1,5 +1,4 @@
-import { loopIndex, worldLoop } from './field'
-import { landmarkOffset, lapLandmarks } from './landmarks'
+import { landmarksBetween } from './landmarks'
 import { type LandscapeProfile, landscapeProfiles } from './landscapes'
 import { roadCoordinates } from './road'
 import { woodlandCoverage } from './woodland'
@@ -9,14 +8,14 @@ export const minimapLayout = {
   size: 188,
   radius: 82,
   rim: 89,
-  range: 380,
+  range: 1600,
   carDrop: 0.22,
-  cells: 80,
-  cell: 20,
-  refresh: 180,
+  cells: 96,
+  cell: 48,
+  refresh: 300,
   rowsPerStep: 6,
-  roadSpan: 760,
-  roadStep: 12,
+  roadSpan: 2600,
+  roadStep: 24,
   guideDistance: 12,
 } as const
 
@@ -86,11 +85,6 @@ export function roadGuide(world: World, pose: MapPose) {
     distance: Math.abs(frame.distance),
     angle: Math.atan2(offset.right, offset.forward),
   }
-}
-
-export function lapState(s: number) {
-  const lap = Math.floor(s / worldLoop.length)
-  return { lap: lap + 1, distance: s - lap * worldLoop.length }
 }
 
 interface Raster {
@@ -187,7 +181,10 @@ export class Minimap {
         const index = row * cells + column
         const height = build.heights[index] ?? 0
         const lit = build.heights[Math.max(row - 1, 0) * cells + Math.max(column - 1, 0)] ?? height
-        const shade = height < shoreHeight ? 1 : clamp(1 + (height - lit) * 0.035, 0.7, 1.22)
+        const shade =
+          height < shoreHeight
+            ? 1
+            : clamp(1 + ((height - lit) * 0.7) / minimapLayout.cell, 0.7, 1.22)
         const tone = terrainTone(settings, height, height - mean, build.woods[index] ?? 0)
         image.data[index * 4] = clamp(tone[0] * shade, 0, 255)
         image.data[index * 4 + 1] = clamp(tone[1] * shade, 0, 255)
@@ -236,35 +233,25 @@ export class Minimap {
     const guide = roadGuide(this.world, pose)
     const first = Math.floor((guide.s - roadSpan) / roadStep) * roadStep
     context.beginPath()
-    for (const turn of [-1, 0, 1])
-      for (let s = first; s <= guide.s + roadSpan; s += roadStep) {
-        const px = (this.world.road(s).x + turn * worldLoop.width - pose.x) * zoom
-        const py = -(s - pose.s) * zoom
-        if (s === first) context.moveTo(px, py)
-        else context.lineTo(px, py)
-      }
+    for (let s = first; s <= guide.s + roadSpan; s += roadStep) {
+      const px = (this.world.road(s).x - pose.x) * zoom
+      const py = -(s - pose.s) * zoom
+      if (s === first) context.moveTo(px, py)
+      else context.lineTo(px, py)
+    }
     context.lineJoin = context.lineCap = 'round'
     context.strokeStyle = '#1d2822b8'
-    context.lineWidth = 5.4
+    context.lineWidth = 4.4
     context.stroke()
     context.strokeStyle = '#fbf8ec'
-    context.lineWidth = 2.6
+    context.lineWidth = 2
     context.stroke()
-    const line = Math.round(guide.s / worldLoop.length) * worldLoop.length
-    if (Math.abs(line - guide.s) < roadSpan) {
-      const road = this.world.road(line)
-      context.save()
-      context.translate((road.x - pose.x) * zoom, -(line - pose.s) * zoom)
-      context.rotate(-road.yaw)
-      context.fillStyle = '#1d2822'
-      context.fillRect(-7, -2, 14, 4)
-      context.fillStyle = '#fbf8ec'
-      for (let index = 0; index < 4; index++)
-        context.fillRect(-7 + index * 3.5, index % 2 ? 0 : -2, 3.5, 2)
-      context.restore()
-    }
-    for (const landmark of lapLandmarks(this.world)) {
-      const offset = landmarkOffset(landmark, pose.x, pose.s)
+    for (const landmark of landmarksBetween(
+      this.world,
+      pose.s - range * 1.5,
+      pose.s + range * 1.5,
+    )) {
+      const offset = { x: landmark.x - pose.x, s: landmark.s - pose.s }
       if (Math.hypot(offset.x, offset.s) > range * 1.5) continue
       const known = this.found.has(landmark.id)
       context.save()
@@ -300,18 +287,6 @@ export class Minimap {
     context.strokeStyle = '#ffffff5c'
     context.lineWidth = 1
     context.stroke()
-    context.beginPath()
-    context.arc(center, center, rim - 2, 0, Math.PI * 2)
-    context.strokeStyle = '#ffffff26'
-    context.lineWidth = 3
-    context.stroke()
-    const progress = loopIndex(pose.s, worldLoop.length) / worldLoop.length
-    context.beginPath()
-    context.arc(center, center, rim - 2, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2)
-    context.strokeStyle = '#e8f1cf'
-    context.lineCap = 'round'
-    context.stroke()
-
     const north = { x: -Math.sin(pose.yaw), y: -Math.cos(pose.yaw) }
     context.font = '600 9px Manrope, sans-serif'
     context.textAlign = 'center'

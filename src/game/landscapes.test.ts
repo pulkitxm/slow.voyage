@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { smoothStep, worldLoop } from './field'
+import { smoothStep } from './field'
 import { landscapeIds, landscapeProfiles, terraced } from './landscapes'
 import { CarPhysics } from './physics'
 import { decodeSettings } from './settings'
@@ -20,27 +20,10 @@ test('terraces stay continuous, keep the road level and leave smooth ground unto
   ).toBeLessThan(1.6)
 })
 
-test.each(landscapeIds)('%s keeps its whole lap above the water line', (landscape) => {
+test.each(landscapeIds)('%s keeps a long run of road above the water line', (landscape) => {
   for (const seed of [42, 7, 90210]) {
     const world = new World({ ...defaults, landscape, seed })
-    for (let s = 0; s < worldLoop.length; s += 30)
-      expect(world.road(s).y).toBeGreaterThan(shoreHeight + 0.5)
-  }
-})
-
-test.each(landscapeIds)('%s repeats after a lap and joins across the side seam', (landscape) => {
-  const world = new World({ ...defaults, landscape })
-  for (const s of [0, 615, 4810, 9990]) {
-    const center = world.road(s).x
-    for (const offset of [-1400, -220, 9, 480, 1499]) {
-      const height = world.height(center + offset, s)
-      expect(world.height(center + offset, s + worldLoop.length)).toBeCloseTo(height, 5)
-      expect(world.height(center + offset + worldLoop.width, s)).toBeCloseTo(height, 5)
-    }
-    const seam = center + worldLoop.width / 2
-    expect(Math.abs(world.height(seam - 0.001, s) - world.height(seam + 0.001, s))).toBeLessThan(
-      0.01,
-    )
+    for (let s = 0; s < 36000; s += 30) expect(world.road(s).y).toBeGreaterThan(shoreHeight + 0.5)
   }
 })
 
