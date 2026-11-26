@@ -27,6 +27,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['N', 'World map'],
             ['B', 'Horn'],
             ['Q / E', 'Previous / next scenery, or shift down / up with the manual gearbox'],
+            ['Z', 'Neutral: rev the engine freely, press again to engage a gear'],
             ['V / Shift V', 'Next / previous vehicle'],
             ['M', 'Mute / unmute sound'],
             ['U', 'Toggle mouse driving'],

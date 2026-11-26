@@ -11,6 +11,7 @@ import {
 } from './collision'
 import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
 import { forwardDriveForce } from './drive'
+import { boostPull, fitEngine, spoolBoost } from './engines'
 import { surfaceGrip } from './grip'
 import { NitroTank, nitroForce } from './nitro'
 import { engineProfiles, Gearbox } from './powertrain'
@@ -18,7 +19,6 @@ import { stabilize } from './stability'
 import { Steering, steeringLimit } from './steering'
 import { Suspension } from './suspension'
 import { solveTires } from './tires'
-import { vehicleMetrics } from './vehicles'
 import {
   angleDifference,
   clamp,
@@ -38,6 +38,7 @@ export interface Input {
   regenBrake: number
   manual?: boolean
   shift?: number
+  neutral?: boolean
 }
 export interface Telemetry {
   speed: number
@@ -91,6 +92,7 @@ export class CarPhysics {
   wading = 0
   gearbox = new Gearbox(engineProfiles.touring)
   driveForce = 0
+  spool = 0
   boosting = false
   nitro = new NitroTank()
   brakeForce = 0
@@ -111,6 +113,7 @@ export class CarPhysics {
   reset(s = this.s) {
     this.s = s
     this.driveForce = this.brakeForce = 0
+    this.spool = 0
     this.boosting = false
     this.nitro.reset()
     const road = this.world.road(s)
@@ -127,7 +130,7 @@ export class CarPhysics {
   routeSpeed(targetSpeed: number) {
     const direction = targetSpeed < 0 ? -1 : 1
     const settings = this.world.settings
-    const metrics = vehicleMetrics[settings.vehicle]
+    const metrics = fitEngine(settings.vehicle, settings.engine).metrics
     const surface = this.world.surface(this.x, this.s)
     const traction = tractionAcceleration(settings, surface.onRoad, surface.sand)
     const lateralAcceleration = Math.min(4, traction * 0.6)
@@ -155,7 +158,10 @@ export class CarPhysics {
     const requested = clamp(
       targetSpeed,
       -cruiseLimits.reverse,
-      Math.max(cruiseLimits.forward, vehicleMetrics[this.world.settings.vehicle].maxSpeed),
+      Math.max(
+        cruiseLimits.forward,
+        fitEngine(this.world.settings.vehicle, this.world.settings.engine).metrics.maxSpeed,
+      ),
     )
     const direction =
       Math.abs(this.speed) > 0.05 ? Math.sign(this.speed) : Math.sign(requested) || 1
@@ -164,7 +170,7 @@ export class CarPhysics {
     const targetX = target.x - this.x
     const targetRight = targetX * Math.cos(this.yaw) + lookahead * Math.sin(this.yaw)
     const curvature = (-2 * targetRight) / (targetX * targetX + lookahead * lookahead)
-    const metrics = vehicleMetrics[this.world.settings.vehicle]
+    const metrics = fitEngine(this.world.settings.vehicle, this.world.settings.engine).metrics
     const steer =
       Math.atan(metrics.wheelbase * curvature) /
       steeringLimit(this.speed, this.world.settings.vehicle)
@@ -205,26 +211,41 @@ export class CarPhysics {
     }
   }
   update(dt: number, input: Input, settings: Settings) {
-    const vehicle = vehicleMetrics[settings.vehicle]
+    const fitted = fitEngine(settings.vehicle, settings.engine)
+    const vehicle = fitted.metrics
     this.x = this.world.canonical(this.x, this.s)
     if (this.suspension.vehicle !== settings.vehicle) {
       this.suspension.configure(settings.vehicle)
       this.suspension.reset(this)
     }
-    if (this.gearbox.profile !== engineProfiles[settings.vehicle])
-      this.gearbox.reset(engineProfiles[settings.vehicle])
+    if (this.gearbox.profile !== fitted.profile) this.gearbox.reset(fitted.profile)
     const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
     const v = Math.abs(this.speed)
     const stick = this.gearbox
     const manual = input.manual === true
-    if (manual) {
+    const neutral = input.neutral === true
+    if (manual && !neutral) {
       stick.request(input.shift ?? 0, this.speed, input.throttle)
       stick.standby(this.speed, input.throttle, input.brake, dt)
     }
-    const backing = manual && stick.gear < 0
-    const pull = manual ? (backing ? 0 : stick.pull(this.speed)) : 1
+    const backing = manual && !neutral && stick.gear < 0
+    this.spool = fitted.boost
+      ? spoolBoost(
+          fitted.boost,
+          this.spool,
+          neutral || this.speed < -0.1 || backing ? 0 : input.throttle,
+          stick.rpm / stick.profile.redline,
+          dt,
+        )
+      : 1
+    const pull = neutral
+      ? 0
+      : (manual ? (backing ? 0 : stick.pull(this.speed)) : 1) * boostPull(fitted.boost, this.spool)
     const reverseCommand =
-      input.brake > 0 && input.throttle === 0 && (!manual || backing || this.speed < -0.5)
+      !neutral &&
+      input.brake > 0 &&
+      input.throttle === 0 &&
+      (!manual || backing || this.speed < -0.5)
     const reversing = reverseCommand && this.speed < directionChangeSpeed
     const forwardBraking =
       input.throttle > 0 && input.brake === 0 && this.speed < -directionChangeSpeed
@@ -235,7 +256,7 @@ export class CarPhysics {
       input.regenBrake,
     )
     this.boosting = this.nitro.step(
-      input.boost && input.throttle > 0 && !brake && this.speed >= 0,
+      input.boost && input.throttle > 0 && !brake && !neutral && this.speed >= 0,
       dt,
     )
     const targetForce = reverseCommand
@@ -253,7 +274,7 @@ export class CarPhysics {
           vehicle.brake * brake,
           this.brakeForce + (vehicle.brake * dt) / brakeResponseSeconds,
         )
-      : manual && !backing && input.throttle < 0.05 && this.speed > 1
+      : manual && !backing && !neutral && input.throttle < 0.05 && this.speed > 1
         ? stick.engineBraking(this.speed)
         : 0
     const gripSteering = Math.atan(
@@ -373,9 +394,10 @@ export class CarPhysics {
       this.suspension.wheels.length
     this.gearbox.update(
       this.speed,
-      this.speed < -0.1 || backing ? input.brake : input.throttle,
+      !neutral && (this.speed < -0.1 || backing) ? input.brake : input.throttle,
       dt,
       manual,
+      neutral,
     )
   }
   telemetry(): Telemetry {

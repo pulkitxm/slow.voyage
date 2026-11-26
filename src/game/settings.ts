@@ -5,6 +5,7 @@ import { roadWears } from './road-condition'
 import {
   cameraMotions,
   defaults,
+  engineIds,
   lifeLevels,
   roadModes,
   type Settings,
@@ -37,6 +38,7 @@ export function decodeSettings(stored: unknown): Settings {
       'roadWear',
       'life',
       'vehicle',
+      'engine',
       'camera',
       'motion',
       'transmission',
@@ -55,6 +57,7 @@ export function decodeSettings(stored: unknown): Settings {
         roadWear: roadWears,
         life: lifeLevels,
         vehicle: vehicles,
+        engine: engineIds,
         camera: cameras,
         motion: cameraMotions,
         transmission: transmissions,

@@ -301,9 +301,15 @@ export function Drive() {
               <span className="speed-value">{speed.toFixed(0).padStart(2, '0')}</span>
               <span className="speed-unit">
                 {settings.units === 'km' ? 'km/h' : 'mph'}
-                <span
+                <button
+                  type="button"
+                  aria-label={
+                    state.gear === 'N' ? 'Neutral. Select to engage a gear' : 'Shift into neutral'
+                  }
+                  title="Neutral (Z)"
+                  onClick={() => engine.current?.toggleNeutral()}
                   className={
-                    settings.transmission === 'manual' && state.revs > 0.9
+                    (settings.transmission === 'manual' || state.gear === 'N') && state.revs > 0.9
                       ? state.limited
                         ? 'gear gear-limit'
                         : 'gear gear-shift'
@@ -311,7 +317,7 @@ export function Drive() {
                   }
                 >
                   {state.gear}
-                </span>
+                </button>
               </span>
               <div className="speed-track">
                 <span style={{ width: `${Math.min(speed / 2, 100)}%` }} />

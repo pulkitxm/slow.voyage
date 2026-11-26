@@ -18,6 +18,7 @@ import {
 } from './controls'
 import { crossfadeTiming, SceneCrossfade } from './crossfade'
 import { effectsLevel, RoadEffects } from './effects'
+import { fitEngine } from './engines'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
 import { FrameGovernor, governorPlan, reliefLevels } from './governor'
 import {
@@ -62,7 +63,6 @@ import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { SkidMarks, trailLayout } from './tyre-trail'
 import type { UltraPipeline } from './ultra'
-import { vehicleMetrics } from './vehicles'
 import { Wake, wakeStrength } from './wake'
 import { Water } from './water'
 import {
@@ -231,6 +231,7 @@ export class RoadEngine {
   driver = { x: 0, s: 0, yaw: 0, speed: 0, halfWidth: 1, front: 2, rear: 2 }
   lifeAlarm = -10
   shiftQueue = 0
+  neutral = false
   lastPace = 0
   sunReach = new THREE.Vector3()
   sunToward = new THREE.Vector3()
@@ -299,6 +300,7 @@ export class RoadEngine {
     if (event.code === 'KeyG') this.onAction?.('autoMode')
     if (event.code === 'KeyM') this.onAction?.('mute')
     if (event.code === 'KeyU') this.onAction?.('mouse')
+    if (event.code === 'KeyZ') this.toggleNeutral()
     if (event.code === 'KeyQ' && !this.shiftBy(-1)) this.onAction?.('journeyPrevious')
     if (event.code === 'KeyE' && !this.shiftBy(1)) this.onAction?.('journeyNext')
     if (event.code === 'KeyV') this.onAction?.(event.shiftKey ? 'vehiclePrevious' : 'vehicleNext')
@@ -659,6 +661,7 @@ export class RoadEngine {
     this.view.snap()
   }
   reset() {
+    this.neutral = false
     this.handover.cancel()
     this.mouse.reset()
     this.physics.reset()
@@ -1020,8 +1023,21 @@ export class RoadEngine {
       this.assistance !== 'speed'
     )
   }
+  toggleNeutral() {
+    if (!this.started || this.paused || this.photo) return false
+    this.neutral = !this.neutral
+    if (this.neutral) this.manualOverride('speed')
+    this.shiftQueue = 0
+    this.emitState()
+    return true
+  }
   shiftBy(direction: number) {
     if (!this.stickDriven() || this.paused || this.photo) return false
+    if (this.neutral) {
+      this.neutral = false
+      this.shiftQueue = 0
+      return true
+    }
     this.shiftQueue = clamp(this.shiftQueue + direction, -3, 3)
     return true
   }
@@ -1078,6 +1094,7 @@ export class RoadEngine {
           else if (this.paused) this.onAction?.('pause')
         } else if (action === 'reset') this.reset()
         else if (action === 'cameraCenter') this.view.center()
+        else if (action === 'neutral') this.toggleNeutral()
         else if (action === 'journeyNext' && this.shiftBy(1)) continue
         else if (action === 'journeyPrevious' && this.shiftBy(-1)) continue
         else this.onAction?.(action)
@@ -1174,7 +1191,12 @@ export class RoadEngine {
         held.roll = body.roll
         const automatic = this.physics.autoInput(
           this.started
-            ? automaticTarget(this.assistance, this.settings.cruiseSpeed, this.settings.vehicle)
+            ? automaticTarget(
+                this.assistance,
+                this.settings.cruiseSpeed,
+                this.settings.vehicle,
+                this.settings.engine,
+              )
             : 10,
         )
         const manual = this.manualInput()
@@ -1188,10 +1210,12 @@ export class RoadEngine {
               this.assistance,
               this.settings.onePedal,
             )
+        if (this.assistance === 'full' || this.assistance === 'speed') this.neutral = false
         if (this.stickDriven()) {
           input = { ...input, manual: true, shift: Math.sign(this.shiftQueue) }
           this.shiftQueue -= Math.sign(this.shiftQueue)
         } else this.shiftQueue = 0
+        if (this.neutral && this.started) input = { ...input, neutral: true }
         this.physics.update(step, input, this.settings)
         const lap = this.started ? this.laps.step(this.physics.s, step) : null
         if (lap) this.onLap?.(lap.time, lap.record)
@@ -1380,7 +1404,9 @@ export class RoadEngine {
       air.sunDirection.copy(this.sun.position).sub(this.sun.target.position).normalize()
       air.sunColor.copy(this.sun.color).multiplyScalar(this.sun.intensity * 0.22)
       if (this.scene.fog) air.hazeColor.copy(this.scene.fog.color)
-      const pace = Math.abs(this.physics.speed) / vehicleMetrics[this.settings.vehicle].maxSpeed
+      const pace =
+        Math.abs(this.physics.speed) /
+        fitEngine(this.settings.vehicle, this.settings.engine).metrics.maxSpeed
       pipeline.rush =
         this.started && this.view.motion
           ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)

@@ -1,7 +1,7 @@
 import { soundVehicles } from './engine-sound'
+import { fitEngine } from './engines'
 import { landscapeProfiles } from './landscapes'
 import type { CarPhysics, Input } from './physics'
-import { engineProfiles } from './powertrain'
 import {
   brakeSquealLevel,
   freshTyreSignals,
@@ -30,7 +30,7 @@ import {
 import { freshParams, paramIndex } from './sound-synth'
 import type { Ambience } from './soundscape'
 import { vehicleMetrics } from './vehicles'
-import type { Settings, Vehicle } from './world'
+import { engineIds, type Settings, type Vehicle } from './world'
 
 const vehicleNumber = Object.fromEntries(
   soundVehicles.map((vehicle, index) => [vehicle, index]),
@@ -51,15 +51,18 @@ export class SoundFrame {
     const v = this.values
     const at = paramIndex
     const vehicle = settings.vehicle
-    const profile = engineProfiles[vehicle]
+    const fitted = fitEngine(vehicle, settings.engine)
+    const profile = fitted.profile
     const box = car.gearbox
     const speed = Math.abs(car.speed)
     v[at.vehicle] = vehicleNumber[vehicle]
+    v[at.engine] = fitted.engine ? engineIds.indexOf(fitted.engine) : 0
     v[at.rpm] = box.rpm
     v[at.idle] = profile.idle
     v[at.redline] = profile.redline
     v[at.load] = box.load
-    v[at.throttle] = car.speed < -0.1 || box.gear < 0 ? input.brake : input.throttle
+    v[at.throttle] =
+      !box.neutral && (car.speed < -0.1 || box.gear < 0) ? input.brake : input.throttle
     v[at.cutting] = box.cutting ? 1 : 0
     v[at.shifts] = box.shifts
     v[at.clunk] = box.manual ? 1 : 0.3

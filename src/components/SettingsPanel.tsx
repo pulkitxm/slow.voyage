@@ -2,9 +2,13 @@ import { AudioLines, Camera, Check, Link2, RotateCcw, ShieldCheck, X } from 'luc
 import { useEffect } from 'react'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
+import { type EngineFamily, engineFamilies } from '../game/engine-catalog'
+import { engineSounds } from '../game/engine-sound'
+import { engineCatalog, horsepower, stockPower, swapEngines, swappable } from '../game/engines'
 import type { ControllerStatus } from '../game/gamepad'
+import { engineProfiles } from '../game/powertrain'
 import { vehicleNames } from '../game/vehicles'
-import type { Settings } from '../game/world'
+import type { EngineId, Settings } from '../game/world'
 import { ControllerMapping } from './ControllerMapping'
 import { IconButton } from './IconButton'
 import {
@@ -261,6 +265,7 @@ export function SettingsPanel({
                 ))}
               </div>
             </section>
+            <EngineChoice settings={settings} update={update} />
             <section className="setting-section">
               <h3>A little color</h3>
               <div className="swatches">
@@ -629,5 +634,78 @@ export function SettingsPanel({
         </span>
       </div>
     </aside>
+  )
+}
+
+const rpm = (value: number) => value.toLocaleString('en-US')
+
+function EngineChoice({ settings, update }: Pick<Props, 'settings' | 'update'>) {
+  const vehicle = settings.vehicle
+  const open = swappable(vehicle)
+  const chosen = open ? settings.engine : 'stock'
+  const stock = engineSounds[vehicle]
+  const option = (
+    id: EngineId,
+    badge: string,
+    name: string,
+    detail: string,
+    found: string,
+    feel: string,
+  ) => (
+    <button
+      type="button"
+      key={id}
+      aria-pressed={chosen === id}
+      disabled={!open && id !== 'stock'}
+      className={`landscape-option engine-option ${chosen === id ? 'selected' : ''}`}
+      onClick={() => update('engine', id)}
+    >
+      <span className="engine-badge">{badge}</span>
+      <span>
+        <strong>{name}</strong>
+        <small>{detail}</small>
+        <small>{found}</small>
+        {chosen === id && <small className="engine-feel">{feel}</small>}
+      </span>
+      {chosen === id && <Check size={15} />}
+    </button>
+  )
+  return (
+    <section className="setting-section">
+      <h3>Under the bonnet</h3>
+      <p>
+        {open
+          ? 'Swap in any engine. Each brings its own sound, power, revs, gearing and turbo lag, and starts up when you change it at a standstill. Press Z for neutral to rev it in place.'
+          : 'The motorcycle keeps its own twin. Choose a car, the pickup or the bus to swap engines. Press Z for neutral to rev it in place.'}
+      </p>
+      <div className="engine-options">
+        {option(
+          'stock',
+          'Stock',
+          `As built: ${stock.layout}`,
+          `${horsepower(stockPower[vehicle])} hp · ${rpm(engineProfiles[vehicle].redline)} rpm`,
+          `The engine this ${vehicleNames[vehicle].toLowerCase()} was made with.`,
+          'The sound and pull this vehicle was tuned around.',
+        )}
+        {(Object.keys(engineFamilies) as EngineFamily[]).map((family) => (
+          <div key={family} className="engine-family">
+            <h4>{engineFamilies[family]}</h4>
+            {swapEngines
+              .filter((id) => engineCatalog[id].family === family)
+              .map((id) => {
+                const spec = engineCatalog[id]
+                return option(
+                  id,
+                  spec.badge,
+                  spec.name,
+                  `${horsepower(spec.power)} hp · ${spec.torque} Nm · ${rpm(spec.profile.redline)} rpm`,
+                  spec.found,
+                  `${spec.layout}, ${spec.litres.toFixed(1)} litres. ${spec.feel}`,
+                )
+              })}
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
