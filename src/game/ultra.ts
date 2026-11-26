@@ -319,8 +319,9 @@ export class UltraPipeline {
     camera: THREE.PerspectiveCamera,
   ) {
     this.occlusion = new N8AOPostPass(scene, camera, 1, 1)
-    this.occlusion.autoDetectTransparency = false
     const occlusion = this.occlusion.configuration
+    occlusion.transparencyAware = false
+    this.occlusion.autoDetectTransparency = false
     occlusion.halfRes = true
     occlusion.gammaCorrection = false
     occlusion.aoSamples = ultraLook.occlusionSamples

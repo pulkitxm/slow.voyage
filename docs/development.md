@@ -65,13 +65,14 @@ beams follow the detail level: Ultra shows them in full, Full beauty with fewer
 particles and simpler beams, and Easy on the engine keeps only the lamp glow.
 
 The Journey tab also chooses the road itself. Winding Roads is the full road
-with every bend. Endless Straight holds one heading for the whole lap while the
+with every bend. Endless Straight holds one heading for the whole drive while the
 hills, lakes and forests keep changing around it. Calm Drive keeps only long,
 wide curves and halves the walkers on the verge. Links to a spot carry the road
 mode.
 
-The minimap shows the road, terrain, landmarks to find, lap progress, and an
-arrow back to the road when off it. Laps are timed from line to line. The Journey
+The minimap shows the next 1.6 km of road, the terrain, landmarks to find, and an
+arrow back to the road when off it. Far from the road a pointer on screen shows
+the way back. The Journey
 tab copies a link that reopens the same road at the same spot.
 
 The Controls tab selects full autodrive, steering assistance, or speed assistance.

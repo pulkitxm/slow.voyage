@@ -1,15 +1,16 @@
 import { expect, test } from 'bun:test'
-import { worldLoop } from './field'
+
+const stretch = 12000
+
 import {
   landmarkFootprints,
   landmarkGeometry,
   landmarkLayout,
   landmarkNames,
-  landmarkOffset,
-  lapLandmarks,
+  landmarksBetween,
 } from './landmarks'
 import { landscapeIds } from './landscapes'
-import { chevrons, delineators, roadCurvature, roadsideLayout, startGantry } from './roadside'
+import { chevrons, delineators, roadCurvature, roadsideLayout } from './roadside'
 import { defaults, shoreHeight, World } from './world'
 
 test.each(landscapeIds)(
@@ -17,16 +18,19 @@ test.each(landscapeIds)(
   (landscape) => {
     for (const seed of [42, 7, 90210]) {
       const world = new World({ ...defaults, landscape, seed })
-      const list = lapLandmarks(world)
-      expect(lapLandmarks(new World({ ...defaults, landscape, seed }))).toEqual(list)
+      const list = landmarksBetween(world, 0, stretch)
+      expect(landmarksBetween(new World({ ...defaults, landscape, seed }), 0, stretch)).toEqual(
+        list,
+      )
       expect(list.length).toBeGreaterThan(3)
-      expect(list.length).toBeLessThanOrEqual(landmarkLayout.slots)
+      expect(list.length).toBeLessThanOrEqual(stretch / landmarkLayout.spacing)
+      expect(new Set(list.map((landmark) => landmark.id)).size).toBe(list.length)
       for (const landmark of list) {
         const distance = Math.abs(landmark.x - world.road(landmark.s).x)
         expect(distance).toBeGreaterThanOrEqual(landmarkLayout.nearest)
         expect(distance).toBeLessThanOrEqual(landmarkLayout.farthest)
         expect(landmark.s).toBeGreaterThanOrEqual(0)
-        expect(landmark.s).toBeLessThan(worldLoop.length)
+        expect(landmark.s).toBeLessThan(stretch)
         expect(landmark.height).toBeGreaterThan(shoreHeight + 1)
         expect(landmarkNames[landmark.kind].length).toBeGreaterThan(0)
         expect(landmarkFootprints[landmark.kind]).toBeGreaterThan(0)
@@ -34,13 +38,6 @@ test.each(landscapeIds)(
     }
   },
 )
-
-test('landmark offsets take the short way around the lap and across the side seam', () => {
-  const landmark = { id: 0, kind: 'cairn' as const, x: 1400, s: 11950, height: 5, yaw: 0 }
-  const offset = landmarkOffset(landmark, -1450, 30 + worldLoop.length * 3)
-  expect(offset.s).toBeCloseTo(-80, 6)
-  expect(offset.x).toBeCloseTo(-150, 6)
-})
 
 test('every landmark kind builds finite coloured geometry at its site', () => {
   for (const kind of Object.keys(landmarkNames) as (keyof typeof landmarkNames)[]) {
@@ -65,7 +62,7 @@ test('delineators line open verges and chevrons mark only real bends', () => {
   const world = new World({ ...defaults })
   let posts = 0
   let panels = 0
-  for (let start = 0; start < worldLoop.length; start += 120) {
+  for (let start = 0; start < stretch; start += 120) {
     const line = delineators(world, start, 120)
     expect(line.posts.length).toBe(line.reflectors.length)
     expect(line.posts.length).toBeLessThanOrEqual(8)
@@ -78,17 +75,7 @@ test('delineators line open verges and chevrons mark only real bends', () => {
   expect(posts).toBeGreaterThan(300)
   expect(panels).toBeGreaterThan(4)
   let bends = 0
-  for (let s = 0; s < worldLoop.length; s += roadsideLayout.chevronSpacing)
+  for (let s = 0; s < stretch; s += roadsideLayout.chevronSpacing)
     if (Math.abs(roadCurvature(world, s)) >= roadsideLayout.chevronCurve) bends++
   expect(panels).toBeLessThanOrEqual(bends)
-})
-
-test('the start gantry spans the road with room for the tallest vehicle', () => {
-  const world = new World({ ...defaults })
-  const gantry = startGantry(world, 0)
-  expect(gantry.clearance).toBeGreaterThan(4)
-  expect(gantry.feet.length).toBe(2)
-  const road = world.road(0)
-  for (const foot of gantry.feet) expect(Math.hypot(foot.x - road.x, foot.s)).toBeGreaterThan(4.5)
-  for (const piece of [...gantry.frame, gantry.banner]) piece.dispose()
 })

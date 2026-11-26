@@ -494,61 +494,39 @@ svg {
   color: #ffd98a;
   font-variant-numeric: tabular-nums;
 }
-.world-map {
+.turn-back {
   position: absolute;
   top: 92px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(880px, calc(100vw - 280px));
-  padding: 12px 14px 14px;
-  border-radius: 12px;
-  background: #1d2822c7;
-  color: #f6f7ea;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 12px 40px #0f1a1455;
-}
-.world-map header {
   display: flex;
-  align-items: baseline;
-  gap: 14px;
-  margin-bottom: 10px;
-  font-size: 9px;
-  letter-spacing: 1.2px;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  color: #f6f7ea;
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 8px #0f1a14b0;
+  pointer-events: none;
 }
-.world-map header > span:first-child {
-  letter-spacing: 2px;
+.turn-back > span {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid #f6f7eacc;
+  border-radius: 50%;
+  background: #1d282266;
+  transition: transform 0.25s ease-out;
 }
-.world-map header > span:nth-child(2) {
-  flex: 1;
-  opacity: 0.72;
-  letter-spacing: 0.4px;
+.turn-back > b {
+  font-weight: 600;
 }
-.world-map header button {
-  all: unset;
-  cursor: pointer;
+.turn-back > em {
+  font-style: normal;
   color: #ffd98a;
-}
-.world-map header kbd {
-  font: inherit;
-  padding: 1px 5px;
-  border: 1px solid #f0f4e95c;
-  border-radius: 3px;
-  margin-right: 4px;
-}
-.world-map canvas {
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 1;
-  border-radius: 6px;
-}
-@media (max-width: 900px) {
-  .world-map {
-    top: 150px;
-    width: calc(100vw - 28px);
-  }
-  .world-map header > span:nth-child(2) {
-    display: none;
-  }
+  font-variant-numeric: tabular-nums;
 }
 .world-loader {
   margin-top: 22px;
@@ -576,16 +554,8 @@ svg {
   text-transform: uppercase;
   opacity: 0.78;
 }
-.minimap-best {
-  display: flex;
-  gap: 10px;
-  font-size: 8px;
-  letter-spacing: 1.4px;
-  opacity: 0.78;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 6px #0f1a1480;
-}
 .is-photo .minimap,
+.is-photo .turn-back,
 .is-photo .telemetry,
 .is-photo .topbar,
 .is-photo .touch-controls,

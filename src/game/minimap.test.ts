@@ -1,15 +1,7 @@
 import { expect, test } from 'bun:test'
-import { worldLoop } from './field'
-import { lapState, mapOffset, roadGuide, terrainTone } from './minimap'
+import { mapOffset, roadGuide, terrainTone } from './minimap'
 import { roadPoint } from './road'
 import { defaults, World } from './world'
-
-test('lap counting advances once per loop and stays consistent in reverse', () => {
-  expect(lapState(0)).toEqual({ lap: 1, distance: 0 })
-  expect(lapState(worldLoop.length - 1)).toEqual({ lap: 1, distance: worldLoop.length - 1 })
-  expect(lapState(worldLoop.length + 250)).toEqual({ lap: 2, distance: 250 })
-  expect(lapState(-250)).toEqual({ lap: 0, distance: worldLoop.length - 250 })
-})
 
 test('map offsets place points ahead of and beside the vehicle in its own frame', () => {
   const world = new World({ ...defaults })

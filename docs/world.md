@@ -1,44 +1,73 @@
-# The looping world
+# The endless world
 
 This note records how the world is laid out and which features it offers.
 
 ## Shape
 
-The world is a torus measured in road coordinates. The road is a single line
-`x = f(s)`, where `s` runs along the lap and `x` across it.
+The world has no edges and never repeats. Positions are measured in road
+coordinates: `s` runs along the road and `x` across it, and the road is a single
+line `x = f(s)` that keeps going.
 
-- It repeats every 12 km along `s`. Road curves, terrain, woodland, roadside
-  furniture, and landmarks all wrap their lattice indices, so lap two is the
-  same place as lap one. `physics.s` keeps counting, and lap numbers come from it.
-- It repeats every 3 km across `x`, measured from the road. When the car passes
-  1.5 km from the road it is moved 3 km sideways in the same step. Terrain tiles
-  are drawn a second time across the seam so the join is not visible.
+- Road curves, terrain, woodland, meadow grass, roadside life, landmarks and
+  waterfalls are all read from lattices indexed by position. No index wraps, so
+  no stretch of road or countryside comes round again, along the road or away
+  from it.
+- Landmarks are placed one per 1.5 km of road and waterfalls per 12 km stretch,
+  each generated when that part of the road is first reached.
 
-Both lengths are whole multiples of the terrain control cells and the 120 m tile.
+## What is drawn
 
-## Getting back to the road
+Three layers follow the car and everything behind it is released.
 
-A drivable route always leads from the road, around the world, and back onto it.
-It is not always a straight line: a steep hillside still stops a car driven
-straight at it, and guardrails and cut banks close parts of the roadside. Four
-rules make the route exist:
+- The road corridor is built in 120 m sections that reach 26 m to either side
+  of the centre line: 4 sections behind the car and 14 ahead. Each holds the
+  fitted ground, the asphalt, markings, rails, posts, signs, roadside trees,
+  rocks, plants and grass. Sections that fall out of range are removed and
+  their buffers freed.
+- Open ground beyond the corridor is a quadtree of square chunks around the
+  car, out to 2.6 km in every direction (`src/game/open-grid.ts`,
+  `src/game/open-ground.ts`). Chunks are 64 m across with 2 m cells under the
+  car and double in size four times with distance, up to 1 km across with 32 m
+  cells. A chunk is replaced by finer or coarser ones only once those are
+  built, so the ground never shows a hole, and chunks that are no longer wanted
+  are dropped after a moment.
+- Woodland uses the same scheme with 256 m chunks out to 1.5 km
+  (`src/game/open-scenery.ts`), so forests cover every hillside and not only
+  the roadside. Near chunks carry every tree, the next ring a third and the
+  outer ring a ninth, always the same trees. Within 150 m trees are full crowns
+  that cast shadows and can be hit; further out each chunk is one draw of flat
+  tree cards. Between the groves the same chunks scatter lone trees and, close
+  to the car, shrubs, in the proportions each landscape uses beside its road.
+
+On a software renderer open ground reaches 1.7 km with less detail in the
+middle distance and woodland reaches 600 m.
+
+The tyres read the same triangles that are drawn: the fitted grid inside the
+corridor and the 2 m grid outside it.
+
+## Leaving the road
+
+The car can be driven off the road in any direction for as long as the driver
+likes. Three rules keep the country open:
 
 - Water is shallow everywhere. Terrain eases onto a bed 0.3 m under the surface,
   so lakes and bays can be forded slowly instead of acting as walls.
-- Alpine and canyon landscapes open two gentle passes per lap across the full
-  width, because their mountains and mesas otherwise wall the road in.
-- On each side of the road, between a fifth and four fifths of the lap has no
-  rail and a verge gentle enough to cross. The longest closed stretch measured is
-  about 1 km.
-- Tests plan a route over the height field for every landscape that leaves an
-  open stretch on one side, never climbs more than 35 percent, crosses the side
-  seam, and reaches an open stretch on the other side. A simulated pickup then
-  drives that route with simple pursuit steering and must end on the pavement
-  without touching a barrier.
+- Alpine and canyon landscapes open a gentle pass about every 6 km along the
+  road, because their mountains and mesas otherwise wall the road in.
+- Tests flood the height field for every landscape from the road outwards and
+  plan a route that leaves an open stretch of verge, never climbs more than
+  20 percent and reaches 600 m from the road. A simulated pickup then drives
+  that route out and back with simple pursuit steering and must end on the
+  pavement without touching a barrier.
 
-The minimap shows the terrain, the road and its copies across the seam, an arrow
-with distance back to the road, lap progress, and landmarks. The N key opens a map
-of the whole loop.
+The minimap looks 1.6 km ahead and shows the terrain, the road, landmarks, and
+an arrow with the distance back to the road whenever the car has left it. Past
+120 m from the road a pointer at the top of the screen turns toward the road
+and counts the distance back.
+
+Grass and sand slow a car less than they used to until it nears the calm speed
+that rough ground allows, about 70 to 95 km/h on grass depending on the
+vehicle, and then resist steeply.
 
 ## Features
 
@@ -60,10 +89,10 @@ of the whole loop.
 - The road has three shapes, chosen in the Journey settings. Winding Roads adds
   broad sweeps, medium curves and tight bends. Endless Straight removes all
   three, so the road keeps one heading while terrain, woodland, water and
-  landmarks still vary along the lap. Calm Drive keeps a gentler broad sweep
+  landmarks still vary along the way. Calm Drive keeps a gentler broad sweep
   with a touch of the medium curve, for bends no tighter than about 600 m, and
-  halves the walkers. Rails, delineators, landmarks, waterfalls, the minimap,
-  the atlas, laps and autodrive all follow whichever road is chosen, and the
+  halves the walkers. Rails, delineators, landmarks, waterfalls, the minimap
+  and autodrive all follow whichever road is chosen, and the
   world is rebuilt when the mode changes.
 - When autodrive is switched off and nobody is driving, it keeps the car in
   its lane while it coasts. Once the driver takes a pedal the wheel is held
@@ -119,10 +148,10 @@ of the whole loop.
 - Skies include dawn, dusk, and a live cycle through a full day every twelve
   minutes. Weather includes a storm with lightning and thunder.
 - A pickup, hatchback, and supercar are built from a lofted body generator.
-- Laps are timed from line to line. A link encodes landscape, seed, and distance.
+- A link encodes landscape, seed, and distance along the road.
   Photo mode freezes the drive and hides the interface.
-- The road carries delineator posts, bend chevrons, and a gantry at the lap line.
-  Up to eight landmarks per lap can be found.
+- The road carries delineator posts and bend chevrons. A landmark stands
+  about every 1.5 km and is counted when the car comes close.
 - Tyres raise dust, smoke, and spray, and leave skid marks when they slide.
   `src/game/particles.ts` is one pooled, instanced particle draw whose motion,
   drag, wind drift, gravity, and bounce run in the vertex shader, so the
@@ -151,7 +180,7 @@ of the whole loop.
   sampled from the same surface the tyres touch, so it follows banks and bumps
   off the road instead of tilting with the body, and it fades when the car
   leaves the ground.
-- The road wears. One condition map, 2.4 km long and repeated five times a lap,
+- The road wears. One condition map, 2.4 km long and repeated along the road,
   holds puddle basins, dirt, pothole damage, and repair patches. The asphalt shader
   and the pavement height both read it, so a pothole that shows is one the
   suspension drops into. The road surface setting chooses freshly laid, well

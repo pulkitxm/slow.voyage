@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { DrivingCamera } from './camera'
-import { groundGeometry } from './ground'
+import { renderedGround } from './ground-fixture'
 import { createVehicleModel } from './model'
 import { defaults, vehicles, World } from './world'
 
@@ -166,12 +166,7 @@ test.each([
   }
   view.snap()
   view.update(subject, world, mode, 1 / 60)
-  const geometry = groundGeometry(
-    world,
-    Math.floor(-camera.position.z / 120) * 120,
-    new THREE.Color(),
-    new THREE.Color(),
-  )
+  const geometry = renderedGround(world, camera.position.x, -camera.position.z)
   const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
   try {
     const mesh = new THREE.Mesh(geometry, material)
@@ -203,13 +198,7 @@ test.each([0, 20])(
     view.zoom = 2.6
     view.snap()
     view.update(subject, world, 'chase', 1 / 60)
-    const start = Math.floor(-camera.position.z / 120) * 120
-    const ground = groundGeometry(
-      world,
-      start,
-      new THREE.Color('#819e48'),
-      new THREE.Color('#b2c76b'),
-    )
+    const ground = renderedGround(world, camera.position.x, -camera.position.z)
     const material = new THREE.MeshBasicMaterial({ side: THREE.DoubleSide })
     const mesh = new THREE.Mesh(ground, material)
     mesh.updateMatrixWorld()
