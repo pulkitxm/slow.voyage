@@ -6,7 +6,7 @@ const wheel = { onRoad: true, sand: false, slip: 0, locked: false, puddle: 0, co
 const dry = { wet: false, snowy: false, wading: false, cover: 0.8 }
 
 function plume(overrides: Partial<typeof wheel>, speed: number, ground = dry) {
-  const out: Plume = { kind: null, strength: 0 }
+  const out: Plume = { kind: null, strength: 0, water: 0 }
   return wheelPlume(out, { ...wheel, ...overrides }, speed, ground)
 }
 
