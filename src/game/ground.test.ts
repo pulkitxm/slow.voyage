@@ -146,7 +146,7 @@ test.each(['highlands', 'alpine', 'desert'] as const)(
 
 for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
   test.each([12, 96])(
-    `${landscape} distant mesh stays within two meters of the height field in the sampled woodland range with %i rows`,
+    `${landscape} corridor mesh stays within two meters of the height field with %i rows`,
     (rows) => {
       let maximumError = 0
       for (const seed of [42, 43, 99]) {
@@ -156,7 +156,7 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
           const ground = new GroundSampler(geometry, start, rows)
           for (const fraction of [0.07, 0.31, 0.67, 0.93]) {
             const s = start + fraction * 120
-            for (let distance = -649; distance <= 649; distance += 23) {
+            for (let distance = -25; distance <= 25; distance += 2.5) {
               const x = world.road(s).x + distance
               const field = world.height(x, s)
               if (field < shoreBand) continue

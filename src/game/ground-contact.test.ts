@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import * as THREE from 'three'
 import { groundGeometry } from './ground'
+import { groundRegion, renderedGround } from './ground-fixture'
 import { defaults, World } from './world'
 
 for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
@@ -14,30 +15,28 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
     try {
       for (const seed of [42, 43, 99]) {
         const world = new World({ ...defaults, landscape, seed })
+        const regions = new Map<string, THREE.BufferGeometry>()
         for (const start of [-1200, -120, 360, 999960]) {
-          const geometry = groundGeometry(world, start, new THREE.Color(), new THREE.Color())
-          const mesh = new THREE.Mesh(geometry, material)
-          try {
-            for (const fraction of [0.007, 0.37, 0.503, 0.997]) {
-              const s = start + fraction * 120
-              for (const distance of [-1499, -649, -143, -23.7, -4.2, 4.2, 23.7, 143, 649, 1499]) {
-                const x = world.road(s).x + distance
-                const surface = world.surface(x, s)
-                if (surface.onRoad) continue
-                ray.set(new THREE.Vector3(x, 10000, -s), new THREE.Vector3(0, -1, 0))
-                const hit = ray.intersectObject(mesh)[0]
-                if (!hit?.face) throw new Error('Contact point has no rendered terrain')
-                maximumHeightError = Math.max(
-                  maximumHeightError,
-                  Math.abs(surface.height - hit.point.y),
-                )
-                normal.set(-surface.slopeX, 1, surface.slopeS).normalize()
-                maximumNormalError = Math.max(maximumNormalError, 1 - normal.dot(hit.face.normal))
-                measurements++
-              }
+          for (const fraction of [0.007, 0.37, 0.503, 0.997]) {
+            const s = start + fraction * 120
+            for (const distance of [-1499, -649, -143, -23.7, -4.2, 4.2, 23.7, 143, 649, 1499]) {
+              const x = world.road(s).x + distance
+              const surface = world.surface(x, s)
+              if (surface.onRoad) continue
+              const region = groundRegion(world, x, s)
+              const geometry = regions.get(region) ?? renderedGround(world, x, s)
+              regions.set(region, geometry)
+              ray.set(new THREE.Vector3(x, 10000, -s), new THREE.Vector3(0, -1, 0))
+              const hit = ray.intersectObject(new THREE.Mesh(geometry, material))[0]
+              if (!hit?.face) throw new Error('Contact point has no rendered terrain')
+              maximumHeightError = Math.max(
+                maximumHeightError,
+                Math.abs(surface.height - hit.point.y),
+              )
+              normal.set(-surface.slopeX, 1, surface.slopeS).normalize()
+              maximumNormalError = Math.max(maximumNormalError, 1 - normal.dot(hit.face.normal))
+              measurements++
             }
-          } finally {
-            geometry.dispose()
           }
         }
       }
@@ -50,11 +49,11 @@ for (const landscape of ['highlands', 'alpine', 'desert'] as const) {
   })
 }
 
-test('unmeshed terrain keeps finite procedural contact beyond the rendered corridor', () => {
+test('open terrain keeps finite contact far beyond the road corridor', () => {
   const world = new World(defaults)
   for (const s of [-1200, 0, 1000000]) {
     const road = world.road(s)
-    for (const distance of [-2000, 2000]) {
+    for (const distance of [-2000, 2000, 250000]) {
       const surface = world.surface(road.x + distance, s)
       expect(Number.isFinite(surface.height + surface.slopeX + surface.slopeS)).toBe(true)
       expect(surface.onRoad).toBe(false)
@@ -72,12 +71,13 @@ test('off-road heights agree at shared edges and rounded distant rows', () => {
       for (const s of [-4194328.75, -120, 0, 360, 999960, 4194328.75]) {
         const start = Math.floor(s / 120) * 120
         const geometry = groundGeometry(world, start, new THREE.Color(), new THREE.Color())
-        const mesh = new THREE.Mesh(geometry, material)
         try {
           for (const distance of [-649, -143, 143, 649]) {
             const x = world.road(s).x + distance
+            const open = renderedGround(world, x, s)
             ray.set(new THREE.Vector3(x, 10000, -s), new THREE.Vector3(0, -1, 0))
-            const hit = ray.intersectObject(mesh)[0]
+            const hit = ray.intersectObject(new THREE.Mesh(open, material))[0]
+            open.dispose()
             if (!hit) throw new Error('Rendered terrain is missing at a row boundary')
             maximumError = Math.max(
               maximumError,

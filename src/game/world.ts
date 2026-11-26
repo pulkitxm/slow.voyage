@@ -1,8 +1,9 @@
 import type { ControllerBindings, ControllerMode } from './controller-bindings'
 import type { EngineId } from './engine-catalog'
-import { roadCurve, smoothStep, terrainField, worldLoop, wrapOffset } from './field'
+import { roadCurve, smoothStep, terrainField } from './field'
 import { groundSurface } from './ground-grid'
 import { type Landscape, landscapeProfiles, passEasing, terraced } from './landscapes'
+import { openSurface } from './open-grid'
 import { roadCoordinates, roadLayout } from './road'
 import { potholeDepth, type RoadWear } from './road-condition'
 
@@ -150,14 +151,10 @@ export class World {
     const dy = rise.derivative * riseScale + crest.derivative * crestScale
     return { x, y, dx, dy, yaw: Math.atan2(-dx, 1) }
   }
-  canonical(x: number, s: number) {
-    const center = this.road(s).x
-    return center + wrapOffset(x - center)
-  }
   height(position: number, s: number) {
     const center = this.road(s)
-    const offset = wrapOffset(position - center.x)
-    const x = center.x + offset
+    const x = position
+    const offset = x - center.x
     const corridor = 1 - smoothStep(clamp((Math.abs(offset) - 8) / 12, 0, 1))
     const frame = corridor ? roadCoordinates(this, x, s) : null
     const road = frame?.road ?? center
@@ -178,7 +175,7 @@ export class World {
     const basin = 1 - smoothStep(clamp((distance - coastBasin.start) / coastBasin.fade, 0, 1))
     const coast =
       Math.min(110, Math.max(0, distance - roadLayout.halfWidth) * 0.26) * coastFactor * basin
-    const easing = passEasing(s, worldLoop.length, profile.passes, this.settings.seed, smoothStep)
+    const easing = passEasing(s, profile.passSpacing, this.settings.seed, smoothStep)
     const relief = terraced(hills * profile.relief * easing, profile.terrace, smoothStep) - coast
     const cut = smoothStep(clamp((relief - 0.6) / 3, 0, 1))
     const blend = smoothStep(
@@ -201,24 +198,20 @@ export class World {
     )
   }
 
-  surface(position: number, s: number) {
-    const x = this.canonical(position, s)
+  surface(x: number, s: number) {
     const { road, distance, s: along } = roadCoordinates(this, x, s)
     const onRoad = Math.abs(distance) <= roadLayout.halfWidth
     const grade = road.dy / (1 + road.dx * road.dx)
     if (!onRoad) {
-      const ground = groundSurface(this, x, s)
-      if (ground) return { ...ground, onRoad, sand: this.sandy(ground.height, distance) }
+      const ground = groundSurface(this, x, s) ?? openSurface(this, x, s)
+      return { ...ground, onRoad, sand: this.sandy(ground.height, distance) }
     }
-    const height = onRoad
-      ? road.y - potholeDepth(this.settings.roadWear, along, distance)
-      : this.height(x, s)
     return {
-      height,
+      height: road.y - potholeDepth(this.settings.roadWear, along, distance),
       onRoad,
-      sand: !onRoad && this.sandy(height, distance),
-      slopeX: onRoad ? grade * road.dx : (this.height(x + 0.2, s) - this.height(x - 0.2, s)) / 0.4,
-      slopeS: onRoad ? grade : (this.height(x, s + 0.2) - this.height(x, s - 0.2)) / 0.4,
+      sand: false,
+      slopeX: grade * road.dx,
+      slopeS: grade,
     }
   }
 }
