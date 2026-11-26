@@ -10,6 +10,7 @@ import { cameras, loadSettings } from './game/settings'
 import { decodeSpot, encodeSpot } from './game/share'
 import { vehicleNames } from './game/vehicles'
 import { defaults, type Settings, vehicles } from './game/world'
+import { TelemetryStore } from './telemetry'
 
 const initial: DriveState = {
   speed: 0,
@@ -41,6 +42,7 @@ export function useDrive() {
   }, [])
   const [settings, setSettings] = useState<Settings>(defaults)
   const [state, setState] = useState(initial)
+  const [telemetry] = useState(() => new TelemetryStore(initial))
   const [started, setStarted] = useState(false)
   const [ready, setReady] = useState(false)
   const [loading, setLoading] = useState({ fraction: 0, stage: 'stone' })
@@ -207,6 +209,7 @@ export function useDrive() {
   useEffect(() => {
     if (!canvas.current) return
     let rendered = false
+    let shown = ''
     setReady(false)
     const odometer = new Odometer(window.localStorage)
     setLifetime(odometer.shown)
@@ -243,7 +246,12 @@ export function useDrive() {
           rendered = true
           setReady(true)
         }
-        setState(state)
+        telemetry.set(state)
+        const steady = `${state.paused}/${state.photo}/${state.assistance}/${state.controller}/${state.found}`
+        if (steady !== shown) {
+          shown = steady
+          setState(state)
+        }
         if (instance.started && odometer.record(state.distance)) setLifetime(odometer.shown)
         if (instance.started) setStarted(true)
       }
@@ -296,7 +304,7 @@ export function useDrive() {
       window.removeEventListener('offline', connection)
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [announce])
+  }, [announce, telemetry.set])
   useEffect(() => {
     engine.current?.setControlsBlocked(panel || help)
   }, [panel, help])
@@ -323,6 +331,7 @@ export function useDrive() {
     engine,
     settings,
     state,
+    telemetry,
     lifetime,
     started,
     ready,

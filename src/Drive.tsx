@@ -25,6 +25,8 @@ import {
   VolumeX,
   Zap,
 } from 'lucide-react'
+import { useEffect, useRef } from 'react'
+import { MouseBar, RoadFinder, Speed, Trip } from './components/Dashboard'
 import { Help } from './components/Help'
 import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
@@ -59,6 +61,7 @@ export function Drive() {
     engine,
     settings,
     state,
+    telemetry,
     lifetime,
     started,
     ready,
@@ -88,13 +91,23 @@ export function Drive() {
     touch,
   } = useDrive()
   const VehicleIcon = vehicleIcons[settings.vehicle]
-  const speed = Math.abs(state.speed) * (settings.units === 'km' ? 3.6 : 2.23694)
-  const distance = state.distance / (settings.units === 'km' ? 1000 : 1609.344)
+  const root = useRef<HTMLElement>(null)
+  useEffect(() => {
+    const apply = () => {
+      const node = root.current
+      if (!node) return
+      node.dataset.steering = telemetry.state.steering.toFixed(4)
+      node.dataset.boost = String(telemetry.state.boost)
+    }
+    apply()
+    return telemetry.subscribe(apply)
+  }, [telemetry])
   const mapUnit = settings.units === 'km' ? 1000 : 1609.344
   const sky = daylight.find((item) => item.id === settings.daylight) ?? daylight[1]
   const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
   return (
     <main
+      ref={root}
       className={`drive ${started ? 'is-driving' : 'is-welcome'} ${panel ? 'panel-open' : ''} ${state.photo ? 'is-photo' : ''}`}
       data-controller={state.controller}
       data-landscape={settings.landscape}
@@ -103,8 +116,6 @@ export function Drive() {
       data-weather={settings.weather}
       data-vehicle={settings.vehicle}
       data-camera={settings.camera}
-      data-steering={state.steering.toFixed(4)}
-      data-boost={state.boost}
     >
       <canvas
         ref={canvas}
@@ -112,15 +123,7 @@ export function Drive() {
       />
       <div className="scene-shade" />
       {started && settings.mouseEnabled && !panel && !help && !state.paused && (
-        <div
-          className="mouse-steering"
-          data-mouse-steer={state.mouseSteering.toFixed(2)}
-          aria-hidden="true"
-        >
-          <div className="mouse-track">
-            <i style={{ left: `${50 - state.mouseSteering * 50}%` }} />
-          </div>
-        </div>
+        <MouseBar store={telemetry} />
       )}
       <header className="topbar">
         {!started && (
@@ -266,42 +269,15 @@ export function Drive() {
               </span>
               {state.found > 0 && <span>FOUND {state.found}</span>}
             </div>
-            {state.roadDistance > minimapLayout.guideDistance && (
-              <div className="road-finder">
-                ROAD{' '}
-                {settings.units === 'km'
-                  ? `${Math.round(state.roadDistance)} m`
-                  : `${Math.round(state.roadDistance * 3.28084)} ft`}
-              </div>
-            )}
+            <RoadFinder store={telemetry} units={settings.units} />
           </aside>
           <section className="telemetry" aria-label="Driving dashboard">
-            <div className="speed">
-              {state.boost && !state.paused && !panel && !help && (
-                <span className="boost-indicator">BOOST</span>
-              )}
-              <span className="speed-value">{speed.toFixed(0).padStart(2, '0')}</span>
-              <span className="speed-unit">
-                {settings.units === 'km' ? 'km/h' : 'mph'}
-                <span
-                  className={
-                    settings.transmission === 'manual' && state.revs > 0.9
-                      ? state.limited
-                        ? 'gear gear-limit'
-                        : 'gear gear-shift'
-                      : 'gear'
-                  }
-                >
-                  {state.gear}
-                </span>
-              </span>
-              <div className="speed-track">
-                <span style={{ width: `${Math.min(speed / 2, 100)}%` }} />
-              </div>
-              <div className="nitro-track" data-firing={state.boost} title="Boost charge">
-                <span style={{ width: `${Math.round(state.nitro * 100)}%` }} />
-              </div>
-            </div>
+            <Speed
+              store={telemetry}
+              units={settings.units}
+              manual={settings.transmission === 'manual'}
+              quiet={state.paused || panel || help}
+            />
             <div className="drive-toolbar">
               <IconButton label={state.paused ? 'Resume driving' : 'Pause driving'} onClick={pause}>
                 {state.paused ? <Play /> : <Pause />}
@@ -347,16 +323,7 @@ export function Drive() {
                 <RotateCcw />
               </IconButton>
             </div>
-            <div className="distance">
-              <span className="distance-value">{distance.toFixed(1)}</span>
-              <span>{settings.units === 'km' ? 'km' : 'mi'}</span>
-              <span className="distance-lifetime">
-                {Math.round(
-                  lifetime / (settings.units === 'km' ? 1000 : 1609.344),
-                ).toLocaleString()}{' '}
-                {settings.units === 'km' ? 'km' : 'mi'} all time
-              </span>
-            </div>
+            <Trip store={telemetry} units={settings.units} lifetime={lifetime} />
           </section>
           <div className="touch-controls">
             <div>
