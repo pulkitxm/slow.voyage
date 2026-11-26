@@ -911,7 +911,7 @@ export class RoadEngine {
       haze
         .lerp(this.skyTone.setScalar((haze.r + haze.g + haze.b) / 3), 0.5)
         .multiplyScalar(1.5)
-        .addScalar(0.03)
+        .addScalar(0.06)
     }
     this.beamHaze = beamHaze(profile.fog, profile.wet || profile.snow, night)
     this.terrain.setNight(night)
