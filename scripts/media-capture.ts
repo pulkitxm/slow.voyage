@@ -16,6 +16,7 @@ export interface Scene {
 }
 
 interface Voyage {
+  camera: { fov: number; updateProjectionMatrix(): void }
   view: { yaw: number; pitch: number; zoom: number }
   physics: { x: number; s: number; yaw: number; speed: number }
   world: { road(s: number): { x: number; yaw: number } }
@@ -99,6 +100,14 @@ export async function aim(page: Page, view: View) {
     camera.pitch = pitch
     camera.zoom = zoom
   }, view)
+}
+
+export async function narrow(page: Page, fov: number) {
+  await page.evaluate((angle) => {
+    const camera = (window as unknown as { voyage: Voyage }).voyage.camera
+    camera.fov = angle
+    camera.updateProjectionMatrix()
+  }, fov)
 }
 
 export const overlayHtml = {
