@@ -22,7 +22,8 @@ Most generators accept `--previews <dir>` to render preview images.
 
 ## Cars
 
-The touring sedan, hatchback, supercar, and pickup are lofted bodies with cut
+The touring sedan, hatchback, pickup, and the four supercars (`supercar`,
+`supercar-grand`, `supercar-longtail`, and `supercar-track`) are lofted bodies with cut
 wheel arches, glass, lamps, interiors, and separate wheels named `Wheel_FL`,
 `Wheel_FR`, `Wheel_RL`, and `Wheel_RR`. The paint material is `body`, and the lamp
 meshes are `Headlights` and `Taillights`. The game scales each body to its
