@@ -31,6 +31,7 @@ const initial: DriveState = {
   controller: 'none',
   mouseSteering: 0,
   roadDistance: 0,
+  roadBearing: 0,
   photo: false,
   found: 0,
 }

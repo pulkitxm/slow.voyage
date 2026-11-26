@@ -26,7 +26,7 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { MouseBar, RoadFinder, Speed, Trip } from './components/Dashboard'
+import { MouseBar, RoadFinder, Speed, Trip, TurnBack } from './components/Dashboard'
 import { Help } from './components/Help'
 import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
@@ -271,6 +271,7 @@ export function Drive() {
             </div>
             <RoadFinder store={telemetry} units={settings.units} />
           </aside>
+          <TurnBack store={telemetry} units={settings.units} />
           <section className="telemetry" aria-label="Driving dashboard">
             <Speed
               store={telemetry}

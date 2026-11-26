@@ -1,3 +1,4 @@
+import { ArrowUp } from 'lucide-react'
 import { minimapLayout } from '../game/minimap'
 import type { Settings } from '../game/world'
 import { type TelemetryStore, useTelemetry } from '../telemetry'
@@ -88,6 +89,32 @@ export function MouseBar({ store }: { store: TelemetryStore }) {
       <div className="mouse-track">
         <i style={{ left: `${50 - Number(steer) * 50}%` }} />
       </div>
+    </div>
+  )
+}
+
+export const turnBack = { from: 120, step: 10, turn: 15 }
+
+export function TurnBack({ store, units }: { store: TelemetryStore; units: Settings['units'] }) {
+  const away = useTelemetry(store, (state) =>
+    state.roadDistance > turnBack.from
+      ? Math.round((state.roadDistance * (units === 'km' ? 1 : 3.28084)) / turnBack.step) *
+        turnBack.step
+      : 0,
+  )
+  const bearing = useTelemetry(store, (state) =>
+    Math.round((state.roadBearing * 180) / Math.PI / turnBack.turn),
+  )
+  if (!away) return null
+  return (
+    <div className="turn-back" role="status">
+      <span style={{ transform: `rotate(${bearing * turnBack.turn}deg)` }}>
+        <ArrowUp size={18} />
+      </span>
+      <b>Back to the road</b>
+      <em>
+        {away.toLocaleString()} {units === 'km' ? 'm' : 'ft'}
+      </em>
     </div>
   )
 }

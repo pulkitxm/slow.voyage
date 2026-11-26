@@ -71,7 +71,8 @@ wide curves and halves the walkers on the verge. Links to a spot carry the road
 mode.
 
 The minimap shows the next 1.6 km of road, the terrain, landmarks to find, and an
-arrow back to the road when off it. The Journey
+arrow back to the road when off it. Far from the road a pointer on screen shows
+the way back. The Journey
 tab copies a link that reopens the same road at the same spot.
 
 The Controls tab selects full autodrive, steering assistance, or speed assistance.

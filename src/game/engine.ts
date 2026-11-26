@@ -119,6 +119,7 @@ export interface DriveState extends Telemetry {
   controller: ControllerStatus
   mouseSteering: number
   roadDistance: number
+  roadBearing: number
   photo: boolean
   found: number
 }
@@ -605,6 +606,7 @@ export class RoadEngine {
     if (!this.rendered) return
     const found = this.minimap.found
     const { x, s } = this.physics
+    const guide = roadGuide(this.world, this.physics)
     if (this.started)
       for (const landmark of landmarksBetween(
         this.world,
@@ -618,7 +620,8 @@ export class RoadEngine {
       }
     this.onState?.({
       ...this.physics.telemetry(),
-      roadDistance: roadGuide(this.world, this.physics).distance,
+      roadDistance: guide.distance,
+      roadBearing: guide.angle,
       photo: this.photo,
       found: found.size,
       assistance: this.assistance,

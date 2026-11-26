@@ -57,7 +57,13 @@ likes. Three rules keep the country open:
   pavement without touching a barrier.
 
 The minimap looks 1.6 km ahead and shows the terrain, the road, landmarks, and
-an arrow with the distance back to the road whenever the car has left it.
+an arrow with the distance back to the road whenever the car has left it. Past
+120 m from the road a pointer at the top of the screen turns toward the road
+and counts the distance back.
+
+Grass and sand slow a car less than they used to until it nears the calm speed
+that rough ground allows, about 70 to 95 km/h on grass depending on the
+vehicle, and then resist steeply.
 
 ## Features
 
