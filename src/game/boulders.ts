@@ -16,6 +16,7 @@ import slabUrl from '../assets/models/rocks/rock-b.glb?url'
 import boulderUrl from '../assets/models/rocks/rock-c.glb?url'
 import { type Landscape, landscapeProfiles } from './landscapes'
 import { roadCoordinates, roadPoint } from './road'
+import { StaticGroup } from './static-group'
 import { type Season, shoreHeight, type World } from './world'
 
 export const boulderLayout = {
@@ -149,7 +150,20 @@ interface PlantModel {
   base: number
 }
 
+interface Pool {
+  model: PlantModel
+  shadowed: boolean
+  meshes: THREE.InstancedMesh[]
+  free: number[]
+  used: number
+  capacity: number
+}
+
+const hidden = new THREE.Matrix4().makeScale(0, 0, 0)
+
 export class Boulders {
+  group = new StaticGroup()
+  private pools = new Map<number, Pool>()
   private models: (PlantModel | null)[] = boulderLayout.kinds.map(() => null)
   private pose = new THREE.Object3D()
   private plain = new THREE.Color('#ffffff')
@@ -246,39 +260,77 @@ export class Boulders {
         if (part.material instanceof THREE.MeshStandardMaterial)
           part.material.color.set(rock).lerp(this.plain, 0.35).multiplyScalar(1.9)
   }
-  add(group: THREE.Group, list: Boulder[], ground: (x: number, s: number) => number) {
-    if (!this.loaded) return
-    for (const [index, model] of this.models.entries()) {
-      const mine = list.filter((boulder) => boulder.kind === index)
-      if (!model || !mine.length) continue
-      const meshes = model.parts.map(
-        (part) => new THREE.InstancedMesh(part.geometry, part.material, mine.length),
+  add(list: Boulder[], ground: (x: number, s: number) => number, shadowed: boolean) {
+    const held: [Pool, number][] = []
+    if (!this.loaded) return () => {}
+    for (const boulder of list) {
+      const model = this.models[boulder.kind]
+      if (!model) continue
+      const scale = boulder.size / model.span
+      this.pose.position.set(
+        boulder.x,
+        ground(boulder.x, boulder.s) -
+          model.base * scale -
+          (model.rock ? boulder.size * boulderLayout.sink : 0.04),
+        -boulder.s,
       )
-      for (const [slot, boulder] of mine.entries()) {
-        const scale = boulder.size / model.span
-        this.pose.position.set(
-          boulder.x,
-          ground(boulder.x, boulder.s) -
-            model.base * scale -
-            (model.rock ? boulder.size * boulderLayout.sink : 0.04),
-          -boulder.s,
-        )
-        this.pose.rotation.set(0, boulder.yaw, 0)
-        this.pose.scale.setScalar(scale)
-        this.pose.updateMatrix()
-        for (const mesh of meshes) mesh.setMatrixAt(slot, this.pose.matrix)
+      this.pose.rotation.set(0, boulder.yaw, 0)
+      this.pose.scale.setScalar(scale)
+      this.pose.updateMatrix()
+      const pool = this.pool(boulder.kind, model, shadowed)
+      const slot = pool.free.pop() ?? pool.used++
+      if (slot >= pool.capacity) this.grow(pool)
+      for (const mesh of pool.meshes) {
+        mesh.setMatrixAt(slot, this.pose.matrix)
+        mesh.count = pool.used
+        mesh.instanceMatrix.needsUpdate = true
       }
-      for (const mesh of meshes) {
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-        group.add(mesh)
+      held.push([pool, slot])
+    }
+    return () => {
+      for (const [pool, slot] of held.splice(0)) {
+        pool.free.push(slot)
+        for (const mesh of pool.meshes) {
+          mesh.setMatrixAt(slot, hidden)
+          mesh.instanceMatrix.needsUpdate = true
+        }
       }
     }
   }
-  owns(geometry: THREE.BufferGeometry) {
-    return this.models.some((model) => model?.parts.some((part) => part.geometry === geometry))
+  private pool(kind: number, model: PlantModel, shadowed: boolean) {
+    const key = shadowed ? kind : -1 - kind
+    let pool = this.pools.get(key)
+    if (!pool) {
+      pool = { model, shadowed, meshes: [], free: [], used: 0, capacity: 0 }
+      this.pools.set(key, pool)
+      this.grow(pool)
+    }
+    return pool
+  }
+  private grow(pool: Pool) {
+    const capacity = Math.max(32, pool.capacity * 2)
+    const meshes = pool.model.parts.map((part, index) => {
+      const mesh = new THREE.InstancedMesh(part.geometry, part.material, capacity)
+      const before = pool.meshes[index]
+      if (before) {
+        mesh.instanceMatrix.array.set(before.instanceMatrix.array)
+        this.group.remove(before)
+        before.dispose()
+      }
+      mesh.count = pool.used
+      mesh.castShadow = pool.shadowed
+      mesh.receiveShadow = true
+      mesh.frustumCulled = false
+      this.group.add(mesh)
+      return mesh
+    })
+    pool.meshes = meshes
+    pool.capacity = capacity
   }
   dispose() {
+    for (const pool of this.pools.values()) for (const mesh of pool.meshes) mesh.dispose()
+    this.pools.clear()
+    this.group.clear()
     for (const model of this.models)
       for (const part of model?.parts ?? []) {
         part.geometry.dispose()

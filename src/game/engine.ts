@@ -37,11 +37,10 @@ import {
   ultraReach,
 } from './graphics'
 import { beamHaze, Lamps } from './lamps'
-import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
+import { type LandmarkKind, landmarkLayout, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
-import { LapClock } from './laps'
 import { Life } from './life'
-import { lapState, Minimap, roadGuide } from './minimap'
+import { Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
   createVehicleModel,
@@ -73,7 +72,6 @@ import {
   type Settings,
   World,
 } from './world'
-import { WorldMap } from './world-map'
 
 const paintBudget = 11
 const paintDepth = 0.7
@@ -120,15 +118,10 @@ export interface DriveState extends Telemetry {
   fps: number
   controller: ControllerStatus
   mouseSteering: number
-  lap: number
-  lapDistance: number
   roadDistance: number
-  lapTime: number | null
-  lastLap: number | null
-  bestLap: number | null
+  roadBearing: number
   photo: boolean
   found: number
-  landmarks: number
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
@@ -163,16 +156,14 @@ export class RoadEngine {
   private lampFront = new THREE.Vector3()
   private lampBack = new THREE.Vector3()
   private lampSpread = 0
-  laps = new LapClock()
   photo = false
-  onLap?: (time: number, record: boolean) => void
   onProgress?: (fraction: number, stage: 'stone' | 'hills' | 'light') => void
   software = false
   renderScale = 0
   carriedScale = 0
   retired: UltraPipeline | null = null
   retiredFrames = 0
-  onDiscover?: (kind: LandmarkKind, found: number, total: number) => void
+  onDiscover?: (kind: LandmarkKind, found: number) => void
   onQuality?: (quality: Settings['quality']) => void
   lightingAt = 0
   reflectionAt = Number.NEGATIVE_INFINITY
@@ -194,7 +185,6 @@ export class RoadEngine {
   world: World
   physics: CarPhysics
   minimap: Minimap
-  atlas: WorldMap
   water: Water
   terrain: Terrain
   car: VehicleModel
@@ -259,8 +249,7 @@ export class RoadEngine {
       | 'journeyPrevious'
       | 'vehicleNext'
       | 'vehiclePrevious'
-      | 'photo'
-      | 'map',
+      | 'photo',
   ) => void
   resize = () => {
     this.redraw = true
@@ -309,7 +298,6 @@ export class RoadEngine {
     if (event.code === 'KeyH') this.onAction?.('help')
     if (event.code === 'KeyR') this.reset()
     if (event.code === 'KeyT' && this.started) this.onAction?.('photo')
-    if (event.code === 'KeyN' && this.started) this.onAction?.('map')
     if (event.code === 'KeyB') this.audio.hornHeld = this.started
     if (event.code === 'KeyX') this.view.rear = this.started
   }
@@ -439,8 +427,6 @@ export class RoadEngine {
     this.world = new World(this.settings)
     this.physics = new CarPhysics(this.world)
     this.minimap = new Minimap(this.world)
-    this.atlas = new WorldMap(this.world)
-    this.atlas.found = this.minimap.found
     this.crossfade = new SceneCrossfade(canvas)
     fitShadowsToSurfaces()
     this.renderer = createGraphicsRenderer(canvas)
@@ -475,8 +461,8 @@ export class RoadEngine {
     }
     const terrain = this.terrain
     const life = this.life
-    this.physics.trunks = function* (s) {
-      yield* terrain.trunksNear(s)
+    this.physics.trunks = function* (s, x) {
+      yield* terrain.trunksNear(s, x)
       if (life) yield* life.obstacles(s)
     }
     this.atmosphere = new Atmosphere(this.renderer, budget.software)
@@ -563,7 +549,9 @@ export class RoadEngine {
     return new Promise<void>((resolve) => {
       const stroke = () => {
         if (this.disposed) return resolve()
-        const painted = this.software ? 1 : this.terrain.prime(this.physics.s, paintBudget)
+        const painted = this.software
+          ? 1
+          : this.terrain.prime(this.physics.s, paintBudget, this.physics.x)
         this.onProgress?.(0.1 + painted * 0.78, 'hills')
         if (painted >= 1) resolve()
         else requestAnimationFrame(stroke)
@@ -575,7 +563,6 @@ export class RoadEngine {
     this.started = true
     this.assistance = assistance
     this.paused = false
-    this.laps.reset(this.physics.s)
     this.governor.hold()
     this.audio.start(this.settings.volume)
     this.physics.distance = 0
@@ -617,28 +604,26 @@ export class RoadEngine {
   }
   emitState() {
     if (!this.rendered) return
-    const lap = lapState(this.physics.s)
-    const landmarks = lapLandmarks(this.world)
     const found = this.minimap.found
+    const { x, s } = this.physics
+    const guide = roadGuide(this.world, this.physics)
     if (this.started)
-      for (const landmark of landmarks) {
+      for (const landmark of landmarksBetween(
+        this.world,
+        s - landmarkLayout.found,
+        s + landmarkLayout.found,
+      )) {
         if (found.has(landmark.id)) continue
-        const offset = landmarkOffset(landmark, this.physics.x, this.physics.s)
-        if (Math.hypot(offset.x, offset.s) > landmarkLayout.found) continue
+        if (Math.hypot(landmark.x - x, landmark.s - s) > landmarkLayout.found) continue
         found.add(landmark.id)
-        this.onDiscover?.(landmark.kind, found.size, landmarks.length)
+        this.onDiscover?.(landmark.kind, found.size)
       }
     this.onState?.({
       ...this.physics.telemetry(),
-      lap: lap.lap,
-      lapDistance: lap.distance,
-      roadDistance: roadGuide(this.world, this.physics).distance,
-      lapTime: this.laps.timed ? this.laps.time : null,
-      lastLap: this.laps.last,
-      bestLap: this.laps.best,
+      roadDistance: guide.distance,
+      roadBearing: guide.angle,
       photo: this.photo,
       found: found.size,
-      landmarks: landmarks.length,
       assistance: this.assistance,
       paused: this.paused,
       fps: this.frameRate,
@@ -654,7 +639,6 @@ export class RoadEngine {
   }
   travelTo(s: number) {
     this.physics.reset(s)
-    this.laps.reset(s)
     this.view.center()
     this.view.snap()
   }
@@ -698,7 +682,6 @@ export class RoadEngine {
     if (environmentChange) this.minimap.invalidate()
     this.settings = { ...settings }
     this.world.settings = this.settings
-    if (roadChange || vehicleChange) this.laps.reset(this.physics.s)
     if (roadChange) this.minimap.found.clear()
     if (roadChange) this.skids.clear()
     if (roadChange) {
@@ -916,7 +899,6 @@ export class RoadEngine {
     this.beamHaze = beamHaze(profile.fog, profile.wet || profile.snow, night)
     this.terrain.setNight(night)
     this.minimap.dim = clamp(0.3 + (profile.ambient / 2.6) * 0.7, 0.5, 1)
-    this.atlas.dim = this.minimap.dim
     this.lightning.base = profile.ambient * 0.3
     this.sky.setAppearance(profile)
     if (this.scene.fog instanceof THREE.FogExp2) {
@@ -1193,8 +1175,6 @@ export class RoadEngine {
           this.shiftQueue -= Math.sign(this.shiftQueue)
         } else this.shiftQueue = 0
         this.physics.update(step, input, this.settings)
-        const lap = this.started ? this.laps.step(this.physics.s, step) : null
-        if (lap) this.onLap?.(lap.time, lap.record)
       })
     }
     if (this.started && !this.paused && !this.photo && !document.hidden) this.advanceSky(dt)
@@ -1329,7 +1309,6 @@ export class RoadEngine {
       this.dayClock,
     )
     if (this.started) this.minimap.update(p)
-    if (this.started) this.atlas.update(p)
     this.drawScene()
     this.crossfade.rendered()
     if (!this.rendered) this.canvas.style.visibility = ''

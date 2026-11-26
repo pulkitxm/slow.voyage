@@ -201,6 +201,10 @@ function drawPhoto(
 const atlasColumns = 2
 const atlasRows = 3
 export const atlasTile = { full: 768, coarse: 256 }
+
+export function atlasShift(variant: number) {
+  return [(variant % atlasColumns) / atlasColumns, Math.floor(variant / atlasColumns) / atlasRows]
+}
 const paintSize = 512
 function drawConifer(context: CanvasRenderingContext2D, season: Season) {
   const rng = random(5489)
@@ -406,6 +410,7 @@ export class Foliage {
   shadowMaterial: THREE.MeshDepthMaterial
   leafNormals = { value: 1 }
   treeGeometries: THREE.BufferGeometry[] = []
+  distantTreeGeometries: THREE.BufferGeometry[] = []
   winterShrubGeometries: THREE.BufferGeometry[] = []
   photos: (HTMLImageElement | null)[] = treePhotos.map(() => null)
   bare: (HTMLImageElement | null)[] = bareTreePhotos.map(() => null)
@@ -450,7 +455,11 @@ export class Foliage {
       shader.uniforms.leafNormals = this.leafNormals
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nattribute vec2 cluster;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
+        '#include <common>\nattribute vec2 cluster;\nattribute vec2 atlasShift;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
+      )
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <uv_vertex>',
+        '#include <uv_vertex>\nvMapUv += atlasShift;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <defaultnormal_vertex>',
@@ -517,7 +526,7 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
       )
     }
     this.treeMaterial.customProgramCacheKey = () =>
-      'seasonal-foliage-volume-whole-bark-layered-facing'
+      'seasonal-foliage-volume-whole-bark-layered-facing-shifted'
     this.shadowMaterial = new THREE.MeshDepthMaterial({
       depthPacking: THREE.RGBADepthPacking,
       map: this.texture,
@@ -588,7 +597,15 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
       const merged = mergeGeometries(planes)
       if (!merged) throw new Error('Tree geometry could not be assembled')
       if (variant >= 6) this.winterShrubGeometries.push(merged)
-      else this.treeGeometries.push(merged)
+      else {
+        this.treeGeometries.push(merged)
+        const distant = new THREE.BufferGeometry()
+        for (const [name, attribute] of Object.entries(merged.attributes))
+          distant.setAttribute(name, attribute)
+        distant.setIndex(merged.index)
+        distant.setDrawRange(0, count * 6)
+        this.distantTreeGeometries.push(distant)
+      }
       for (const plane of planes) plane.dispose()
     }
     this.update(season)

@@ -12,6 +12,7 @@ export class GroundSampler {
     geometry: THREE.BufferGeometry,
     private start: number,
     private rows: number,
+    private open?: (x: number, s: number) => { height: number; slopeX: number; slopeS: number },
   ) {
     this.positions = geometry.getAttribute('position')
     this.normals = geometry.getAttribute('normal')
@@ -29,6 +30,14 @@ export class GroundSampler {
     const projectedX = x - rowOffset * v
     let lower = 0
     let upper = this.columns - 1
+    if (
+      this.open &&
+      (projectedX < position.getX(base + lower) || projectedX > position.getX(base + upper))
+    ) {
+      const surface = this.open(x, s)
+      this.normal.set(-surface.slopeX, 1, surface.slopeS).normalize()
+      return surface.height
+    }
     while (upper - lower > 1) {
       const middle = Math.floor((lower + upper) / 2)
       if (position.getX(base + middle) > projectedX) upper = middle

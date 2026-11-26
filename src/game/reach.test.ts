@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { railAt } from './collision'
 import { neutralInput } from './controls'
-import { smoothStep, worldLoop } from './field'
+import { smoothStep } from './field'
 import { landscapeIds, landscapeProfiles, passEasing, passLayout } from './landscapes'
 import { CarPhysics } from './physics'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
@@ -10,17 +10,21 @@ import { angleDifference, clamp, defaults, fordDepth, World } from './world'
 const cell = 12
 const band = 3
 const gentle = 0.35
+const easy = 0.2
+const stretch = 12000
+const breadth = 3000
+const outing = 600
 
-function drivableLoop(world: World) {
-  const rows = worldLoop.length / cell
-  const columns = worldLoop.width / cell
+function openCountry(world: World) {
+  const rows = stretch / cell
+  const columns = breadth / cell
   const heights = new Float32Array(rows * columns)
   for (let row = 0; row < rows; row++) {
     const s = (row + 0.5) * cell
     const center = world.road(s).x
     for (let column = 0; column < columns; column++)
       heights[row * columns + column] = world.height(
-        center + (column + 0.5) * cell - worldLoop.width / 2,
+        center + (column + 0.5) * cell - breadth / 2,
         s,
       )
   }
@@ -46,26 +50,26 @@ function drivableLoop(world: World) {
       [0, -1],
     ] as const) {
       const beside = column + columnStep
-      if (beside < 0 || beside >= columns) continue
-      const next = ((row + rowStep + rows) % rows) * columns + beside
+      const along = row + rowStep
+      if (beside < 0 || beside >= columns || along < 0 || along >= rows) continue
+      const next = along * columns + beside
       if (seen[next] || !passable(index, next)) continue
       seen[next] = 1
       queue[tail++] = next
     }
   }
-  let crossings = 0
+  let edges = 0
   let lowest = Number.POSITIVE_INFINITY
   for (const height of heights) lowest = Math.min(lowest, height)
   for (let row = 0; row < rows; row++) {
-    const left = row * columns
-    const right = left + columns - 1
-    if (seen[left] && seen[right] && passable(left, right)) crossings++
+    if (seen[row * columns]) edges++
+    if (seen[row * columns + columns - 1]) edges++
   }
-  return { reach: tail / (rows * columns), crossings, lowest }
+  return { reach: tail / (rows * columns), edges, lowest }
 }
 
 test.each(landscapeIds)(
-  '%s always has a gentle route from the road, around the world and back',
+  '%s always has gentle ground leading from the road out into open country',
   (landscape) => {
     for (const [seed, roadMode] of [
       [42, 'winding'],
@@ -74,85 +78,80 @@ test.each(landscapeIds)(
       [42, 'straight'],
       [42, 'calm'],
     ] as const) {
-      const loop = drivableLoop(new World({ ...defaults, landscape, seed, roadMode }))
-      expect(loop.crossings).toBeGreaterThan(40)
-      expect(loop.reach).toBeGreaterThan(0.12)
-      expect(loop.lowest).toBeGreaterThanOrEqual(fordDepth - 1e-4)
+      const country = openCountry(new World({ ...defaults, landscape, seed, roadMode }))
+      expect(country.edges).toBeGreaterThan(40)
+      expect(country.reach).toBeGreaterThan(0.12)
+      expect(country.lowest).toBeGreaterThanOrEqual(fordDepth - 1e-4)
     }
   },
 )
 
 test('open landscapes can be crossed almost anywhere', () => {
   for (const landscape of ['highlands', 'desert', 'forest', 'fjord'] as const) {
-    const loop = drivableLoop(new World({ ...defaults, landscape }))
-    expect(loop.reach).toBeGreaterThan(0.75)
-    expect(loop.crossings).toBeGreaterThan(300)
+    const country = openCountry(new World({ ...defaults, landscape }))
+    expect(country.reach).toBeGreaterThan(0.75)
+    expect(country.edges).toBeGreaterThan(300)
   }
 })
 
-test('passes ease the relief smoothly and repeat every lap', () => {
-  expect(passEasing(1234, worldLoop.length, 0, 42, smoothStep)).toBe(1)
+test('passes ease the relief smoothly and never repeat', () => {
+  expect(passEasing(1234, 0, 42, smoothStep)).toBe(1)
+  const spacing = 4000
   let lowest = 1
-  let previous = passEasing(0, worldLoop.length, 3, 42, smoothStep)
-  for (let s = 0; s <= worldLoop.length; s += 2) {
-    const easing = passEasing(s, worldLoop.length, 3, 42, smoothStep)
+  let previous = passEasing(0, spacing, 42, smoothStep)
+  const centers: number[] = []
+  for (let s = 0; s <= spacing * 12; s += 2) {
+    const easing = passEasing(s, spacing, 42, smoothStep)
     expect(easing).toBeGreaterThanOrEqual(passLayout.floor - 1e-9)
     expect(easing).toBeLessThanOrEqual(1)
     expect(Math.abs(easing - previous)).toBeLessThan(0.01)
-    expect(passEasing(s + worldLoop.length * 2, worldLoop.length, 3, 42, smoothStep)).toBeCloseTo(
-      easing,
-      9,
-    )
+    if (easing < passLayout.floor + 1e-6 && previous >= passLayout.floor + 1e-6) centers.push(s)
     lowest = Math.min(lowest, easing)
     previous = easing
   }
   expect(lowest).toBeCloseTo(passLayout.floor, 6)
-  expect(landscapeProfiles.alpine.passes).toBeGreaterThan(0)
-  expect(landscapeProfiles.canyon.passes).toBeGreaterThan(0)
+  expect(centers.length).toBeGreaterThanOrEqual(11)
+  const gaps = centers.slice(1).map((s, index) => s - (centers[index] ?? 0))
+  expect(new Set(gaps.map((gap) => Math.round(gap / 20))).size).toBeGreaterThan(3)
+  expect(landscapeProfiles.alpine.passSpacing).toBeGreaterThan(0)
+  expect(landscapeProfiles.canyon.passSpacing).toBeGreaterThan(0)
 })
 
-function plan(world: World) {
-  const rows = worldLoop.length / cell
-  const columns = worldLoop.width / cell
+function plan(world: World, side: number) {
+  const rows = stretch / cell
+  const columns = breadth / cell
   const middle = columns / 2
   const heights = new Float32Array(rows * columns)
-  const gate = [new Uint8Array(rows), new Uint8Array(rows)]
+  const gate = new Uint8Array(rows)
   for (let row = 0; row < rows; row++) {
     const s = (row + 0.5) * cell
     const road = world.road(s)
     for (let column = 0; column < columns; column++)
       heights[row * columns + column] = world.height(
-        road.x + (column + 0.5) * cell - worldLoop.width / 2,
+        road.x + (column + 0.5) * cell - breadth / 2,
         s,
       )
-    for (const [index, side] of [-1, 1].entries()) {
-      let open = !railAt(world, s, side)
-      let previous = road.y
-      for (
-        let distance = roadLayout.halfWidth + 1;
-        open && distance <= band * cell;
-        distance += 2
-      ) {
-        const point = roadPoint(road, s, side * distance)
-        const height = world.height(point.x, point.s)
-        if (Math.abs(height - previous) / 2 > 0.4) open = false
-        previous = height
-      }
-      const gateRow = gate[index]
-      if (gateRow) gateRow[row] = open ? 1 : 0
+    let open = !railAt(world, s, side)
+    let previous = road.y
+    for (let distance = roadLayout.halfWidth + 1; open && distance <= band * cell; distance += 2) {
+      const point = roadPoint(road, s, side * distance)
+      const height = world.height(point.x, point.s)
+      if (Math.abs(height - previous) / 2 > 0.4) open = false
+      previous = height
     }
+    gate[row] = open ? 1 : 0
   }
   const passable = (from: number, to: number) =>
-    Math.abs((heights[to] ?? 0) - (heights[from] ?? 0)) / cell <= gentle
+    Math.abs((heights[to] ?? 0) - (heights[from] ?? 0)) / cell <= easy
   const parent = new Int32Array(rows * columns).fill(-2)
   const queue = new Int32Array(rows * columns)
   let head = 0
   let tail = 0
-  const leftColumn = middle - band - 1
-  const rightColumn = middle + band
+  const gateColumn = side < 0 ? middle - band - 1 : middle + band
+  const goalColumn = middle + side * Math.round(outing / cell)
   for (let row = 0; row < rows; row++)
-    if (gate[0]?.[row]) {
-      const index = row * columns + leftColumn
+    if (gate[row]) {
+      const index = row * columns + gateColumn
       parent[index] = -1
       queue[tail++] = index
     }
@@ -161,7 +160,7 @@ function plan(world: World) {
     const index = queue[head++] ?? 0
     const row = Math.floor(index / columns)
     const column = index - row * columns
-    if (column === rightColumn && gate[1]?.[row]) {
+    if (column === goalColumn) {
       arrival = index
       break
     }
@@ -171,9 +170,11 @@ function plan(world: World) {
       [0, 1],
       [0, -1],
     ] as const) {
-      const beside = (column + columnStep + columns) % columns
+      const beside = column + columnStep
+      const along = row + rowStep
+      if (beside < 0 || beside >= columns || along < 0 || along >= rows) continue
       if (beside >= middle - band && beside < middle + band) continue
-      const next = ((row + rowStep + rows) % rows) * columns + beside
+      const next = along * columns + beside
       if (parent[next] !== -2 || !passable(index, next)) continue
       parent[next] = index
       queue[tail++] = next
@@ -182,7 +183,7 @@ function plan(world: World) {
   const route: { row: number; column: number }[] = []
   for (let index = arrival; index >= 0; index = parent[index] ?? -1)
     route.unshift({ row: Math.floor(index / columns), column: index % columns })
-  return { route, rows, columns, gates: gate.map((g) => g.reduce((a, b) => a + b, 0)) }
+  return { route, gates: gate.reduce((a, b) => a + b, 0) }
 }
 
 test.each([
@@ -192,58 +193,39 @@ test.each([
   ['fjord', 'calm'] as const,
   ['alpine', 'calm'] as const,
 ])(
-  '%s on %s roads lets a pickup leave one side of the road, cross the seam and drive back onto it',
+  '%s on %s roads lets a pickup leave the road, drive far out into the country and come back',
   (landscape, roadMode) => {
     const settings = { ...defaults, landscape, roadMode, vehicle: 'pickup' as const }
     const world = new World(settings)
-    const found = plan(world)
-    expect(found.route.length).toBeGreaterThan(200)
-    const points: { x: number; s: number }[] = []
-    let lap = 0
-    let turn = 0
-    let last = found.route[0]
-    for (const step of found.route) {
-      if (last && step.row - last.row > found.rows / 2) lap--
-      if (last && last.row - step.row > found.rows / 2) lap++
-      if (last && step.column - last.column > found.columns / 2) turn--
-      if (last && last.column - step.column > found.columns / 2) turn++
-      last = step
-      const s = (step.row + 0.5) * cell + lap * worldLoop.length
-      points.push({
-        x:
-          world.road(s).x +
-          (step.column + 0.5) * cell -
-          worldLoop.width / 2 +
-          turn * worldLoop.width,
-        s,
-      })
-    }
-    const first = points[0]
-    const final = points[points.length - 1]
-    if (!first || !final) throw new Error('Route is empty')
-    points.push({ x: world.road(final.s).x + turn * worldLoop.width, s: final.s })
+    const found = [-1, 1]
+      .map((side) => plan(world, side))
+      .sort((a, b) => (a.route.length || 1e9) - (b.route.length || 1e9))[0]
+    if (!found) throw new Error('No side was planned')
+    expect(found.route.length).toBeGreaterThan(40)
+    const out = found.route.map((step) => {
+      const s = (step.row + 0.5) * cell
+      return { x: world.road(s).x + (step.column + 0.5) * cell - breadth / 2, s }
+    })
+    const first = out[0]
+    if (!first) throw new Error('Route is empty')
+    const points = [...out, ...out.slice(0, -1).reverse(), { x: world.road(first.s).x, s: first.s }]
     const car = new CarPhysics(world)
     car.reset(first.s)
-    car.x = world.canonical(first.x, first.s)
+    car.x = first.x
     const heading = points[4] ?? first
     car.yaw = Math.atan2(-(heading.x - first.x), heading.s - first.s)
     car.suspension.reset(car)
     let target = 0
-    let shift = 0
-    let previous = car.x
+    let farthest = 0
     let arrived = false
     for (let step = 0; step < 900 * 120 && !arrived; step++) {
-      if (Math.abs(car.x - previous) > worldLoop.width / 2)
-        shift += Math.sign(previous - car.x) * worldLoop.width
-      previous = car.x
-      const x = car.x + shift
       while (
         target < points.length - 1 &&
-        Math.hypot((points[target]?.x ?? 0) - x, (points[target]?.s ?? 0) - car.s) < 22
+        Math.hypot((points[target]?.x ?? 0) - car.x, (points[target]?.s ?? 0) - car.s) < 22
       )
         target++
       const goal = points[target] ?? first
-      const error = angleDifference(Math.atan2(-(goal.x - x), goal.s - car.s), car.yaw)
+      const error = angleDifference(Math.atan2(-(goal.x - car.x), goal.s - car.s), car.yaw)
       const pace = Math.abs(error) > 0.5 ? 6 : 13
       car.update(
         1 / 120,
@@ -256,9 +238,9 @@ test.each([
         },
         settings,
       )
-      arrived =
-        shift !== 0 &&
-        Math.abs(roadCoordinates(world, car.x, car.s).distance) < roadLayout.halfWidth
+      const distance = Math.abs(roadCoordinates(world, car.x, car.s).distance)
+      farthest = Math.max(farthest, distance)
+      arrived = farthest > outing - 60 && distance < roadLayout.halfWidth
     }
     expect(arrived).toBe(true)
     expect(car.hits).toBe(0)

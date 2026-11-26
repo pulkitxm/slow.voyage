@@ -1,5 +1,4 @@
 import * as THREE from 'three'
-import { worldLoop } from './field'
 import { landscapeIds, landscapeProfiles } from './landscapes'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { random, shoreHeight, type World } from './world'
@@ -30,7 +29,9 @@ export interface Waterfall {
   path: { x: number; y: number; s: number; steep: number }[]
 }
 
-let cached: { key: string; list: Waterfall[] } | null = null
+export const waterfallStretch = 12000
+
+let cached: { key: string; stretches: Map<number, Waterfall[]> } | null = null
 
 function slopeAt(world: World, x: number, s: number) {
   const reach = 1.5
@@ -69,28 +70,34 @@ function trace(world: World, x: number, s: number) {
   return path
 }
 
-export function lapWaterfalls(world: World): Waterfall[] {
+export function waterfallsNear(world: World, s: number, reach = 400): Waterfall[] {
+  const first = Math.floor((s - reach) / waterfallStretch)
+  const last = Math.floor((s + reach) / waterfallStretch)
+  if (first === last) return stretchWaterfalls(world, first)
+  return [...stretchWaterfalls(world, first), ...stretchWaterfalls(world, last)]
+}
+
+export function stretchWaterfalls(world: World, stretch: number): Waterfall[] {
   const { landscape, seed, roadMode } = world.settings
   const key = `${landscape}/${roadMode}/${seed}`
-  if (cached?.key === key) return cached.list
+  if (cached?.key !== key) cached = { key, stretches: new Map() }
+  const known = cached.stretches.get(stretch)
+  if (known) return known
   const list: Waterfall[] = []
+  cached.stretches.set(stretch, list)
   const wanted = landscapeProfiles[landscape].falls
-  const rng = random(seed * 4253 + landscapeIds.indexOf(landscape) * 977 + 29)
+  const rng = random(
+    seed * 4253 + landscapeIds.indexOf(landscape) * 977 + 29 + Math.imul(stretch, 7919),
+  )
   const { nearest, farthest, drop, steepness, apart, width, shelf, tallest, lowest } =
     waterfallLayout
   for (let attempt = 0; attempt < wanted * 60 && list.length < wanted; attempt++) {
-    const s = rng() * worldLoop.length
+    const s = stretch * waterfallStretch + apart / 2 + rng() * (waterfallStretch - apart)
     const side = rng() > 0.5 ? 1 : -1
     const reach = nearest + rng() * (farthest - nearest)
     const size = width * (0.8 + rng() * 0.7)
     const span = 19 + rng() * 10
-    if (
-      list.some((fall) => {
-        const gap = Math.abs(fall.s - s)
-        return Math.min(gap, worldLoop.length - gap) < apart
-      })
-    )
-      continue
+    if (list.some((fall) => Math.abs(fall.s - s) < apart)) continue
     const start = roadPoint(world.road(s), s, side * reach)
     const path = trace(world, start.x, start.s)
     const first = path[0]
@@ -122,7 +129,7 @@ export function lapWaterfalls(world: World): Waterfall[] {
     if (seen.road.y > foot.y + 9) continue
     if (Math.abs(seen.distance) < 24) continue
     list.push({
-      id: list.length,
+      id: stretch * 64 + list.length,
       s: foot.s,
       width: size,
       height: Math.min(tallest, height),
@@ -132,7 +139,6 @@ export function lapWaterfalls(world: World): Waterfall[] {
       path: path.slice(Math.min(path.length - 2, lip + 3)),
     })
   }
-  cached = { key, list }
   return list
 }
 
@@ -141,7 +147,7 @@ function wobble(a: number, b: number, salt: number) {
   return value - Math.floor(value)
 }
 
-export function cragGeometry(world: World, fall: Waterfall, lap: number, tone: string) {
+export function cragGeometry(world: World, fall: Waterfall, tone: string) {
   const { foot, facing, height, span } = fall
   const sideX = -facing.s
   const sideS = facing.x
@@ -158,7 +164,7 @@ export function cragGeometry(world: World, fall: Waterfall, lap: number, tone: s
     positions.push(
       foot.x + sideX * across - facing.x * depth,
       y,
-      -(foot.s + lap + sideS * across - facing.s * depth),
+      -(foot.s + sideS * across - facing.s * depth),
     )
     colors.push(tint.r, tint.g, tint.b)
     return positions.length / 3 - 1
@@ -210,10 +216,10 @@ export function cragGeometry(world: World, fall: Waterfall, lap: number, tone: s
   return flat
 }
 
-export function waterfallClearing(falls: Waterfall[], lap: number, x: number, s: number) {
+export function waterfallClearing(falls: Waterfall[], x: number, s: number) {
   for (const fall of falls) {
     const dx = x - fall.foot.x
-    const ds = s - fall.foot.s - lap
+    const ds = s - fall.foot.s
     if (Math.abs(dx) > 130 || Math.abs(ds) > 130) continue
     const ahead = dx * fall.facing.x + ds * fall.facing.s
     const aside = Math.abs(-dx * fall.facing.s + ds * fall.facing.x)
@@ -227,16 +233,16 @@ export function waterfallClearing(falls: Waterfall[], lap: number, x: number, s:
   return false
 }
 
-export function cragFootprint(fall: Waterfall, lap: number) {
+export function cragFootprint(fall: Waterfall) {
   const { foot, facing, span } = fall
   return [-0.36, -0.12, 0.12, 0.36].map((share) => ({
     x: foot.x - facing.s * span * share - facing.x * 3.4,
-    s: foot.s + lap + facing.x * span * share - facing.s * 3.4,
+    s: foot.s + facing.x * span * share - facing.s * 3.4,
     radius: span * 0.16,
   }))
 }
 
-export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
+export function waterfallGeometry(world: World, fall: Waterfall) {
   const positions: number[] = []
   const uvs: number[] = []
   const flow: number[] = []
@@ -259,7 +265,7 @@ export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
         positions.push(
           foot.x + sideX * ((u - 0.5) * spread + drift) + facing.x * forward,
           y,
-          -(foot.s + lap + sideS * ((u - 0.5) * spread + drift) + facing.s * forward),
+          -(foot.s + sideS * ((u - 0.5) * spread + drift) + facing.s * forward),
         )
         uvs.push(u, fallen * height * (0.9 + layer * 0.35) + layer * 17)
         flow.push(1, Math.min(1, row / 1.2), 0)
@@ -275,7 +281,7 @@ export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
   const ring = 14
   const centreX = foot.x + facing.x * 3.4
   const centreS = foot.s + facing.s * 3.4
-  positions.push(centreX, world.height(centreX, centreS) + waterfallLayout.lift, -(centreS + lap))
+  positions.push(centreX, world.height(centreX, centreS) + waterfallLayout.lift, -centreS)
   uvs.push(0.5, 0.5)
   flow.push(1, 1, 2)
   for (let index = 0; index < ring; index++) {
@@ -283,7 +289,7 @@ export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
     const reach = fall.width * 1.9
     const x = centreX + Math.cos(angle) * reach
     const s = centreS + Math.sin(angle) * reach
-    positions.push(x, world.height(x, s) + waterfallLayout.lift, -(s + lap))
+    positions.push(x, world.height(x, s) + waterfallLayout.lift, -s)
     uvs.push(0.5 + Math.cos(angle) * 0.5, 0.5 + Math.sin(angle) * 0.5)
     flow.push(0, 1, 2)
     indices.push(pool, pool + 1 + index, pool + 1 + ((index + 1) % ring))
@@ -303,7 +309,7 @@ export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
       const u = column / (across - 1)
       const x = point.x - (alongS / length) * (u - 0.5) * spread
       const s = point.s + (alongX / length) * (u - 0.5) * spread
-      positions.push(x, world.height(x, s) + waterfallLayout.lift, -(s + lap))
+      positions.push(x, world.height(x, s) + waterfallLayout.lift, -s)
       uvs.push(u, travelled)
       flow.push(Math.min(1, point.steep * 0.8), ends, 0)
     }
@@ -329,7 +335,7 @@ export function waterfallGeometry(world: World, fall: Waterfall, lap: number) {
       positions.push(
         centreX + (u - 0.5) * dx,
         foot.y - 0.6 + v * size * 0.9,
-        -(centreS + lap + (u - 0.5) * ds),
+        -(centreS + (u - 0.5) * ds),
       )
       uvs.push(u, v)
       flow.push(0, 1, 1)

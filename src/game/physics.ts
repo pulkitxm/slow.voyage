@@ -99,7 +99,7 @@ export class CarPhysics {
   stability = 0
   deflection = 0
   tireSteeringLimit = Number.POSITIVE_INFINITY
-  trunks: (s: number) => Iterable<Trunk> = () => []
+  trunks: (s: number, x: number) => Iterable<Trunk> = () => []
   suspension: Suspension
   constructor(public world: World) {
     this.suspension = new Suspension(world)
@@ -206,7 +206,6 @@ export class CarPhysics {
   }
   update(dt: number, input: Input, settings: Settings) {
     const vehicle = vehicleMetrics[settings.vehicle]
-    this.x = this.world.canonical(this.x, this.s)
     if (this.suspension.vehicle !== settings.vehicle) {
       this.suspension.configure(settings.vehicle)
       this.suspension.reset(this)
@@ -308,7 +307,7 @@ export class CarPhysics {
       this.impact = Math.max(this.impact, stick.lug * shudder)
     const footprint = footprints[settings.vehicle]
     const obstacles = railObstacles(this.world, this, footprint)
-    for (const trunk of this.trunks(this.s)) {
+    for (const trunk of this.trunks(this.s, this.x)) {
       const obstacle = trunkObstacle(this, footprint, trunk)
       if (obstacle) obstacles.push(obstacle)
     }

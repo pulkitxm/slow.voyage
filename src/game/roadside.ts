@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { sharpness } from './graphics'
-import { guardrailAt, roadLayout, roadPoint } from './road'
+import { guardrailAt, roadPoint } from './road'
 import { angleDifference, type World } from './world'
 
 export const roadsideLayout = {
@@ -10,8 +10,6 @@ export const roadsideLayout = {
   chevronSpacing: 20,
   chevronCurve: 1 / 240,
   chevronOffset: 4.7,
-  gantryOffset: 4.9,
-  gantryHeight: 5.4,
 } as const
 
 function placed(geometry: THREE.BufferGeometry, yaw: number, x: number, y: number, s: number) {
@@ -90,42 +88,6 @@ export function chevrons(world: World, start: number, length: number) {
   return { posts, panels, feet }
 }
 
-export function startGantry(world: World, s: number) {
-  const { gantryOffset, gantryHeight } = roadsideLayout
-  const road = world.road(s)
-  const frame: THREE.BufferGeometry[] = []
-  const feet: { x: number; s: number }[] = []
-  for (const side of [-1, 1]) {
-    const point = roadPoint(road, s, side * gantryOffset)
-    const ground = Math.min(road.y, world.height(point.x, point.s))
-    const height = road.y + gantryHeight - ground
-    frame.push(
-      placed(
-        new THREE.BoxGeometry(0.22, height, 0.22),
-        road.yaw,
-        point.x,
-        ground + height / 2,
-        point.s,
-      ),
-    )
-    feet.push({ x: point.x, s: point.s })
-  }
-  for (const lift of [0, -0.95])
-    frame.push(
-      placed(
-        new THREE.BoxGeometry(gantryOffset * 2 + 0.22, 0.14, 0.14),
-        road.yaw,
-        road.x,
-        road.y + gantryHeight + lift,
-        s,
-      ),
-    )
-  const banner = new THREE.PlaneGeometry(gantryOffset * 2 - 0.3, 0.8)
-  banner.rotateY(road.yaw)
-  banner.translate(road.x, road.y + gantryHeight - 0.475, -s)
-  return { frame, banner, feet, clearance: gantryHeight - 1.05 - roadLayout.surfaceRecess }
-}
-
 function canvasTexture(
   width: number,
   height: number,
@@ -162,15 +124,5 @@ export function chevronTexture() {
     context.strokeStyle = '#16181a'
     context.lineWidth = 6
     context.strokeRect(3, 3, 122, 90)
-  })
-}
-
-export function bannerTexture() {
-  return canvasTexture(384, 32, (context) => {
-    for (let column = 0; column < 24; column++)
-      for (let row = 0; row < 2; row++) {
-        context.fillStyle = (column + row) % 2 ? '#f4f2e8' : '#17191b'
-        context.fillRect(column * 16, row * 16, 16, 16)
-      }
   })
 }

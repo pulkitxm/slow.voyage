@@ -1,7 +1,6 @@
-import { worldLoop } from './field'
 import { type RoadSample, roadLayout } from './road'
 
-export const groundLayout = { tileLength: 120, fullRows: 96, distantRows: 12 } as const
+export const groundLayout = { tileLength: 120, fullRows: 96, distantRows: 12, reach: 26 } as const
 
 const sideOffsets = [
   roadLayout.halfWidth,
@@ -10,11 +9,7 @@ const sideOffsets = [
   4.5,
   5,
   ...Array.from({ length: 38 }, (_, index) => 5.5 + index * 0.5),
-  ...Array.from({ length: 37 }, (_, index) => 26 + index * 2),
-  ...Array.from({ length: 39 }, (_, index) => 106 + index * 8),
-  ...Array.from({ length: 16 }, (_, index) => 426 + index * 16),
-  ...Array.from({ length: 26 }, (_, index) => 682 + index * 32),
-  worldLoop.width / 2,
+  groundLayout.reach,
 ]
 export const groundOffsets = Object.freeze([
   ...sideOffsets.map((offset) => -offset).reverse(),
