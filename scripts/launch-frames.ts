@@ -218,8 +218,8 @@ const frames: Frame[] = [
 ]
 
 const panels = Math.min(10, Math.max(2, Number(option('panels') ?? 10)))
-const rendered = panels % 2 === 0 ? panels + 1 : panels
-const panelAspect = rendered / 2
+const panelHeight = Math.max(512, Number(option('panel-height') ?? 1536))
+const panelAspect = panels / 2
 const carouselView = option('carousel-view')?.split(',').map(Number) as View | undefined
 const carousel: Frame = {
   name: '08-jungle-golden-hour-supercar-yellow-full',
@@ -261,7 +261,12 @@ async function shoot(
         await narrow(page, fov)
         await advance(page, 1)
       }
+      const canvas = await page.evaluate(() => {
+        const element = document.querySelector('canvas')
+        return `${element?.width}x${element?.height}`
+      })
       await page.screenshot({ path: `${directory}/${frame.name}.png` })
+      console.log(`canvas ${canvas}`)
       console.log(`frame ${frame.name}`)
     }
   } finally {
@@ -275,7 +280,7 @@ const chosen = frames.filter(
 if (!process.argv.includes('--carousel-only')) await shoot(chosen, `${out}/frames`, 1920, 1080, 2)
 if (!only) {
   const directory = `${out}/carousel`
-  await shoot([carousel], directory, rendered * 256, 512, 4, carouselFov)
+  await shoot([carousel], directory, (panels * panelHeight) / 2, panelHeight, 2, carouselFov)
   for (let panel = 0; panel < panels; panel++)
     await run([
       'ffmpeg',
@@ -285,7 +290,7 @@ if (!only) {
       '-i',
       `${directory}/${carousel.name}.png`,
       '-vf',
-      `crop=1024:2048:${(panel + rendered - panels) * 1024}:0`,
+      `crop=${panelHeight}:${panelHeight * 2}:${panel * panelHeight}:0`,
       `${directory}/08-carousel-${String(panel + 1).padStart(2, '0')}-of-${panels}.png`,
     ])
 }
