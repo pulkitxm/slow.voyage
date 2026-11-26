@@ -259,7 +259,7 @@ describe('manual gearbox', () => {
     expect(rolling.telemetry().gear).toBe('R')
     run(rolling, 3, stick(0, 1))
     expect(rolling.speed).toBeLessThan(-1)
-    run(rolling, 1, stick(1))
+    run(rolling, 2, stick(1))
     expect(rolling.speed).toBeGreaterThan(-0.3)
   })
 

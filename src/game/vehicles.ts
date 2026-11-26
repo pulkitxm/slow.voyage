@@ -3,6 +3,7 @@ import type { Vehicle } from './world'
 export interface VehicleMetrics {
   acceleration: number
   reverse: number
+  reverseSpeed: number
   jerk: number
   brake: number
   drag: number
@@ -29,7 +30,8 @@ export function yawInertia(metrics: VehicleMetrics) {
 export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   touring: {
     acceleration: 9,
-    reverse: 5,
+    reverse: 12,
+    reverseSpeed: 12,
     jerk: 48,
     brake: 8,
     drag: 0.001,
@@ -51,7 +53,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   },
   roadster: {
     acceleration: 11,
-    reverse: 5,
+    reverse: 15,
+    reverseSpeed: 14,
     jerk: 48,
     brake: 8,
     drag: 0.001,
@@ -74,6 +77,7 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   motorcycle: {
     acceleration: 11,
     reverse: 5,
+    reverseSpeed: 5,
     jerk: 48,
     brake: 8,
     drag: 0.001,
@@ -95,7 +99,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   },
   bus: {
     acceleration: 6,
-    reverse: 5,
+    reverse: 8,
+    reverseSpeed: 4.5,
     jerk: 6,
     brake: 4,
     drag: 0.002,
@@ -117,7 +122,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   },
   pickup: {
     acceleration: 7.5,
-    reverse: 5,
+    reverse: 10,
+    reverseSpeed: 7.5,
     jerk: 30,
     brake: 7,
     drag: 0.0014,
@@ -139,7 +145,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   },
   hatchback: {
     acceleration: 8,
-    reverse: 5,
+    reverse: 11,
+    reverseSpeed: 10,
     jerk: 48,
     brake: 8.5,
     drag: 0.001,
@@ -161,7 +168,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
   },
   supercar: {
     acceleration: 16,
-    reverse: 5,
+    reverse: 21,
+    reverseSpeed: 15,
     jerk: 70,
     brake: 12,
     drag: 0.0008,
