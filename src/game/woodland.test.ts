@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test'
 import {
   coniferBuild,
+  openScatter,
   roadsidePlantHeight,
+  scatteredPlants,
   woodlandCoverage,
   woodlandDensity,
   woodlandTrees,
@@ -120,4 +122,46 @@ test('firs stand at the proportions of the photographed tree instead of a squeez
   }
   expect(firs).toBeGreaterThan(20)
   expect(coniferBuild.slim).toBeGreaterThan(0.55)
+})
+
+test('open country between the groves carries scattered trees and shrubs away from the road', () => {
+  const world = new World({ ...defaults })
+  const spread = scatteredPlants(world, -2048, 4096, 4096, 1024)
+  expect(scatteredPlants(world, -2048, 4096, 4096, 1024)).toEqual(spread)
+  expect(spread.trees.length).toBeGreaterThan(20)
+  expect(spread.shrubs.length).toBeGreaterThan(spread.trees.length)
+  for (const plant of [...spread.trees, ...spread.shrubs]) {
+    expect(plant.x).toBeGreaterThanOrEqual(-2048)
+    expect(plant.x).toBeLessThan(2048)
+    expect(Math.abs(plant.x - world.road(plant.s).x)).toBeGreaterThanOrEqual(openScatter.clear)
+    expect(woodlandCoverage(plant.x, plant.s, 42, 'highlands')).toBeLessThanOrEqual(
+      openScatter.grove,
+    )
+    const surface = world.surface(plant.x, plant.s)
+    expect(plant.ground).toBeCloseTo(surface.height, 9)
+    expect(surface.height).toBeGreaterThanOrEqual(0.7)
+  }
+  const whole = scatteredPlants(world, -1024, 4096, 1024, 512)
+  const halves = [-1024, -512].map((left) => scatteredPlants(world, left, 4096, 512, 512))
+  const spot = (plant: { x: number; s: number }) => `${plant.x}:${plant.s}`
+  for (const kind of ['trees', 'shrubs'] as const) {
+    const joined = halves.flatMap((half) => half[kind].map(spot))
+    expect(new Set(joined).size).toBe(joined.length)
+    expect(joined.sort()).toEqual(whole[kind].map(spot).sort())
+  }
+  const beside = scatteredPlants(world, world.road(600).x - 30, 480, 60, 240)
+  expect(beside.trees.length + beside.shrubs.length).toBeLessThan(6)
+})
+
+test('distant open country keeps a stable share of the same lone trees and no shrubs', () => {
+  const world = new World({ ...defaults })
+  const near = scatteredPlants(world, -4096, 8192, 2048, 2048)
+  const far = scatteredPlants(world, -4096, 8192, 2048, 2048, 3)
+  const known = new Map(near.trees.map((tree) => [`${tree.x}:${tree.s}`, tree]))
+  expect(far.shrubs).toEqual([])
+  expect(far.trees.length).toBeGreaterThan(near.trees.length * 0.2)
+  expect(far.trees.length).toBeLessThan(near.trees.length * 0.5)
+  for (const tree of far.trees) expect(known.get(`${tree.x}:${tree.s}`)).toEqual(tree)
+  const desert = scatteredPlants(new World({ ...defaults, landscape: 'desert' }), 0, 0, 2048, 2048)
+  expect(desert.trees.length).toBeLessThan(near.trees.length * 0.4)
 })

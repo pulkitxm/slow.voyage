@@ -4,10 +4,10 @@ import { type Trunk, trunkRadius } from './collision'
 import { atlasShift, evergreenRelief, evergreenTile, type Foliage, treeTint } from './foliage'
 import { landscapeProfiles } from './landscapes'
 import { LodField } from './lod-field'
-import { nodeDistance, nodeSize, type OpenNode } from './open-grid'
+import { type GridLayout, nodeDistance, nodeSize, type OpenNode } from './open-grid'
 import { StaticGroup } from './static-group'
 import { waterfallClearing, waterfallsNear } from './waterfalls'
-import { woodlandTrees } from './woodland'
+import { type OpenShrub, scatteredPlants, woodlandTrees } from './woodland'
 import type { Settings, World } from './world'
 
 export const sceneryLayout = {
@@ -21,6 +21,8 @@ export const sceneryLayout = {
   bucket: 16,
   crowns: { show: 150, hide: 190 },
 } as const
+
+export const lightSceneryLayout: GridLayout = { ...sceneryLayout, reach: 600 }
 
 interface Grove {
   node: OpenNode
@@ -44,9 +46,10 @@ export class OpenScenery {
     private foliage: Foliage,
     private shade: { material: THREE.Material; disc: THREE.BufferGeometry } | null,
     public quality: Settings['quality'],
+    layout: GridLayout = sceneryLayout,
   ) {
     this.field = new LodField<Grove>(
-      sceneryLayout,
+      layout,
       (node) => this.plant(node),
       (grove, visible) => {
         grove.group.visible = visible
@@ -88,6 +91,7 @@ export class OpenScenery {
     const close = node.level === 0
     const bands = Math.max(1, Math.round(size / sceneryLayout.band))
     const trees: ReturnType<typeof woodlandTrees> = []
+    const shrubs: OpenShrub[] = []
     for (let band = 0; band < bands; band++) {
       for (const tree of woodlandTrees(
         this.world,
@@ -99,25 +103,60 @@ export class OpenScenery {
       ))
         if (!waterfallClearing(falls, tree.x, tree.s)) trees.push(tree)
       yield
+      const scattered = scatteredPlants(
+        this.world,
+        left,
+        near + (band * size) / bands,
+        size,
+        size / bands,
+        thin,
+      )
+      for (const tree of scattered.trees)
+        if (!waterfallClearing(falls, tree.x, tree.s)) trees.push(tree)
+      for (const shrub of scattered.shrubs)
+        if (!waterfallClearing(falls, shrub.x, shrub.s)) shrubs.push(shrub)
+      yield
     }
     grove.group.visible = false
     const cardGeometry = this.foliage.distantTreeGeometries[0]
-    if (!trees.length || !cardGeometry) return grove
     const pose = new THREE.Object3D()
     const color = new THREE.Color()
     const relief = evergreenRelief(profile.foliage)
-    const tint = (tree: (typeof trees)[number]) => {
+    const tint = (tree: { variant: number; shade: number; x: number; s: number }) => {
       treeTint(color, tree.shade, (tree.x * 0.37) % 1, (tree.s * 0.53) % 1)
       if (tree.variant === evergreenTile) color.multiply(relief)
       return color
     }
-    const place = (tree: (typeof trees)[number]) => {
+    const place = (tree: {
+      x: number
+      s: number
+      ground: number
+      yaw: number
+      width: number
+      height: number
+    }) => {
       pose.position.set(tree.x, tree.ground - sceneryLayout.rootRecess, -tree.s)
       pose.rotation.set(0, tree.yaw, 0)
       pose.scale.set(tree.width, tree.height, tree.width)
       pose.updateMatrix()
       return pose.matrix
     }
+    for (const variant of [2, 3] as const) {
+      const brush = shrubs.filter((shrub) => shrub.variant === variant)
+      const geometry =
+        settings.season === 'winter'
+          ? this.foliage.winterShrubGeometries[variant - 2]
+          : this.foliage.treeGeometries[variant]
+      if (!brush.length || !geometry) continue
+      const mesh = new THREE.InstancedMesh(geometry, this.foliage.treeMaterial, brush.length)
+      for (const [index, shrub] of brush.entries()) {
+        mesh.setMatrixAt(index, place(shrub))
+        mesh.setColorAt(index, tint(shrub))
+      }
+      mesh.computeBoundingSphere()
+      grove.group.add(mesh)
+    }
+    if (!trees.length || !cardGeometry) return grove
     const cards = new THREE.InstancedMesh(cardGeometry, this.foliage.treeMaterial, trees.length)
     const shifts = new Float32Array(trees.length * 2)
     for (const [index, tree] of trees.entries()) {

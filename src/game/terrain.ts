@@ -18,9 +18,9 @@ import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
 import { landmarkFootprints, landmarkGeometry, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
-import { openSurface } from './open-grid'
+import { lightOpenLayout, openLayout, openSurface } from './open-grid'
 import { OpenGround } from './open-ground'
-import { OpenScenery } from './open-scenery'
+import { lightSceneryLayout, OpenScenery, sceneryLayout } from './open-scenery'
 import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
 import { carFrame, type Driver } from './reactions'
 import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
@@ -235,6 +235,7 @@ export class Terrain {
       this.openMaterial,
       () => terrainColors(this.world.settings),
       tileStreaming.groundBatch,
+      software ? lightOpenLayout : openLayout,
     )
     this.open.group.userData.label = 'open-ground'
     scene.add(this.open.group)
@@ -245,6 +246,7 @@ export class Terrain {
       this.foliage,
       this.shadeMaterial ? { material: this.shadeMaterial, disc: this.shadeDisc } : null,
       quality,
+      software ? lightSceneryLayout : sceneryLayout,
     )
     this.scenery.group.userData.label = 'open-scenery'
     scene.add(this.scenery.group)

@@ -104,3 +104,106 @@ export function woodlandTrees(
   }
   return trees
 }
+
+export const openScatter = {
+  cell: 32,
+  jitter: 24,
+  clear: 40,
+  grove: 0.35,
+  trees: 0.18,
+  shrubs: 0.7,
+} as const
+
+export interface OpenShrub {
+  variant: 2 | 3
+  x: number
+  s: number
+  ground: number
+  height: number
+  width: number
+  yaw: number
+  shade: number
+}
+
+export function scatteredPlants(
+  world: World,
+  left: number,
+  near: number,
+  width: number,
+  length: number,
+  thin = 1,
+) {
+  const trees: WoodlandTree[] = []
+  const shrubs: OpenShrub[] = []
+  const { landscape, seed } = world.settings
+  const profile = landscapeProfiles[landscape]
+  const { roadside } = profile
+  const treeShare = Math.min(0.5, (roadside.trees / 28) * openScatter.trees)
+  const shrubShare = Math.min(0.5, (roadside.shrubs / 180) * openScatter.shrubs)
+  const { cell, jitter } = openScatter
+  const lastRow = Math.ceil((near + length) / cell)
+  const lastColumn = Math.ceil((left + width) / cell)
+  for (let row = Math.floor(near / cell); row < lastRow; row++) {
+    for (let column = Math.floor(left / cell); column < lastColumn; column++) {
+      const rng = random(Math.imul(row, 51787) ^ Math.imul(column, 77591) ^ (seed + 3301))
+      const pick = rng()
+      const tree = pick < treeShare
+      if (!tree && (thin > 1 || pick >= treeShare + shrubShare)) continue
+      if (tree && thin > 1 && (latticeValue(column, row, seed + 9941) + 1) * thin >= 2) continue
+      const x = (column + 0.5) * cell + (rng() - 0.5) * jitter
+      const s = (row + 0.5) * cell + (rng() - 0.5) * jitter
+      if (Math.abs(x - world.road(s).x) < openScatter.clear) continue
+      if (woodlandCoverage(x, s, seed, landscape) > openScatter.grove) continue
+      const surface = world.surface(x, s)
+      if (surface.height < 0.7 || Math.hypot(surface.slopeX, surface.slopeS) > 0.65) continue
+      if (
+        profile.treeLine !== null &&
+        rng() > clamp((profile.treeLine - surface.height) / 60, 0, 1)
+      )
+        continue
+      const yaw = rng() * Math.PI
+      const shade = 0.88 + rng() * 0.24
+      if (!tree) {
+        const height = 2 + rng() * 4
+        shrubs.push({
+          variant: rng() < 0.5 ? 2 : 3,
+          x,
+          s,
+          ground: surface.height,
+          height,
+          width: height * (0.85 + rng() * 0.35),
+          yaw,
+          shade,
+        })
+        continue
+      }
+      const choice = rng()
+      const variant =
+        choice < roadside.conifers
+          ? 4
+          : choice < roadside.conifers + roadside.narrow
+            ? 5
+            : rng() < 0.5
+              ? 0
+              : 1
+      const height = variant >= 4 ? 6 + rng() * 6 : 5 + rng() * 4
+      trees.push({
+        variant,
+        x,
+        s,
+        ground: surface.height,
+        height,
+        width:
+          height *
+          (variant === 4
+            ? coniferBuild.slim + rng() * coniferBuild.spread
+            : variant === 5
+              ? 0.42 + rng() * 0.13
+              : 0.9 + rng() * 0.2),
+        yaw,
+        shade,
+      })
+    }
+  }
+  return { trees, shrubs }
+}

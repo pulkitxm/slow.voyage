@@ -14,6 +14,8 @@ export const openLayout = {
   overlap: 3,
 } as const
 
+export const lightOpenLayout: GridLayout = { ...openLayout, detail: 1, reach: 1700 }
+
 export interface OpenNode {
   level: number
   column: number

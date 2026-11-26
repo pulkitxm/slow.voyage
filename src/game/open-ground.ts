@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { GroundWriter } from './ground'
 import { LodField } from './lod-field'
-import { nodeSize, type OpenNode, openLayout } from './open-grid'
+import { type GridLayout, nodeSize, type OpenNode, openLayout } from './open-grid'
 import { StaticGroup } from './static-group'
 import type { World } from './world'
 
@@ -68,10 +68,11 @@ export class OpenGround {
     material: THREE.Material,
     colors: () => { base: THREE.Color; light: THREE.Color },
     batch: number,
+    layout: GridLayout = openLayout,
   ) {
     const group = this.group
     this.field = new LodField<THREE.Mesh>(
-      openLayout,
+      layout,
       function* (node) {
         const { base, light } = colors()
         const mesh = new THREE.Mesh(yield* openGeometry(world, node, base, light, batch), material)

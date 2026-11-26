@@ -36,7 +36,11 @@ Three layers follow the car and everything behind it is released.
   the roadside. Near chunks carry every tree, the next ring a third and the
   outer ring a ninth, always the same trees. Within 150 m trees are full crowns
   that cast shadows and can be hit; further out each chunk is one draw of flat
-  tree cards.
+  tree cards. Between the groves the same chunks scatter lone trees and, close
+  to the car, shrubs, in the proportions each landscape uses beside its road.
+
+On a software renderer open ground reaches 1.7 km with less detail in the
+middle distance and woodland reaches 600 m.
 
 The tyres read the same triangles that are drawn: the fitted grid inside the
 corridor and the 2 m grid outside it.
