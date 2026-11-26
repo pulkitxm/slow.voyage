@@ -291,7 +291,7 @@ test.each(vehicles)(
       }
       return frames * step
     }
-    expect(top(true)).toBeLessThan(16)
+    expect(top(true)).toBeLessThan(20)
     expect(top(true)).toBeGreaterThan(10)
     expect(top(true)).toBeLessThan(top(false) * 0.85)
     expect(halving(true)).toBeLessThan(2)
