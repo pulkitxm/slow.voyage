@@ -26,7 +26,9 @@
     "test:offline": "bun scripts/browser-tests.ts --offline",
     "test:browser": "bun scripts/browser-tests.ts",
     "review:capture": "bun scripts/review.ts",
-    "review:judge": "bun scripts/judge.ts"
+    "review:judge": "bun scripts/judge.ts",
+    "media:video": "bun scripts/launch-video.ts",
+    "media:frames": "bun scripts/launch-frames.ts"
   },
   "dependencies": {
     "@fontsource/dm-sans": "^5.3.0",

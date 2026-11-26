@@ -152,6 +152,22 @@ Run `bun install --frozen-lockfile`, `bun run validate`, `bun run build`,
 `bun run test:offline`, and `bun run test:browser` locally before a release
 checkpoint. Use `bun run format` to apply formatting.
 
+## Launch media
+
+With the development server running on port 3002, `bun run media:video` renders
+the launch video and `bun run media:frames` renders the launch frames and the
+three-panel carousel. Both write to the ignored `.review/launch/` folder and run
+in headless Chrome on the GPU.
+
+Capture is deterministic: the page clock advances in fixed steps and every
+animation frame hands the game exactly one sixtieth of a second, so the video
+plays at real speed with no dropped or doubled frames however long a frame takes
+to render. The video is 50 seconds at 60 fps in 4K, with a 1080p copy sized for
+social posts and silent versions of both. Its soundtrack is assembled from the
+game's own synthesized engine, road and wind sound, rendered on demand with
+`scripts/sound-render.ts`. Pass `--scale 1` for a quick 1080p preview, `--url` for
+another server, and `--only 01,08` to render selected frames.
+
 ## Visual review
 
 Run `bun run review:capture pass-name` while the local server is running to save
