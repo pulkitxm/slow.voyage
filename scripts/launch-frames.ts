@@ -3,7 +3,6 @@ import { resolve } from 'node:path'
 import {
   advance,
   aim,
-  narrow,
   openCapture,
   option,
   run,
@@ -218,9 +217,7 @@ const frames: Frame[] = [
 ]
 
 const panels = Math.min(10, Math.max(2, Number(option('panels') ?? 10)))
-const rendered = panels % 2 === 0 ? panels + 1 : panels
-const panelAspect = rendered / 2
-const carouselView = option('carousel-view')?.split(',').map(Number) as View | undefined
+const carouselWidth = Math.max(1920, Number(option('carousel-width') ?? 3840))
 const carousel: Frame = {
   name: '08-jungle-golden-hour-supercar-yellow-full',
   hash: 'jungle-9@4.0',
@@ -231,36 +228,21 @@ const carousel: Frame = {
     vehicle: 'supercar',
     color: '#ffd400',
   },
-  view: carouselView ?? (panels > 4 ? [2.15, 0.04, 2.6] : [2.72, 0.02, 1]),
+  view: [2.5, 0.02, 0.9],
 }
-const carouselFov = Math.min(
-  68,
-  (2 * Math.atan(Math.tan((50 * Math.PI) / 180) / panelAspect) * 180) / Math.PI,
-)
 
 const base = option('url') ?? 'http://127.0.0.1:3002/'
 const out = resolve(option('out') ?? '.review/launch')
 const only = option('only')?.split(',')
 
-async function shoot(
-  list: Frame[],
-  directory: string,
-  width: number,
-  height: number,
-  scale: number,
-  fov?: number,
-) {
+async function shoot(list: Frame[], directory: string, width: number, height: number) {
   await mkdir(directory, { recursive: true })
-  const { browser, page } = await openCapture(width, height, scale)
+  const { browser, page } = await openCapture(width, height, 2)
   try {
     for (const frame of list) {
       await stage(page, base, frame)
       await aim(page, frame.view)
       await advance(page, 45)
-      if (fov && fov < 68) {
-        await narrow(page, fov)
-        await advance(page, 1)
-      }
       await page.screenshot({ path: `${directory}/${frame.name}.png` })
       console.log(`frame ${frame.name}`)
     }
@@ -272,10 +254,12 @@ async function shoot(
 const chosen = frames.filter(
   (frame) => !only || only.some((prefix) => frame.name.startsWith(prefix)),
 )
-if (!process.argv.includes('--carousel-only')) await shoot(chosen, `${out}/frames`, 1920, 1080, 2)
+if (!process.argv.includes('--carousel-only')) await shoot(chosen, `${out}/frames`, 1920, 1080)
 if (!only) {
   const directory = `${out}/carousel`
-  await shoot([carousel], directory, rendered * 256, 512, 4, carouselFov)
+  const height = Math.round((carouselWidth * 9) / 16)
+  await shoot([carousel], directory, carouselWidth, height)
+  const strip = Math.floor((carouselWidth * 2) / panels)
   for (let panel = 0; panel < panels; panel++)
     await run([
       'ffmpeg',
@@ -285,7 +269,7 @@ if (!only) {
       '-i',
       `${directory}/${carousel.name}.png`,
       '-vf',
-      `crop=1024:2048:${(panel + rendered - panels) * 1024}:0`,
+      `crop=${strip}:${height * 2}:${panel * strip}:0`,
       `${directory}/08-carousel-${String(panel + 1).padStart(2, '0')}-of-${panels}.png`,
     ])
 }
