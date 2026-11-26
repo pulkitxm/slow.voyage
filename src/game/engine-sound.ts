@@ -1,5 +1,6 @@
 import { Biquad, Blocker, Drift, glide, limit, Noise, Pipe, Ringer } from './dsp'
-import type { Vehicle } from './world'
+import type { SupercarModel } from './supercars'
+import type { Settings, Vehicle } from './world'
 
 export interface EngineSound {
   layout: string
@@ -270,6 +271,130 @@ export const soundVehicles = [
   'bus',
 ] as const satisfies readonly Vehicle[]
 
+export const supercarSounds: Record<Exclude<SupercarModel, 'classic'>, EngineSound> = {
+  grand: {
+    layout: 'twin-turbo straight-six',
+    cylinders: 6,
+    firing: even(6),
+    banks: [0, 1, 0, 1, 0, 1],
+    pulse: [0.0055, 0.0028],
+    duration: 0.1,
+    imbalance: 0.2,
+    roughness: 0.1,
+    lope: 0.02,
+    header: [222, 230],
+    tail: [54, 57],
+    reflection: [0.42, 0.42],
+    damping: 3600,
+    body: [
+      [150, 2.4, 6],
+      [620, 2.8, 5],
+      [2100, 2, 2],
+    ],
+    muffler: [1500, 6000],
+    rasp: 1.5,
+    flow: 0.45,
+    crossover: 0.8,
+    intake: { runner: 400, throat: 720, level: 0.7, hiss: 0.6 },
+    valvetrain: 0.35,
+    clatter: 0,
+    whine: 0.3,
+    rumble: 0.45,
+    turbo: { level: 0.6, whistle: [2600, 9200], flutter: 1 },
+    pops: 0.95,
+    volume: 2.1,
+  },
+  longtail: {
+    layout: 'flat-plane V8',
+    cylinders: 8,
+    firing: even(8),
+    banks: [0, 1, 0, 1, 0, 1, 0, 1],
+    pulse: [0.0046, 0.002],
+    duration: 0.09,
+    imbalance: 0.16,
+    roughness: 0.06,
+    lope: 0.01,
+    header: [286, 298],
+    tail: [72, 76],
+    reflection: [0.44, 0.4],
+    damping: 5600,
+    body: [
+      [210, 2.4, 4],
+      [860, 3, 6],
+      [2800, 2.2, 4],
+    ],
+    muffler: [2000, 8800],
+    rasp: 2,
+    flow: 0.5,
+    crossover: 0.5,
+    intake: { runner: 520, throat: 1020, level: 0.55, hiss: 0.5 },
+    valvetrain: 0.45,
+    clatter: 0,
+    whine: 0.45,
+    rumble: 0.3,
+    turbo: null,
+    pops: 0.65,
+    volume: 2.3,
+  },
+  track: {
+    layout: 'V10',
+    cylinders: 10,
+    firing: even(10),
+    banks: [0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+    pulse: [0.0042, 0.0018],
+    duration: 0.08,
+    imbalance: 0.18,
+    roughness: 0.08,
+    lope: 0.01,
+    header: [330, 344],
+    tail: [86, 90],
+    reflection: [0.46, 0.42],
+    damping: 6800,
+    body: [
+      [260, 2.4, 3],
+      [1080, 3.2, 6],
+      [3300, 2.2, 5],
+    ],
+    muffler: [2400, 10000],
+    rasp: 2.4,
+    flow: 0.55,
+    crossover: 0.4,
+    intake: { runner: 600, throat: 1200, level: 0.6, hiss: 0.55 },
+    valvetrain: 0.55,
+    clatter: 0,
+    whine: 0.5,
+    rumble: 0.28,
+    turbo: null,
+    pops: 0.85,
+    volume: 2.5,
+  },
+}
+
+export const engineVoices: readonly EngineSound[] = [
+  ...soundVehicles.map((vehicle) => engineSounds[vehicle]),
+  supercarSounds.grand,
+  supercarSounds.longtail,
+  supercarSounds.track,
+]
+
+export function engineSoundFor(settings: Pick<Settings, 'vehicle' | 'supercarModel'>) {
+  return settings.vehicle === 'supercar' && settings.supercarModel !== 'classic'
+    ? supercarSounds[settings.supercarModel]
+    : engineSounds[settings.vehicle]
+}
+
+export function engineVoiceIndex(settings: Pick<Settings, 'vehicle' | 'supercarModel'>) {
+  return Math.max(0, engineVoices.indexOf(engineSoundFor(settings)))
+}
+
+export const popVoice = {
+  fade: 0.02,
+  span: [0.0011, 0.0014] as const,
+  boom: 170,
+  snap: 2600,
+  level: 0.9,
+}
+
 export function firingFrequency(sound: EngineSound, rpm: number) {
   return (rpm / 60) * (sound.cylinders / 2)
 }
@@ -321,6 +446,8 @@ export class EngineVoice {
   steady = false
   spool = 0
   heat = 0
+  pops = 0
+  popLevel = 0
   private sound: EngineSound = engineSounds.touring
   private noise: Noise
   private phase = 0
@@ -363,7 +490,15 @@ export class EngineVoice {
   private burst = 0
   private wasCutting = false
   private seenShifts = -1
+  private seenPops = -1
   private twin = false
+  private bangAge = 1
+  private bangSpan = 1
+  private bangLevel = 0
+  private bangTail = 0
+  private popBoom: Biquad
+  private popRing: Biquad
+  private popSnap: Biquad
   constructor(
     private rate: number,
     seed = 1,
@@ -383,6 +518,9 @@ export class EngineVoice {
     this.turboBlocker = new Blocker(rate, 200)
     this.shifter = new Ringer(rate)
     this.wander = new Drift(this.noise, 1.3, rate / 128)
+    this.popBoom = new Biquad(rate).lowpass(popVoice.boom, 1.1)
+    this.popRing = new Biquad(rate).bandpass(520, 3)
+    this.popSnap = new Biquad(rate).highpass(popVoice.snap, 0.7)
     this.configure(engineSounds.touring)
   }
   configure(sound: EngineSound) {
@@ -409,8 +547,14 @@ export class EngineVoice {
     this.runner.tune(sound.intake.runner, 3500).clear()
     this.throat.bandpass(sound.intake.throat, 1.8).clear()
     this.plenum.lowpass(sound.intake.throat * 3.2, 0.8).clear()
+    this.popRing.bandpass(sound.tail[0] * 6.5, 3).clear()
+    this.popBoom.clear()
+    this.popSnap.clear()
+    this.bangTail = this.bangLevel = 0
+    this.bangAge = 1
     this.spool = this.heat = this.vent = this.pop = this.burst = 0
     this.seenShifts = -1
+    this.seenPops = -1
   }
   render(
     left: Float32Array,
@@ -477,6 +621,18 @@ export class EngineVoice {
         this.heat = Math.min(1, this.heat + 0.2)
       }
     }
+
+    if (this.seenPops < 0) this.seenPops = this.pops
+    if (this.pops !== this.seenPops) {
+      this.seenPops = this.pops
+      this.bangAge = 0
+      this.bangSpan =
+        (popVoice.span[0] + (popVoice.span[1] - popVoice.span[0]) * noise.unit()) * rate
+      this.bangLevel = limit(this.popLevel, 0, 1)
+      this.bangTail = Math.max(this.bangTail, this.bangLevel)
+    }
+    const bangFade = Math.exp(-1 / (popVoice.fade * rate))
+    const bangGain = popVoice.level * sound.volume
 
     const idling = limit(1 - revs * 9, 0, 1) * (1 - drive)
     const hunt = this.steady ? 0 : this.wander.next() * 0.005 * idling
@@ -626,8 +782,25 @@ export class EngineVoice {
         b = second.body[2].run(b)
         b = second.blocker.run(second.muffler.run(b))
       }
-      left[i] = (a + cross * b) * blend + crack * bang
-      right[i] = (b + cross * a) * blend + crack * bang
+      let blast = 0
+      if (this.bangTail > 0.0005) {
+        let spike = 0
+        if (this.bangAge < this.bangSpan) {
+          const along = this.bangAge / this.bangSpan
+          spike = Math.sin(along * 6.2831853) * (1 - along) ** 1.5 * this.bangLevel
+          this.bangAge++
+        }
+        const rush = white * this.bangTail
+        this.bangTail *= bangFade
+        blast =
+          (spike * 1.4 +
+            this.popBoom.run(spike * 2 + rush * 0.5) * 1.3 +
+            this.popRing.run(spike + rush * 0.8) * 0.9 +
+            this.popSnap.run(rush) * 0.45) *
+          bangGain
+      }
+      left[i] = (a + cross * b) * blend + crack * bang + blast
+      right[i] = (b + cross * a) * blend + crack * bang + blast * 0.88
 
       const draw = opening * Math.sqrt(opening)
       const breath =

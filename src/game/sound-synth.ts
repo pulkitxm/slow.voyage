@@ -1,5 +1,5 @@
 import { AirVoice } from './air-sound'
-import { EngineVoice, engineSounds, soundVehicles } from './engine-sound'
+import { EngineVoice, engineSounds, engineVoices } from './engine-sound'
 import { RoadVoice } from './road-sound'
 
 export const soundParams = [
@@ -12,6 +12,8 @@ export const soundParams = [
   'cutting',
   'shifts',
   'clunk',
+  'pops',
+  'popLevel',
   'speed',
   'roll',
   'wet',
@@ -116,7 +118,7 @@ export class SoundSynth {
     const vehicle = Math.round(p[at.vehicle] as number)
     if (vehicle !== this.vehicle) {
       this.vehicle = vehicle
-      this.engine.configure(engineSounds[soundVehicles[vehicle] ?? 'touring'])
+      this.engine.configure(engineVoices[vehicle] ?? engineSounds.touring)
     }
     const engine = this.engine
     engine.rpm = p[at.rpm] as number
@@ -127,6 +129,8 @@ export class SoundSynth {
     engine.cutting = p[at.cutting] as number
     engine.shifts = p[at.shifts] as number
     engine.clunk = p[at.clunk] as number
+    engine.pops = p[at.pops] as number
+    engine.popLevel = p[at.popLevel] as number
     engine.speed = p[at.speed] as number
     const road = this.road
     road.speed = p[at.speed] as number

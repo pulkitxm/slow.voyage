@@ -7,6 +7,7 @@ import { clamp, type Season, type Vehicle, type Weather } from './world'
 export const mixLevels = {
   master: 1.6,
   engine: 0.25,
+  pops: 1,
   road: 0.16,
   gravel: 0.22,
   rumble: 0.3,

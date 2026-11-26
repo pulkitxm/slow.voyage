@@ -13,7 +13,7 @@ import { cruiseLimits, cruisePedals, reverseDriveFactor } from './cruise'
 import { forwardDriveForce } from './drive'
 import { surfaceGrip } from './grip'
 import { NitroTank, nitroForce } from './nitro'
-import { engineProfiles, Gearbox } from './powertrain'
+import { engineProfileFor, engineProfiles, Gearbox } from './powertrain'
 import { stabilize } from './stability'
 import { Steering, steeringLimit } from './steering'
 import { Suspension } from './suspension'
@@ -211,8 +211,8 @@ export class CarPhysics {
       this.suspension.configure(settings.vehicle)
       this.suspension.reset(this)
     }
-    if (this.gearbox.profile !== engineProfiles[settings.vehicle])
-      this.gearbox.reset(engineProfiles[settings.vehicle])
+    if (this.gearbox.profile !== engineProfileFor(settings))
+      this.gearbox.reset(engineProfileFor(settings))
     const handbrake = input.handbrake && settings.vehicle !== 'motorcycle'
     const v = Math.abs(this.speed)
     const stick = this.gearbox

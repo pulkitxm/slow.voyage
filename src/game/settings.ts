@@ -2,6 +2,8 @@ import { decodeBindings } from './controller-bindings'
 import { cruiseLimits } from './cruise'
 import { landscapeIds } from './landscapes'
 import { roadWears } from './road-condition'
+import { exhausts, rimFinishes, wheelStyles } from './styling'
+import { supercarModels } from './supercars'
 import {
   cameraMotions,
   defaults,
@@ -37,6 +39,10 @@ export function decodeSettings(stored: unknown): Settings {
       'roadWear',
       'life',
       'vehicle',
+      'supercarModel',
+      'wheelStyle',
+      'rimFinish',
+      'exhaust',
       'camera',
       'motion',
       'transmission',
@@ -55,6 +61,10 @@ export function decodeSettings(stored: unknown): Settings {
         roadWear: roadWears,
         life: lifeLevels,
         vehicle: vehicles,
+        supercarModel: supercarModels,
+        wheelStyle: wheelStyles,
+        rimFinish: rimFinishes,
+        exhaust: exhausts,
         camera: cameras,
         motion: cameraMotions,
         transmission: transmissions,

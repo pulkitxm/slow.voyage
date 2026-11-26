@@ -4,6 +4,8 @@ import { groundSurface } from './ground-grid'
 import { type Landscape, landscapeProfiles, passEasing, terraced } from './landscapes'
 import { roadCoordinates, roadLayout } from './road'
 import { potholeDepth, type RoadWear } from './road-condition'
+import type { Exhaust, RimFinish, WheelStyle } from './styling'
+import type { SupercarModel } from './supercars'
 
 export type { Landscape } from './landscapes'
 export type Season = 'summer' | 'autumn' | 'winter'
@@ -47,6 +49,10 @@ export interface Settings {
   life: LifeLevel
   blood: boolean
   vehicle: Vehicle
+  supercarModel: SupercarModel
+  wheelStyle: WheelStyle
+  rimFinish: RimFinish
+  exhaust: Exhaust
   camera: CameraMode
   motion: CameraMotion
   transmission: Transmission
@@ -78,6 +84,10 @@ export const defaults: Settings = {
   life: 'lively',
   blood: true,
   vehicle: 'touring',
+  supercarModel: 'classic',
+  wheelStyle: 'factory',
+  rimFinish: 'silver',
+  exhaust: 'stock',
   camera: 'chase',
   motion: 'full',
   transmission: 'automatic',

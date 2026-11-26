@@ -264,6 +264,9 @@ export class DriveAudio {
     splitter.connect(rig.body, at.cabin)
   }
 
+  backfire(strength: number) {
+    this.frame.pop(strength)
+  }
   thunder(delay: number) {
     const { rig } = this
     if (!rig) return

@@ -1,7 +1,7 @@
-import { soundVehicles } from './engine-sound'
+import { engineVoiceIndex } from './engine-sound'
 import { landscapeProfiles } from './landscapes'
 import type { CarPhysics, Input } from './physics'
-import { engineProfiles } from './powertrain'
+import { engineProfileFor } from './powertrain'
 import {
   brakeSquealLevel,
   freshTyreSignals,
@@ -30,11 +30,7 @@ import {
 import { freshParams, paramIndex } from './sound-synth'
 import type { Ambience } from './soundscape'
 import { vehicleMetrics } from './vehicles'
-import type { Settings, Vehicle } from './world'
-
-const vehicleNumber = Object.fromEntries(
-  soundVehicles.map((vehicle, index) => [vehicle, index]),
-) as Record<Vehicle, number>
+import type { Settings } from './world'
 
 export class SoundFrame {
   values = freshParams()
@@ -44,6 +40,13 @@ export class SoundFrame {
   private settled = false
   private bumps = 0
   private rest = 0
+  pops = 0
+  popLevel = 0
+  pop(strength: number) {
+    if (strength <= 0) return
+    this.pops = (this.pops + 1) % 65536
+    this.popLevel = strength
+  }
   reset() {
     this.settled = false
   }
@@ -51,10 +54,10 @@ export class SoundFrame {
     const v = this.values
     const at = paramIndex
     const vehicle = settings.vehicle
-    const profile = engineProfiles[vehicle]
+    const profile = engineProfileFor(settings)
     const box = car.gearbox
     const speed = Math.abs(car.speed)
-    v[at.vehicle] = vehicleNumber[vehicle]
+    v[at.vehicle] = engineVoiceIndex(settings)
     v[at.rpm] = box.rpm
     v[at.idle] = profile.idle
     v[at.redline] = profile.redline
@@ -63,6 +66,8 @@ export class SoundFrame {
     v[at.cutting] = box.cutting ? 1 : 0
     v[at.shifts] = box.shifts
     v[at.clunk] = box.manual ? 1 : 0.3
+    v[at.pops] = this.pops
+    v[at.popLevel] = this.popLevel * mixLevels.pops
     v[at.speed] = car.speed
 
     const wheels = car.suspension.wheels
