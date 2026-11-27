@@ -1,7 +1,5 @@
 import type { Vehicle } from './world'
 
-export type Drivetrain = 'front' | 'rear' | 'all'
-
 export interface VehicleMetrics {
   acceleration: number
   reverse: number
@@ -24,8 +22,6 @@ export interface VehicleMetrics {
   steeringInterval: number
   roadGrip: number
   looseGrip: number
-  drivetrain: Drivetrain
-  brakeBias: number
 }
 export function yawInertia(metrics: VehicleMetrics) {
   return (metrics.mass * ((metrics.wheelbase * 1.5) ** 2 + metrics.trackWidth ** 2)) / 12
@@ -37,7 +33,7 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 12,
     reverseSpeed: 12,
     jerk: 48,
-    brake: 14,
+    brake: 8,
     drag: 0.001,
     rollingResistance: 0.06,
     wheelbase: 2.75,
@@ -54,15 +50,13 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     steeringInterval: 1,
     roadGrip: 1,
     looseGrip: 1,
-    drivetrain: 'rear',
-    brakeBias: 0.66,
   },
   roadster: {
     acceleration: 11,
     reverse: 15,
     reverseSpeed: 14,
     jerk: 48,
-    brake: 14,
+    brake: 8,
     drag: 0.001,
     rollingResistance: 0.04,
     wheelbase: 2.4,
@@ -79,15 +73,13 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     steeringInterval: 1,
     roadGrip: 1,
     looseGrip: 1,
-    drivetrain: 'rear',
-    brakeBias: 0.62,
   },
   motorcycle: {
     acceleration: 11,
     reverse: 5,
     reverseSpeed: 5,
     jerk: 48,
-    brake: 14,
+    brake: 8,
     drag: 0.001,
     rollingResistance: 0.04,
     wheelbase: 1.95,
@@ -104,15 +96,13 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     steeringInterval: 1.8,
     roadGrip: 1,
     looseGrip: 1,
-    drivetrain: 'rear',
-    brakeBias: 0.7,
   },
   bus: {
     acceleration: 6,
     reverse: 8,
     reverseSpeed: 4.5,
     jerk: 6,
-    brake: 8,
+    brake: 4,
     drag: 0.002,
     rollingResistance: 0.03,
     wheelbase: 5.47,
@@ -129,15 +119,13 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     steeringInterval: 2,
     roadGrip: 1,
     looseGrip: 1,
-    drivetrain: 'rear',
-    brakeBias: 0.6,
   },
   pickup: {
     acceleration: 7.5,
     reverse: 10,
     reverseSpeed: 7.5,
     jerk: 30,
-    brake: 13,
+    brake: 7,
     drag: 0.0014,
     rollingResistance: 0.06,
     wheelbase: 3.2,
@@ -154,15 +142,13 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     steeringInterval: 1.3,
     roadGrip: 1,
     looseGrip: 1.4,
-    drivetrain: 'all',
-    brakeBias: 0.7,
   },
   hatchback: {
     acceleration: 8,
     reverse: 11,
     reverseSpeed: 10,
     jerk: 48,
-    brake: 14,
+    brake: 8.5,
     drag: 0.001,
     rollingResistance: 0.05,
     wheelbase: 2.3,
@@ -179,15 +165,13 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     steeringInterval: 0.8,
     roadGrip: 1,
     looseGrip: 1,
-    drivetrain: 'front',
-    brakeBias: 0.72,
   },
   supercar: {
     acceleration: 16,
     reverse: 21,
     reverseSpeed: 15,
     jerk: 70,
-    brake: 18,
+    brake: 12,
     drag: 0.0008,
     rollingResistance: 0.04,
     wheelbase: 2.6,
@@ -204,8 +188,6 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     steeringInterval: 0.85,
     roadGrip: 1.3,
     looseGrip: 0.9,
-    drivetrain: 'all',
-    brakeBias: 0.6,
   },
 }
 export const vehicleNames: Record<Vehicle, string> = {

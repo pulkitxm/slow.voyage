@@ -52,9 +52,6 @@ export interface Telemetry {
   revs: number
   limited: boolean
   impact: number
-  antilock: boolean
-  traction: boolean
-  stability: boolean
 }
 function tractionAcceleration(settings: Settings, onRoad: boolean, sand = false) {
   return surfaceGrip(settings, onRoad, sand) * 9.81
@@ -64,8 +61,6 @@ const brakeResponseSeconds = 0.1
 export const collisionSound = { minimumApproach: 0.8, fullApproach: 10 }
 const gripSteeringShare = 1.5
 const shudder = 0.12
-export const aidLamps = { hold: 0.3, stability: 0.6 }
-export const feathering = { ease: 3, recover: 0.4, floor: 0.3 }
 
 export class CarPhysics {
   x = 0
@@ -102,10 +97,6 @@ export class CarPhysics {
   offroad = false
   sand = false
   stability = 0
-  antilockLamp = 0
-  tractionLamp = 0
-  stabilityLamp = 0
-  feather = 1
   deflection = 0
   tireSteeringLimit = Number.POSITIVE_INFINITY
   trunks: (s: number, x: number) => Iterable<Trunk> = () => []
@@ -129,14 +120,7 @@ export class CarPhysics {
     this.speed = this.yawRate = this.lateralSpeed = this.verticalSpeed = 0
     this.steeringControl.reset()
     this.tireSteeringLimit = Number.POSITIVE_INFINITY
-    this.scrape =
-      this.wading =
-      this.deflection =
-      this.antilockLamp =
-      this.tractionLamp =
-      this.stabilityLamp =
-        0
-    this.feather = 1
+    this.scrape = this.wading = this.deflection = 0
     this.gearbox.reset()
     this.suspension.reset(this)
   }
@@ -199,23 +183,21 @@ export class CarPhysics {
         0,
       ),
     )
-    const pedals = cruisePedals(
-      this.speed,
-      safeSpeed,
-      metrics,
-      settings.power,
-      traction,
-      Math.max(
-        Math.sqrt(Math.max(0, traction * traction - (this.yawRate * this.speed) ** 2)) * 0.9,
-        Math.abs(this.speed) > Math.abs(safeSpeed) + 2 ? traction * 0.5 : 0,
-      ),
-      surface.onRoad,
-      -Math.sin(this.yaw) * surface.slopeX + Math.cos(this.yaw) * surface.slopeS,
-      reverseDriveFactor(this.speed, this.driveForce, metrics),
-    )
     return {
-      ...pedals,
-      throttle: pedals.throttle * this.feather,
+      ...cruisePedals(
+        this.speed,
+        safeSpeed,
+        metrics,
+        settings.power,
+        traction,
+        Math.max(
+          Math.sqrt(Math.max(0, traction * traction - (this.yawRate * this.speed) ** 2)) * 0.9,
+          Math.abs(this.speed) > Math.abs(safeSpeed) + 2 ? traction * 0.5 : 0,
+        ),
+        surface.onRoad,
+        -Math.sin(this.yaw) * surface.slopeX + Math.cos(this.yaw) * surface.slopeS,
+        reverseDriveFactor(this.speed, this.driveForce, metrics),
+      ),
       steer: clamp(steer, -1, 1),
       steeringSource: 'automatic',
       handbrake: false,
@@ -297,8 +279,7 @@ export class CarPhysics {
       this.brakeForce,
       handbrake,
     )
-    const skidding = this.suspension.wheels.some((wheel) => wheel.skidding)
-    if (!handbrake && !skidding) {
+    if (!handbrake) {
       const grounded = this.suspension.wheels.filter((wheel) => wheel.contact)
       const traction = grounded.length
         ? (grounded.reduce(
@@ -308,20 +289,8 @@ export class CarPhysics {
             this.suspension.wheels.length) *
           9.81
         : 0
-      this.stability = stabilize(this, traction, vehicle.wheelbase, dt, {
-        braking: brake > 0,
-        sport: this.suspension.wheels.some((wheel) => wheel.spinning),
-      })
+      this.stability = stabilize(this, traction, vehicle.wheelbase, dt)
     } else this.stability = 0
-    this.feather = this.suspension.wheels.some((wheel) => wheel.spinning)
-      ? Math.max(feathering.floor, this.feather - feathering.ease * dt)
-      : Math.min(1, this.feather + feathering.recover * dt)
-    this.antilockLamp = acceleration.antilock ? aidLamps.hold : Math.max(0, this.antilockLamp - dt)
-    this.tractionLamp = acceleration.traction ? aidLamps.hold : Math.max(0, this.tractionLamp - dt)
-    this.stabilityLamp =
-      this.stability > aidLamps.stability * dt
-        ? aidLamps.hold
-        : Math.max(0, this.stabilityLamp - dt)
     this.x += (-Math.sin(this.yaw) * this.speed + Math.cos(this.yaw) * this.lateralSpeed) * dt
     this.s += (Math.cos(this.yaw) * this.speed + Math.sin(this.yaw) * this.lateralSpeed) * dt
     this.distance += Math.hypot(this.speed, this.lateralSpeed) * dt
@@ -422,9 +391,6 @@ export class CarPhysics {
       gear: this.gearbox.label(this.speed),
       revs: clamp(this.gearbox.rpm / this.gearbox.profile.redline, 0, 1),
       limited: this.gearbox.limited,
-      antilock: this.antilockLamp > 0,
-      traction: this.tractionLamp > 0,
-      stability: this.stabilityLamp > 0,
     }
   }
 }

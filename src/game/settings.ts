@@ -73,15 +73,7 @@ export function decodeSettings(stored: unknown): Settings {
           [key]: Math.max(minimum, Math.min(maximum, values[key])),
         })
       }
-    for (const key of [
-      'onePedal',
-      'antilock',
-      'brakeDistribution',
-      'tractionControl',
-      'controllerEnabled',
-      'mouseEnabled',
-      'blood',
-    ] as const)
+    for (const key of ['onePedal', 'controllerEnabled', 'mouseEnabled', 'blood'] as const)
       if (typeof values[key] === 'boolean') result[key] = values[key]
     if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))
       result.color = values.color

@@ -53,9 +53,6 @@ export interface WheelState {
   longitudinalImpulse: number
   lateralImpulse: number
   locked: boolean
-  skidding: boolean
-  spinning: boolean
-  spin: number
 }
 
 export class Suspension {
@@ -99,9 +96,6 @@ export class Suspension {
           longitudinalImpulse: 0,
           lateralImpulse: 0,
           locked: false,
-          skidding: false,
-          spinning: false,
-          spin: 0,
         })
   }
   sample(pose: ChassisPose, dt = 0) {
@@ -239,8 +233,8 @@ export class Suspension {
     }
     pose.verticalSpeed = pose.pitchRate = pose.rollRate = 0
     for (const wheel of this.wheels) {
-      wheel.rotation = wheel.rollingSpeed = wheel.lateralSpeed = wheel.slip = wheel.spin = 0
-      wheel.locked = wheel.skidding = wheel.spinning = false
+      wheel.rotation = wheel.rollingSpeed = wheel.lateralSpeed = wheel.slip = 0
+      wheel.locked = false
       wheel.load = (metrics.mass * 9.81) / this.wheels.length
     }
     this.updateOffsets(pose)
@@ -356,7 +350,7 @@ export class Suspension {
           rightSpeed * Math.cos(wheel.steering) + forwardSpeed * Math.sin(wheel.steering)
       }
       if (!wheel.locked && !(handbrake && !wheel.front))
-        wheel.rotation -= ((wheel.rollingSpeed + wheel.spin) * dt) / metrics.wheelRadius
+        wheel.rotation -= (wheel.rollingSpeed * dt) / metrics.wheelRadius
     }
   }
 }

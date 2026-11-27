@@ -6,7 +6,7 @@ import { CarPhysics, type Input } from './physics'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { SimulationClock } from './simulation-clock'
 import { vehicleMetrics } from './vehicles'
-import { defaults, type Settings, type Vehicle, vehicles, World } from './world'
+import { defaults, type Settings, vehicles, World } from './world'
 
 class FlatWorld extends World {
   override road(_s: number) {
@@ -90,7 +90,6 @@ describe('boosted driving', () => {
       const settings = { ...defaults, vehicle }
       const normal = new CarPhysics(new GradeWorld(settings, 0))
       const boosted = new CarPhysics(new GradeWorld(settings, 0))
-      normal.speed = boosted.speed = 15
       simulate(normal, 6, { ...coast, throttle: 1 }, 1 / 120, settings)
       simulate(boosted, 6, { ...coast, throttle: 1, boost: true }, 1 / 120, settings)
       expect(boosted.speed).toBeGreaterThan(normal.speed + 0.5)
@@ -326,57 +325,6 @@ describe('service brake response', () => {
     expect(distances.clear).toBeLessThan(25)
     expect(distances.rain).toBeLessThan(28.5)
     expect(distances.rain - distances.clear).toBeGreaterThan(2.5)
-  })
-  const stoppingDistances: Record<Vehicle, number> = {
-    touring: 37,
-    roadster: 37,
-    hatchback: 37,
-    pickup: 37,
-    motorcycle: 37,
-    supercar: 29.5,
-    bus: 56,
-  }
-  test.each(vehicles)('%s stops from 100 km/h within its stopping distance', (vehicle) => {
-    const settings = { ...defaults, vehicle }
-    const car = new CarPhysics(new FlatWorld(settings))
-    car.speed = 100 / 3.6
-    const start = car.s
-    for (let step = 0; step < 120 * 8 && car.speed > 0.05; step++)
-      car.update(1 / 120, { ...coast, brake: 1 }, settings)
-    expect(car.speed).toBeLessThanOrEqual(0.05)
-    expect(car.s - start).toBeLessThan(stoppingDistances[vehicle])
-  })
-  test.each(vehicles)('%s holds its line when braking hard through bends', (vehicle) => {
-    const settings = { ...defaults, vehicle }
-    for (const start of [400, 1400, 2600]) {
-      const world = new World(settings)
-      const car = new CarPhysics(world)
-      car.reset(start)
-      for (let step = 0; step < 120 * 25 && car.speed < 40; step++)
-        car.update(
-          1 / 120,
-          { ...car.autoInput(60), throttle: 1, brake: 0, regenBrake: 0 },
-          settings,
-        )
-      const offset = roadCoordinates(world, car.x, car.s).distance
-      let drift = 0
-      for (let step = 0; step < 120 * 8 && car.speed > 0.3; step++) {
-        car.update(
-          1 / 120,
-          {
-            ...car.autoInput(60),
-            throttle: 0,
-            brake: 1,
-            regenBrake: 0,
-            steeringSource: 'digital',
-          },
-          settings,
-        )
-        drift = Math.max(drift, Math.abs(roadCoordinates(world, car.x, car.s).distance - offset))
-      }
-      expect(car.speed).toBeLessThanOrEqual(0.3)
-      expect(drift).toBeLessThan(4)
-    }
   })
 })
 
@@ -714,15 +662,12 @@ describe('vehicle dynamics', () => {
                 finite &&= Number.isFinite(car.x + car.y + car.s + car.speed)
               }
               const scenario = { grip, season, landscape, seed, power }
-              const icyPass =
-                grip === 0.2 && season === 'winter' && landscape === 'alpine' && seed === 99
-              const twoWheelDrive = vehicleMetrics[vehicle].drivetrain !== 'all'
               expect({
                 scenario,
                 leftRoad,
                 collided,
                 finite,
-                progressed: car.distance > (icyPass && twoWheelDrive ? 500 : 1000),
+                progressed: car.distance > 1000,
               }).toEqual({
                 scenario,
                 leftRoad: false,
