@@ -26,13 +26,14 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { MouseBar, RoadFinder, Speed, Trip, TurnBack } from './components/Dashboard'
+import { Cluster, MouseBar, RoadFinder, Speed, Trip, TurnBack } from './components/Dashboard'
 import { Help } from './components/Help'
 import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
 import { daylight, landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
 import { assistanceLabels } from './game/controls'
+import { fitEngine } from './game/engines'
 import { minimapLayout } from './game/minimap'
 import { vehicleNames } from './game/vehicles'
 import type { Vehicle } from './game/world'
@@ -273,13 +274,25 @@ export function Drive() {
           </aside>
           <TurnBack store={telemetry} units={settings.units} />
           <section className="telemetry" aria-label="Driving dashboard">
-            <Speed
-              store={telemetry}
-              units={settings.units}
-              manual={settings.transmission === 'manual'}
-              quiet={state.paused || panel || help}
-              onNeutral={() => engine.current?.toggleNeutral()}
-            />
+            {settings.tachometer ? (
+              <Cluster
+                store={telemetry}
+                units={settings.units}
+                manual={settings.transmission === 'manual'}
+                quiet={state.paused || panel || help}
+                redline={fitEngine(settings.vehicle, settings.engine).profile.redline}
+                live={() => engine.current?.physics.revs() ?? null}
+                onNeutral={() => engine.current?.toggleNeutral()}
+              />
+            ) : (
+              <Speed
+                store={telemetry}
+                units={settings.units}
+                manual={settings.transmission === 'manual'}
+                quiet={state.paused || panel || help}
+                onNeutral={() => engine.current?.toggleNeutral()}
+              />
+            )}
             <div className="drive-toolbar">
               <IconButton label={state.paused ? 'Resume driving' : 'Pause driving'} onClick={pause}>
                 {state.paused ? <Play /> : <Pause />}
