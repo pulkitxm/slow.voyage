@@ -30,7 +30,11 @@ export async function openCapture(width: number, height: number, scale: number) 
   const browser: Browser = await chromium.launch({
     executablePath: browserExecutable(),
     headless: true,
-    args: ['--ignore-gpu-blocklist', '--enable-gpu-rasterization', '--use-angle=vulkan'],
+    args: [
+      '--ignore-gpu-blocklist',
+      '--enable-gpu-rasterization',
+      `--use-angle=${process.platform === 'darwin' ? 'metal' : 'vulkan'}`,
+    ],
   })
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale })
   await page.clock.install()
