@@ -3,6 +3,7 @@ import { browserExecutable } from './browser'
 
 export const mediaFps = 60
 export const frameStep = 16
+const clockStart = Date.UTC(2026, 5, 1)
 
 export type View = [yaw: number, pitch: number, zoom: number]
 
@@ -13,6 +14,7 @@ export interface Scene {
   camera?: 'chase' | 'bonnet' | 'cinematic'
   park?: { offset: number; turn: number }
   lead?: number
+  ui?: boolean
 }
 
 interface Voyage {
@@ -26,7 +28,7 @@ export function option(name: string) {
   return at < 0 ? undefined : process.argv[at + 1]
 }
 
-export async function openCapture(width: number, height: number, scale: number) {
+export async function openCapture(width: number, height: number, scale: number, fps = mediaFps) {
   const browser: Browser = await chromium.launch({
     executablePath: browserExecutable(),
     headless: true,
@@ -37,20 +39,22 @@ export async function openCapture(width: number, height: number, scale: number) 
     ],
   })
   const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: scale })
-  await page.clock.install()
+  await page.clock.install({ time: clockStart })
+  await page.clock.pauseAt(clockStart + 1000)
   await page.addInitScript((fps) => {
     const native = window.requestAnimationFrame.bind(window)
-    let tick = 0
+    const pace = window as unknown as { timeScale?: number }
+    let time = 0
     let last = -1
     window.requestAnimationFrame = (callback) =>
       native((now) => {
         if (now !== last) {
-          tick++
           last = now
+          time += (1000 / fps) * (pace.timeScale ?? 1)
         }
-        callback((tick * 1000) / fps)
+        callback(time)
       })
-  }, mediaFps)
+  }, fps)
   return { browser, page }
 }
 
@@ -93,7 +97,7 @@ export async function stage(page: Page, base: string, scene: Scene) {
     await page.keyboard.press('f')
     await advance(page, scene.lead ?? 300)
   }
-  await page.addStyleTag({ content: overlayCss })
+  if (!scene.ui) await page.addStyleTag({ content: overlayCss })
 }
 
 export async function aim(page: Page, view: View) {
@@ -151,4 +155,128 @@ const overlayCss = `
 export async function run(command: string[]) {
   const child = Bun.spawn(command, { stdout: 'inherit', stderr: 'inherit' })
   if ((await child.exited) !== 0) throw new Error(`${command[0]} failed`)
+}
+
+type Span = number | [number, number]
+
+export type Rig =
+  | { kind: 'track'; ahead: Span; side: Span; height: Span; fov: Span; look?: number }
+  | { kind: 'flyby'; ahead: number; side: number; height: number; fov: Span; look?: number }
+  | { kind: 'orbit'; angle: Span; radius: Span; height: Span; fov: Span; look?: number }
+  | {
+      kind: 'scenery'
+      ahead: number
+      side: number
+      height: Span
+      travel: number
+      turn: Span
+      pitch: Span
+      fov: Span
+    }
+
+export async function direct(page: Page, rig: Rig | null) {
+  await page.evaluate((value) => {
+    interface Point {
+      x: number
+      y: number
+      z: number
+    }
+    interface Camera {
+      position: Point & { set(x: number, y: number, z: number): void }
+      fov: number
+      lookAt(x: number, y: number, z: number): void
+      updateProjectionMatrix(): void
+    }
+    interface Subject {
+      x: number
+      y: number
+      s: number
+    }
+    interface Ground {
+      road(s: number): { x: number; y: number; yaw: number }
+      height(x: number, s: number): number
+    }
+    type Live = Rig & { t: number; anchor?: Point }
+    const stage = window as unknown as {
+      voyage: {
+        view: {
+          camera: Camera
+          update(subject: Subject, world: Ground, mode: string, elapsed: number): void
+          directed?: boolean
+        }
+      }
+      rig: Live | null
+    }
+    stage.rig = value ? { ...value, t: 0 } : null
+    const view = stage.voyage.view
+    if (view.directed) return
+    view.directed = true
+    const original = view.update.bind(view)
+    const at = (span: Span, t: number) =>
+      typeof span === 'number' ? span : span[0] + (span[1] - span[0]) * t
+    view.update = (subject, world, mode, elapsed) => {
+      original(subject, world, mode, elapsed)
+      const rig = stage.rig
+      if (!rig) return
+      const camera = view.camera
+      const t = rig.t
+      const road = world.road(subject.s)
+      const forward = { x: -Math.sin(road.yaw), z: -Math.cos(road.yaw) }
+      const side = { x: Math.cos(road.yaw), z: -Math.sin(road.yaw) }
+      const car = { x: subject.x, y: subject.y, z: -subject.s }
+      const ground = (x: number, z: number) => world.height(x, -z)
+      let eye: Point
+      let focus: Point
+      if (rig.kind === 'track' || rig.kind === 'orbit') {
+        const angle = rig.kind === 'orbit' ? at(rig.angle, t) : 0
+        const reach = rig.kind === 'orbit' ? at(rig.radius, t) : 0
+        const ahead = rig.kind === 'track' ? at(rig.ahead, t) : Math.cos(angle) * reach
+        const across = rig.kind === 'track' ? at(rig.side, t) : Math.sin(angle) * reach
+        const x = car.x + forward.x * ahead + side.x * across
+        const z = car.z + forward.z * ahead + side.z * across
+        eye = { x, y: Math.max(car.y + at(rig.height, t), ground(x, z) + 0.4), z }
+        focus = { x: car.x, y: car.y + (rig.look ?? 0.7), z: car.z }
+      } else if (rig.kind === 'flyby') {
+        if (!rig.anchor) {
+          const s = subject.s + rig.ahead
+          const line = world.road(s)
+          const x = line.x + Math.cos(line.yaw) * rig.side
+          const z = -s - Math.sin(line.yaw) * rig.side
+          rig.anchor = { x, y: ground(x, z) + rig.height, z }
+        }
+        eye = rig.anchor
+        focus = { x: car.x, y: car.y + (rig.look ?? 0.7), z: car.z }
+      } else {
+        const s = subject.s + rig.ahead + rig.travel * t
+        const line = world.road(s)
+        const x = line.x + Math.cos(line.yaw) * rig.side
+        const z = -s - Math.sin(line.yaw) * rig.side
+        eye = { x, y: line.y + at(rig.height, t), z }
+        const heading = line.yaw + at(rig.turn, t)
+        const pitch = at(rig.pitch, t)
+        focus = {
+          x: x - Math.sin(heading) * Math.cos(pitch) * 100,
+          y: eye.y + Math.sin(pitch) * 100,
+          z: z - Math.cos(heading) * Math.cos(pitch) * 100,
+        }
+      }
+      camera.position.set(eye.x, eye.y, eye.z)
+      camera.lookAt(focus.x, focus.y, focus.z)
+      camera.fov = at(rig.fov, t)
+      camera.updateProjectionMatrix()
+    }
+  }, rig)
+}
+
+export async function cue(page: Page, t: number) {
+  await page.evaluate((value) => {
+    const stage = window as unknown as { rig: { t: number } | null }
+    if (stage.rig) stage.rig.t = value
+  }, t)
+}
+
+export async function pace(page: Page, scale: number) {
+  await page.evaluate((value) => {
+    ;(window as unknown as { timeScale: number }).timeScale = value
+  }, scale)
 }
