@@ -39,9 +39,12 @@ Each of the 87 real cars in the engine catalog has its own body in
 `src/assets/models/cars/bodies/`, named by the car's id (its name in lowercase words,
 such as `ferrari-f8-tributo`). `src/game/car-sheets.json` is the one table of real
 dimensions behind them: generation, length, width, height, wheelbase, front overhang,
-front and rear track, tyre sizes, ground clearance, chassis class and factory paint.
-Each row lists under `estimated` the figures that are estimates instead of published
-ones; front overhang and ground clearance are estimates for most cars.
+front and rear track, tyre sizes, ground clearance, chassis class and factory paint,
+along with its brakes, the wheels it drives (`front`, `rear` or `all`), the share of
+its weight over the front wheels in percent, and `slicks` for the race cars. Each row
+lists under `estimated` the figures that are estimates instead of published ones;
+front overhang, ground clearance and the front weight share are estimates for most
+cars.
 The generator and the game both read it, so a body's wheels sit exactly where the
 physics puts them.
 

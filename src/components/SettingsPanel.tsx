@@ -10,7 +10,7 @@ import {
   ShieldCheck,
   X,
 } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { Fragment, useEffect, useId, useRef, useState } from 'react'
 import { brakeSpecs } from '../game/brakes'
 import { bodyFor, bodyNamed, carSlug } from '../game/car-bodies'
 import { assistanceLabels } from '../game/controls'
@@ -41,6 +41,8 @@ import {
   cameras,
   colors,
   daylight,
+  driverAids,
+  drivetrainNote,
   landscapes,
   life,
   qualities,
@@ -460,6 +462,32 @@ export function SettingsPanel({
               </label>
               <p>
                 Gently brake when you release the accelerator. Use S or the brake pedal to reverse.
+              </p>
+            </section>
+            <section className="setting-section">
+              <h3>Driver aids</h3>
+              {driverAids.map((aid) => (
+                <Fragment key={aid.id}>
+                  <label className="check-option" data-aid={aid.id}>
+                    <input
+                      type="checkbox"
+                      checked={settings[aid.id]}
+                      onChange={(event) => update(aid.id, event.target.checked)}
+                    />
+                    {aid.label}
+                  </label>
+                  <p>{aid.description}</p>
+                </Fragment>
+              ))}
+              <p>
+                Stability control always stays on and flashes ESC while it works. It allows a bigger
+                slide while wheels spin with traction control off, and cannot help while a wheel is
+                locked.{' '}
+                {drivetrainNote(
+                  settings.vehicle,
+                  fitCar(settings).metrics.drivetrain,
+                  bodyFor(settings)?.name ?? null,
+                )}
               </p>
             </section>
           </>

@@ -151,7 +151,7 @@ test.each(vehicles)(
   },
 )
 
-test('unequal grip changes wheel traction independently', () => {
+test('unequal grip changes wheel traction independently and traction control keeps the car straight', () => {
   const body = car()
   body.speed = 5
   for (const wheel of body.suspension.wheels) wheel.onRoad = wheel.localX > 0
@@ -161,7 +161,7 @@ test('unequal grip changes wheel traction independently', () => {
   expect(left.reduce((sum, wheel) => sum + wheel.longitudinalImpulse, 0)).toBeLessThan(
     right.reduce((sum, wheel) => sum + wheel.longitudinalImpulse, 0),
   )
-  expect(body.yawRate).toBeGreaterThan(0)
+  expect(Math.abs(body.yawRate)).toBeLessThan(0.001)
 })
 
 test('gravity makes an unpowered vehicle roll downhill', () => {
@@ -306,7 +306,7 @@ function offroad(vehicle: Settings['vehicle'], sand: boolean) {
 }
 
 test.each(vehicles)(
-  '%s bogs down in sand far more than on grass whatever the tire grip',
+  '%s bogs down in sand far more than on grass, and deepest on two driven wheels',
   (vehicle) => {
     const top = (sand: boolean) => {
       const { settings, body } = offroad(vehicle, sand)
@@ -325,7 +325,7 @@ test.each(vehicles)(
       return frames * step
     }
     expect(top(true)).toBeLessThan(20)
-    expect(top(true)).toBeGreaterThan(10)
+    expect(top(true)).toBeGreaterThan(vehicleMetrics[vehicle].drivetrain === 'all' ? 10 : 4)
     expect(top(true)).toBeLessThan(top(false) * 0.85)
     expect(halving(true)).toBeLessThan(2)
     expect(halving(true)).toBeLessThan(halving(false) * 0.75)

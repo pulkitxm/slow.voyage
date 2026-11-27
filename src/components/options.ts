@@ -25,6 +25,8 @@ import {
   Waves,
   Zap,
 } from 'lucide-react'
+import type { Drivetrain } from '../game/vehicles'
+import type { Vehicle } from '../game/world'
 
 export { cameras } from '../game/settings'
 export const landscapes = [
@@ -159,3 +161,41 @@ export const steeringAssists = [
       'The calmest keys at speed. A tap drifts the car a hand width and a long hold eases into the bend.',
   },
 ] as const
+export const driverAids = [
+  {
+    id: 'antilock',
+    label: 'Antilock brakes (ABS)',
+    description:
+      'Keeps the wheels turning under hard braking so the car still steers. Without it a firm stop locks the wheels: the car slides straight on and needs about a quarter more road when dry and half as much again in the rain.',
+  },
+  {
+    id: 'brakeDistribution',
+    label: 'Brake force distribution (EBD)',
+    description:
+      'Shares the braking between the wheels by the weight each one carries. Without it the brakes split at a fixed ratio that holds the rear well back, so every stop takes about a tenth longer and the front wheels lock first.',
+  },
+  {
+    id: 'tractionControl',
+    label: 'Traction control (TCS)',
+    description:
+      'Eases the power when the driven wheels start to spin. Without it full throttle spins them up and smokes the tyres: a rear drive car swings its tail wide in a bend and a front drive car runs wide.',
+  },
+] as const
+const vehicleTitles: Record<Vehicle, string> = {
+  touring: 'The grand tourer',
+  roadster: 'The roadster',
+  hatchback: 'The city hatchback',
+  supercar: 'The supercar',
+  pickup: 'The trail pickup',
+  motorcycle: 'The motorcycle',
+  bus: 'The wanderer bus',
+}
+const drivenWheels: Record<Drivetrain, string> = {
+  front: 'drives its front wheels',
+  rear: 'drives its rear wheels',
+  all: 'drives all four wheels',
+}
+export function drivetrainNote(vehicle: Vehicle, drivetrain: Drivetrain, car: string | null) {
+  if (vehicle === 'motorcycle') return 'The motorcycle drives its rear wheel.'
+  return `${car ? `The ${car}` : vehicleTitles[vehicle]} ${drivenWheels[drivetrain]}.`
+}

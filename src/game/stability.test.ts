@@ -50,7 +50,7 @@ test('braking tightens the yaw correction so a hard stop cannot swing the tail o
   const coasting = { speed: 30, lateralSpeed: 0, yawRate: 0.4, steering: 0 }
   const braking = { ...coasting }
   stabilize(coasting, traction, wheelbase, step)
-  stabilize(braking, traction, wheelbase, step, true)
+  stabilize(braking, traction, wheelbase, step, { braking: true })
   expect(Math.abs(braking.yawRate)).toBeLessThan(Math.abs(coasting.yawRate))
   expect(Math.abs(braking.yawRate)).toBeGreaterThan(stabilityLimits.yawDeadband)
 })

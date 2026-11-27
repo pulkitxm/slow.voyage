@@ -112,6 +112,17 @@ function retune(
   }
 }
 
+export const slickGrip = 1.2
+
+export function driveReach(body: CarBody) {
+  if (body.drive === 'all') return 1
+  const [front, rear] = body.tyres
+  const share = body.drive === 'front' ? body.frontWeight : 1 - body.frontWeight
+  const tyre = body.drive === 'front' ? front : rear
+  const width = (2 * tyre.width) / (front.width + rear.width)
+  return 2 * share * width * (body.slicks ? slickGrip : 1)
+}
+
 function fitBody(vehicle: Vehicle, engine: SwapEngine | null, body: CarBody): Fitted {
   const stock = bodyMetrics(vehicleMetrics[vehicle], body)
   const original = engineProfiles[vehicle]
@@ -139,6 +150,8 @@ function fitBody(vehicle: Vehicle, engine: SwapEngine | null, body: CarBody): Fi
     drag,
     brake: (stock.brake * brakeSpecs[body.brakes].grip) / brakeSpecs[vehicleBrakes[vehicle]].grip,
     brakeReach: Math.sqrt(brakeSpecs[body.brakes].grip / brakeSpecs[vehicleBrakes[vehicle]].grip),
+    drivetrain: body.drive,
+    driveReach: driveReach(body),
     maxSpeed: top,
   }
   const reached = engineShare === 1 ? top : terminalSpeed(tuned)

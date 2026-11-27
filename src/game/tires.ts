@@ -1,6 +1,6 @@
 import { surfaceGrip } from './grip'
 import type { ChassisPose, WheelState } from './suspension'
-import { type VehicleMetrics, vehicleMetrics, yawInertia } from './vehicles'
+import { type Drivetrain, type VehicleMetrics, vehicleMetrics, yawInertia } from './vehicles'
 import { clamp, type Settings } from './world'
 
 export const standingWater = { grip: 0.12, planing: 36, drag: 0.5, surge: 0.0035 }
@@ -15,7 +15,47 @@ function groundResistance(wheel: WheelState, speed: number) {
   return drag.base + speed * drag.linear + speed ** 4 * drag.quartic
 }
 const longitudinalShare = { minimum: 0.6, maximum: 1, holdSpeed: 0.5 }
-export const antilock = { reach: 1.3, peak: 0.9, rearShare: 0.75 }
+export const antilock = { reach: 1.3, peak: 0.9, rearShare: 0.75, valveShare: 0.3 }
+export const traction = { hold: 0.9, crawl: 4 }
+export const breakaway = { spinGrip: 0.8, spinLateral: 0.3, spinSurface: 7 }
+export const lockedGrip = { dry: 0.82, wet: 0.66, snow: 0.8 }
+
+function slidingGrip(settings: Pick<Settings, 'season' | 'weather'>) {
+  if (settings.season === 'winter') return lockedGrip.snow
+  return settings.weather === 'rain' || settings.weather === 'storm'
+    ? lockedGrip.wet
+    : lockedGrip.dry
+}
+export interface TireResult {
+  forward: number
+  lateral: number
+  antilock: boolean
+  traction: boolean
+}
+
+export function driven(drivetrain: Drivetrain, wheel: Pick<WheelState, 'front'>) {
+  return drivetrain === 'all' || (drivetrain === 'front') === wheel.front
+}
+
+function brakeShares(
+  wheels: WheelState[],
+  capacities: number[],
+  bias: number,
+  distribute: boolean,
+) {
+  if (distribute) {
+    const load = wheels.reduce(
+      (sum, wheel, index) => sum + ((capacities[index] ?? 0) > 0 ? wheel.load : 0),
+      0,
+    )
+    return wheels.map((wheel) => wheel.load / Math.max(load, 1))
+  }
+  const front = wheels.filter((wheel) => wheel.front).length
+  const rear = wheels.length - front
+  return wheels.map((wheel) =>
+    wheel.front ? (rear ? bias : 1) / Math.max(front, 1) : (front ? 1 - bias : 1) / rear,
+  )
+}
 
 function longitudinalLimit(lateralDemand: number, ceiling: number) {
   const lateral = clamp(lateralDemand, 0, 1)
@@ -120,7 +160,7 @@ export function solveTires(
   brake: number,
   handbrake: boolean,
   metrics: VehicleMetrics = vehicleMetrics[settings.vehicle],
-) {
+): TireResult {
   const inverseMass = 1 / metrics.mass
   const inverseInertia = 1 / yawInertia(metrics)
   const quarterMass = metrics.mass / wheels.length
@@ -134,9 +174,12 @@ export function solveTires(
       (1 - standingWater.grip * wheel.puddle * planing)
     const capacity = wheel.contact ? friction * wheel.load * dt : 0
     capacities.push(capacity)
-    wheel.longitudinalImpulse = wheel.lateralImpulse = wheel.slip = 0
+    wheel.longitudinalImpulse = wheel.lateralImpulse = wheel.slip = wheel.spin = 0
     wheel.locked = handbrake && !wheel.front
-    if (!capacity) continue
+    if (!capacity) {
+      wheel.skidding = wheel.spinning = false
+      continue
+    }
     const rightGravity =
       -wheel.load * (wheel.slopeX * Math.cos(pose.yaw) + wheel.slopeS * Math.sin(pose.yaw))
     const forwardGravity =
@@ -146,16 +189,28 @@ export function solveTires(
     pose.yawRate +=
       (wheel.localX * forwardGravity - wheel.localS * rightGravity) * inverseInertia * dt
   }
-  const groundedLoad = wheels.reduce(
-    (sum, wheel, index) => sum + ((capacities[index] ?? 0) > 0 ? wheel.load : 0),
+  const drivenLoad = wheels.reduce(
+    (sum, wheel, index) =>
+      sum + ((capacities[index] ?? 0) > 0 && driven(metrics.drivetrain, wheel) ? wheel.load : 0),
     0,
   )
+  const airDrag = metrics.drag * Math.hypot(pose.speed, pose.lateralSpeed) * Math.abs(pose.speed)
+  const carried = drivenLoad > 0 && drive * pose.speed > 0 ? Math.min(Math.abs(drive), airDrag) : 0
+  const thrust = drive - Math.sign(drive) * carried
+  const brakeShare = brakeShares(wheels, capacities, metrics.brakeBias, settings.brakeDistribution)
   const reach = brake > 0 ? antilock.reach * metrics.brakeReach : 1
-  const ceiling = brake > 0 ? reach * antilock.peak : longitudinalShare.maximum
+  const ceiling =
+    brake > 0 ? reach * (settings.antilock ? antilock.peak : 1) : longitudinalShare.maximum
+  const lockGrip = slidingGrip(settings)
+  const rearShare = settings.antilock && settings.brakeDistribution ? antilock.rearShare : 1
+  let antilockActive = false
+  let tractionActive = false
   const centripetal = Math.max(
     Math.abs(pose.yawRate * pose.speed),
     Math.abs((pose.speed * pose.speed * Math.tan(pose.steering)) / metrics.wheelbase),
   )
+  const pull = (wheel: WheelState) =>
+    brake === 0 && driven(metrics.drivetrain, wheel) ? metrics.driveReach : 1
   for (let i = 0; i < wheels.length; i++) {
     const wheel = wheels[i]
     const capacity = capacities[i] ?? 0
@@ -164,9 +219,11 @@ export function solveTires(
       capacity *
       longitudinalLimit(
         centripetal / (surfaceGrip(settings, wheel.onRoad, wheel.sand) * 9.81),
-        brake > 0 && !wheel.front ? ceiling * antilock.rearShare : ceiling,
+        brake > 0 && !wheel.front ? ceiling * rearShare : ceiling * pull(wheel),
       )
-    const driveImpulse = (drive * metrics.mass * wheel.load * dt) / Math.max(groundedLoad, 1)
+    const driveImpulse = driven(metrics.drivetrain, wheel)
+      ? (thrust * metrics.mass * wheel.load * dt) / Math.max(drivenLoad, 1)
+      : 0
     const lever = wheel.localX * Math.cos(wheel.steering) + wheel.localS * Math.sin(wheel.steering)
     const effectiveInverseMass = inverseMass + lever * lever * inverseInertia
     const ground = velocity(pose, wheel).longitudinal
@@ -187,13 +244,24 @@ export function solveTires(
       0.1 +
       metrics.rollingResistance * Math.abs(motion.longitudinal) +
       wheel.puddle * (standingWater.drag + standingWater.surge * motion.longitudinal ** 2)
-    const brakeDemand = (brake * metrics.mass * wheel.load * dt) / Math.max(groundedLoad, 1)
-    const resistance = Math.min(quarterMass * rolling * dt + brakeDemand, brakeLimit)
-    wheel.locked ||=
+    const brakeDemand = Math.min(
+      brake * metrics.mass * (brakeShare[i] ?? 0) * dt,
+      settings.brakeDistribution || wheel.front
+        ? Number.POSITIVE_INFINITY
+        : capacity * antilock.reach * antilock.valveShare,
+    )
+    const holding = Math.abs(motion.longitudinal) < longitudinalShare.holdSpeed
+    const clamping = quarterMass * rolling * dt + brakeDemand - Math.abs(driveImpulse)
+    wheel.skidding =
       brake > 0 &&
-      Math.abs(motion.longitudinal) < longitudinalShare.holdSpeed &&
-      quarterMass * rolling * dt + brakeDemand - Math.abs(driveImpulse) >= capacity
+      !settings.antilock &&
+      !holding &&
+      clamping > (wheel.skidding ? capacity * lockGrip : share)
+    if (brake > 0 && settings.antilock && !holding && clamping > share) antilockActive = true
+    const resistance = Math.min(quarterMass * rolling * dt + brakeDemand, brakeLimit)
+    wheel.locked ||= wheel.skidding || (brake > 0 && holding && clamping >= capacity)
     if (wheel.locked) {
+      wheel.spinning = false
       wheel.slip = Math.min(1, Math.hypot(motion.longitudinal, motion.lateral))
       continue
     }
@@ -201,8 +269,24 @@ export function solveTires(
     const brakingImpulse = clamp(stoppingImpulse, -resistance, resistance)
     const requested = driveImpulse + brakingImpulse
     const limit = Math.min(brakeLimit, share)
-    wheel.longitudinalImpulse = clamp(requested, -limit, limit)
-    wheel.slip = Math.max(0, (Math.abs(requested) - limit) / Math.max(1, capacity))
+    const overpowered =
+      driveImpulse !== 0 &&
+      Math.sign(requested) === Math.sign(driveImpulse) &&
+      Math.abs(requested) > (wheel.spinning ? limit * breakaway.spinGrip : limit)
+    const held =
+      overpowered && settings.tractionControl
+        ? limit * (1 - (1 - traction.hold) * clamp(Math.abs(pose.speed) / traction.crawl, 0, 1))
+        : limit
+    wheel.spinning = overpowered && !settings.tractionControl
+    if (overpowered && settings.tractionControl) tractionActive = true
+    if (wheel.spinning) {
+      wheel.longitudinalImpulse = Math.sign(driveImpulse) * limit * breakaway.spinGrip
+      wheel.spin = Math.sign(driveImpulse) * breakaway.spinSurface
+      wheel.slip = 1
+    } else {
+      wheel.longitudinalImpulse = clamp(requested, -held, held)
+      wheel.slip = Math.max(0, (Math.abs(requested) - held) / Math.max(1, capacity))
+    }
     applyImpulse(pose, wheel, 0, wheel.longitudinalImpulse, inverseMass, inverseInertia)
   }
   const iterations = wheels.some((wheel) => wheel.locked) ? 12 : 4
@@ -212,15 +296,25 @@ export function solveTires(
       const capacity = capacities[i] ?? 0
       if (!wheel || !capacity) continue
       if (wheel.locked) {
-        solveLockedTire(pose, wheel, capacity, inverseMass, inverseInertia)
+        solveLockedTire(
+          pose,
+          wheel,
+          wheel.skidding ? capacity * lockGrip : capacity,
+          inverseMass,
+          inverseInertia,
+        )
         continue
       }
       const motion = velocity(pose, wheel)
       const lever =
         wheel.localX * Math.sin(wheel.steering) - wheel.localS * Math.cos(wheel.steering)
       const effectiveInverseMass = inverseMass + lever * lever * inverseInertia
-      const limit =
-        capacity * Math.sqrt(Math.max(0, 1 - (wheel.longitudinalImpulse / (capacity * reach)) ** 2))
+      const limit = wheel.spinning
+        ? capacity * breakaway.spinLateral
+        : capacity *
+          Math.sqrt(
+            Math.max(0, 1 - (wheel.longitudinalImpulse / (capacity * reach * pull(wheel))) ** 2),
+          )
       const next = clamp(
         wheel.lateralImpulse - motion.lateral / effectiveInverseMass,
         -limit,
@@ -240,10 +334,12 @@ export function solveTires(
     )
   }
   const drag = Math.min(1, metrics.drag * Math.hypot(pose.speed, pose.lateralSpeed) * dt)
-  pose.speed *= 1 - drag
+  pose.speed *= 1 - drag * (airDrag > 0 ? 1 - carried / airDrag : 1)
   pose.lateralSpeed *= 1 - drag
   return {
     forward: (pose.speed - speedBefore) / dt,
     lateral: (pose.lateralSpeed - lateralBefore) / dt,
+    antilock: antilockActive,
+    traction: tractionActive,
   }
 }
