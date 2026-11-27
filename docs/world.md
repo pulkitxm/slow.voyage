@@ -107,6 +107,35 @@ vehicle, and then resist steeply.
   and strong steering assists are options: above town speeds a key first asks
   for a small share of the grip angle and the share grows over about a second of
   holding, so a 0.15 s tap moves the car a quarter metre.
+- Each vehicle drives the wheels its real counterpart would. Every real car
+  carries its own layout, so a Ferrari F8 drives the rear, a Golf GTI the front
+  and a Skyline GT-R all four. The generic grand tourer, roadster, motorcycle
+  and bus drive the rear, the city hatchback the front, and the supercar and
+  trail pickup all four. Power reaches only the driven wheels, and how much they
+  can put down follows the real car's weight over them, its wider rear tyres
+  and racing slicks, so a mid-engined car launches harder than a front-heavy
+  muscle car. A two-wheel-drive car still runs out of traction sooner on a wet
+  launch, in sand or on an icy climb, where it can stall on a pass a
+  four-wheel-drive climbs. At speed the driven tyres only carry the push beyond
+  the air's drag, so every car still reaches its real top speed.
+- Driver aids sit in the Controls settings and all start on. Antilock brakes keep
+  every wheel just short of locking, so a full stop still steers. Brake force
+  distribution shares the braking between the wheels by the weight each one
+  carries. Traction control eases the power when a driven wheel starts to spin
+  and holds it just under its grip, so the tyres keep some sideways grip and a
+  launch stays straight, even through standing water.
+  The service brakes are stronger than the tyres, so without antilock a firm
+  stop locks the wheels: the car slides straight on, leaves black marks and
+  needs about a quarter more road when dry and half as much again in the rain,
+  and stability control cannot help while a wheel is locked. Without brake force
+  distribution the brakes split at a fixed ratio with a valve that holds the
+  rear well back, so stops take about a tenth longer and the fronts lock first.
+  Without traction control the driven wheels spin up, smoke and lose their
+  sideways grip: stability control then lets a rear drive car swing its tail
+  about 20 to 25 degrees before catching it, and a front drive car runs wide.
+  Autodrive feathers the throttle when a wheel spins. Stability control always
+  stays on. Amber lamps above the speed flash ABS, TCS or ESC while an aid works
+  and show OFF for an aid that is switched off.
 - The distance driven adds up across visits in the browser's local storage and
   shows under the trip distance as an all-time total.
 - Boost draws from a charge that burns for 7 seconds and refills in 22. While it
