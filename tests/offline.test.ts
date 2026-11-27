@@ -134,6 +134,16 @@ test('keeps car bodies out of the install and stores each when first driven', as
   expect(cache.has(path)).toBe(true)
   expect((await request(path))?.status).toBe(200)
 })
+test('keeps car pictures out of the install and stores each when first shown', async () => {
+  const cache = Array.from(stores.entries()).find(([name]) => name.startsWith('slow-voyage-'))?.[1]
+  const names = Array.from(new Bun.Glob('assets/*.webp').scanSync({ cwd: 'dist/client' }))
+  const picture = names.find((name) => name.startsWith('assets/ferrari-f8-tributo-mask-'))
+  if (!picture || !cache) throw new Error('No car picture was built')
+  expect(cache.has(`/${picture}`)).toBe(false)
+  expect(names.some((name) => name.startsWith('assets/broadleaf-') && cache.has(`/${name}`))).toBe(
+    true,
+  )
+})
 test('removes obsolete game caches and preserves unrelated storage', () => {
   expect(stores.has('slow-voyage-obsolete')).toBe(false)
   expect(stores.has('unrelated-cache')).toBe(true)
