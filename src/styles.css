@@ -603,7 +603,7 @@ svg {
   justify-self: end;
 }
 .cluster {
-  --dial: clamp(112px, calc(31.6vw - 135px), 172px);
+  --dial: clamp(96px, calc(31.6vw - 150px), 172px);
   container-type: inline-size;
   position: relative;
   width: calc(var(--dial) * 1.36);
@@ -1842,7 +1842,7 @@ input[type="range"] {
     height: 124px;
   }
   .cluster {
-    --dial: 112px;
+    --dial: clamp(88px, min(calc((100dvh - 268px) * 1.06), calc(31.6vw - 150px)), 112px);
   }
 }
 
