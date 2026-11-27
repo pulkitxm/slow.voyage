@@ -11,4 +11,3 @@ src/routeTree.gen.ts
 .env.*
 !.env.example
 __pycache__/
-.claude/
