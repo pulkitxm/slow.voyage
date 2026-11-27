@@ -1,3 +1,4 @@
+import type { LucideIcon } from 'lucide-react'
 import {
   AudioLines,
   Camera,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { brakeSpecs } from '../game/brakes'
-import { bodyFor, bodyNamed } from '../game/car-bodies'
+import { bodyFor, bodyNamed, carSlug } from '../game/car-bodies'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
 import {
@@ -33,6 +34,7 @@ import {
 import type { ControllerStatus } from '../game/gamepad'
 import { vehicleNames } from '../game/vehicles'
 import type { EngineId, Settings, Vehicle } from '../game/world'
+import { CarPicture } from './CarPicture'
 import { ControllerMapping } from './ControllerMapping'
 import { IconButton } from './IconButton'
 import {
@@ -655,6 +657,8 @@ const plain = (text: string) =>
 interface Choice {
   key: string
   title: string
+  picture?: string
+  icon?: LucideIcon
   badge?: string
   detail?: string
   note?: string
@@ -672,11 +676,13 @@ function Dropdown({
   onSelect,
   disabled = false,
   placeholder,
+  paint,
 }: {
   label: string
   groups: ChoiceGroup[]
   selected: string | null
   onSelect: (key: string) => void
+  paint?: string
   disabled?: boolean
   placeholder: string
 }) {
@@ -784,6 +790,9 @@ function Dropdown({
   }
   const face = (choice: Choice) => (
     <>
+      {paint && (choice.picture || choice.icon) && (
+        <CarPicture id={choice.picture ?? ''} paint={paint} icon={choice.icon} />
+      )}
       {choice.badge && <span className="engine-badge">{choice.badge}</span>}
       <span>
         <strong>{choice.title}</strong>
@@ -837,22 +846,24 @@ function Dropdown({
               </span>
             </label>
           )}
-          <div className="engine-menu" ref={menu}>
+          <div className={`engine-menu ${paint ? 'is-gallery' : ''}`} ref={menu}>
             {shown.map((group) => (
               <div key={group.label} className="engine-family">
                 {group.label && <h4>{group.label}</h4>}
-                {group.choices.map((choice) => (
-                  <button
-                    type="button"
-                    key={choice.key}
-                    aria-pressed={choice.key === selected}
-                    className={`landscape-option engine-option ${choice.key === selected ? 'selected' : ''}`}
-                    onClick={() => choose(choice.key)}
-                  >
-                    {face(choice)}
-                    {choice.key === selected && <Check size={15} />}
-                  </button>
-                ))}
+                <div className="engine-choices">
+                  {group.choices.map((choice) => (
+                    <button
+                      type="button"
+                      key={choice.key}
+                      aria-pressed={choice.key === selected}
+                      className={`landscape-option engine-option ${choice.key === selected ? 'selected' : ''}`}
+                      onClick={() => choose(choice.key)}
+                    >
+                      {face(choice)}
+                      {choice.key === selected && <Check size={15} />}
+                    </button>
+                  ))}
+                </div>
               </div>
             ))}
             {!found && <p className="engine-empty">Nothing matches "{query}".</p>}
@@ -891,6 +902,8 @@ function CarChoice({ settings, apply }: Pick<Props, 'settings' | 'apply'>) {
       label: 'Easy picks',
       choices: vehicles.map((item) => ({
         key: classKey(item.id),
+        picture: item.id,
+        icon: item.icon,
         title: vehicleNames[item.id],
         detail: vehicleBlurbs[item.id],
         search: plain(`${vehicleNames[item.id]} ${vehicleBlurbs[item.id]}`),
@@ -902,6 +915,7 @@ function CarChoice({ settings, apply }: Pick<Props, 'settings' | 'apply'>) {
         .filter((car) => car.maker === maker)
         .map((car) => ({
           key: car.name,
+          picture: carSlug(car.name),
           title: car.model,
           detail: `${horsepower(engineCatalog[car.id].power)} hp`,
           search: plain(`${car.name} ${engineCatalog[car.id].name}`),
@@ -966,6 +980,7 @@ function CarChoice({ settings, apply }: Pick<Props, 'settings' | 'apply'>) {
           groups={carGroups}
           selected={body ? body.name : classKey(vehicle)}
           placeholder="Choose a car"
+          paint={settings.color}
           onSelect={pickCar}
         />
         <Dropdown
