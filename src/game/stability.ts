@@ -13,11 +13,18 @@ export const stabilityLimits = {
   yawDeadbandShare: 0.15,
   slipAngle: 0.08,
   yawResponse: 20,
+  brakingYawResponse: 60,
   slipResponse: 8,
   minimumSpeed: 4,
 }
 
-export function stabilize(state: StabilityState, traction: number, wheelbase: number, dt: number) {
+export function stabilize(
+  state: StabilityState,
+  traction: number,
+  wheelbase: number,
+  dt: number,
+  braking = false,
+) {
   const speed = Math.abs(state.speed)
   if (speed < stabilityLimits.minimumSpeed || traction <= 0) return 0
   const blend = clamp((speed - stabilityLimits.minimumSpeed) / 4, 0, 1)
@@ -27,7 +34,8 @@ export function stabilize(state: StabilityState, traction: number, wheelbase: nu
     stabilityLimits.yawDeadband + Math.abs(requested) * stabilityLimits.yawDeadbandShare
   const error = state.yawRate - requested
   const excessYaw = error - clamp(error, -deadband, deadband)
-  const yawCorrection = excessYaw * (1 - Math.exp(-stabilityLimits.yawResponse * dt)) * blend
+  const yawResponse = braking ? stabilityLimits.brakingYawResponse : stabilityLimits.yawResponse
+  const yawCorrection = excessYaw * (1 - Math.exp(-yawResponse * dt)) * blend
   state.yawRate -= yawCorrection
   const slipLimit = Math.tan(stabilityLimits.slipAngle) * speed
   const excessSlip = state.lateralSpeed - clamp(state.lateralSpeed, -slipLimit, slipLimit)

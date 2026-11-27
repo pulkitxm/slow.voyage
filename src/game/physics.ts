@@ -289,7 +289,7 @@ export class CarPhysics {
             this.suspension.wheels.length) *
           9.81
         : 0
-      this.stability = stabilize(this, traction, vehicle.wheelbase, dt)
+      this.stability = stabilize(this, traction, vehicle.wheelbase, dt, brake > 0)
     } else this.stability = 0
     this.x += (-Math.sin(this.yaw) * this.speed + Math.cos(this.yaw) * this.lateralSpeed) * dt
     this.s += (Math.cos(this.yaw) * this.speed + Math.sin(this.yaw) * this.lateralSpeed) * dt
