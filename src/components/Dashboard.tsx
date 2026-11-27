@@ -105,11 +105,8 @@ function DialFace({ redline }: { redline: number }) {
           </text>
         )
       })}
-      <text className="dial-caption" x={dial.x - 22} y={dial.y + 4}>
-        ×1000
-      </text>
-      <text className="dial-caption" x={dial.x - 22} y={dial.y + 11}>
-        RPM
+      <text className="dial-caption" x={dial.x} y={dial.y + 22}>
+        ×1000 RPM
       </text>
     </>
   )
