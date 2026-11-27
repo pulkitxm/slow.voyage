@@ -91,6 +91,16 @@ export function Drive() {
   const VehicleIcon = vehicleIcons[settings.vehicle]
   const root = useRef<HTMLElement>(null)
   useEffect(() => {
+    const release = (event: MouseEvent) => {
+      if (event.detail === 0 || !(event.target instanceof Element)) return
+      const control = event.target.closest('button, a')
+      if (control instanceof HTMLElement && !control.closest('.settings-panel, dialog'))
+        control.blur()
+    }
+    document.addEventListener('click', release)
+    return () => document.removeEventListener('click', release)
+  }, [])
+  useEffect(() => {
     const apply = () => {
       const node = root.current
       if (!node) return

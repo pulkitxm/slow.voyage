@@ -132,7 +132,7 @@ test(
           step_id: 'keyboard-autodrive',
           action: 'press',
           locator: { kind: 'css', selector: '.auto-button' },
-          key: 'Space',
+          key: 'Enter',
           timeout_ms: 10000,
         },
         wait('manual', '.auto-button:not(.enabled)'),
