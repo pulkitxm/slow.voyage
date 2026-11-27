@@ -61,6 +61,7 @@ export interface Settings {
   volume: number
   quality: 'ultra' | 'high' | 'low'
   units: 'km' | 'mi'
+  tachometer: boolean
   grip: number
   power: number
   seed: number
@@ -95,6 +96,7 @@ export const defaults: Settings = {
   volume: 0.25,
   quality: 'ultra',
   units: 'km',
+  tachometer: false,
   grip: 1,
   power: 1,
   seed: 42,

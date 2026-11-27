@@ -214,6 +214,27 @@ test(
 )
 
 test(
+  'swaps the speed readout for a sweeping tachometer when the setting is on',
+  async () => {
+    await capture([
+      start,
+      wait('driving', '.drive.is-driving .telemetry .speed'),
+      click('settings', '[aria-label="Open settings"]'),
+      click('display-tab', '[role="tab"]:text-is("display")'),
+      click('tachometer', '.check-option:has-text("Show tachometer") input'),
+      wait('tachometer-enabled', '.check-option:has-text("Show tachometer") input:checked'),
+      click('close', '[aria-label="Close settings"]'),
+      wait('dial', '.telemetry:not(:has(.speed)) .cluster svg:has(.dial-label)'),
+      wait('needle', '.cluster .dial-needle[transform^="rotate("]'),
+      wait('gear', '.cluster .cluster-gear'),
+      wait('moving', '.cluster-speed:not(:text-is("0"))'),
+      settle,
+    ])
+  },
+  testTimeout,
+)
+
+test(
   'reloads and drives after the HTTP origin shuts down',
   async () => {
     const { originStopped } = await capture((origin) => [
