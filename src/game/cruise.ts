@@ -1,4 +1,4 @@
-import { forwardDriveForce } from './drive'
+import { forwardDriveForce, reverseDriveForce } from './drive'
 import type { Input } from './physics'
 import type { VehicleMetrics } from './vehicles'
 import { clamp } from './world'
@@ -11,9 +11,13 @@ export function adjustCruiseSpeed(speed: number, direction: number, units: 'km' 
   return speed * next < 0 || Math.abs(next) < increment * 0.5 ? 0 : next
 }
 
-export function reverseDriveFactor(speed: number, driveForce: number, jerk: number) {
-  const runout = Math.max(0, -driveForce) ** 2 / jerk
-  return clamp((cruiseLimits.reverse + speed - runout) / 0.5, 0, 1)
+export function reverseDriveFactor(
+  speed: number,
+  driveForce: number,
+  metrics: Pick<VehicleMetrics, 'jerk' | 'reverseSpeed'>,
+) {
+  const runout = Math.max(0, -driveForce) ** 2 / metrics.jerk
+  return clamp((metrics.reverseSpeed + speed - runout) / 0.5, 0, 1)
 }
 
 export function cruisePedals(
@@ -44,7 +48,7 @@ export function cruisePedals(
   const drive =
     direction > 0
       ? forwardDriveForce(velocity, 1, false, metrics, power)
-      : metrics.reverse * 0.5 * reverseFactor
+      : reverseDriveForce(1, metrics, power, reverseFactor)
   const demand = Math.min(Math.abs(force), traction * 0.5 + rolling)
   const pedal = drive <= demand ? 1 : demand / drive
   return {

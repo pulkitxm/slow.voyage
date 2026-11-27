@@ -5,6 +5,7 @@ import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { SimulationClock } from './simulation-clock'
+import { vehicleMetrics } from './vehicles'
 import { defaults, type Settings, vehicles, World } from './world'
 
 class FlatWorld extends World {
@@ -542,8 +543,9 @@ describe('vehicle dynamics', () => {
         car.update(dt, { ...coast, brake: 1 }, settings)
         reversePeak = Math.min(reversePeak, car.speed)
       }
-      expect(car.speed).toBeLessThan(-4.7)
-      expect(reversePeak).toBeGreaterThanOrEqual(-5)
+      const { reverseSpeed } = vehicleMetrics[vehicle]
+      expect(car.speed).toBeLessThan(0.3 - reverseSpeed)
+      expect(reversePeak).toBeGreaterThanOrEqual(-reverseSpeed)
       simulate(car, 6, { ...coast, throttle: 1 }, dt, settings)
       expect(car.speed).toBeGreaterThan(10)
       expect(car.telemetry().gear).not.toBe('R')
@@ -551,12 +553,13 @@ describe('vehicle dynamics', () => {
   })
   test('the reverse governor cannot brake or clip unpowered downhill motion', () => {
     const settings = { ...defaults }
-    const free = new CarPhysics(new GradeWorld(settings, 0.1))
-    const governed = new CarPhysics(new GradeWorld(settings, 0.1))
-    free.speed = governed.speed = -9
+    const free = new CarPhysics(new GradeWorld(settings, 0.2))
+    const governed = new CarPhysics(new GradeWorld(settings, 0.2))
+    const start = -vehicleMetrics[settings.vehicle].reverseSpeed - 4
+    free.speed = governed.speed = start
     simulate(free, 2)
     simulate(governed, 2, { ...coast, brake: 1 })
-    expect(governed.speed).toBeLessThan(-9)
+    expect(governed.speed).toBeLessThan(start)
     expect(governed.speed).toBeCloseTo(free.speed, 8)
     expect(governed.s).toBeCloseTo(free.s, 8)
   })
