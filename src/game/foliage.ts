@@ -33,11 +33,37 @@ export const bareTreePhotos = [
 ] as const
 export const bareSnow = { edge: 0.5, body: 0.2 }
 export const bareCrown = 0.45
-export const treeVariety = { warm: 0.1, cool: 0.12 }
+export const treeVariety = { warm: 0.2, cool: 0.16, shade: 1.6, grove: 0.14 }
+export const leafGrade = {
+  flatten: 0.22,
+  level: 0.085,
+  keep: 0.88,
+  tone: [1.25, 1.2, 1.3] as const,
+  turned: [0.92, 1, 1.7] as const,
+  bark: [0.32, 0.33, 0.35] as const,
+  root: 0.5,
+}
+export const crownForms = {
+  broad: [0.6, 0.24, 0.48],
+  spreading: [0.66, 0.33, 0.45],
+  shrub: [0.42, 0.42, 0.5],
+  conifer: [0.4, 0.55, 0.36],
+  slender: [0.56, 0.42, 0.18],
+} as const
+export const crownLight = {
+  wrap: 0.45,
+  under: 0.62,
+  inside: 0.85,
+  through: 0.8,
+  glow: [1.15, 1, 0.45],
+}
 export const crownClearance = { hidden: 2.6, shown: 3 }
-export const leafTint = { soft: 0.06, bark: 1.15 }
+export const leafTint = { soft: 0.2, bark: 1.15 }
 export const crownLayers = { depth: 0.55, rim: 0.5, ragged: 0.45, lean: 0.3 }
 export const edgeOn = { hidden: 0.1, shown: 0.32 }
+function vector(values: readonly number[]) {
+  return `vec3(${values.map((value) => value.toFixed(3)).join(', ')})`
+}
 const crownShapes: Record<
   number,
   { count: number; low: number; high: number; reach: (level: number) => number }
@@ -87,7 +113,10 @@ export function crownClusters(variant: number) {
 export function leafShare(red: number, green: number, blue: number) {
   const reach = Math.min(
     1,
-    Math.max(0, (green - Math.max(red * 0.98, blue * 1.15)) / leafTint.soft),
+    Math.max(
+      0,
+      (green - Math.max(red * 0.98, blue * 1.15)) / Math.max(green, 0.001) / leafTint.soft,
+    ),
   )
   return reach * reach * (3 - 2 * reach)
 }
@@ -106,6 +135,35 @@ export function treeTint(color: THREE.Color, shade: number, warm: number, cool: 
     shade,
     shade * (1 + drift * 2 * treeVariety.cool),
   )
+}
+
+export function treeShade(shade: number) {
+  return Math.max(0.45, 1 + (shade - 1) * treeVariety.shade)
+}
+
+function groveLattice(column: number, row: number) {
+  const value = Math.sin(column * 127.1 + row * 311.7) * 43758.5453
+  return value - Math.floor(value)
+}
+
+export function groveCast(x: number, s: number, scale = 90) {
+  const u = x / scale
+  const v = s / scale
+  const column = Math.floor(u)
+  const row = Math.floor(v)
+  const tx = (u - column) * (u - column) * (3 - 2 * (u - column))
+  const ts = (v - row) * (v - row) * (3 - 2 * (v - row))
+  const near = groveLattice(column, row) * (1 - tx) + groveLattice(column + 1, row) * tx
+  const far = groveLattice(column, row + 1) * (1 - tx) + groveLattice(column + 1, row + 1) * tx
+  return (near * (1 - ts) + far * ts) * 2 - 1
+}
+
+export function plantTint(color: THREE.Color, shade: number, x: number, s: number) {
+  const grove = groveCast(x, s)
+  const patch = groveCast(x + 517, s - 291, 23)
+  treeTint(color, treeShade(shade) * (1 + grove * treeVariety.grove), x * 0.37, s * 0.53)
+  color.r *= 1 + (grove * 0.6 + patch * 0.4) * treeVariety.warm * 0.6
+  return color
 }
 
 export const evergreenTone = { kept: 0.25 }
@@ -455,7 +513,7 @@ export class Foliage {
       shader.uniforms.leafNormals = this.leafNormals
       shader.vertexShader = shader.vertexShader.replace(
         '#include <common>',
-        '#include <common>\nattribute vec2 cluster;\nattribute vec2 atlasShift;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
+        '#include <common>\nattribute vec2 cluster;\nattribute vec2 atlasShift;\nattribute float kind;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;\nvarying vec2 foliageCrown;',
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <uv_vertex>',
@@ -464,13 +522,21 @@ export class Foliage {
       shader.vertexShader = shader.vertexShader.replace(
         '#include <defaultnormal_vertex>',
         `#include <defaultnormal_vertex>
-vec3 crownNormal = vec3(position.x * 2.4, (position.y - 0.62) * 1.8, position.z * 2.4);
+float crownKind = kind + atlasShift.x * 2.0 + atlasShift.y * 6.0;
+vec3 crownShape = crownKind < 0.5 ? ${vector(crownForms.broad)} : crownKind < 1.5 ? ${vector(crownForms.spreading)} : crownKind < 3.5 ? ${vector(crownForms.shrub)} : crownKind < 4.5 ? ${vector(crownForms.conifer)} : ${vector(crownForms.slender)};
+vec3 crownUnit = vec3(position.x / crownShape.z, (position.y - crownShape.x) / crownShape.y, position.z / crownShape.z);
+float crownSquash = crownShape.z / crownShape.y;
 #ifdef USE_INSTANCING
 mat3 crownInstance = mat3(instanceMatrix);
-crownNormal /= vec3(dot(crownInstance[0], crownInstance[0]), dot(crownInstance[1], crownInstance[1]), dot(crownInstance[2], crownInstance[2]));
-crownNormal = crownInstance * crownNormal;
+vec3 crownScale = vec3(length(crownInstance[0]), length(crownInstance[1]), length(crownInstance[2]));
+crownSquash *= crownScale.x / crownScale.y;
 #endif
-foliageNormal = normalMatrix * crownNormal;`,
+vec3 crownNormal = vec3(crownUnit.x, crownUnit.y * crownSquash, crownUnit.z);
+#ifdef USE_INSTANCING
+crownNormal = mat3(crownInstance[0] / crownScale.x, crownInstance[1] / crownScale.y, crownInstance[2] / crownScale.z) * crownNormal;
+#endif
+foliageNormal = normalMatrix * crownNormal;
+foliageCrown = vec2(crownUnit.y, crownSquash * crownSquash - 1.0);`,
       )
       shader.vertexShader = shader.vertexShader.replace(
         '#include <project_vertex>',
@@ -488,7 +554,7 @@ foliageClear = length(foliageRoot.xz) - foliageSpread;`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <common>',
-        '#include <common>\nuniform float leafNormals;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;',
+        '#include <common>\nuniform float leafNormals;\nvarying vec2 foliageCluster;\nvarying float foliageDistance;\nvarying float foliageClear;\nvarying vec3 foliageNormal;\nvarying vec2 foliageCrown;',
       )
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <normal_fragment_begin>',
@@ -497,8 +563,8 @@ if (abs(dot(normal, normalize(vViewPosition))) < mix(${edgeOn.hidden.toFixed(2)}
 vec2 foliageUv = fract(vMapUv * vec2(2.0, 3.0));
 float evergreen = step(2.0 / 3.0, vMapUv.y) * (1.0 - step(0.5, vMapUv.x));
 float crownWeight = smoothstep(0.24, 0.48, foliageUv.y) * max(leafNormals, evergreen);
-vec3 crownNormal = foliageNormal;
-crownNormal.z = abs(crownNormal.z) + 0.35 * length(crownNormal) + 0.001;
+float crownRim = clamp(dot(foliageNormal, foliageNormal) - foliageCrown.x * foliageCrown.x * foliageCrown.y, 0.0, 1.0);
+vec3 crownNormal = foliageNormal + normalize(vViewPosition) * (sqrt(1.0 - crownRim) + 0.05);
 normal = normalize(mix(normal, normalize(crownNormal), crownWeight));
 nonPerturbedNormal = normal;`,
       )
@@ -506,8 +572,20 @@ nonPerturbedNormal = normal;`,
         '#include <color_fragment>',
         `#include <color_fragment>
 #ifdef USE_MAP
-float foliageLeaf = smoothstep(0.0, ${leafTint.soft.toFixed(2)}, sampledDiffuseColor.g - max(sampledDiffuseColor.r * 0.98, sampledDiffuseColor.b * 1.15));
-diffuseColor.rgb = mix(diffuseColor.rgb / max(diffuse, vec3(0.001)) * ${leafTint.bark.toFixed(2)}, diffuseColor.rgb, foliageLeaf);
+float foliageLeaf = smoothstep(0.0, ${leafTint.soft.toFixed(2)}, (sampledDiffuseColor.g - max(sampledDiffuseColor.r * 0.98, sampledDiffuseColor.b * 1.15)) / max(sampledDiffuseColor.g, 0.001));
+float foliageTurned = smoothstep(0.7, 0.88, 1.0 - sampledDiffuseColor.b / max(sampledDiffuseColor.r, 0.001)) * (1.0 - foliageLeaf);
+float foliageSnow = smoothstep(0.08, 0.2, min(sampledDiffuseColor.r, min(sampledDiffuseColor.g, sampledDiffuseColor.b))) * (1.0 - smoothstep(1.0, 1.25, sampledDiffuseColor.r / max(sampledDiffuseColor.b, 0.001)));
+vec3 foliageBark = diffuseColor.rgb / max(diffuse, vec3(0.001)) * ${leafTint.bark.toFixed(2)} * mix(${vector(leafGrade.bark)}, vec3(0.8), foliageSnow);
+foliageBark *= mix(${leafGrade.root.toFixed(2)}, 1.0, smoothstep(0.0, 0.14, fract(vMapUv.y * 3.0)));
+float foliageLevel = dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11));
+vec3 foliageGraded = diffuseColor.rgb * pow(foliageLevel / ${leafGrade.level.toFixed(2)} + 0.02, -${leafGrade.flatten.toFixed(2)});
+foliageGraded = mix(vec3(dot(foliageGraded, vec3(0.3, 0.59, 0.11))), foliageGraded, ${leafGrade.keep.toFixed(2)});
+foliageGraded *= mix(${vector(leafGrade.tone)}, ${vector(leafGrade.turned)}, foliageTurned);
+#ifdef USE_COLOR
+vec3 foliageCast = vColor.rgb / max(vColor.g, 0.001);
+foliageGraded *= mix(vec3(1.0), foliageCast * foliageCast, foliageTurned);
+#endif
+diffuseColor.rgb = mix(foliageBark, foliageGraded, max(foliageLeaf, foliageTurned));
 #endif`,
       )
       shader.fragmentShader = shader.fragmentShader.replace(
@@ -517,16 +595,18 @@ diffuseColor.rgb = mix(diffuseColor.rgb / max(diffuse, vec3(0.001)) * ${leafTint
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <opaque_fragment>',
         `#if NUM_DIR_LIGHTS > 0
-float foliageBacklight = pow(max(dot(-normal, directionalLights[0].direction), 0.0), 2.0);
-float foliageFacing = max(dot(normal, directionalLights[0].direction), 0.0);
-outgoingLight += diffuseColor.rgb * directionalLights[0].color * (0.1 + foliageBacklight * 0.34 + foliageFacing * 0.22) * crownWeight;
-outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
+vec3 foliageSun = directionalLights[0].direction;
+float foliageWrap = clamp((dot(normal, foliageSun) + ${crownLight.wrap.toFixed(2)}) / ${(1 + crownLight.wrap).toFixed(2)}, 0.0, 1.0);
+float foliageThrough = pow(max(dot(-normalize(vViewPosition), foliageSun), 0.0), 3.0) * (0.25 + 0.75 * crownRim);
+float foliageOpen = mix(${crownLight.under.toFixed(2)}, 1.0, smoothstep(0.3, 0.85, foliageUv.y)) * mix(${crownLight.inside.toFixed(2)}, 1.0, crownRim);
+vec3 foliageDirect = diffuseColor.rgb * directionalLights[0].color * RECIPROCAL_PI * (foliageWrap * foliageWrap * mix(0.75, 1.0, foliageOpen) + foliageThrough * ${crownLight.through.toFixed(2)} * ${vector(crownLight.glow)});
+vec3 foliageLamps = max(reflectedLight.directDiffuse - diffuseColor.rgb * directionalLights[0].color * RECIPROCAL_PI * max(dot(normal, foliageSun), 0.0), vec3(0.0));
+outgoingLight = mix(outgoingLight, foliageDirect + foliageLamps + reflectedLight.indirectDiffuse * foliageOpen + totalEmissiveRadiance, crownWeight);
 #endif
 #include <opaque_fragment>`,
       )
     }
-    this.treeMaterial.customProgramCacheKey = () =>
-      'seasonal-foliage-volume-whole-bark-layered-facing-shifted'
+    this.treeMaterial.customProgramCacheKey = () => 'seasonal-foliage-zenith-lit-sunlit-crown-snow'
     this.shadowMaterial = new THREE.MeshDepthMaterial({
       depthPacking: THREE.RGBADepthPacking,
       map: this.texture,
@@ -596,6 +676,13 @@ outgoingLight += reflectedLight.indirectDiffuse * 0.55 * crownWeight;
       }
       const merged = mergeGeometries(planes)
       if (!merged) throw new Error('Tree geometry could not be assembled')
+      merged.setAttribute(
+        'kind',
+        new THREE.BufferAttribute(
+          new Float32Array(merged.getAttribute('position').count).fill(atlasVariant),
+          1,
+        ),
+      )
       if (variant >= 6) this.winterShrubGeometries.push(merged)
       else {
         this.treeGeometries.push(merged)

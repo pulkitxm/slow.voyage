@@ -10,6 +10,8 @@ import {
   X,
 } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { brakeSpecs } from '../game/brakes'
+import { bodyFor, bodyNamed } from '../game/car-bodies'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
 import {
@@ -20,11 +22,17 @@ import {
   type SwapEngine,
 } from '../game/engine-catalog'
 import { engineSounds } from '../game/engine-sound'
-import { engineCatalog, horsepower, stockPower, swapEngines, swappable } from '../game/engines'
+import {
+  engineCatalog,
+  fitCar,
+  horsepower,
+  stockPower,
+  swapEngines,
+  swappable,
+} from '../game/engines'
 import type { ControllerStatus } from '../game/gamepad'
-import { engineProfiles } from '../game/powertrain'
 import { vehicleNames } from '../game/vehicles'
-import type { EngineId, Settings } from '../game/world'
+import type { EngineId, Settings, Vehicle } from '../game/world'
 import { ControllerMapping } from './ControllerMapping'
 import { IconButton } from './IconButton'
 import {
@@ -46,6 +54,7 @@ export type SettingsTab = 'journey' | 'vehicle' | 'controls' | 'display'
 interface Props {
   settings: Settings
   update: <K extends keyof Settings>(key: K, value: Settings[K]) => void
+  apply: (changes: Partial<Settings>) => void
   tab: SettingsTab
   setTab: (tab: Props['tab']) => void
   offline: boolean
@@ -58,6 +67,7 @@ interface Props {
 export function SettingsPanel({
   settings,
   update,
+  apply,
   tab,
   setTab,
   offline,
@@ -264,24 +274,7 @@ export function SettingsPanel({
         )}
         {tab === 'vehicle' && (
           <>
-            <section className="setting-section">
-              <h3>Your travelling companion</h3>
-              <div className="vehicle-options">
-                {vehicles.map((item) => (
-                  <button
-                    type="button"
-                    key={item.id}
-                    className={settings.vehicle === item.id ? 'selected' : ''}
-                    onClick={() => update('vehicle', item.id)}
-                  >
-                    <item.icon size={31} />
-                    <span>{vehicleNames[item.id]}</span>
-                    {settings.vehicle === item.id && <Check size={14} />}
-                  </button>
-                ))}
-              </div>
-            </section>
-            <EngineChoice settings={settings} update={update} />
+            <CarChoice settings={settings} apply={apply} />
             <section className="setting-section">
               <h3>A little color</h3>
               <div className="swatches">
@@ -653,7 +646,6 @@ export function SettingsPanel({
   )
 }
 
-const rpm = (value: number) => value.toLocaleString('en-US')
 const plain = (text: string) =>
   text
     .normalize('NFD')
@@ -871,192 +863,129 @@ function Dropdown({
   )
 }
 
-const asBuilt = 'stock'
+const ownEngine = 'own'
+const classKey = (vehicle: Vehicle) => `class:${vehicle}`
 
-function EngineChoice({ settings, update }: Pick<Props, 'settings' | 'update'>) {
+export const vehicleBlurbs: Record<Vehicle, string> = {
+  touring: 'A comfortable classic coupe',
+  roadster: 'Open top, two seats, light on its feet',
+  hatchback: 'Small, nimble and easy to drive',
+  supercar: 'Low, wide and very fast',
+  pickup: 'Rides high and shrugs off rough ground',
+  motorcycle: 'Two wheels, leans into every bend',
+  bus: 'Big, slow and relaxed',
+}
+
+function CarChoice({ settings, apply }: Pick<Props, 'settings' | 'apply'>) {
   const vehicle = settings.vehicle
-  const view = settings.engineView
+  const body = bodyFor(settings)
+  const chosenCar = body ? engineCars.find((car) => car.name === body.name) : undefined
   const swaps = swappable(vehicle)
-  const chosen = swaps ? settings.engine : 'stock'
-  const [maker, setMaker] = useState<string | null>(null)
-  const name = vehicleNames[vehicle]
-  const stock = engineSounds[vehicle]
-  const carsOf = (id: EngineId) => engineCars.filter((car) => car.id === id)
-  const ownCar =
-    carsOf(chosen).find((car) => car.name === settings.engineCar) ?? carsOf(chosen)[0] ?? null
-  const shownMaker = maker ?? ownCar?.maker ?? asBuilt
-  const figures = (id: SwapEngine) => {
-    const spec = engineCatalog[id]
-    return `${horsepower(spec.power)} hp · ${spec.torque} Nm · ${rpm(spec.profile.redline)} rpm`
-  }
-  const stockChoice: Choice = {
-    key: asBuilt,
-    badge: 'Stock',
-    title: `${name} as built`,
-    detail: `${stock.layout} · ${horsepower(stockPower[vehicle])} hp · ${rpm(engineProfiles[vehicle].redline)} rpm`,
-    search: plain(`stock as built original ${name} ${stock.layout}`),
-  }
-  const fit = (id: EngineId, car: string) => {
-    update('engine', id)
-    update('engineCar', car)
-  }
-  const engineGroups: ChoiceGroup[] = [
-    { label: 'This vehicle', choices: [stockChoice] },
-    ...(Object.keys(engineFamilies) as EngineFamily[]).map((family) => ({
-      label: engineFamilies[family],
-      choices: swapEngines
-        .filter((id) => engineCatalog[id].family === family)
-        .map((id) => {
-          const spec = engineCatalog[id]
-          const cars = spec.cars.map(carName)
-          return {
-            key: id,
-            badge: spec.badge,
-            title: spec.name,
-            detail: figures(id),
-            note: `${cars.length} ${cars.length === 1 ? 'car' : 'cars'}: ${cars.join(', ')}`,
-            search: plain(`${spec.name} ${spec.layout} ${spec.badge} ${cars.join(' ')}`),
-          }
-        }),
+  const native: EngineId = chosenCar ? chosenCar.id : 'stock'
+  const engine = swaps ? settings.engine : 'stock'
+  const power = (id: EngineId) =>
+    id === 'stock' ? horsepower(stockPower[vehicle]) : horsepower(engineCatalog[id].power)
+  const makers = [...new Set(engineCars.map((car) => car.maker))].sort((a, b) => a.localeCompare(b))
+  const carGroups: ChoiceGroup[] = [
+    {
+      label: 'Easy picks',
+      choices: vehicles.map((item) => ({
+        key: classKey(item.id),
+        title: vehicleNames[item.id],
+        detail: vehicleBlurbs[item.id],
+        search: plain(`${vehicleNames[item.id]} ${vehicleBlurbs[item.id]}`),
+      })),
+    },
+    ...makers.map((maker) => ({
+      label: maker,
+      choices: engineCars
+        .filter((car) => car.maker === maker)
+        .map((car) => ({
+          key: car.name,
+          title: car.model,
+          detail: `${horsepower(engineCatalog[car.id].power)} hp`,
+          search: plain(`${car.name} ${engineCatalog[car.id].name}`),
+        })),
     })),
   ]
-  const carChoice = (car: (typeof engineCars)[number], withMaker: boolean): Choice => {
-    const spec = engineCatalog[car.id]
-    return {
-      key: car.name,
-      badge: spec.badge,
-      title: withMaker ? car.name : car.model,
-      detail: `${spec.name} · ${figures(car.id)}`,
-      note: spec.layout,
-      search: plain(`${car.name} ${spec.name} ${spec.layout}`),
-    }
+  const pickCar = (key: string) => {
+    const plainVehicle = vehicles.find((item) => classKey(item.id) === key)
+    if (plainVehicle) return apply({ vehicle: plainVehicle.id, engine: 'stock', engineCar: '' })
+    const car = engineCars.find((each) => each.name === key)
+    const chosen = car && bodyNamed(car.name)
+    if (!car || !chosen) return
+    apply({
+      vehicle: chosen.chassis,
+      engine: car.id,
+      engineCar: car.name,
+      engineView: 'car',
+      ...(chosen.paint ? { color: chosen.paint } : {}),
+    })
   }
-  const makers = [...new Set(engineCars.map((car) => car.maker))].sort((a, b) => a.localeCompare(b))
-  const makerGroups: ChoiceGroup[] = [
+  const engineGroups: ChoiceGroup[] = [
     {
-      label: 'This vehicle',
+      label: '',
       choices: [
         {
-          key: asBuilt,
-          title: 'As built',
-          detail: `${name}, ${stock.layout}`,
-          search: 'as built stock',
+          key: ownEngine,
+          title: 'Its own engine',
+          detail: chosenCar
+            ? `${engineCatalog[chosenCar.id].name} · ${power(chosenCar.id)} hp`
+            : `${engineSounds[vehicle].layout} · ${power('stock')} hp`,
+          search: 'own original stock',
         },
       ],
     },
-    {
-      label: 'Makers',
-      choices: makers.map((each) => {
-        const own = engineCars.filter((car) => car.maker === each)
-        const engines = [...new Set(own.map((car) => engineCatalog[car.id].name))]
-        return {
-          key: each,
-          title: each,
-          detail: `${own.length} ${own.length === 1 ? 'car' : 'cars'}`,
-          note: engines.join(', '),
-          search: plain(`${each} ${own.map((car) => car.model).join(' ')} ${engines.join(' ')}`),
-        }
-      }),
-    },
+    ...(Object.keys(engineFamilies) as EngineFamily[]).map((family) => ({
+      label: engineFamilies[family],
+      choices: swapEngines
+        .filter((id) => engineCatalog[id].family === family && id !== native)
+        .map((id) => ({
+          key: id,
+          title: engineCatalog[id].name,
+          detail: `${power(id)} hp`,
+          search: plain(
+            `${engineCatalog[id].name} ${engineCatalog[id].layout} ${engineCatalog[id].cars.map(carName).join(' ')}`,
+          ),
+        })),
+    })),
   ]
-  const pickMaker = (key: string) => {
-    setMaker(key)
-    if (key === asBuilt) return fit('stock', '')
-    const first = engineCars.find((car) => car.maker === key)
-    if (first && first.maker !== ownCar?.maker) fit(first.id, first.name)
-  }
-  const pickCar = (key: string) => {
-    if (key === asBuilt) return fit('stock', '')
-    const car = engineCars.find((each) => each.name === key)
-    if (car) fit(car.id, car.name)
-  }
-  const spec = chosen === 'stock' ? null : engineCatalog[chosen]
+  const pickEngine = (key: string) =>
+    apply({ engine: key === ownEngine ? native : (key as EngineId) })
+  const shownName = body?.name ?? vehicleNames[vehicle]
+  const swapped = swaps && engine !== native
+  const fitted = fitCar(settings)
+  const speedUnit = settings.units === 'mi' ? 2.23694 : 3.6
+  const figures = `Tops out near ${Math.round(fitted.metrics.maxSpeed * speedUnit)} ${settings.units === 'mi' ? 'mph' : 'km/h'} · ${brakeSpecs[fitted.brakes].name.toLowerCase()}.`
   return (
     <section className="setting-section">
-      <h3>Under the bonnet</h3>
-      <div className="segmented">
-        {(['car', 'engine'] as const).map((item) => (
-          <button
-            type="button"
-            key={item}
-            className={view === item ? 'selected' : ''}
-            aria-pressed={view === item}
-            onClick={() => {
-              setMaker(null)
-              update('engineView', item)
-            }}
-          >
-            {item === 'engine' ? 'Engines' : 'Cars'}
-          </button>
-        ))}
-      </div>
+      <h3>Your car</h3>
       <div className="engine-pickers">
-        {view === 'engine' ? (
-          <>
-            <Dropdown
-              label="Engine"
-              groups={engineGroups}
-              selected={chosen}
-              disabled={!swaps}
-              placeholder="Choose an engine"
-              onSelect={(key) => {
-                const id = key as EngineId
-                fit(id, carsOf(id)[0]?.name ?? '')
-              }}
-            />
-            <Dropdown
-              label="Car"
-              groups={
-                chosen === 'stock'
-                  ? [{ label: '', choices: [stockChoice] }]
-                  : [{ label: '', choices: carsOf(chosen).map((car) => carChoice(car, true)) }]
-              }
-              selected={ownCar?.name ?? asBuilt}
-              disabled={!swaps || chosen === 'stock'}
-              placeholder="Choose a car"
-              onSelect={pickCar}
-            />
-          </>
-        ) : (
-          <>
-            <Dropdown
-              label="Maker"
-              groups={makerGroups}
-              selected={shownMaker}
-              disabled={!swaps}
-              placeholder="Choose a maker"
-              onSelect={pickMaker}
-            />
-            <Dropdown
-              label="Car"
-              groups={
-                shownMaker === asBuilt
-                  ? [{ label: '', choices: [stockChoice] }]
-                  : [
-                      {
-                        label: '',
-                        choices: engineCars
-                          .filter((car) => car.maker === shownMaker)
-                          .map((car) => carChoice(car, false)),
-                      },
-                    ]
-              }
-              selected={chosen === 'stock' ? asBuilt : (ownCar?.name ?? null)}
-              disabled={!swaps || shownMaker === asBuilt}
-              placeholder={`Choose a ${shownMaker}`}
-              onSelect={pickCar}
-            />
-          </>
-        )}
+        <Dropdown
+          label="Car"
+          groups={carGroups}
+          selected={body ? body.name : classKey(vehicle)}
+          placeholder="Choose a car"
+          onSelect={pickCar}
+        />
+        <Dropdown
+          label="Engine"
+          groups={engineGroups}
+          selected={swapped ? engine : ownEngine}
+          disabled={!swaps}
+          placeholder="Its own engine"
+          onSelect={pickEngine}
+        />
       </div>
       <p>
         {!swaps
-          ? 'The motorcycle keeps its own twin. Choose a car, the pickup or the bus to swap engines. Press Z for neutral to rev it in place.'
-          : spec
-            ? `${spec.layout}, ${spec.litres.toFixed(1)} litres. ${spec.feel} Figures are for the ${carName(
-                spec.cars[0] ?? ['', ''],
-              ).trim()}. Press Z for neutral to rev it in place.`
-            : `The sound and pull this ${name.toLowerCase()} was tuned around. Press Z for neutral to rev it in place.`}
+          ? 'The motorcycle keeps its own engine.'
+          : swapped
+            ? `${shownName} with a ${engineCatalog[engine as SwapEngine].name} swapped in. ${engineCatalog[engine as SwapEngine].feel}`
+            : body
+              ? `The ${body.name}, as it left the factory.`
+              : `${vehicleBlurbs[vehicle]}. Pick a real car from the list to drive it instead.`}{' '}
+        {figures} Press Z for neutral to rev it in place.
       </p>
     </section>
   )

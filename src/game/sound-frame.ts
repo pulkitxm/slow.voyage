@@ -1,5 +1,5 @@
 import { soundVehicles } from './engine-sound'
-import { fitEngine } from './engines'
+import { fitCar } from './engines'
 import { landscapeProfiles } from './landscapes'
 import type { CarPhysics, Input } from './physics'
 import {
@@ -29,7 +29,6 @@ import {
 } from './sound-design'
 import { freshParams, paramIndex } from './sound-synth'
 import type { Ambience } from './soundscape'
-import { vehicleMetrics } from './vehicles'
 import { engineIds, type Settings, type Vehicle } from './world'
 
 const vehicleNumber = Object.fromEntries(
@@ -51,7 +50,7 @@ export class SoundFrame {
     const v = this.values
     const at = paramIndex
     const vehicle = settings.vehicle
-    const fitted = fitEngine(vehicle, settings.engine)
+    const fitted = fitCar(settings)
     const profile = fitted.profile
     const box = car.gearbox
     const speed = Math.abs(car.speed)
@@ -123,7 +122,7 @@ export class SoundFrame {
     v[at.scrub] = scrubLevel(car.slip, speed, tarmac < 0.5) * mixLevels.scrub
     v[at.joint] = tarmac > 0.5 ? roadJoints.spacing : 0
     v[at.jointLevel] = roadJoints.level[settings.roadWear] * mixLevels.joints
-    v[at.wheelbase] = vehicleMetrics[vehicle].wheelbase
+    v[at.wheelbase] = fitted.metrics.wheelbase
     v[at.scrape] = scrapeLevel(car.scrapeMaterial, car.scrape) * mixLevels.scrape
     v[at.metal] = car.scrapeMaterial === 'rail' ? 1 : 0
     v[at.wade] = wadeLevel(car.wading, speed) * mixLevels.wade
@@ -132,13 +131,13 @@ export class SoundFrame {
 
     const surge = car.boosting ? 1 : 0
     const wind = windLayers(speed, 0)
-    v[at.rush] = wind.rush * mixLevels.wind * (1 + surge * 1.6)
+    v[at.rush] = wind.rush * mixLevels.wind * (1 + surge)
     v[at.band] = wind.band + surge * 900
     v[at.whistle] = wind.whistle * mixLevels.whistle
     v[at.whistlePitch] = wind.whistlePitch
     v[at.buffet] = wind.buffet * mixLevels.buffet
     const level = mixLevels.ambience
-    v[at.breeze] = ambience.breeze * mixLevels.wind * 0.35
+    v[at.breeze] = ambience.breeze * mixLevels.breeze
     v[at.leaves] = ambience.leaves * level * 0.12
     v[at.rain] = winter ? 0 : rainLevel(settings.weather) * mixLevels.rain
     v[at.birds] = ambience.birds * level

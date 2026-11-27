@@ -3,10 +3,12 @@ import { createBonnet } from './bonnet'
 import { createBusBody } from './bus-body'
 import { busLayout } from './bus-layout'
 import { createBusWheel } from './bus-wheel'
+import { type CarBody, wheelGeometry } from './car-bodies'
 import { carEndNormal, carFrontDepth, carRearDepth, carSurface, createCarBody } from './car-body'
 import { createCarCabin } from './car-cabin'
 import { createCarWheel } from './car-wheel'
 import { batchUntexturedMeshes } from './mesh-batch'
+import { createPaint } from './paint'
 import { glassFace, reflectSkyline } from './skyline'
 import { subdividePlanarSurface } from './surface-subdivide'
 import type { WheelState } from './suspension'
@@ -35,21 +37,15 @@ export class CarModel {
   exteriorVisible = true
   wheelbase: number
   wheelRadius: number
+  wheelRadii: number[] = []
   headlightPositions: [number, number, number][]
   cabinSteering: THREE.Object3D | undefined
-  constructor(settings: Settings, software = false) {
+  constructor(settings: Settings, software = false, body: CarBody | null = null) {
     const dimensions = vehicleMetrics[settings.vehicle]
+    const geometry = wheelGeometry(settings.vehicle, body)
     this.wheelbase = dimensions.wheelbase
     this.wheelRadius = dimensions.wheelRadius
-    this.body = new THREE.MeshPhysicalMaterial({
-      color: settings.color,
-      metalness: 0.08,
-      roughness: 0.52,
-      clearcoat: 1,
-      clearcoatRoughness: 0.03,
-      envMapIntensity: 0.8,
-    })
-    reflectSkyline(this.body)
+    this.body = createPaint(settings.color)
     const glass = new THREE.MeshPhysicalMaterial({
       color: '#3a3f44',
       metalness: 0.2,
@@ -244,18 +240,21 @@ export class CarModel {
         )
       }
     }
-    const axles = [this.wheelbase / 2, -this.wheelbase / 2]
-    for (const z of axles)
+    const axles = [geometry.wheelbase / 2, -geometry.wheelbase / 2]
+    for (const [axle, z] of axles.entries())
       for (const side of [-1, 1]) {
         const pivot = new THREE.Group(),
           spin = isBus
             ? createBusWheel(side, tire, chrome, black)
             : createCarWheel(settings.vehicle, tire, chrome, black)
-        pivot.position.set(side * dimensions.trackWidth * 0.5, this.wheelRadius, z)
+        const radius = geometry.radius[1 - axle] ?? this.wheelRadius
+        const track = geometry.track[1 - axle] ?? dimensions.trackWidth
+        pivot.position.set(side * track * 0.5, radius, z)
         pivot.add(spin)
         batchUntexturedMeshes(spin)
         this.wheels.push(spin)
         this.wheelPivots.push(pivot)
+        this.wheelRadii.push(radius)
         this.exterior.add(pivot)
       }
     if (this.cabinSteering instanceof THREE.Group) batchUntexturedMeshes(this.cabinSteering)
@@ -290,7 +289,7 @@ export class CarModel {
         pivot = this.wheelPivots[i],
         wheel = this.wheels[i]
       if (!state || !pivot || !wheel) continue
-      pivot.position.y = this.wheelRadius + state.offset
+      pivot.position.y = (this.wheelRadii[i] ?? this.wheelRadius) + state.offset
       pivot.rotation.y = state.steering
       wheel.rotation.x = state.rotation
     }

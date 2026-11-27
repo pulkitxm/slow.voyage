@@ -51,6 +51,10 @@ const wait = (step_id: string, selector: string) => ({
   timeout_ms: 20000,
 })
 const settle = { step_id: 'render', action: 'wait_for_timeout', duration_ms: 1800 }
+const pickCar = (step_id: string, label: string) => [
+  click(`${step_id}-open`, '.engine-pickers .engine-dropdown:first-child .engine-current'),
+  click(step_id, `.engine-popover .engine-option:has-text("${label}")`),
+]
 const start = click('start', '.intro .text-button')
 const press = (step_id: string, key: string, selector = 'body') => ({
   step_id,
@@ -193,15 +197,15 @@ test(
         timeout_ms: 10000,
       },
       wait('minimum-grip-shown', 'label[for="grip"] span:has-text("0.2")'),
-      click('coach', '.vehicle-options button:has-text("Wanderer bus")'),
-      click('motorcycle', '.vehicle-options button:has-text("Motorcycle")'),
-      click('pickup', '.vehicle-options button:has-text("Trail pickup")'),
+      ...pickCar('coach', 'Wanderer bus'),
+      ...pickCar('motorcycle', 'Motorcycle'),
+      ...pickCar('pickup', 'Trail pickup'),
       wait('pickup-active', '[data-vehicle="pickup"]'),
-      click('supercar', '.vehicle-options button:has-text("Supercar")'),
+      ...pickCar('supercar', 'Supercar'),
       wait('supercar-active', '[data-vehicle="supercar"]'),
-      click('hatchback', '.vehicle-options button:has-text("City hatchback")'),
+      ...pickCar('hatchback', 'City hatchback'),
       wait('hatchback-active', '[data-vehicle="hatchback"]'),
-      click('touring', '.vehicle-options button:has-text("Grand tourer")'),
+      ...pickCar('touring', 'Grand tourer'),
       click('close-settings', '[aria-label="Close settings"]'),
       settle,
     ])
@@ -305,7 +309,10 @@ test(
       wait('touring-again', '[data-vehicle="touring"]'),
       click('settings-available', '[aria-label="Open settings"]'),
       click('vehicle-tab', '[role="tab"]:has-text("vehicle")'),
-      wait('selected-vehicle', '.vehicle-options button.selected:has-text("Grand tourer")'),
+      wait(
+        'selected-vehicle',
+        '.engine-pickers .engine-dropdown:first-child .engine-current:has-text("Grand tourer")',
+      ),
       click('close', '[aria-label="Close settings"]'),
       settle,
     ])

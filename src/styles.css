@@ -85,8 +85,212 @@ svg {
 }
 .is-welcome .scene-shade {
   background:
-    linear-gradient(90deg, #1a35294d, transparent 68%),
-    linear-gradient(180deg, #173e431c, transparent 28%, transparent 70%, #14251d55);
+    linear-gradient(90deg, #12201955, transparent 58%),
+    linear-gradient(180deg, transparent 52%, #0f1b1566);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.welcome-sky {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(180deg, #5f87b6 0%, #93b2d2 38%, #d4ddde 58%, #e6e6dc 61%);
+  transition: opacity 1.4s ease 0.2s;
+}
+.welcome-sky.is-ready {
+  opacity: 0;
+}
+.welcome-glow {
+  position: absolute;
+  left: 58%;
+  top: 44%;
+  width: 70vmax;
+  height: 70vmax;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, #fff8e6cc 0%, #fff4dc55 12%, transparent 46%);
+}
+.welcome-cloud {
+  position: absolute;
+  inset: 8% -30% 46% -30%;
+  background:
+    radial-gradient(ellipse 22% 30% at 18% 42%, #ffffffb3, transparent 70%),
+    radial-gradient(ellipse 30% 24% at 46% 30%, #ffffff8c, transparent 72%),
+    radial-gradient(ellipse 26% 22% at 74% 52%, #ffffff99, transparent 70%),
+    radial-gradient(ellipse 18% 18% at 90% 28%, #ffffff73, transparent 70%);
+  filter: blur(18px);
+  animation: welcome-drift 40s linear infinite alternate;
+}
+.welcome-land {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 41%;
+  background:
+    radial-gradient(ellipse 60% 30% at 22% 0%, #93a37d 0%, transparent 70%),
+    radial-gradient(ellipse 70% 34% at 80% 4%, #7f9170 0%, transparent 72%),
+    linear-gradient(180deg, #a4ae8d 0%, #7d8c66 30%, #56653f 100%);
+}
+@keyframes welcome-drift {
+  from {
+    transform: translateX(-6%);
+  }
+  to {
+    transform: translateX(6%);
+  }
+}
+.drive[data-daylight="sunset"] .welcome-sky,
+.drive[data-daylight="dawn"] .welcome-sky {
+  background: linear-gradient(180deg, #5d6f99 0%, #c99a8f 40%, #f2c58f 58%, #f6dcb2 61%);
+}
+.drive[data-daylight="dusk"] .welcome-sky,
+.drive[data-daylight="night"] .welcome-sky {
+  background: linear-gradient(180deg, #0d1626 0%, #1d2c45 45%, #3a4660 58%, #47506a 61%);
+}
+.drive[data-daylight="dusk"] .welcome-land,
+.drive[data-daylight="night"] .welcome-land {
+  filter: brightness(0.32) saturate(0.6);
+}
+.drive[data-daylight="dusk"] .welcome-glow,
+.drive[data-daylight="night"] .welcome-glow {
+  opacity: 0.18;
+}
+.intro {
+  position: absolute;
+  left: 7%;
+  bottom: 13%;
+  max-width: 470px;
+  animation: appear 1s both;
+}
+.wordmark {
+  margin: 0;
+  font:
+    300 clamp(40px, 4.4vw, 68px) / 1 "Manrope",
+    sans-serif;
+  letter-spacing: -1.2px;
+  text-shadow: 0 2px 24px #11201833;
+}
+.intro > p {
+  margin: 16px 0 30px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #f6f5e8e6;
+  text-shadow: 0 1px 12px #11201840;
+}
+.start-actions {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+.primary-button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: #f4f3e6;
+  color: #2f4234;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-width: 228px;
+  border-radius: 999px;
+  padding: 15px 26px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 6px 30px #1a2c2026;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+.primary-button:not(:disabled):hover {
+  background: #fffef4;
+  transform: translateY(-2px);
+}
+.primary-button:disabled {
+  cursor: progress;
+  background: #16261d73;
+  color: #f6f5e8;
+  box-shadow: inset 0 0 0 1px #f4f3e64d;
+  backdrop-filter: blur(6px);
+}
+.button-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  z-index: -1;
+  background: #f4f3e6;
+  transform-origin: left center;
+  transition: transform 0.35s ease-out;
+}
+.text-button {
+  padding: 0;
+  background: transparent;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: inherit;
+  text-shadow: 0 1px 10px #11201840;
+  transition: opacity 0.3s;
+}
+.text-button:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+.text-button:hover {
+  text-decoration: underline;
+  text-underline-offset: 5px;
+}
+.intro-hint {
+  margin: 26px 0 0;
+  font-size: 12px;
+  opacity: 0.7;
+  text-shadow: 0 1px 10px #11201840;
+}
+.intro.is-loading .intro-hint {
+  opacity: 0;
+}
+@media (max-width: 700px) {
+  .intro {
+    left: 24px;
+    right: 24px;
+    bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+  .wordmark {
+    font-size: 40px;
+  }
+  .intro > p {
+    font-size: 14px;
+    margin: 12px 0 24px;
+  }
+  .start-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+  .text-button {
+    justify-content: center;
+  }
+}
+@media (pointer: coarse) {
+  .intro-hint {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-cloud {
+    animation: none;
+  }
 }
 .topbar {
   position: absolute;
@@ -95,7 +299,7 @@ svg {
   right: 0;
   padding: 30px 40px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   gap: 20px;
 }
@@ -103,34 +307,6 @@ svg {
   justify-content: flex-end;
   padding: 20px 24px;
 }
-.brand {
-  font:
-    300 28px / 1 "Manrope",
-    sans-serif;
-  letter-spacing: 6px;
-  white-space: nowrap;
-}
-.brand span {
-  display: block;
-  font:
-    500 7px / 1 "DM Sans",
-    sans-serif;
-  letter-spacing: 2.6px;
-  margin-top: 11px;
-}
-.location {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 10px;
-  letter-spacing: 0.5px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  opacity: 0.9;
-  white-space: nowrap;
-}
-.location-dot,
 .status-dot,
 .tiny-dot {
   display: inline-block;
@@ -139,16 +315,6 @@ svg {
   height: 5px;
   border-radius: 50%;
   background: currentColor;
-}
-.location-dot {
-  background: #d1dfb6;
-  box-shadow: 0 0 0 4px #e7eecb15;
-}
-.location-divider {
-  height: 12px;
-  width: 1px;
-  background: #ffffff4d;
-  margin: 0 4px;
 }
 .top-actions {
   display: flex;
@@ -191,156 +357,12 @@ svg {
   background: #ffffff28;
   border-color: #ffffff70;
 }
-.intro {
-  position: absolute;
-  left: 7.1%;
-  top: 27%;
-  max-width: 520px;
-  animation: appear 1s both;
-}
 .eyebrow {
   display: block;
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 2px;
   line-height: 1.5;
-}
-.intro .eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #f0f0db;
-}
-.intro .eyebrow > span {
-  display: inline-block;
-  width: 22px;
-  height: 1px;
-  background: #e8edd5;
-}
-.intro h1 {
-  font:
-    300 clamp(44px, 4.65vw, 76px) / 1.18 "Manrope",
-    sans-serif;
-  letter-spacing: -2.8px;
-  margin: 24px 0 24px;
-  text-shadow: 0 2px 22px #1e37291a;
-}
-.intro h1 > span {
-  color: #ecedda;
-}
-.intro > p {
-  font-size: 12px;
-  line-height: 1.9;
-  color: #f3f2dfd6;
-  letter-spacing: 0.15px;
-  margin: 0 0 31px;
-}
-.start-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 17px;
-}
-.primary-button {
-  background: #f1f0df;
-  color: #354b3b;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 29px;
-  border-radius: 5px;
-  padding: 15px 22px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
-  box-shadow: 0 4px 30px #253e2512;
-  transition:
-    background 0.2s,
-    transform 0.2s;
-}
-.primary-button:hover {
-  background: #fffef0;
-  transform: translateY(-2px);
-}
-.text-button {
-  padding: 0;
-  background: transparent;
-  font-size: 10px;
-  letter-spacing: 0.2px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: inherit;
-}
-.text-button:hover {
-  text-decoration: underline;
-  text-underline-offset: 5px;
-}
-.intro-controls {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 39px;
-  font-size: 9px;
-  letter-spacing: 0.3px;
-  opacity: 0.65;
-}
-.intro-controls .tiny-dot {
-  width: 2px;
-  height: 2px;
-  margin: 0 2px;
-}
-.journey-preview {
-  position: absolute;
-  right: 40px;
-  bottom: 99px;
-  width: 274px;
-  animation: appear 1s 0.2s both;
-}
-.journey-preview > .eyebrow {
-  font-size: 8px;
-  letter-spacing: 1.8px;
-  margin: 0 0 13px 2px;
-  opacity: 0.75;
-}
-.journey-card {
-  width: 100%;
-  padding: 10px 13px 10px 10px;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: #f5f5e614;
-  backdrop-filter: blur(18px);
-  border: 1px solid #ffffff39;
-  border-radius: 7px;
-  text-align: left;
-}
-.journey-card > svg {
-  margin-left: auto;
-  opacity: 0.7;
-}
-.journey-title {
-  display: block;
-  font:
-    400 13px "Manrope",
-    sans-serif;
-}
-.journey-subtitle {
-  display: block;
-  margin-top: 5px;
-  font-size: 9px;
-  text-transform: capitalize;
-  opacity: 0.6;
-}
-.journey-subtitle > span {
-  margin: 0 5px;
-}
-.journey-caption {
-  display: block;
-  font-size: 9px;
-  opacity: 0.55;
-  margin: 12px 0 0 2px;
-  letter-spacing: 0.15px;
 }
 .landscape-preview {
   width: 64px;
@@ -421,40 +443,6 @@ svg {
   left: 12px;
   top: 24px;
 }
-.bottom-line {
-  position: absolute;
-  bottom: 27px;
-  left: 40px;
-  right: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 9px;
-  letter-spacing: 0.4px;
-  opacity: 0.7;
-}
-.bottom-line > span {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  text-transform: none;
-}
-.bottom-line .tiny-dot {
-  width: 3px;
-  height: 3px;
-}
-.bottom-line > button {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 0;
-  background: transparent;
-  font-size: 9px;
-  letter-spacing: 0.2px;
-}
-.bottom-line > button:hover {
-  opacity: 0.7;
-}
 .minimap {
   position: absolute;
   top: 24px;
@@ -527,32 +515,6 @@ svg {
   font-style: normal;
   color: #ffd98a;
   font-variant-numeric: tabular-nums;
-}
-.world-loader {
-  margin-top: 22px;
-  width: min(300px, 70vw);
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-}
-.world-loader > div {
-  height: 2px;
-  background: #ffffff33;
-  overflow: hidden;
-  border-radius: 2px;
-}
-.world-loader > div > span {
-  display: block;
-  height: 100%;
-  background: #f6f7ea;
-  transition: width 0.25s ease-out;
-}
-.world-loader > em {
-  font-style: normal;
-  font-size: 10px;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  opacity: 0.78;
 }
 .is-photo .minimap,
 .is-photo .turn-back,
@@ -1532,43 +1494,8 @@ input[type="range"] {
   .topbar {
     padding: 37px 50px;
   }
-  .intro {
-    top: 29%;
-  }
-  .intro h1 {
-    font-size: 78px;
-  }
-  .intro > p {
-    font-size: 13px;
-  }
-  .bottom-line {
-    left: 50px;
-    right: 50px;
-  }
-  .journey-preview {
-    right: 50px;
-    width: 290px;
-  }
-  .primary-button {
-    font-size: 12px;
-    padding: 17px 25px;
-  }
 }
 @media (max-width: 1100px) {
-  .location {
-    display: none;
-  }
-  .intro {
-    left: 7%;
-    top: 24%;
-  }
-  .intro h1 {
-    font-size: 57px;
-  }
-  .journey-preview {
-    width: 240px;
-    right: 30px;
-  }
   .topbar {
     padding: 25px 30px;
   }
@@ -1589,14 +1516,6 @@ input[type="range"] {
     width: 124px;
     height: 124px;
   }
-  .brand {
-    font-size: 23px;
-    letter-spacing: 4px;
-  }
-  .brand span {
-    font-size: 6px;
-    letter-spacing: 1.8px;
-  }
   .top-actions {
     gap: 6px;
   }
@@ -1606,44 +1525,6 @@ input[type="range"] {
   }
   .top-actions .icon-button:nth-last-child(2) {
     display: none;
-  }
-  .intro {
-    top: 25%;
-    left: 8%;
-    right: 8%;
-    max-width: none;
-  }
-  .intro h1 {
-    font-size: clamp(42px, 9vw, 60px);
-    letter-spacing: -1.7px;
-  }
-  .intro > p {
-    font-size: 11px;
-  }
-  .intro .eyebrow {
-    font-size: 8px;
-    letter-spacing: 1.4px;
-  }
-  .intro-controls {
-    margin-top: 28px;
-    font-size: 8px;
-    gap: 7px;
-  }
-  .journey-preview {
-    display: none;
-  }
-  .bottom-line {
-    left: 24px;
-    right: 24px;
-    bottom: 23px;
-    font-size: 8px;
-  }
-  .bottom-line > button {
-    font-size: 8px;
-  }
-  .bottom-line > span {
-    max-width: 50%;
-    line-height: 1.7;
   }
   .settings-panel {
     inset: 10px;
@@ -1738,36 +1619,10 @@ input[type="range"] {
   .drive-toolbar {
     bottom: 35px;
   }
-  .is-driving .bottom-line {
-    display: none;
-  }
 }
 @media (max-height: 600px) and (min-width: 701px) {
   .topbar {
     padding-top: 20px;
-  }
-  .intro {
-    top: 24%;
-  }
-  .intro h1 {
-    font-size: 43px;
-    margin: 15px 0;
-  }
-  .intro > p {
-    margin-bottom: 16px;
-    font-size: 10px;
-  }
-  .intro-controls {
-    margin-top: 21px;
-  }
-  .primary-button {
-    padding: 12px 18px;
-  }
-  .start-actions {
-    gap: 12px;
-  }
-  .journey-preview {
-    bottom: 80px;
   }
   .telemetry {
     bottom: 70px;
@@ -1799,27 +1654,6 @@ input[type="range"] {
 .modal-shell::backdrop {
   background: #20362848;
   backdrop-filter: blur(9px);
-}
-
-@media (max-height: 500px) and (min-width: 701px) {
-  .intro {
-    top: 24%;
-  }
-  .intro h1 {
-    font-size: 37px;
-    margin: 12px 0;
-  }
-  .intro > p {
-    font-size: 10px;
-    line-height: 1.6;
-    margin-bottom: 14px;
-  }
-  .intro-controls {
-    display: none;
-  }
-  .journey-preview {
-    bottom: 65px;
-  }
 }
 .check-option {
   display: flex;

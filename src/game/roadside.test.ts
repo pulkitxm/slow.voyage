@@ -10,7 +10,14 @@ import {
   landmarksBetween,
 } from './landmarks'
 import { landscapeIds } from './landscapes'
-import { chevrons, delineators, roadCurvature, roadsideLayout } from './roadside'
+import {
+  chevrons,
+  delineatorLook,
+  delineators,
+  delineatorVertices,
+  roadCurvature,
+  roadsideLayout,
+} from './roadside'
 import { defaults, shoreHeight, World } from './world'
 
 test.each(landscapeIds)(
@@ -78,4 +85,51 @@ test('delineators line open verges and chevrons mark only real bends', () => {
   for (let s = 0; s < stretch; s += roadsideLayout.chevronSpacing)
     if (Math.abs(roadCurvature(world, s)) >= roadsideLayout.chevronCurve) bends++
   expect(panels).toBeLessThanOrEqual(bends)
+})
+
+test('a delineator is a slim white post with a dark band holding a small reflector', () => {
+  const world = new World({ ...defaults })
+  let checked = 0
+  for (let start = 0; start < 2400 && checked < 6; start += 120) {
+    const line = delineators(world, start, 120)
+    const signs = chevrons(world, start, 120)
+    for (const [index, post] of line.posts.entries()) {
+      const position = post.getAttribute('position')
+      const color = post.getAttribute('color')
+      expect(position.count).toBe(delineatorVertices.post)
+      expect(color.count).toBe(position.count)
+      expect(post.getAttribute('uv')).toBeUndefined()
+      const spot = line.spots[index]
+      const reflector = line.reflectors[index]
+      if (!spot || !reflector) throw new Error('Delineator parts are missing')
+      expect(reflector.getAttribute('position').count).toBe(delineatorVertices.reflector)
+      let dark = 0
+      let lowest = Number.POSITIVE_INFINITY
+      for (let vertex = 0; vertex < position.count; vertex++) {
+        const rise = (position.getY(vertex) - spot.y) / roadsideLayout.postHeight
+        lowest = Math.min(lowest, rise)
+        if (color.getX(vertex) < 0.1) {
+          dark++
+          expect(rise).toBeGreaterThanOrEqual(delineatorLook.band.from - 1e-6)
+          expect(rise).toBeLessThanOrEqual(delineatorLook.band.to + 1e-6)
+        }
+      }
+      expect(dark).toBe(24)
+      expect(lowest).toBeCloseTo(0, 5)
+      reflector.computeBoundingBox()
+      const box = reflector.boundingBox
+      if (!box) throw new Error('Reflector bounds are missing')
+      const middle = ((box.min.y + box.max.y) / 2 - spot.y) / roadsideLayout.postHeight
+      expect(middle).toBeGreaterThan(delineatorLook.band.from)
+      expect(middle).toBeLessThan(delineatorLook.band.to)
+      checked++
+    }
+    for (const post of signs.posts)
+      expect(post.getAttribute('color').count).toBe(post.getAttribute('position').count)
+    for (const piece of [...line.posts, ...line.reflectors, ...signs.posts, ...signs.panels])
+      piece.dispose()
+  }
+  expect(checked).toBeGreaterThanOrEqual(6)
+  expect(delineatorLook.reflector.width).toBeLessThan(delineatorLook.width)
+  expect(delineatorLook.reflector.depth).toBeGreaterThan(delineatorLook.depth)
 })

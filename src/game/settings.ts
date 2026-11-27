@@ -83,7 +83,8 @@ export function decodeSettings(stored: unknown): Settings {
       if (typeof values[key] === 'boolean') result[key] = values[key]
     if (
       typeof values.engineCar === 'string' &&
-      engineCars.some((car) => car.name === values.engineCar && car.id === result.engine)
+      values.engineView !== 'engine' &&
+      engineCars.some((car) => car.name === values.engineCar)
     )
       result.engineCar = values.engineCar
     if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))

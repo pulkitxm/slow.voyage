@@ -4,8 +4,21 @@ import { asphaltTexture } from './asphalt'
 import { type Boulder, Boulders, planBoulders, planPlants } from './boulders'
 import { CanopyIndex, canopyShade, shadeStops, shadeTone, tuftLight } from './canopy'
 import { type Trunk, trunkRadius } from './collision'
-import { evergreenRelief, evergreenTile, Foliage, treeTint } from './foliage'
-import { grassGeometry, grassLighting, grassTexture } from './grass'
+import { evergreenRelief, evergreenTile, Foliage, plantTint } from './foliage'
+import {
+  grassDead,
+  grassFragmentColor,
+  grassFragmentHead,
+  grassFragmentNormal,
+  grassGeometry,
+  grassLighting,
+  grassTexture,
+  grassVertexBody,
+  grassVertexHead,
+  grassVertexNormal,
+  slopeHeight,
+  vergeHeight,
+} from './grass'
 import {
   groundGeometry,
   groundRows,
@@ -16,6 +29,7 @@ import {
 } from './ground'
 import { groundLayout } from './ground-grid'
 import { GroundSampler } from './ground-sample'
+import { guardRailMaterial, guardRails } from './guard-rail'
 import { landmarkFootprints, landmarkGeometry, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
 import { lightOpenLayout, openLayout, openSurface } from './open-grid'
@@ -23,10 +37,10 @@ import { OpenGround } from './open-ground'
 import { lightSceneryLayout, OpenScenery, sceneryLayout } from './open-scenery'
 import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
 import { carFrame, type Driver } from './reactions'
-import { guardrailAt, roadCoordinates, roadLayout, roadPoint } from './road'
+import { roadCoordinates, roadLayout, roadPoint } from './road'
 import { roadStrip } from './road-mesh'
 import { RoadSurface } from './road-surface'
-import { chevrons, chevronTexture, delineators } from './roadside'
+import { chevrons, chevronTexture, delineators, delineatorVertices } from './roadside'
 import { RoamingMeadow } from './roaming-meadow'
 import { loadRoadSurface } from './rock'
 import { receiveUnbiasedShadows } from './shadow-receiver'
@@ -71,15 +85,7 @@ function terrainColors(settings: Settings) {
     light: new THREE.Color(ground?.light ?? palette.light),
   }
 }
-function geometry(positions: number[], indices: number[], colors?: number[]) {
-  const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  g.setIndex(indices)
-  if (colors) g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
-  g.computeVertexNormals()
-  return g
-}
-export const foliageWarmth = 1.5
+export const foliageWarmth = 1.2
 function shadeTexture() {
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 64
@@ -157,14 +163,9 @@ export class Terrain {
   open: OpenGround
   scenery: OpenScenery
   roadMaterial: THREE.MeshStandardMaterial
-  edgeMaterial = new THREE.MeshStandardMaterial({ color: '#eeeedd', roughness: 1 })
-  railMaterial = new THREE.MeshStandardMaterial({
-    color: '#b6b8b4',
-    metalness: 0.22,
-    roughness: 0.58,
-    side: THREE.DoubleSide,
-  })
-  furnitureMaterial = new THREE.MeshStandardMaterial({ color: '#e9e9e2', roughness: 0.7 })
+  edgeMaterial: THREE.MeshStandardMaterial
+  railMaterial: THREE.MeshStandardMaterial
+  furnitureMaterial = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6 })
   reflectorMaterial = new THREE.MeshStandardMaterial({
     color: '#ffd27a',
     emissive: '#ffb84d',
@@ -198,6 +199,7 @@ export class Terrain {
   rebuilding = false
   private current = 0
   windTime = { value: 0 }
+  grassDead = { value: new THREE.Color() }
   roadWetness: { value: number }
   roadSurface: RoadSurface
   constructor(
@@ -224,6 +226,7 @@ export class Terrain {
       roughness: 0.6,
     })
     this.grassMaterial = new MeadowMaterial(this.groundTexture, world.settings, software)
+    this.railMaterial = guardRailMaterial(this.grassMaterial.fieldUniforms.fieldNoiseMap)
     this.openMaterial = new MeadowMaterial(
       this.groundTexture,
       world.settings,
@@ -251,6 +254,7 @@ export class Terrain {
     this.scenery.group.userData.label = 'open-scenery'
     scene.add(this.scenery.group)
     this.bladeTexture = grassTexture()
+    this.grassDead.value.set(grassDead(world.settings.season))
     this.bladeMaterial = new THREE.MeshStandardMaterial({
       map: this.bladeTexture,
       alphaTest: 0.4,
@@ -261,51 +265,34 @@ export class Terrain {
     })
     this.bladeMaterial.onBeforeCompile = (shader) => {
       shader.uniforms.windTime = this.windTime
+      shader.uniforms.grassDead = this.grassDead
       shader.uniforms.fieldDryGrass = this.grassMaterial.fieldUniforms.fieldDryGrass
       shader.uniforms.fieldDryness = this.grassMaterial.fieldUniforms.fieldDryness
       shader.uniforms.fieldMeadowShade = this.grassMaterial.fieldUniforms.fieldMeadowShade
       shader.uniforms.fieldNoiseMap = this.grassMaterial.fieldUniforms.fieldNoiseMap
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <common>',
-        `#include <common>\nuniform float windTime;\nvarying vec3 fieldGrassField;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;\n${meadowNoise}`,
-      )
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <defaultnormal_vertex>',
-        `#include <defaultnormal_vertex>
-mat3 grassInstance = mat3(instanceMatrix);
-mat3 grassNormal = mat3(cross(grassInstance[1], grassInstance[2]), cross(grassInstance[2], grassInstance[0]), cross(grassInstance[0], grassInstance[1]));
-transformedNormal = normalMatrix * grassNormal * objectNormal;
-fieldGrassNormal = normalMatrix * grassNormal * vec3(0.0, 1.0, 0.0);`,
-      )
-      shader.vertexShader = shader.vertexShader.replace(
-        '#include <begin_vertex>',
-        `#include <begin_vertex>
-vec3 root = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
-fieldGrassField = vec3(fieldVariationAt(root.xz), fieldMeadowAt(root.xz), fieldVariationAt(root.xz * 0.13 + vec2(17.3, 61.9)));
-fieldGrassVariation = fract(sin(dot(root.xz, vec2(12.9898, 78.233))) * 43758.5453);
-float wind = sin(root.x * 0.3 + root.z * 0.15 + windTime * 1.8);
-transformed.xz += vec2(wind, wind * 0.6) * position.y * position.y * 0.18;
-float grassDistance = length((viewMatrix * vec4(root, 1.0)).xyz);
-transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassViewDistance.end.toFixed(1)}, grassDistance);`,
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <common>',
-        '#include <common>\nvarying vec3 fieldGrassField;\nvarying float fieldGrassVariation;\nvarying vec3 fieldGrassNormal;\nuniform vec3 fieldDryGrass;\nuniform float fieldDryness;\nuniform vec3 fieldMeadowShade;',
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <normal_fragment_begin>',
-        '#include <normal_fragment_begin>\nnormal = normalize(mix(normal, normalize(fieldGrassNormal), 0.7));\nnonPerturbedNormal = normal;',
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <alphatest_fragment>',
-        '#include <alphatest_fragment>\nfloat dryBlend = smoothstep(0.35, 0.7, fieldGrassField.x) * fieldDryness;\nfloat strawBlend = smoothstep(0.72, 0.98, fieldGrassVariation) * min(0.7, fieldDryness * 2.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fieldDryGrass * sampledDiffuseColor.rgb * diffuse * vColor.rgb * 1.08, max(dryBlend, strawBlend));\ndiffuseColor.rgb *= mix(vec3(1.0), fieldMeadowShade, fieldGrassField.y);\ndiffuseColor.rgb *= mix(vec3(0.84, 0.9, 0.8), vec3(1.12, 1.07, 0.94), fieldGrassField.z) * 1.25;',
-      )
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <opaque_fragment>',
-        grassLighting,
-      )
+      shader.vertexShader = shader.vertexShader
+        .replace('#include <common>', `#include <common>\n${grassVertexHead}\n${meadowNoise}`)
+        .replace(
+          '#include <defaultnormal_vertex>',
+          `#include <defaultnormal_vertex>\n${grassVertexNormal}`,
+        )
+        .replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>\n${grassVertexBody(grassViewDistance.full, grassViewDistance.end)}`,
+        )
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', `#include <common>\n${grassFragmentHead}`)
+        .replace(
+          '#include <normal_fragment_begin>',
+          `#include <normal_fragment_begin>\n${grassFragmentNormal}`,
+        )
+        .replace(
+          '#include <alphatest_fragment>',
+          `#include <alphatest_fragment>\n${grassFragmentColor}`,
+        )
+        .replace('#include <opaque_fragment>', grassLighting)
     }
-    this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-shaded-meadow-rooted'
+    this.bladeMaterial.customProgramCacheKey = () => 'grounded-distance-faded-varied-meadow-blades'
     this.asphalt = asphaltTexture()
     this.fallMaterial = waterfallMaterial(
       this.grassMaterial.fieldUniforms.fieldNoiseMap,
@@ -320,6 +307,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.fallWarmUp.frustumCulled = false
     scene.add(this.fallWarmUp)
     this.roadPhoto = software ? null : loadRoadSurface()
+    this.grassMaterial.fieldUniforms.fieldStoneMap.value = this.roadPhoto?.albedo ?? null
     this.boulders = software ? null : new Boulders()
     if (this.boulders) scene.add(this.boulders.group)
     this.roadSurface = new RoadSurface(
@@ -330,6 +318,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       software,
     )
     this.roadMaterial = this.roadSurface.material
+    this.edgeMaterial = this.roadSurface.marking.material
     this.roadWetness = this.roadSurface.uniforms.roadWetness
     this.blade = grassGeometry()
     const bounds = this.blade.boundingBox
@@ -476,96 +465,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       )
     this.addBatch(group, markings, this.edgeMaterial)
     yield
-    const rails: THREE.BufferGeometry[] = []
-    for (const side of [-1, 1]) {
-      for (let s = start; s < start + groundLayout.tileLength; s += roadLayout.railSegmentLength) {
-        if (!guardrailAt(this.world, s, side)) continue
-        const r1 = this.world.road(s),
-          r2 = this.world.road(s + roadLayout.railSegmentLength),
-          d = side * roadLayout.railOffset
-        const profile: [number, number][] = [
-          [0.429, 0.1],
-          [0.51, 0],
-          [0.56, 0.04],
-          [0.61, 0.075],
-          [0.6864, 0],
-          [0.78, 0.1],
-        ]
-        for (let i = 0; i < profile.length - 1; i++) {
-          const lower = profile[i],
-            upper = profile[i + 1]
-          if (!lower || !upper) continue
-          const a = roadPoint(r1, s, d + side * lower[1])
-          const b = roadPoint(r1, s, d + side * upper[1])
-          const c = roadPoint(r2, s + roadLayout.railSegmentLength, d + side * lower[1])
-          const e = roadPoint(r2, s + roadLayout.railSegmentLength, d + side * upper[1])
-          rails.push(
-            geometry(
-              [
-                a.x,
-                r1.y + lower[0],
-                -a.s,
-                b.x,
-                r1.y + upper[0],
-                -b.s,
-                c.x,
-                r2.y + lower[0],
-                -c.s,
-                e.x,
-                r2.y + upper[0],
-                -e.s,
-              ],
-              side < 0 ? [0, 2, 1, 1, 2, 3] : [0, 1, 2, 1, 3, 2],
-            ),
-          )
-        }
-        const span = roadLayout.railSegmentLength
-        for (const [open, anchor, along] of [
-          [!guardrailAt(this.world, s - span, side), r1, s],
-          [!guardrailAt(this.world, s + span, side), r2, s + span],
-        ] as const) {
-          if (!open) continue
-          const reach = along === s ? -2.6 : 2.6
-          const foot = this.world.road(along + reach)
-          for (let i = 0; i < profile.length - 1; i++) {
-            const lower = profile[i],
-              upper = profile[i + 1]
-            if (!lower || !upper) continue
-            const a = roadPoint(anchor, along, d + side * lower[1])
-            const b = roadPoint(anchor, along, d + side * upper[1])
-            const c = roadPoint(foot, along + reach, d + side * (lower[1] + 0.25))
-            const e = roadPoint(foot, along + reach, d + side * (upper[1] + 0.25))
-            const sunk = 0.47
-            const forward = reach > 0 === side > 0
-            rails.push(
-              geometry(
-                [
-                  a.x,
-                  anchor.y + lower[0],
-                  -a.s,
-                  b.x,
-                  anchor.y + upper[0],
-                  -b.s,
-                  c.x,
-                  foot.y + lower[0] - sunk,
-                  -c.s,
-                  e.x,
-                  foot.y + upper[0] - sunk,
-                  -e.s,
-                ],
-                forward ? [0, 1, 2, 1, 3, 2] : [0, 2, 1, 1, 2, 3],
-              ),
-            )
-          }
-        }
-        const post = new THREE.BoxGeometry(0.13, 0.8, 0.12)
-        post.deleteAttribute('uv')
-        const point = roadPoint(r1, s, d + side * 0.1)
-        post.rotateY(r1.yaw)
-        post.translate(point.x, r1.y + 0.38, -point.s)
-        rails.push(post)
-      }
-    }
+    const rails = guardRails(this.world, start, groundLayout.tileLength)
     this.addBatch(group, rails, this.railMaterial)
     yield
     const profile = landscapeProfiles[settings.landscape]
@@ -600,9 +500,12 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
           radius: 0.08,
           down: false,
           flatten: (dirX, dirS) => {
-            for (const mesh of [stakes, studs]) {
+            for (const [mesh, count] of [
+              [stakes, delineatorVertices.post],
+              [studs, delineatorVertices.reflector],
+            ] as const) {
               const position = mesh.geometry.getAttribute('position')
-              for (let vertex = index * 24; vertex < index * 24 + 24; vertex++) {
+              for (let vertex = index * count; vertex < index * count + count; vertex++) {
                 const dx = position.getX(vertex) - spot.x
                 const dy = position.getY(vertex) - spot.y
                 const dz = position.getZ(vertex) + spot.s
@@ -771,7 +674,10 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
         shades.push(x, s, width)
         matrix.updateMatrix()
         trees.setMatrixAt(placed, matrix.matrix)
-        treeTint(color, 0.88 + rng() * 0.24, rng(), rng())
+        const tone = 0.88 + rng() * 0.24
+        rng()
+        rng()
+        plantTint(color, tone, x, s)
         if (variant === evergreenTile) color.multiply(relief)
         trees.setColorAt(placed++, color)
       }
@@ -836,7 +742,9 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
       const roadsideScale = (roadsideDistance - roadLayout.halfWidth - 0.05) / this.bladeFootprint
       matrix.scale.set(
         Math.min(0.8 + rng() * 0.8, roadsideScale),
-        0.55 + rng() * 0.65,
+        (0.55 + rng() * 0.65) *
+          vergeHeight(roadsideDistance - roadLayout.halfWidth - roadLayout.shoulder) *
+          slopeHeight(groundSurface.normal.y),
         Math.min(0.8 + rng() * 0.8, roadsideScale),
       )
       matrix.updateMatrix()
@@ -980,7 +888,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     const material = this.foliage.treeMaterial
     const tint = landscapeProfiles[settings.landscape].foliage
     material.color.set(tint ?? '#ffffff').multiplyScalar(tint ? foliageWarmth : 1)
-    material.emissive.set(palettes[settings.season].tree).multiplyScalar(0.09)
+    material.emissive.set(palettes[settings.season].tree).multiplyScalar(0.012)
   }
   setNight(dark: boolean) {
     this.foliage.treeMaterial.emissiveIntensity = dark ? 0.1 : 1
@@ -1109,6 +1017,7 @@ transformed *= 1.0 - smoothstep(${grassViewDistance.full.toFixed(1)}, ${grassVie
     this.foliage.update(settings.season)
     this.tintFoliage(settings)
     this.grassMaterial.setAppearance(settings)
+    this.grassDead.value.set(grassDead(settings.season))
     if (this.meadow) {
       this.meadow.palette = terrainColors(settings)
       this.meadow.reset()

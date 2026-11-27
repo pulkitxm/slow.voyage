@@ -1,5 +1,8 @@
 declare const __CACHE_NAME__: string
 declare const __ASSET_URLS__: string[]
+declare const __LAZY_URLS__: string[]
+
+const lazy = new Set(__LAZY_URLS__)
 
 const worker = self as unknown as ServiceWorkerGlobalScope
 worker.addEventListener('install', (event) => {
@@ -33,7 +36,10 @@ worker.addEventListener('fetch', (event) => {
       const cached = await cache.match(request)
       if (cached) return cached
       try {
-        return await fetch(request)
+        const response = await fetch(request)
+        if (response.ok && lazy.has(new URL(request.url).pathname))
+          await cache.put(request, response.clone())
+        return response
       } catch {
         return request.mode === 'navigate'
           ? ((await cache.match('/index.html')) ?? Response.error())

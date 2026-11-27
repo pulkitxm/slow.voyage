@@ -4,6 +4,16 @@ const root = 'dist/client'
 const paths = Array.from(new Bun.Glob('**/*').scanSync({ cwd: root, onlyFiles: true }))
   .filter((path) => path !== 'sw.js')
   .sort()
+const bodies = Array.from(
+  new Bun.Glob('*.glb').scanSync({ cwd: 'src/assets/models/cars/bodies', onlyFiles: true }),
+).map((file) => file.replace(/\.glb$/, ''))
+const lazy = paths.filter((path) =>
+  bodies.some(
+    (id) =>
+      path.startsWith(`assets/${id}-`) && /^[A-Za-z0-9_-]+\.glb$/.test(path.slice(8 + id.length)),
+  ),
+)
+const eager = paths.filter((path) => !lazy.includes(path))
 const hash = createHash('sha256')
 for (const path of paths)
   hash.update(new Uint8Array(await Bun.file(`${root}/${path}`).arrayBuffer()))
@@ -13,11 +23,12 @@ const result = await Bun.build({
   minify: true,
   define: {
     __CACHE_NAME__: JSON.stringify(`slow-voyage-${hash.digest('hex').slice(0, 12)}`),
-    __ASSET_URLS__: JSON.stringify(paths.map((path) => `/${path}`)),
+    __ASSET_URLS__: JSON.stringify(eager.map((path) => `/${path}`)),
+    __LAZY_URLS__: JSON.stringify(lazy.map((path) => `/${path}`)),
   },
 })
 if (!result.success) throw new AggregateError(result.logs, 'Offline worker build failed')
 const output = result.outputs[0]
 if (!output) throw new Error('Offline worker build produced no output')
 await Bun.write(`${root}/sw.js`, output)
-console.log(`Offline cache prepared: ${paths.length} files`)
+console.log(`Offline cache prepared: ${eager.length} files, ${lazy.length} cached on first use`)

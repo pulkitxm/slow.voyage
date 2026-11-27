@@ -165,3 +165,17 @@ test('distant open country keeps a stable share of the same lone trees and no sh
   const desert = scatteredPlants(new World({ ...defaults, landscape: 'desert' }), 0, 0, 2048, 2048)
   expect(desert.trees.length).toBeLessThan(near.trees.length * 0.4)
 })
+
+test('every tree carries the slope of the ground it stands on for its pool of shade', () => {
+  const world = new World({ ...defaults, landscape: 'forest' })
+  const trees = [3, 9, 14].flatMap((tile) => section(world, tile))
+  expect(trees.length).toBeGreaterThan(20)
+  for (const tree of trees) {
+    const surface = world.surface(tree.x, tree.s)
+    expect(tree.slopeX).toBe(surface.slopeX)
+    expect(tree.slopeS).toBe(surface.slopeS)
+    expect(Math.hypot(tree.slopeX, tree.slopeS)).toBeLessThanOrEqual(1.1)
+  }
+  const { trees: lone } = scatteredPlants(world, world.road(900).x - 640, 0, 1280, 1800)
+  for (const tree of lone) expect(Number.isFinite(tree.slopeX + tree.slopeS)).toBe(true)
+})

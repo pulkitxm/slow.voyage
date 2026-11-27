@@ -212,13 +212,19 @@ describe('engine settings and sound', () => {
     expect(new Set(ferrari.map((car) => car.id))).toEqual(new Set(['flat39', 'italia45', 'f1v10']))
     expect(new Set(engineCars.map((car) => car.maker)).size).toBeGreaterThan(15)
   })
-  it('remembers the chosen car only when it carries the chosen engine', () => {
+  it('remembers the chosen car, with its own engine or a swapped one', () => {
     expect(defaults.engineCar).toBe('')
     expect(decodeSettings({ engine: 'blown62', engineCar: 'Ram 1500 TRX' }).engineCar).toBe(
       'Ram 1500 TRX',
     )
-    expect(decodeSettings({ engine: 'w1680', engineCar: 'Ram 1500 TRX' }).engineCar).toBe('')
+    expect(decodeSettings({ engine: 'w1680', engineCar: 'Ram 1500 TRX' }).engineCar).toBe(
+      'Ram 1500 TRX',
+    )
     expect(decodeSettings({ engine: 'blown62', engineCar: 'Ram 9000' }).engineCar).toBe('')
+    expect(
+      decodeSettings({ engine: 'blown62', engineCar: 'Ram 1500 TRX', engineView: 'engine' })
+        .engineCar,
+    ).toBe('')
   })
   it('stores a chosen engine and rejects unknown ones', () => {
     expect(defaults.engine).toBe('stock')
