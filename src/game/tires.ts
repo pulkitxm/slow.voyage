@@ -1,18 +1,18 @@
 import { surfaceGrip } from './grip'
 import type { ChassisPose, WheelState } from './suspension'
-import { vehicleMetrics, yawInertia } from './vehicles'
+import { type VehicleMetrics, vehicleMetrics, yawInertia } from './vehicles'
 import { clamp, type Settings } from './world'
 
 export const standingWater = { grip: 0.12, planing: 36, drag: 0.5, surge: 0.0035 }
 export const groundDrag = {
-  grass: { base: 1.4, linear: 0.04, quadratic: 0.004 },
-  sand: { base: 2, linear: 0.06, quadratic: 0.008 },
+  grass: { base: 1, linear: 0.02, quartic: 0.0000068 },
+  sand: { base: 1.8, linear: 0.03, quartic: 0.000018 },
 }
 
 function groundResistance(wheel: WheelState, speed: number) {
   if (wheel.onRoad) return 0
   const drag = wheel.sand ? groundDrag.sand : groundDrag.grass
-  return drag.base + speed * drag.linear + speed * speed * drag.quadratic
+  return drag.base + speed * drag.linear + speed ** 4 * drag.quartic
 }
 const longitudinalShare = { minimum: 0.6, maximum: 1, holdSpeed: 0.5 }
 
@@ -118,8 +118,8 @@ export function solveTires(
   drive: number,
   brake: number,
   handbrake: boolean,
+  metrics: VehicleMetrics = vehicleMetrics[settings.vehicle],
 ) {
-  const metrics = vehicleMetrics[settings.vehicle]
   const inverseMass = 1 / metrics.mass
   const inverseInertia = 1 / yawInertia(metrics)
   const quarterMass = metrics.mass / wheels.length

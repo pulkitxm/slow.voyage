@@ -247,6 +247,26 @@ test('held keyboard brake slows the bus after powered acceleration', async () =>
   })
 }, 120000)
 
+test('space stays the handbrake after clicking or tabbing to a toolbar button', async () => {
+  await drive(async (page) => {
+    await page.locator('.auto-button').click()
+    await page.locator('.auto-button').click()
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+    await page.keyboard.down('w')
+    await page.waitForTimeout(4000)
+    await page.keyboard.up('w')
+    await page.locator('.auto-button').focus()
+    const before = await readout(page)
+    expect(before.speed).toBeGreaterThan(15)
+    await page.keyboard.down('Space')
+    const braking = await sample(page, 1000)
+    await page.keyboard.up('Space')
+    expect(braking.at(-1)?.speed ?? Infinity).toBeLessThan(before.speed - 5)
+    expect(await page.locator('.auto-button.enabled').count()).toBe(0)
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true)
+  })
+}, 120000)
+
 test('held forward key stops accelerating reverse before forward travel', async () => {
   await drive(async (page, directory) => {
     await page.keyboard.down('s')

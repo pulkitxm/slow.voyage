@@ -11,7 +11,7 @@ import {
   VignetteEffect,
 } from 'postprocessing'
 import * as THREE from 'three'
-import { cinemaLook } from './cinema'
+import { brightFragment, cinemaLook } from './cinema'
 import { reliefLevels } from './governor'
 
 export const ultraLook = {
@@ -23,10 +23,8 @@ export const ultraLook = {
   bloomLevels: 6,
   bloomRadius: 0.6,
   bloomStrength: 1.6,
-  exposure: 1.3,
-  toe: 0.022,
-  contrast: 0.16,
-  saturation: 1.12,
+  contrast: 0.05,
+  saturation: 1,
   vignetteOffset: 0.32,
   vignetteDarkness: 0.42,
 } as const
@@ -39,7 +37,6 @@ class BrightMaterial extends THREE.ShaderMaterial {
         texel: { value: new THREE.Vector2() },
         threshold: { value: cinemaLook.bloomThreshold },
         knee: { value: cinemaLook.bloomKnee },
-        skyGlow: { value: cinemaLook.skyGlow },
       },
       vertexShader: `
 varying vec2 vUv;
@@ -47,26 +44,7 @@ void main() {
   vUv = position.xy * 0.5 + 0.5;
   gl_Position = vec4(position.xy, 1.0, 1.0);
 }`,
-      fragmentShader: `
-uniform sampler2D inputBuffer;
-uniform vec2 texel;
-uniform float threshold;
-uniform float knee;
-uniform float skyGlow;
-varying vec2 vUv;
-vec3 glow(vec2 uv) {
-  vec4 scene = texture2D(inputBuffer, uv);
-  vec3 color = min(scene.rgb, vec3(24.0)) * mix(skyGlow, 1.0, clamp(scene.a, 0.0, 1.0));
-  float level = max(color.r, max(color.g, color.b));
-  float soft = clamp(level - threshold + knee, 0.0, 2.0 * knee);
-  soft = soft * soft / (4.0 * knee + 1e-4);
-  return color * max(soft, level - threshold) / max(level, 1e-4);
-}
-void main() {
-  vec3 color = glow(vUv + texel * vec2(-1.0, -1.0)) + glow(vUv + texel * vec2(1.0, -1.0)) +
-    glow(vUv + texel * vec2(-1.0, 1.0)) + glow(vUv + texel * vec2(1.0, 1.0));
-  gl_FragColor = vec4(color * 0.25, 1.0);
-}`,
+      fragmentShader: brightFragment('inputBuffer'),
       depthTest: false,
       depthWrite: false,
       toneMapped: false,
@@ -120,6 +98,7 @@ class LensEffect extends Effect {
   sunDirection = new THREE.Uniform(new THREE.Vector3(0, 1, 0))
   sunColor = new THREE.Uniform(new THREE.Color())
   hazeColor = new THREE.Uniform(new THREE.Color())
+  scatter = new THREE.Uniform(new THREE.Vector3(1, 1, 1))
 
   constructor() {
     super(
@@ -136,6 +115,7 @@ uniform vec3 viewUp;
 uniform vec3 sunDirection;
 uniform vec3 sunColor;
 uniform vec3 hazeColor;
+uniform vec3 scatter;
 vec3 lensBend = vec3(0.0);
 float grain(const in vec2 pixel) {
   return fract(52.9829189 * fract(dot(pixel, vec2(0.06711056, 0.00583715))));
@@ -220,7 +200,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
     float reach = length(view.xyz);
     vec3 ray = normalize((cameraWorld * vec4(view.xyz, 0.0)).xyz);
     float height = (cameraWorld * vec4(view.xyz, 1.0)).y - cameraWorld[3].y;
-    float thick = 1.0 - exp(-reach * 0.0006);
+    vec3 thick = 1.0 - exp(-reach * 0.0006 * scatter);
     float low = exp(-max(height + 25.0, 0.0) * 0.011);
     float toward = pow(max(dot(ray, sunDirection), 0.0), 5.0);
     vec3 air = hazeColor + sunColor * toward * 0.45;
@@ -241,6 +221,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, const in float depth,
       'sunDirection',
       'sunColor',
       'hazeColor',
+      'scatter',
     ] as const)
       this.uniforms.set(name, this[name])
     this.uniforms.set('rushReach', new THREE.Uniform(cinemaLook.rushReach))
@@ -253,25 +234,18 @@ class GradeEffect extends Effect {
       'GradeEffect',
       `
 #include <tonemapping_pars_fragment>
-uniform float exposure;
-uniform float toe;
 uniform float contrast;
 uniform float saturation;
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
-  float solid = clamp(texture2D(inputBuffer, uv).a, 0.0, 1.0);
-  vec3 mapped = NeutralToneMapping(inputColor.rgb * exposure);
-  mapped *= mapped / (mapped + toe);
-  vec3 color = clamp(mix(inputColor.rgb, mapped, solid), 0.0, 1.0);
+  vec3 color = clamp(CustomToneMapping(inputColor.rgb), 0.0, 1.0);
   vec3 display = pow(color, vec3(0.4545));
-  display = mix(display, display * display * (3.0 - 2.0 * display), contrast * solid);
+  display = mix(display, display * display * (3.0 - 2.0 * display), contrast);
   float luma = dot(display, vec3(0.2126, 0.7152, 0.0722));
-  display = mix(vec3(luma), display, mix(1.0, saturation, solid));
+  display = mix(vec3(luma), display, saturation);
   outputColor = vec4(pow(clamp(display, 0.0, 1.0), vec3(2.2)), 1.0);
 }`,
       {
         uniforms: new Map<string, THREE.Uniform>([
-          ['exposure', new THREE.Uniform(ultraLook.exposure)],
-          ['toe', new THREE.Uniform(ultraLook.toe)],
           ['contrast', new THREE.Uniform(ultraLook.contrast)],
           ['saturation', new THREE.Uniform(ultraLook.saturation)],
         ]),
@@ -302,6 +276,7 @@ export class UltraPipeline {
     sunDirection: new THREE.Vector3(0, 1, 0),
     sunColor: new THREE.Color(),
     hazeColor: new THREE.Color(),
+    scatter: new THREE.Vector3(1, 1, 1),
   }
   scale = 1
   private shaded = buffer()
@@ -319,8 +294,9 @@ export class UltraPipeline {
     camera: THREE.PerspectiveCamera,
   ) {
     this.occlusion = new N8AOPostPass(scene, camera, 1, 1)
-    this.occlusion.autoDetectTransparency = false
     const occlusion = this.occlusion.configuration
+    occlusion.transparencyAware = false
+    this.occlusion.autoDetectTransparency = false
     occlusion.halfRes = true
     occlusion.gammaCorrection = false
     occlusion.aoSamples = ultraLook.occlusionSamples
@@ -393,6 +369,7 @@ export class UltraPipeline {
       lens.sunDirection.value.copy(this.air.sunDirection)
       lens.sunColor.value.copy(this.air.sunColor)
       lens.hazeColor.value.copy(this.air.hazeColor)
+      lens.scatter.value.copy(this.air.scatter)
       this.develop.render(renderer, source, this.graded, 0)
       this.smooth.render(renderer, this.graded, this.shaded, 0)
     } finally {

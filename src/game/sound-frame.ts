@@ -1,7 +1,7 @@
-import { engineVoiceIndex } from './engine-sound'
+import { soundVehicles } from './engine-sound'
+import { fitCar } from './engines'
 import { landscapeProfiles } from './landscapes'
 import type { CarPhysics, Input } from './physics'
-import { engineProfileFor } from './powertrain'
 import {
   brakeSquealLevel,
   freshTyreSignals,
@@ -29,8 +29,11 @@ import {
 } from './sound-design'
 import { freshParams, paramIndex } from './sound-synth'
 import type { Ambience } from './soundscape'
-import { vehicleMetrics } from './vehicles'
-import type { Settings } from './world'
+import { engineIds, type Settings, type Vehicle } from './world'
+
+const vehicleNumber = Object.fromEntries(
+  soundVehicles.map((vehicle, index) => [vehicle, index]),
+) as Record<Vehicle, number>
 
 export class SoundFrame {
   values = freshParams()
@@ -40,13 +43,6 @@ export class SoundFrame {
   private settled = false
   private bumps = 0
   private rest = 0
-  pops = 0
-  popLevel = 0
-  pop(strength: number) {
-    if (strength <= 0) return
-    this.pops = (this.pops + 1) % 65536
-    this.popLevel = strength
-  }
   reset() {
     this.settled = false
   }
@@ -54,20 +50,21 @@ export class SoundFrame {
     const v = this.values
     const at = paramIndex
     const vehicle = settings.vehicle
-    const profile = engineProfileFor(settings)
+    const fitted = fitCar(settings)
+    const profile = fitted.profile
     const box = car.gearbox
     const speed = Math.abs(car.speed)
-    v[at.vehicle] = engineVoiceIndex(settings)
+    v[at.vehicle] = vehicleNumber[vehicle]
+    v[at.engine] = fitted.engine ? engineIds.indexOf(fitted.engine) : 0
     v[at.rpm] = box.rpm
     v[at.idle] = profile.idle
     v[at.redline] = profile.redline
     v[at.load] = box.load
-    v[at.throttle] = car.speed < -0.1 || box.gear < 0 ? input.brake : input.throttle
+    v[at.throttle] =
+      !box.neutral && (car.speed < -0.1 || box.gear < 0) ? input.brake : input.throttle
     v[at.cutting] = box.cutting ? 1 : 0
     v[at.shifts] = box.shifts
     v[at.clunk] = box.manual ? 1 : 0.3
-    v[at.pops] = this.pops
-    v[at.popLevel] = this.popLevel * mixLevels.pops
     v[at.speed] = car.speed
 
     const wheels = car.suspension.wheels
@@ -125,7 +122,7 @@ export class SoundFrame {
     v[at.scrub] = scrubLevel(car.slip, speed, tarmac < 0.5) * mixLevels.scrub
     v[at.joint] = tarmac > 0.5 ? roadJoints.spacing : 0
     v[at.jointLevel] = roadJoints.level[settings.roadWear] * mixLevels.joints
-    v[at.wheelbase] = vehicleMetrics[vehicle].wheelbase
+    v[at.wheelbase] = fitted.metrics.wheelbase
     v[at.scrape] = scrapeLevel(car.scrapeMaterial, car.scrape) * mixLevels.scrape
     v[at.metal] = car.scrapeMaterial === 'rail' ? 1 : 0
     v[at.wade] = wadeLevel(car.wading, speed) * mixLevels.wade
@@ -134,13 +131,13 @@ export class SoundFrame {
 
     const surge = car.boosting ? 1 : 0
     const wind = windLayers(speed, 0)
-    v[at.rush] = wind.rush * mixLevels.wind * (1 + surge * 1.6)
+    v[at.rush] = wind.rush * mixLevels.wind * (1 + surge)
     v[at.band] = wind.band + surge * 900
     v[at.whistle] = wind.whistle * mixLevels.whistle
     v[at.whistlePitch] = wind.whistlePitch
     v[at.buffet] = wind.buffet * mixLevels.buffet
     const level = mixLevels.ambience
-    v[at.breeze] = ambience.breeze * mixLevels.wind * 0.35
+    v[at.breeze] = ambience.breeze * mixLevels.breeze
     v[at.leaves] = ambience.leaves * level * 0.12
     v[at.rain] = winter ? 0 : rainLevel(settings.weather) * mixLevels.rain
     v[at.birds] = ambience.birds * level

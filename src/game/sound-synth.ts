@@ -1,9 +1,11 @@
 import { AirVoice } from './air-sound'
-import { EngineVoice, engineSounds, engineVoices } from './engine-sound'
+import { engineIds, engineSound } from './engine-catalog'
+import { EngineVoice, soundVehicles } from './engine-sound'
 import { RoadVoice } from './road-sound'
 
 export const soundParams = [
   'vehicle',
+  'engine',
   'rpm',
   'idle',
   'redline',
@@ -12,8 +14,6 @@ export const soundParams = [
   'cutting',
   'shifts',
   'clunk',
-  'pops',
-  'popLevel',
   'speed',
   'roll',
   'wet',
@@ -106,6 +106,7 @@ export class SoundSynth {
   road: RoadVoice
   air: AirVoice
   private vehicle = -1
+  private fitted = -1
   private scratch = soundChannels.map(() => new Float32Array(synthBlock))
   constructor(rate: number, seed = 1) {
     this.engine = new EngineVoice(rate, seed)
@@ -116,9 +117,15 @@ export class SoundSynth {
     const p = this.params
     const at = paramIndex
     const vehicle = Math.round(p[at.vehicle] as number)
-    if (vehicle !== this.vehicle) {
+    const fitted = Math.round(p[at.engine] as number)
+    if (vehicle !== this.vehicle || fitted !== this.fitted) {
+      const swapped = this.vehicle >= 0
       this.vehicle = vehicle
-      this.engine.configure(engineVoices[vehicle] ?? engineSounds.touring)
+      this.fitted = fitted
+      this.engine.configure(
+        engineSound(soundVehicles[vehicle] ?? 'touring', engineIds[fitted] ?? 'stock'),
+      )
+      if (swapped) this.engine.ignite()
     }
     const engine = this.engine
     engine.rpm = p[at.rpm] as number
@@ -129,8 +136,6 @@ export class SoundSynth {
     engine.cutting = p[at.cutting] as number
     engine.shifts = p[at.shifts] as number
     engine.clunk = p[at.clunk] as number
-    engine.pops = p[at.pops] as number
-    engine.popLevel = p[at.popLevel] as number
     engine.speed = p[at.speed] as number
     const road = this.road
     road.speed = p[at.speed] as number

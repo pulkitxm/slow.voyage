@@ -1,12 +1,104 @@
 import { expect, test } from 'bun:test'
+import { Color, ShaderChunk } from 'three'
 import {
+  airScatter,
   atmosphereProfile,
+  bounceLevel,
   cycleStage,
   dayCycle,
+  fillColor,
+  lightBalance,
   reflectionLevel,
   reflectionSize,
+  scatteredFog,
+  scatterFor,
+  sunElevation,
 } from './atmosphere'
 import { defaults } from './world'
+
+const level = (color: Color) => 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b
+
+function keyToFill(settings: typeof defaults) {
+  const profile = atmosphereProfile(settings)
+  const sun = new Color(profile.sun)
+  const key = profile.sunlight * sunElevation(profile.sunHeight) * level(sun)
+  return key / (profile.fill * lightBalance.fillLevel)
+}
+
+test('clear midday ground takes several times more light from the sun than from the sky', () => {
+  const ratio = keyToFill({ ...defaults, daylight: 'day', weather: 'clear' })
+  expect(ratio).toBeGreaterThan(4)
+  expect(ratio).toBeLessThan(9)
+})
+
+test('cloud cover hands the lighting from the sun to the sky', () => {
+  for (const weather of ['overcast', 'rain', 'storm', 'fog'] as const)
+    expect(keyToFill({ ...defaults, daylight: 'day', weather })).toBeLessThan(0.5)
+})
+
+test('moonlight is a cool key over a dimmer fill and stays far below daylight', () => {
+  const night = atmosphereProfile({ ...defaults, daylight: 'night' })
+  const day = atmosphereProfile({ ...defaults, daylight: 'day' })
+  const moon = new Color(night.sun)
+  expect(moon.b).toBeGreaterThan(moon.r)
+  expect(night.moon).toBe(1)
+  expect(day.moon).toBe(0)
+  expect(night.sunlight).toBeLessThan(day.sunlight * 0.5)
+  const ratio = keyToFill({ ...defaults, daylight: 'night' })
+  expect(ratio).toBeGreaterThan(1.2)
+  expect(ratio).toBeLessThan(5)
+})
+
+test('a low sun is warmer and lower than the midday sun', () => {
+  const day = atmosphereProfile({ ...defaults, daylight: 'day' })
+  for (const daylight of ['dawn', 'sunset', 'dusk'] as const) {
+    const low = atmosphereProfile({ ...defaults, daylight })
+    const sun = new Color(low.sun)
+    expect(sunElevation(low.sunHeight)).toBeLessThan(0.25)
+    expect(sun.r / sun.b).toBeGreaterThan(new Color(day.sun).r / new Color(day.sun).b)
+  }
+})
+
+test('sky fill keeps the hue of the sky at one brightness', () => {
+  const tone = new Color()
+  for (const daylight of ['dawn', 'day', 'sunset', 'dusk', 'night'] as const) {
+    const profile = atmosphereProfile({ ...defaults, daylight })
+    fillColor(tone, profile.skyFill)
+    expect(level(tone)).toBeCloseTo(lightBalance.fillLevel, 1)
+  }
+  fillColor(tone, atmosphereProfile({ ...defaults, daylight: 'day' }).skyFill)
+  expect(tone.b).toBeGreaterThan(tone.r)
+})
+
+test('sunlit ground throws more light back up than shaded ground', () => {
+  const day = atmosphereProfile({ ...defaults, daylight: 'day' })
+  const overcast = atmosphereProfile({ ...defaults, daylight: 'day', weather: 'overcast' })
+  expect(bounceLevel(day)).toBeGreaterThan(bounceLevel(overcast) * 2)
+  expect(bounceLevel(overcast)).toBeGreaterThan(lightBalance.bounce)
+  expect(bounceLevel({ sunlight: 0, sunHeight: 100, fill: 1 })).toBeCloseTo(lightBalance.bounce, 9)
+})
+
+test('clear air scatters blue first and thick weather scatters every colour alike', () => {
+  const clear = scatterFor(atmosphereProfile({ ...defaults, daylight: 'day' }).fog)
+  expect(clear).toEqual([...airScatter.clear])
+  expect(clear[2]).toBeGreaterThan(clear[1])
+  expect(clear[1]).toBeGreaterThan(clear[0])
+  const fog = scatterFor(atmosphereProfile({ ...defaults, weather: 'fog' }).fog)
+  expect(fog).toEqual([1, 1, 1])
+  const rain = scatterFor(atmosphereProfile({ ...defaults, weather: 'rain' }).fog)
+  expect(rain).toEqual([1, 1, 1])
+})
+
+test('distance fog is patched once and leaves linear fog a single shade', () => {
+  const original = ShaderChunk.fog_fragment
+  const scattered = scatteredFog(original)
+  expect(scattered).not.toBe(original)
+  expect(scattered).toContain('vec3 fogFactor = 1.0 - exp(')
+  expect(scattered).toContain('* fogSpread )')
+  expect(scattered).toContain('vec3 fogFactor = vec3( smoothstep( fogNear, fogFar, vFogDepth ) );')
+  expect(scattered).not.toContain('float fogFactor')
+  expect(scatteredFog(scattered)).toBe(scattered)
+})
 
 test('weather changes visibility and direct light rather than only recoloring the sky', () => {
   const clear = atmosphereProfile(defaults)

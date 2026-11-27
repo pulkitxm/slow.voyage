@@ -41,7 +41,7 @@ function leaf(
   }
   const push = (point: THREE.Vector3, along: number) => {
     positions.push(point.x, point.y, point.z)
-    const shade = 0.62 + along * 0.5
+    const shade = 0.5 + along * 0.62
     colors.push(tone.r * shade, tone.g * shade, tone.b * shade)
   }
   for (let index = 0; index < segments; index++) {
@@ -78,7 +78,7 @@ export function palmGeometry(seed: number) {
   const height = 7 + rng() * 4
   const lean = 0.6 + rng() * 1.4
   const heading = rng() * Math.PI * 2
-  const bark = new THREE.Color('#8f775c')
+  const bark = new THREE.Color('#6f6253')
   const { rings, sides, flare, scar } = palmTrunk
   const core = (along: number) => {
     const bend = lean * along * along
@@ -120,7 +120,7 @@ export function palmGeometry(seed: number) {
   const fronds = 13
   for (let index = 0; index < fronds; index++) {
     const upright = index % 3 === 0
-    const tone = new THREE.Color().setHSL(0.27 + rng() * 0.05, 0.55, 0.26 + rng() * 0.1)
+    const tone = new THREE.Color().setHSL(0.24 + rng() * 0.06, 0.4, 0.15 + rng() * 0.08)
     leaf(
       positions,
       colors,
@@ -156,7 +156,7 @@ export function fernGeometry(seed: number) {
       0.6 + rng() * 0.4,
       0.55 + rng() * 0.4,
       0.2 + rng() * 0.08,
-      new THREE.Color().setHSL(0.29 + rng() * 0.05, 0.62, 0.14 + rng() * 0.07),
+      new THREE.Color().setHSL(0.26 + rng() * 0.06, 0.45, 0.1 + rng() * 0.07),
     )
   return finish(positions, colors)
 }

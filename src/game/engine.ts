@@ -1,11 +1,21 @@
 import * as THREE from 'three'
-import { Atmosphere, atmosphereProfile, sunOffset } from './atmosphere'
+import {
+  Atmosphere,
+  atmosphereProfile,
+  bounceLevel,
+  daylight,
+  fillColor,
+  lightBalance,
+  scatterAir,
+  scatterFor,
+  sunOffset,
+} from './atmosphere'
 import { DriveAudio } from './audio'
 import { DrivingCamera } from './camera'
+import { bodyFootprint, bodyFor, withholdBodies } from './car-bodies'
 import { Cast } from './cast'
 import { CinematicPipeline } from './cinema'
 import { dressVehicle } from './coachwork'
-import { footprints } from './collision'
 import { contactPatch, contactShade } from './contact-shadow'
 import {
   automaticTarget,
@@ -18,8 +28,9 @@ import {
 } from './controls'
 import { crossfadeTiming, SceneCrossfade } from './crossfade'
 import { effectsLevel, RoadEffects } from './effects'
+import { fitCar } from './engines'
+import { developOnFilm, undevelop } from './film'
 import { type ControllerLook, type ControllerStatus, GamepadControls } from './gamepad'
-import type { GarageJob, GarageStatus } from './garage-session'
 import { FrameGovernor, governorPlan, reliefLevels } from './governor'
 import {
   cinemaRelief,
@@ -37,12 +48,12 @@ import {
   textureDetail,
   ultraReach,
 } from './graphics'
+import { railLook } from './guard-rail'
 import { beamHaze, Lamps } from './lamps'
-import { type LandmarkKind, landmarkLayout, landmarkOffset, lapLandmarks } from './landmarks'
+import { type LandmarkKind, landmarkLayout, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
-import { LapClock } from './laps'
 import { Life } from './life'
-import { lapState, Minimap, roadGuide } from './minimap'
+import { Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
   createVehicleModel,
@@ -51,9 +62,11 @@ import {
   vehicleArrival,
 } from './model'
 import { MouseControls } from './mouse'
+import { paintFinish, tintPaint } from './paint'
 import { CarPhysics, type Input, type Telemetry } from './physics'
 import { Precipitation } from './precipitation'
 import { bulky, carFrame, heft, reactionLayout } from './reactions'
+import { ReflectionProbe } from './reflection-probe'
 import { puddleLevel } from './road-condition'
 import { fitShadowsToSurfaces } from './shadow-filter'
 import { SimulationClock } from './simulation-clock'
@@ -63,10 +76,8 @@ import { SoftwareAntialias } from './software-antialias'
 import { Terrain } from './terrain'
 import { SkidMarks, trailLayout } from './tyre-trail'
 import type { UltraPipeline } from './ultra'
-import { vehicleMetrics } from './vehicles'
 import { Wake, wakeStrength } from './wake'
 import { Water } from './water'
-import { Workshop } from './workshop'
 import {
   type AssistanceMode,
   angleDifference,
@@ -75,18 +86,8 @@ import {
   type Settings,
   World,
 } from './world'
-import { WorldMap } from './world-map'
 
 const paintBudget = 11
-
-function storage() {
-  try {
-    return window.localStorage
-  } catch {
-    return null
-  }
-}
-const paintDepth = 0.7
 const retireDelay = 90
 
 function contactShadow() {
@@ -121,7 +122,6 @@ function contactShadow() {
   mesh.frustumCulled = false
   return mesh
 }
-export const garageFraming = { narrow: 640, side: 190, lift: 0.22 }
 export const lightingPace = { step: 0.5, reflection: 6 }
 export const stormFlash = { shortest: 5, longest: 14, strength: 9, decay: 7 }
 
@@ -131,24 +131,18 @@ export interface DriveState extends Telemetry {
   fps: number
   controller: ControllerStatus
   mouseSteering: number
-  lap: number
-  lapDistance: number
   roadDistance: number
-  lapTime: number | null
-  lastLap: number | null
-  bestLap: number | null
+  roadBearing: number
   photo: boolean
   found: number
-  landmarks: number
-  garageNear: boolean
-  garage: GarageStatus
-  grime: number
 }
 export class RoadEngine {
   renderer: THREE.WebGLRenderer
   antialiasing: SoftwareAntialias | null
   cinema: CinematicPipeline | null = null
   ultra: UltraPipeline | null = null
+  mirror: ReflectionProbe | null = null
+  mirrored = false
   ultraKit: typeof import('./ultra') | null = null
   ultraPending: Promise<void> | null = null
   governor = new FrameGovernor()
@@ -171,22 +165,19 @@ export class RoadEngine {
   skids = new SkidMarks()
   wake: Wake | null = null
   wetRoad = false
-  private neutralFill = new THREE.Color('#efe9e1')
   private travel = new THREE.Vector3()
   private skyTone = new THREE.Color()
   private lampFront = new THREE.Vector3()
   private lampBack = new THREE.Vector3()
   private lampSpread = 0
-  laps = new LapClock()
   photo = false
-  onLap?: (time: number, record: boolean) => void
   onProgress?: (fraction: number, stage: 'stone' | 'hills' | 'light') => void
   software = false
   renderScale = 0
   carriedScale = 0
   retired: UltraPipeline | null = null
   retiredFrames = 0
-  onDiscover?: (kind: LandmarkKind, found: number, total: number) => void
+  onDiscover?: (kind: LandmarkKind, found: number) => void
   onQuality?: (quality: Settings['quality']) => void
   lightingAt = 0
   reflectionAt = Number.NEGATIVE_INFINITY
@@ -208,7 +199,6 @@ export class RoadEngine {
   world: World
   physics: CarPhysics
   minimap: Minimap
-  atlas: WorldMap
   water: Water
   terrain: Terrain
   car: VehicleModel
@@ -245,10 +235,8 @@ export class RoadEngine {
   driver = { x: 0, s: 0, yaw: 0, speed: 0, halfWidth: 1, front: 2, rear: 2 }
   lifeAlarm = -10
   shiftQueue = 0
+  neutral = false
   lastPace = 0
-  workshop: Workshop
-  bayLit = false
-  viewShift = { x: 0, y: 0 }
   sunReach = new THREE.Vector3()
   sunToward = new THREE.Vector3()
   sunAcross = new THREE.Vector3()
@@ -276,28 +264,16 @@ export class RoadEngine {
       | 'journeyPrevious'
       | 'vehicleNext'
       | 'vehiclePrevious'
-      | 'photo'
-      | 'map'
-      | 'garage'
-      | 'garageLeave',
+      | 'photo',
   ) => void
   resize = () => {
     this.redraw = true
-    this.viewShift.x = this.viewShift.y = -1
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.camera.aspect = window.innerWidth / window.innerHeight
     this.camera.updateProjectionMatrix()
   }
   keyDown = (event: KeyboardEvent) => {
     if (!this.rendered) return
-    if (this.workshop.session.active) {
-      if (this.controlsBlocked && event.code !== 'Escape') return
-      if (['Escape', 'KeyO'].includes(event.code) && !event.repeat) {
-        event.preventDefault()
-        this.onAction?.('garageLeave')
-      }
-      return
-    }
     if (this.photo) {
       if (['Escape', 'KeyT'].includes(event.code)) this.onAction?.('photo')
       if (['Enter', 'Space'].includes(event.code)) this.screenshot()
@@ -311,7 +287,14 @@ export class RoadEngine {
       ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)
     )
       return
-    if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) return
+    if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) {
+      const handbrake =
+        event.code === 'Space' &&
+        this.started &&
+        !event.target.closest('.settings-panel, dialog, .touch-controls')
+      if (!handbrake) return
+      event.target.blur()
+    }
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Escape'].includes(event.code))
       event.preventDefault()
     if (event.repeat) return
@@ -327,6 +310,7 @@ export class RoadEngine {
     if (event.code === 'KeyG') this.onAction?.('autoMode')
     if (event.code === 'KeyM') this.onAction?.('mute')
     if (event.code === 'KeyU') this.onAction?.('mouse')
+    if (event.code === 'KeyZ') this.toggleNeutral()
     if (event.code === 'KeyQ' && !this.shiftBy(-1)) this.onAction?.('journeyPrevious')
     if (event.code === 'KeyE' && !this.shiftBy(1)) this.onAction?.('journeyNext')
     if (event.code === 'KeyV') this.onAction?.(event.shiftKey ? 'vehiclePrevious' : 'vehicleNext')
@@ -337,8 +321,6 @@ export class RoadEngine {
     if (event.code === 'KeyH') this.onAction?.('help')
     if (event.code === 'KeyR') this.reset()
     if (event.code === 'KeyT' && this.started) this.onAction?.('photo')
-    if (event.code === 'KeyN' && this.started) this.onAction?.('map')
-    if (event.code === 'KeyO' && this.started) this.onAction?.('garage')
     if (event.code === 'KeyB') this.audio.hornHeld = this.started
     if (event.code === 'KeyX') this.view.rear = this.started
   }
@@ -468,19 +450,21 @@ export class RoadEngine {
     this.world = new World(this.settings)
     this.physics = new CarPhysics(this.world)
     this.minimap = new Minimap(this.world)
-    this.atlas = new WorldMap(this.world)
-    this.atlas.found = this.minimap.found
     this.crossfade = new SceneCrossfade(canvas)
     fitShadowsToSurfaces()
+    developOnFilm()
+    scatterAir()
     this.renderer = createGraphicsRenderer(canvas)
     const budget = graphicsBudget(this.renderer, this.settings.quality)
     textureDetail.anisotropy = budget.anisotropy
     this.antialiasing = budget.software ? new SoftwareAntialias() : null
     this.software = budget.software
+    withholdBodies(budget.software)
+    if (budget.cinematic) this.mirror = new ReflectionProbe()
     this.renderer.setPixelRatio(this.pixelRatio(budget))
     this.renderer.shadowMap.enabled = true
     this.renderer.shadowMap.type = THREE.PCFShadowMap
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMapping = THREE.CustomToneMapping
     this.renderer.toneMappingExposure = 1.1
     this.scene.fog = new THREE.FogExp2('#d3ddd2', 0.00095)
     this.scene.add(this.ambient, this.sun, this.sun.target)
@@ -490,9 +474,9 @@ export class RoadEngine {
     this.sun.shadow.camera.near = 1
     this.sun.shadow.camera.far = 350
     this.configureShadows(budget)
-    this.sky = new ScenicSky()
+    this.sky = new ScenicSky(budget.software)
     this.scene.add(this.sky)
-    this.water = new Water(this.scene)
+    this.water = new Water(this.scene, (x, s) => this.world.height(x, s))
     this.terrain = new Terrain(this.scene, this.world, budget.detail, budget.software)
     if (!budget.software) {
       this.life = new Life(this.world)
@@ -504,38 +488,29 @@ export class RoadEngine {
     }
     const terrain = this.terrain
     const life = this.life
-    const garages = () => this.workshop?.sites
-    this.physics.trunks = function* (s) {
-      yield* terrain.trunksNear(s)
-      const sites = garages()
-      if (sites) yield* sites.trunksNear(s)
+    this.physics.trunks = function* (s, x) {
+      yield* terrain.trunksNear(s, x)
       if (life) yield* life.obstacles(s)
     }
     this.atmosphere = new Atmosphere(this.renderer, budget.software)
     this.precipitation = new Precipitation(this.scene)
-    this.workshop = new Workshop(
-      this.scene,
-      this.world,
-      this.physics,
-      this.audio,
-      () => this.car,
-      () => this.settings,
-      storage(),
-    )
     this.car = createVehicleModel(this.settings, budget.software)
-    this.workshop.outfit(this.car)
     const noise = this.terrain.grassMaterial.fieldUniforms.fieldNoiseMap
     this.lamps = new Lamps()
-    const dressed = () => {
-      this.workshop.dressed(this.car)
-      this.configureHeadlights()
-      this.applyLighting()
-    }
-    if (budget.software || !dressVehicle(this.car, this.settings, dressed))
-      this.workshop.dressed(this.car)
-    this.car.body.color.set(this.settings.color).multiplyScalar(paintDepth)
+    if (!budget.software)
+      dressVehicle(
+        this.car,
+        this.settings,
+        () => {
+          this.configureHeadlights()
+          this.applyLighting()
+        },
+        () => this.swapVehicle(),
+      )
+    tintPaint(this.car.body.color, this.settings.color)
     this.scene.add(this.car.group, this.contact)
     this.canvas.dataset.vehicleShown = this.settings.vehicle
+    this.canvas.dataset.bodyShown = bodyFor(this.settings)?.id ?? ''
     if (!budget.software) {
       this.wake = new Wake(noise)
       this.effects = new RoadEffects(noise)
@@ -607,7 +582,9 @@ export class RoadEngine {
     return new Promise<void>((resolve) => {
       const stroke = () => {
         if (this.disposed) return resolve()
-        const painted = this.software ? 1 : this.terrain.prime(this.physics.s, paintBudget)
+        const painted = this.software
+          ? 1
+          : this.terrain.prime(this.physics.s, paintBudget, this.physics.x)
         this.onProgress?.(0.1 + painted * 0.78, 'hills')
         if (painted >= 1) resolve()
         else requestAnimationFrame(stroke)
@@ -619,7 +596,6 @@ export class RoadEngine {
     this.started = true
     this.assistance = assistance
     this.paused = false
-    this.laps.reset(this.physics.s)
     this.governor.hold()
     this.audio.start(this.settings.volume)
     this.physics.distance = 0
@@ -661,36 +637,31 @@ export class RoadEngine {
   }
   emitState() {
     if (!this.rendered) return
-    const lap = lapState(this.physics.s)
-    const landmarks = lapLandmarks(this.world)
     const found = this.minimap.found
+    const { x, s } = this.physics
+    const guide = roadGuide(this.world, this.physics)
     if (this.started)
-      for (const landmark of landmarks) {
+      for (const landmark of landmarksBetween(
+        this.world,
+        s - landmarkLayout.found,
+        s + landmarkLayout.found,
+      )) {
         if (found.has(landmark.id)) continue
-        const offset = landmarkOffset(landmark, this.physics.x, this.physics.s)
-        if (Math.hypot(offset.x, offset.s) > landmarkLayout.found) continue
+        if (Math.hypot(landmark.x - x, landmark.s - s) > landmarkLayout.found) continue
         found.add(landmark.id)
-        this.onDiscover?.(landmark.kind, found.size, landmarks.length)
+        this.onDiscover?.(landmark.kind, found.size)
       }
     this.onState?.({
       ...this.physics.telemetry(),
-      lap: lap.lap,
-      lapDistance: lap.distance,
-      roadDistance: roadGuide(this.world, this.physics).distance,
-      lapTime: this.laps.timed ? this.laps.time : null,
-      lastLap: this.laps.last,
-      bestLap: this.laps.best,
+      roadDistance: guide.distance,
+      roadBearing: guide.angle,
       photo: this.photo,
       found: found.size,
-      landmarks: landmarks.length,
       assistance: this.assistance,
       paused: this.paused,
       fps: this.frameRate,
       controller: this.controllerStatus,
       mouseSteering: this.mouse.steer,
-      garageNear: this.started && this.workshop.near,
-      garage: this.workshop.session.status(),
-      grime: this.workshop.grimeLevel,
     })
   }
   setPhoto(photo: boolean) {
@@ -701,63 +672,11 @@ export class RoadEngine {
   }
   travelTo(s: number) {
     this.physics.reset(s)
-    this.laps.reset(s)
     this.view.center()
     this.view.snap()
   }
-  enterGarage() {
-    if (!this.started || this.paused || this.photo) return false
-    const entered = this.workshop.enter()
-    if (entered) {
-      this.blur()
-      this.emitState()
-    }
-    return entered
-  }
-  garageJob(job: GarageJob) {
-    const chosen = this.workshop.choose(job)
-    this.emitState()
-    return chosen
-  }
-  leaveGarage() {
-    const leaving = this.workshop.leave()
-    this.emitState()
-    return leaving
-  }
-  frameAround(garaged: boolean) {
-    const width = window.innerWidth
-    const height = window.innerHeight
-    const wide = width > garageFraming.narrow
-    const shift = garaged ? (wide ? garageFraming.side : 0) : 0
-    const lift = garaged && !wide ? height * garageFraming.lift : 0
-    if (shift === this.viewShift.x && lift === this.viewShift.y) return
-    this.viewShift.x = shift
-    this.viewShift.y = lift
-    if (shift || lift) this.camera.setViewOffset(width, height, shift, lift, width, height)
-    else this.camera.clearViewOffset()
-  }
-  lightBay(inside: boolean) {
-    if (inside === this.bayLit) {
-      if (inside) this.spill.intensity = 4.5
-      return
-    }
-    this.bayLit = inside
-    if (inside) {
-      this.spill.position.set(0, 3.4, 0.4)
-      this.spill.target.position.set(0, 0, 0)
-      this.spill.angle = 1.05
-      this.spill.penumbra = 0.8
-      this.spill.distance = 9
-      this.spill.intensity = 4.5
-    } else {
-      this.spill.angle = 0.4
-      this.spill.penumbra = 1
-      this.spill.distance = 60
-      this.configureHeadlights()
-    }
-  }
   reset() {
-    if (this.workshop.session.active) return
+    this.neutral = false
     this.handover.cancel()
     this.mouse.reset()
     this.physics.reset()
@@ -777,13 +696,7 @@ export class RoadEngine {
       budget.detail !== this.terrain.quality ||
       settings.seed !== this.settings.seed
     const vehicleChange =
-      settings.vehicle !== this.settings.vehicle ||
-      (settings.vehicle === 'supercar' && settings.supercarModel !== this.settings.supercarModel)
-    const wheelChange =
-      settings.wheelStyle !== this.settings.wheelStyle ||
-      settings.rimFinish !== this.settings.rimFinish
-    const groundChange =
-      settings.landscape !== this.settings.landscape || settings.season !== this.settings.season
+      settings.vehicle !== this.settings.vehicle || bodyFor(settings) !== bodyFor(this.settings)
     const assistanceChange = settings.autodriveMode !== this.settings.autodriveMode
     const mouseChange = settings.mouseEnabled !== this.settings.mouseEnabled
     const cameraChange = settings.camera !== this.settings.camera
@@ -804,11 +717,8 @@ export class RoadEngine {
     if (environmentChange) this.minimap.invalidate()
     this.settings = { ...settings }
     this.world.settings = this.settings
-    if (roadChange || vehicleChange) this.laps.reset(this.physics.s)
     if (roadChange) this.minimap.found.clear()
     if (roadChange) this.skids.clear()
-    if (roadChange) this.workshop.refresh()
-    if (groundChange && !vehicleChange) this.workshop.matchVehicle()
     if (roadChange) {
       const speed = this.physics.speed
       this.physics.reset()
@@ -821,31 +731,33 @@ export class RoadEngine {
       this.cancelLook()
     }
     if (refresh) this.terrain.refresh(this.settings, budget.detail)
-    if (vehicleChange) {
-      this.incoming?.dispose()
-      if (this.workshop.session.active) this.workshop.refresh()
-      const next = createVehicleModel(this.settings, budget.software)
-      this.workshop.outfit(next)
-      this.incoming = next
-      const ready = () => {
-        if (this.disposed || this.incoming !== next) return
-        this.incoming = null
-        this.workshop.dressed(next)
-        this.mountVehicle(next)
-      }
-      const dressing = !budget.software && dressVehicle(next, this.settings, ready)
-      if (!dressing) ready()
-      this.physics.suspension.configure(settings.vehicle)
-      this.physics.suspension.reset(this.physics)
-    }
-    this.car.body.color.set(settings.color).multiplyScalar(paintDepth)
-    this.incoming?.body.color.set(settings.color).multiplyScalar(paintDepth)
-    if (wheelChange && !vehicleChange) this.workshop.restyle()
+    if (roadChange) this.water.shore?.reset()
+    if (vehicleChange) this.swapVehicle()
+    tintPaint(this.car.body.color, settings.color)
+    if (this.incoming) tintPaint(this.incoming.body.color, settings.color)
     this.configureCinema(budget)
     this.applyRenderScale(budget)
     this.configureShadows(budget)
     this.applyLighting()
     if (assistanceChange && this.assistance !== 'off') this.setAssistance(settings.autodriveMode)
+  }
+  swapVehicle() {
+    if (this.disposed) return
+    const settings = this.settings
+    this.incoming?.dispose()
+    const next = createVehicleModel(settings, this.software)
+    this.incoming = next
+    const ready = () => {
+      if (this.disposed || this.incoming !== next) return
+      this.incoming = null
+      this.mountVehicle(next)
+    }
+    const dressing = !this.software && dressVehicle(next, settings, ready, () => this.swapVehicle())
+    if (!dressing) ready()
+    this.physics.suspension.configure(settings.vehicle, bodyFor(settings))
+    this.physics.suspension.reset(this.physics)
+    tintPaint(this.car.body.color, settings.color)
+    tintPaint(next.body.color, settings.color)
   }
   pixelRatio(budget: ReturnType<typeof graphicsBudget>) {
     if (budget.software) return budget.pixelRatio * (softwareRelief.scales[this.renderScale] ?? 1)
@@ -936,6 +848,7 @@ export class RoadEngine {
   }
   mountVehicle(next: VehicleModel) {
     this.canvas.dataset.vehicleShown = this.settings.vehicle
+    this.canvas.dataset.bodyShown = bodyFor(this.settings)?.id ?? ''
     if (this.rendered) this.crossfade.capture(vehicleArrival.fade)
     this.strainGauge.hold()
     this.scene.remove(this.car.group)
@@ -947,18 +860,26 @@ export class RoadEngine {
     this.arrival = 0
   }
   reflect(group: THREE.Object3D, environment: THREE.Texture | null) {
-    const level = this.atmosphere.level
+    const live = this.mirror?.ready ? this.mirror.texture : null
+    const level = live ? 1 : this.atmosphere.level
     group.traverse((object) => {
-      if (
-        !(object instanceof THREE.Mesh) ||
-        !(object.material instanceof THREE.MeshPhysicalMaterial)
-      )
-        return
-      const material = object.material
-      material.envMap = environment
-      const base: number = material.userData.envBase ?? material.envMapIntensity
-      material.userData.envBase = base
-      material.envMapIntensity = base * level
+      if (!(object instanceof THREE.Mesh)) return
+      const materials = Array.isArray(object.material) ? object.material : [object.material]
+      for (const material of materials) {
+        if (material instanceof THREE.MeshPhysicalMaterial) {
+          material.envMap = live ?? environment
+          const base: number = material.userData.envBase ?? material.envMapIntensity
+          material.userData.envBase = base
+          material.envMapIntensity = base * level
+        } else if (
+          live &&
+          material instanceof THREE.MeshStandardMaterial &&
+          (material.metalness >= 0.5 || material.transparent || /^lens/.test(material.name))
+        ) {
+          material.envMap = live
+          material.envMapIntensity = material.transparent ? 1.6 : 1
+        }
+      }
     })
   }
   configureHeadlights() {
@@ -975,7 +896,7 @@ export class RoadEngine {
       this.car.group.add(light, light.target)
     }
     const nose = this.car.headlightPositions[0] ?? [0, 0.6, -2]
-    const reach = footprints[this.settings.vehicle]
+    const reach = bodyFootprint(this.settings)
     this.spill.position.set(0, 1.5, nose[2] + 1)
     this.spill.target.position.set(0, -1.2, nose[2] - 24)
     this.tailGlow.position.set(0, 0.14, reach.rear - 0.15)
@@ -992,22 +913,27 @@ export class RoadEngine {
   }
   applyLighting(drifting = false) {
     const profile = atmosphereProfile(this.settings, this.dayClock)
-    this.water.setAppearance(this.settings.season === 'winter', profile)
+    this.water.setAppearance(this.settings.season === 'winter', profile, this.settings.landscape)
     this.sunHeight = profile.sunHeight
     if (!drifting || this.dayClock - this.reflectionAt >= lightingPace.reflection) {
       this.reflectionAt = this.dayClock
       const environment = this.atmosphere.setAppearance(this.settings, profile)
       this.scene.environment = environment
-      this.scene.environmentIntensity = 0.13 * this.atmosphere.level
+      this.scene.environmentIntensity = lightBalance.environment * this.atmosphere.level
       this.reflect(this.car.group, environment)
       this.terrain.roadMaterial.envMap = environment
+      this.terrain.railMaterial.envMap = environment
     }
     this.precipitation.setAppearance(this.settings, profile)
     const night = profile.night > 0.5
     this.dark = night
     this.wetRoad = profile.wet
     this.wake?.setLight(
-      clamp((profile.sunlight / 2.5) * 0.55 + (profile.ambient / 2.6) * 0.45, 0.08, 1) ** 1.4,
+      clamp(
+        (profile.sunlight / daylight.sun) * 0.55 + (profile.ambient / daylight.sky) * 0.45,
+        0.08,
+        1,
+      ) ** 1.4,
     )
     if (this.effects) {
       this.effects.setScene(this.settings, profile.wet)
@@ -1015,9 +941,8 @@ export class RoadEngine {
       light.sunDirection.value.set(sunOffset.x, profile.sunHeight, sunOffset.z).normalize()
       light.sunColor.value.set(profile.sun).multiplyScalar(profile.sunlight / Math.PI)
       light.skyColor.value
-        .set(profile.horizon)
-        .lerp(this.neutralFill, 0.6)
-        .multiplyScalar((profile.ambient * (profile.night ? 0.95 : 0.34)) / Math.PI + 0.02)
+        .copy(fillColor(this.skyTone, profile.skyFill))
+        .multiplyScalar(profile.fill / Math.PI + 0.02)
       light.groundColor.value.copy(light.skyColor.value).multiplyScalar(0.55)
       const haze = light.hazeColor.value.set(profile.horizon)
       haze
@@ -1028,17 +953,16 @@ export class RoadEngine {
     this.beamHaze = beamHaze(profile.fog, profile.wet || profile.snow, night)
     this.terrain.setNight(night)
     this.minimap.dim = clamp(0.3 + (profile.ambient / 2.6) * 0.7, 0.5, 1)
-    this.atlas.dim = this.minimap.dim
-    this.lightning.base = profile.ambient * 0.3
+    this.lightning.base = profile.fill
     this.sky.setAppearance(profile)
     if (this.scene.fog instanceof THREE.FogExp2) {
-      this.scene.fog.color.set(profile.horizon)
+      undevelop(this.scene.fog.color.set(profile.horizon), profile.exposure)
       this.scene.fog.density = profile.fog
     }
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight
-    this.ambient.intensity = profile.ambient * (profile.night ? 0.95 : 0.34)
-    this.ambient.color.set(profile.horizon).lerp(this.neutralFill, 0.8)
+    this.ambient.intensity = profile.fill
+    fillColor(this.ambient.color, profile.skyFill)
     this.terrain.boulders?.tint(landscapeProfiles[this.settings.landscape].field?.rock ?? '#8c877a')
     this.terrain.boulders?.dress(this.settings.season)
     const glow = Math.max(
@@ -1050,7 +974,13 @@ export class RoadEngine {
     skyline.ground.value.set('#3b4034').multiplyScalar(glow)
     skyline.cloud.value.set(profile.cloudColor).multiplyScalar(glow)
     skyline.clouds.value = profile.clouds
-    this.ambient.groundColor.set(this.settings.season === 'winter' ? '#a7b9c8' : '#5c6c47')
+    this.ambient.groundColor
+      .set(
+        this.settings.season === 'winter'
+          ? '#c8d1cc'
+          : (landscapeProfiles[this.settings.landscape].reflection ?? '#556c3c'),
+      )
+      .multiplyScalar(bounceLevel(profile))
     this.renderer.toneMappingExposure = profile.exposure
     this.terrain.roadWetness.value = profile.wet ? 1 : 0
     this.terrain.roadSurface.setCondition(
@@ -1061,14 +991,18 @@ export class RoadEngine {
         ? '#b9bcb8'
         : (landscapeProfiles[this.settings.landscape].field?.soil ?? '#7d6a4f'),
       this.skyTone.set(profile.horizon).multiplyScalar(clamp(profile.ambient / 2.6, 0.12, 1) * 0.9),
+      this.settings.season === 'winter'
+        ? '#b4bab8'
+        : (landscapeProfiles[this.settings.landscape].field?.gravel ?? '#a9a99b'),
     )
     this.terrain.roadMaterial.color.set(profile.wet ? '#a9b1b6' : '#cbc9c4')
     this.terrain.roadMaterial.envMapIntensity = (profile.wet ? 0.8 : 0.2) * this.atmosphere.level
+    this.terrain.railMaterial.envMapIntensity = railLook.reflection * this.atmosphere.level
     this.lampLevel =
       night || profile.wet || profile.snow || this.settings.weather === 'fog'
         ? night
           ? 1
-          : clamp(1 - profile.sunlight * 0.6 - profile.ambient * 0.25, 0.08, 1)
+          : clamp(1 - profile.sunlight * 1.2 - profile.ambient * 0.25, 0.08, 1)
         : 0
     for (const [index, light] of this.headlights.entries())
       light.intensity = index < this.car.headlightPositions.length ? 150 * this.lampLevel : 0
@@ -1132,8 +1066,21 @@ export class RoadEngine {
       this.assistance !== 'speed'
     )
   }
+  toggleNeutral() {
+    if (!this.started || this.paused || this.photo) return false
+    this.neutral = !this.neutral
+    if (this.neutral) this.manualOverride('speed')
+    this.shiftQueue = 0
+    this.emitState()
+    return true
+  }
   shiftBy(direction: number) {
     if (!this.stickDriven() || this.paused || this.photo) return false
+    if (this.neutral) {
+      this.neutral = false
+      this.shiftQueue = 0
+      return true
+    }
     this.shiftQueue = clamp(this.shiftQueue + direction, -3, 3)
     return true
   }
@@ -1190,6 +1137,7 @@ export class RoadEngine {
           else if (this.paused) this.onAction?.('pause')
         } else if (action === 'reset') this.reset()
         else if (action === 'cameraCenter') this.view.center()
+        else if (action === 'neutral') this.toggleNeutral()
         else if (action === 'journeyNext' && this.shiftBy(1)) continue
         else if (action === 'journeyPrevious' && this.shiftBy(-1)) continue
         else this.onAction?.(action)
@@ -1273,7 +1221,6 @@ export class RoadEngine {
       !this.paused &&
       !this.photo &&
       !document.hidden &&
-      !this.workshop.session.active &&
       (!this.controlsBlocked || !this.started || this.assistance === 'full')
     ) {
       this.simulation.advance(elapsed, (step) => {
@@ -1287,7 +1234,12 @@ export class RoadEngine {
         held.roll = body.roll
         const automatic = this.physics.autoInput(
           this.started
-            ? automaticTarget(this.assistance, this.settings.cruiseSpeed, this.settings.vehicle)
+            ? automaticTarget(
+                this.assistance,
+                this.settings.cruiseSpeed,
+                this.settings.vehicle,
+                this.settings.engine,
+              )
             : 10,
         )
         const manual = this.manualInput()
@@ -1301,13 +1253,13 @@ export class RoadEngine {
               this.assistance,
               this.settings.onePedal,
             )
+        if (this.assistance === 'full' || this.assistance === 'speed') this.neutral = false
         if (this.stickDriven()) {
           input = { ...input, manual: true, shift: Math.sign(this.shiftQueue) }
           this.shiftQueue -= Math.sign(this.shiftQueue)
         } else this.shiftQueue = 0
+        if (this.neutral && this.started) input = { ...input, neutral: true }
         this.physics.update(step, input, this.settings)
-        const lap = this.started ? this.laps.step(this.physics.s, step) : null
-        if (lap) this.onLap?.(lap.time, lap.record)
       })
     }
     if (this.started && !this.paused && !this.photo && !document.hidden) this.advanceSky(dt)
@@ -1315,7 +1267,7 @@ export class RoadEngine {
     this.water.update(p.x, p.s, time / 1000)
     positionVehicle(this.car, p, this.settings.vehicle, dt)
     this.trailTyres(dt, time / 1000)
-    const footprint = footprints[this.settings.vehicle]
+    const footprint = bodyFootprint(this.settings)
     const grounded = p.suspension.wheels.filter((wheel) => wheel.contact).length
     const outline = this.contact.geometry.getAttribute('position')
     const patch = contactPatch(this.world, p, footprint, outline.array as Float32Array)
@@ -1332,26 +1284,9 @@ export class RoadEngine {
     const braking = input.brake > 0 || input.regenBrake > 0
     const lamps = this.lampLevel
     this.car.update(p.suspension.wheels, braking, lamps > 0.05, p.speed)
-    const garaged = this.workshop.update(
-      this.paused ? 0 : Math.min(elapsed, 0.25),
-      p.s,
-      clamp(lamps, 0, 1),
-      this.car,
-      () => {
-        this.physics.speed = 0
-        this.view.snap()
-      },
-    )
-    this.workshop.drive(
-      this.paused || this.photo ? 0 : dt,
-      input,
-      this.started && !this.paused && !this.photo && !garaged,
-    )
     const beams = (this.headlights[0]?.intensity ?? 0) / 210
     this.spill.intensity = beams * 2.4
     this.tailGlow.intensity = beams * (braking ? 4 : 1.1)
-    this.lightBay(garaged && this.workshop.session.inside)
-    this.contact.visible = !garaged
     const tail = braking ? 0.5 + lamps * 0.5 : lamps * 0.4
     this.lamps.update(
       lamps,
@@ -1375,19 +1310,17 @@ export class RoadEngine {
       light.tailLevel.value = tail * 1.6
     }
     const cameraMode = this.photo ? 'chase' : this.started ? this.settings.camera : 'cinematic'
-    this.car.setExteriorVisible(cameraMode !== 'bonnet' || garaged)
-    this.car.body.envMapIntensity = (cameraMode === 'bonnet' ? 0.3 : 0.16) * this.atmosphere.level
-    skyline.strength.value = cameraMode === 'bonnet' ? 0.3 : 0.7
+    this.car.setExteriorVisible(cameraMode !== 'bonnet')
+    const live = this.mirror?.ready === true
+    this.car.body.envMapIntensity = live
+      ? paintFinish.live
+      : (cameraMode === 'bonnet' ? paintFinish.bonnet : paintFinish.chase) * this.atmosphere.level
+    skyline.strength.value = live ? paintFinish.liveSkyline : cameraMode === 'bonnet' ? 0.3 : 0.7
     this.view.motion = this.settings.motion === 'calm' ? 0 : 1
     this.view.controllerLook(this.controllerLook, cameraMode, dt)
     this.view.impact = p.impact
     this.view.frozen = this.paused || this.photo
     this.view.update(p, this.world, cameraMode, dt)
-    if (garaged) {
-      this.camera.position.copy(this.workshop.session.camera)
-      this.camera.lookAt(this.workshop.session.look)
-    }
-    this.frameAround(garaged)
     if (!this.paused && !this.photo) this.lifeClock += dt
     if (this.life) {
       const driver = this.driver
@@ -1464,9 +1397,6 @@ export class RoadEngine {
       this.dayClock,
     )
     if (this.started) this.minimap.update(p)
-    if (this.started) this.atlas.update(p)
-    this.car.group.updateMatrixWorld()
-    this.workshop.frame(this.car)
     this.drawScene()
     this.crossfade.rendered()
     if (!this.rendered) this.canvas.style.visibility = ''
@@ -1510,14 +1440,30 @@ export class RoadEngine {
     shown.roll = held.roll + (body.roll - held.roll) * blend
     return shown
   }
+  mirrorScene() {
+    const mirror = this.mirror
+    if (!mirror || this.software) return
+    const hidden: THREE.Object3D[] = [this.car.group]
+    if (this.incoming) hidden.push(this.incoming.group)
+    if (this.effects) hidden.push(this.effects.particles.mesh)
+    mirror.update(this.renderer, this.scene, this.car.group.position, hidden, this.ultra ? 1 : 2)
+    if (mirror.ready && !this.mirrored) {
+      this.mirrored = true
+      this.reflect(this.car.group, this.scene.environment)
+    }
+  }
   drawScene() {
+    this.mirrorScene()
     const pipeline = this.ultra ?? this.cinema
     if (pipeline) {
       const air = pipeline.air
       air.sunDirection.copy(this.sun.position).sub(this.sun.target.position).normalize()
-      air.sunColor.copy(this.sun.color).multiplyScalar(this.sun.intensity * 0.22)
-      if (this.scene.fog) air.hazeColor.copy(this.scene.fog.color)
-      const pace = Math.abs(this.physics.speed) / vehicleMetrics[this.settings.vehicle].maxSpeed
+      air.sunColor.copy(this.sun.color).multiplyScalar(this.sun.intensity * 0.14)
+      if (this.scene.fog instanceof THREE.FogExp2) {
+        air.hazeColor.copy(this.scene.fog.color)
+        air.scatter.fromArray(scatterFor(this.scene.fog.density))
+      }
+      const pace = Math.abs(this.physics.speed) / fitCar(this.settings).metrics.maxSpeed
       pipeline.rush =
         this.started && this.view.motion
           ? clamp(this.view.rush * 0.85 + clamp((pace - 0.8) / 0.4, 0, 1) * 0.4, 0, 1)
@@ -1563,7 +1509,6 @@ export class RoadEngine {
     this.car.dispose()
     this.incoming?.dispose()
     this.effects?.dispose()
-    this.workshop.dispose()
     this.lamps.dispose()
     this.wake?.dispose()
     this.skids.dispose()
@@ -1579,6 +1524,7 @@ export class RoadEngine {
     this.audio.dispose()
     this.antialiasing?.dispose()
     this.cinema?.dispose()
+    this.mirror?.dispose()
     this.ultra?.dispose()
     this.retired?.dispose()
     this.gpuClock?.dispose()

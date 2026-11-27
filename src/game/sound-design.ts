@@ -7,12 +7,11 @@ import { clamp, type Season, type Vehicle, type Weather } from './world'
 export const mixLevels = {
   master: 1.6,
   engine: 0.25,
-  pops: 1,
-  workshop: 0.5,
   road: 0.16,
   gravel: 0.22,
   rumble: 0.3,
-  wind: 0.24,
+  wind: 0.12,
+  breeze: 0.084,
   horn: 0.16,
   thunder: 0.5,
   squeal: 0.11,
@@ -28,8 +27,8 @@ export const mixLevels = {
   turbo: 0.09,
   scrub: 0.1,
   grains: 0.16,
-  whistle: 0.05,
-  buffet: 0.2,
+  whistle: 0.03,
+  buffet: 0.1,
   echo: 0.2,
   grass: 0.14,
   skid: 0.12,
@@ -107,7 +106,7 @@ export function roadLevel(speed: number, offroad: boolean) {
 }
 
 export function windLevel(speed: number) {
-  return clamp(Math.abs(speed) / 50, 0, 1.2) ** 2
+  return clamp(Math.abs(speed) / 50, 0, 1) ** 2
 }
 
 export const windVoice = { whistleFrom: 24, whistleSpan: 22, buffetFrom: 30, buffetSpan: 20 }

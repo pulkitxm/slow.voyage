@@ -1,10 +1,12 @@
 import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js'
+import { type CarBody, wheelGeometry } from './car-bodies'
 import { createCarWheel } from './car-wheel'
 import { createLoftBody, type LoftMaterial, projectOntoHull } from './loft-body'
 import { createLoftCabin } from './loft-cabin'
 import { type DetailMaterial, isLoftVehicle, loftVehicles } from './loft-vehicles'
 import { batchUntexturedMeshes } from './mesh-batch'
+import { createPaint } from './paint'
 import { glassFace, reflectSkyline } from './skyline'
 import type { WheelState } from './suspension'
 import { vehicleMetrics } from './vehicles'
@@ -31,22 +33,15 @@ export class LoftCarModel {
   })
   exteriorVisible = true
   wheelRadius: number
+  wheelRadii: number[] = []
   headlightPositions: [number, number, number][]
-  constructor(settings: Settings, software = false) {
+  constructor(settings: Settings, software = false, body: CarBody | null = null) {
     const id = settings.vehicle
     if (!isLoftVehicle(id)) throw new Error(`${id} has no lofted body`)
     const spec = loftVehicles[id]
     const dimensions = vehicleMetrics[id]
     this.wheelRadius = dimensions.wheelRadius
-    this.body = new THREE.MeshPhysicalMaterial({
-      color: settings.color,
-      metalness: 0.08,
-      roughness: 0.52,
-      clearcoat: 1,
-      clearcoatRoughness: 0.03,
-      envMapIntensity: 0.8,
-    })
-    reflectSkyline(this.body)
+    this.body = createPaint(settings.color)
     const glass = new THREE.MeshPhysicalMaterial({
       color: '#33383d',
       metalness: 0.2,
@@ -63,7 +58,6 @@ export class LoftCarModel {
       roughness: 0.3,
     })
     const tire = new THREE.MeshStandardMaterial({ color: '#232422', roughness: 0.95 })
-    tire.name = 'tyre'
     const wheelWell = new THREE.MeshStandardMaterial({ color: '#151a18', roughness: 1 })
     const plate = new THREE.MeshStandardMaterial({ color: '#edebdb', roughness: 0.5 })
     this.materials = [
@@ -140,15 +134,19 @@ export class LoftCarModel {
           mesh.rotation.set(part.rotation[0], part.rotation[1] * side, part.rotation[2] * side)
         this.exterior.add(mesh)
       }
-    for (const z of [dimensions.wheelbase / 2, -dimensions.wheelbase / 2])
+    const geometry = wheelGeometry(id, body)
+    for (const [axle, z] of [geometry.wheelbase / 2, -geometry.wheelbase / 2].entries())
       for (const side of [-1, 1]) {
         const pivot = new THREE.Group(),
           spin = createCarWheel(id, tire, chrome, black, spec.spokes)
-        pivot.position.set(side * dimensions.trackWidth * 0.5, this.wheelRadius, z)
+        const radius = geometry.radius[1 - axle] ?? this.wheelRadius
+        const track = geometry.track[1 - axle] ?? dimensions.trackWidth
+        pivot.position.set(side * track * 0.5, radius, z)
         pivot.add(spin)
         batchUntexturedMeshes(spin)
         this.wheels.push(spin)
         this.wheelPivots.push(pivot)
+        this.wheelRadii.push(radius)
         this.exterior.add(pivot)
       }
     batchUntexturedMeshes(this.exterior, this.wheelPivots)
@@ -174,7 +172,7 @@ export class LoftCarModel {
         pivot = this.wheelPivots[i],
         wheel = this.wheels[i]
       if (!state || !pivot || !wheel) continue
-      pivot.position.y = this.wheelRadius + state.offset
+      pivot.position.y = (this.wheelRadii[i] ?? this.wheelRadius) + state.offset
       pivot.rotation.y = state.steering
       wheel.rotation.x = state.rotation
     }

@@ -1,6 +1,5 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { worldLoop, wrapOffset } from './field'
 import { type Landscape, landscapeIds } from './landscapes'
 import { random, shoreHeight, type World } from './world'
 
@@ -23,7 +22,7 @@ export interface Landmark {
   yaw: number
 }
 
-export const landmarkLayout = { slots: 8, nearest: 70, farthest: 250, found: 75 } as const
+export const landmarkLayout = { spacing: 1500, nearest: 70, farthest: 250, found: 75 } as const
 
 export const landmarkNames: Record<LandmarkKind, string> = {
   lighthouse: 'the lighthouse',
@@ -57,41 +56,42 @@ const pools: Record<Landscape, readonly LandmarkKind[]> = {
   jungle: ['lookout', 'cabin', 'cairn', 'tower'],
 }
 
-let cached: { key: string; list: Landmark[] } | null = null
+let cached: { key: string; slots: Map<number, Landmark | null> } | null = null
 
-export function lapLandmarks(world: World): Landmark[] {
+function slotLandmark(world: World, slot: number): Landmark | null {
   const { landscape, seed, roadMode } = world.settings
   const key = `${landscape}/${roadMode}/${seed}`
-  if (cached?.key === key) return cached.list
-  const list: Landmark[] = []
+  if (cached?.key !== key) cached = { key, slots: new Map() }
+  const known = cached.slots.get(slot)
+  if (known !== undefined) return known
   const pool = pools[landscape]
-  const { slots, nearest, farthest } = landmarkLayout
-  for (let slot = 0; slot < slots; slot++) {
-    const rng = random(seed * 7919 + slot * 104729 + landscapeIds.indexOf(landscape) * 31)
-    const kind = pool[Math.floor(rng() * pool.length)] ?? 'cairn'
-    for (let attempt = 0; attempt < 14; attempt++) {
-      const s = ((slot + 0.25 + rng() * 0.5) * worldLoop.length) / slots
-      const side = rng() > 0.5 ? 1 : -1
-      const x = world.road(s).x + side * (nearest + rng() * (farthest - nearest))
-      const surface = world.surface(x, s)
-      const coastal = kind === 'lighthouse'
-      if (surface.height < shoreHeight + 1.2) continue
-      if (Math.hypot(surface.slopeX, surface.slopeS) > (coastal ? 0.5 : 0.3)) continue
-      if (coastal && attempt < 9 && surface.height > 14) continue
-      list.push({ id: slot, kind, x, s, height: surface.height, yaw: rng() * Math.PI * 2 })
-      break
-    }
+  const { spacing, nearest, farthest } = landmarkLayout
+  const rng = random(seed * 7919 + Math.imul(slot, 104729) + landscapeIds.indexOf(landscape) * 31)
+  const kind = pool[Math.floor(rng() * pool.length)] ?? 'cairn'
+  let landmark: Landmark | null = null
+  for (let attempt = 0; attempt < 14 && !landmark; attempt++) {
+    const s = (slot + 0.25 + rng() * 0.5) * spacing
+    const side = rng() > 0.5 ? 1 : -1
+    const x = world.road(s).x + side * (nearest + rng() * (farthest - nearest))
+    const surface = world.surface(x, s)
+    const coastal = kind === 'lighthouse'
+    if (surface.height < shoreHeight + 1.2) continue
+    if (Math.hypot(surface.slopeX, surface.slopeS) > (coastal ? 0.5 : 0.3)) continue
+    if (coastal && attempt < 9 && surface.height > 14) continue
+    landmark = { id: slot, kind, x, s, height: surface.height, yaw: rng() * Math.PI * 2 }
   }
-  cached = { key, list }
-  return list
+  cached.slots.set(slot, landmark)
+  return landmark
 }
 
-export function landmarkOffset(landmark: Landmark, x: number, s: number) {
-  const along = landmark.s - s
-  return {
-    x: wrapOffset(landmark.x - x),
-    s: along - worldLoop.length * Math.round(along / worldLoop.length),
+export function landmarksBetween(world: World, from: number, to: number): Landmark[] {
+  const list: Landmark[] = []
+  const { spacing } = landmarkLayout
+  for (let slot = Math.floor(from / spacing); slot <= Math.floor(to / spacing); slot++) {
+    const landmark = slotLandmark(world, slot)
+    if (landmark && landmark.s >= from && landmark.s < to) list.push(landmark)
   }
+  return list
 }
 
 function part(geometry: THREE.BufferGeometry, color: string, x = 0, y = 0, z = 0) {

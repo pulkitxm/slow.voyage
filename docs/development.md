@@ -48,7 +48,6 @@ Local pre-commit checks remain mandatory.
 | B                | Horn                                                             |
 | Q / E            | Previous / next scenery; shift down / up with the manual gearbox |
 | V / Shift V      | Next / previous vehicle                                          |
-| O                | Pull into a roadside garage when one is beside you               |
 | M                | Mute / unmute sound                                              |
 | U                | Toggle mouse driving                                             |
 | R                | Reset to the road                                                |
@@ -56,7 +55,7 @@ Local pre-commit checks remain mandatory.
 | H                | Help                                                             |
 
 Touch devices have steering and pedal buttons. Settings include seven vehicles,
-seven landscapes, three seasons, six skies including a live day cycle, five kinds
+twenty-four engines and the 87 real cars they went into, seven landscapes, three seasons, six skies including a live day cycle, five kinds
 of weather, paint, camera, grip, power, sound, detail, and units. Preferences are
 stored on the device. Detail has three levels: Easy on the engine, Full beauty,
 and Ultra. Ultra is the default on hardware that can hold it at 60 frames a
@@ -66,35 +65,14 @@ beams follow the detail level: Ultra shows them in full, Full beauty with fewer
 particles and simpler beams, and Easy on the engine keeps only the lamp glow.
 
 The Journey tab also chooses the road itself. Winding Roads is the full road
-with every bend. Endless Straight holds one heading for the whole lap while the
+with every bend. Endless Straight holds one heading for the whole drive while the
 hills, lakes and forests keep changing around it. Calm Drive keeps only long,
 wide curves and halves the walkers on the verge. Links to a spot carry the road
 mode.
 
-The Vehicle tab offers four supercars when the supercar is selected: the
-mid-engine Corsa V12, the front-engine Aurelia GT with a twin-turbo six, the
-Strale Longtail with a flat-plane V8 and the winged Furia R with a V10. Each has
-its own generated body, gearing and synthesized engine.
-
-Every car slowly gathers dirt as it drives: a little on dry tarmac, more in
-rain and storms, much more off the road and fastest through water. Winter roads
-leave a pale salt film. Dirt settles low on the body and behind the wheels and
-dulls the clear coat, and it is kept per vehicle on the device.
-
-Three or four roadside garages sit on flat, unrailed stretches of every loop.
-Slow down beside one and press O, or the on-screen prompt, to roll into the
-service bay. Two mechanics can foam, scrub and rinse the car, respray it in a
-new colour, swap the wheels for one of four alloy designs in four finishes, or
-fit a stock or sport valved exhaust and rev it to test. Escape or Drive out
-reverses back onto the road.
-
-Lifting off the throttle from high revs crackles and pops through the exhaust,
-and loaded upshifts bark. The sport valved exhaust, the default, makes the runs
-longer and louder; at night a short flame flickers at the supercar tailpipes on
-the biggest pops.
-
-The minimap shows the road, terrain, landmarks to find, lap progress, and an
-arrow back to the road when off it. Laps are timed from line to line. The Journey
+The minimap shows the next 1.6 km of road, the terrain, landmarks to find, and an
+arrow back to the road when off it. Far from the road a pointer on screen shows
+the way back. The Journey
 tab copies a link that reopens the same road at the same spot.
 
 The Controls tab selects full autodrive, steering assistance, or speed assistance.
@@ -124,6 +102,30 @@ Mouse driving uses horizontal cursor position for steering. Hold left click to
 accelerate or right click to brake and reverse. Enable it with M or in Controls
 settings, where sensitivity is adjustable. Keyboard and touch remain available;
 mouse driving takes priority over controller pedals and steering.
+
+The Vehicle tab has one searchable car list, shown as a grid of car pictures in
+the chosen paint. Easy picks are the seven game vehicles, each with a one-line
+description; below them are the 87 real cars by maker. Picking a real car switches to the chassis that suits it, puts that car's
+own body on it in a factory paint, and fits its engine. The car keeps the
+chassis's handling; its wheelbase, track and wheel sizes are the real car's. A
+second list optionally swaps in any of the twenty-four engines, keeping the
+chosen car's body; Its own engine restores the original. The motorcycle keeps
+its own engine.
+
+Each real car reaches its own published top speed and accelerates by its own
+power to weight; a swapped engine moves both from there. Boost is stronger but
+shorter on light, powerful cars and gentler but longer on everyday ones. Each car
+also carries its own kind of brakes: front discs with rear drums, discs,
+ventilated discs, large multi-piston discs, carbon-ceramics or carbon racing
+brakes. Stronger brakes bite harder, brakes heat up under repeated hard stops and
+fade as they do, ceramics barely fade, and carbon racing brakes need some heat
+before they bite fully. The settings show each car's top speed and brakes.
+
+Car paint is a metallic clearcoat. On Full beauty and Ultra a reflection probe
+renders the surroundings around the car into a cube map, one face a frame, and the
+paint, glass, chrome and lamp lenses mirror it; Easy on the engine and software
+rendering keep the painted sky reflection. Car bodies are not part of the offline
+install: each is cached the first time it is driven and works offline afterwards.
 
 Q and E move through scenery, seasonal weather, and time-of-day presets. V cycles
 vehicles; Shift V cycles backward. Branding and decorative status messages disappear

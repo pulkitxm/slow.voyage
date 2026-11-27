@@ -23,7 +23,7 @@ export function loadSurfaceTexture(url: string, colorSpace: THREE.ColorSpace) {
 export function loadRoadSurface() {
   const albedo = loadSurfaceTexture(asphaltAlbedoUrl, THREE.SRGBColorSpace)
   const normal = loadSurfaceTexture(asphaltNormalUrl, THREE.NoColorSpace)
-  for (const texture of [albedo.texture, normal.texture]) texture.repeat.set(3, 40)
+  for (const texture of [albedo.texture, normal.texture]) texture.repeat.set(5, 100)
   return { albedo: albedo.texture, normal: normal.texture }
 }
 

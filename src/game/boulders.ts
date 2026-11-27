@@ -16,6 +16,7 @@ import slabUrl from '../assets/models/rocks/rock-b.glb?url'
 import boulderUrl from '../assets/models/rocks/rock-c.glb?url'
 import { type Landscape, landscapeProfiles } from './landscapes'
 import { roadCoordinates, roadPoint } from './road'
+import { StaticGroup } from './static-group'
 import { type Season, shoreHeight, type World } from './world'
 
 export const boulderLayout = {
@@ -59,6 +60,60 @@ export const boulderLayout = {
     { url: calatheaUrl, part: '', size: [0.7, 1.2], rock: false, solid: 0, glow: 1.8 },
   ],
 } as const
+
+export const plantLook = {
+  level: 0.8,
+  keep: 0.72,
+  root: 0.45,
+  crown: 0.55,
+  cast: 0.14,
+  through: 0.3,
+}
+
+export function shadePlant(material: THREE.MeshStandardMaterial, base: number, rise: number) {
+  const span = { value: new THREE.Vector2(base, Math.max(rise, 0.001)) }
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.plantSpan = span
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform vec2 plantSpan;\nvarying float plantLift;\nvarying float plantCast;',
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+plantLift = clamp((position.y - plantSpan.x) / plantSpan.y, 0.0, 1.0);
+#ifdef USE_INSTANCING
+plantCast = fract(sin(dot(instanceMatrix[3].xz, vec2(12.9898, 78.233))) * 43758.5453);
+#else
+plantCast = 0.5;
+#endif`,
+      )
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying float plantLift;\nvarying float plantCast;',
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, ${plantLook.keep.toFixed(2)});
+diffuseColor.rgb *= mix(${plantLook.root.toFixed(2)}, 1.0, smoothstep(0.0, ${plantLook.crown.toFixed(2)}, plantLift));
+diffuseColor.rgb *= mix(vec3(${(1 - plantLook.cast).toFixed(2)}, ${(1 - plantLook.cast * 0.5).toFixed(2)}, ${(1 - plantLook.cast * 0.7).toFixed(2)}), vec3(${(1 + plantLook.cast).toFixed(2)}, ${(1 + plantLook.cast * 0.4).toFixed(2)}, ${(1 - plantLook.cast * 0.6).toFixed(2)}), plantCast);`,
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        `#if NUM_DIR_LIGHTS > 0
+float plantThrough = pow(max(dot(-normalize(vViewPosition), directionalLights[0].direction), 0.0), 3.0) * plantLift;
+float plantReach = dot(diffuseColor.rgb * directionalLights[0].color, vec3(1.0)) * RECIPROCAL_PI * 0.3;
+float plantSunlit = clamp(dot(reflectedLight.directDiffuse, vec3(1.0)) / max(plantReach, 0.0001), 0.0, 1.0);
+outgoingLight += diffuseColor.rgb * directionalLights[0].color * RECIPROCAL_PI * plantThrough * ${plantLook.through.toFixed(2)} * mix(0.25, 1.0, plantSunlit);
+#endif
+#include <opaque_fragment>`,
+      )
+  }
+  material.customProgramCacheKey = () => 'grounded-muted-plant'
+}
 
 export const plantSeasons = {
   autumn: [1.3, 0.92, 0.5],
@@ -149,10 +204,25 @@ interface PlantModel {
   base: number
 }
 
+interface Pool {
+  model: PlantModel
+  shadowed: boolean
+  meshes: THREE.InstancedMesh[]
+  free: number[]
+  used: number
+  capacity: number
+}
+
+const hidden = new THREE.Matrix4().makeScale(0, 0, 0)
+
 export class Boulders {
+  group = new StaticGroup()
+  private pools = new Map<number, Pool>()
   private models: (PlantModel | null)[] = boulderLayout.kinds.map(() => null)
   private pose = new THREE.Object3D()
   private plain = new THREE.Color('#ffffff')
+  private tone = new THREE.Color('#8c877a')
+  private season: Season = 'summer'
   loaded = false
   ready: Promise<void>
   constructor() {
@@ -203,7 +273,7 @@ export class Boulders {
                 material.metalness = 0
                 material.metalnessMap = null
                 material.side = THREE.DoubleSide
-                material.color.setScalar(kind.glow)
+                material.color.setScalar(kind.glow * plantLook.level)
               }
             }
             parts.push({ geometry, material })
@@ -213,6 +283,10 @@ export class Boulders {
             part.geometry.translate(-(box.min.x + box.max.x) / 2, 0, -(box.min.z + box.max.z) / 2)
             part.geometry.computeVertexNormals()
           }
+          if (!kind.rock)
+            for (const part of parts)
+              if (part.material instanceof THREE.MeshStandardMaterial)
+                shadePlant(part.material, box.min.y, box.max.y - box.min.y)
           this.models[index] = {
             parts,
             rock: kind.rock,
@@ -226,6 +300,8 @@ export class Boulders {
     ).then(
       () => {
         this.loaded = true
+        this.tint(this.tone)
+        this.dress(this.season)
       },
       () => {
         this.loaded = false
@@ -233,52 +309,96 @@ export class Boulders {
     )
   }
   dress(season: Season) {
+    this.season = season
     const [red, green, blue] = season === 'autumn' ? plantSeasons.autumn : [1, 1, 1]
     for (const model of this.models)
       if (model?.leafy)
         for (const part of model.parts)
           if (part.material instanceof THREE.MeshStandardMaterial && part.material.alphaTest > 0)
-            part.material.color.setRGB(model.glow * red, model.glow * green, model.glow * blue)
+            part.material.color.setRGB(
+              model.glow * plantLook.level * red,
+              model.glow * plantLook.level * green,
+              model.glow * plantLook.level * blue,
+            )
   }
   tint(rock: THREE.ColorRepresentation) {
+    this.tone.set(rock)
     for (const model of this.models)
       for (const part of model?.rock ? model.parts : [])
         if (part.material instanceof THREE.MeshStandardMaterial)
-          part.material.color.set(rock).lerp(this.plain, 0.35).multiplyScalar(1.9)
+          part.material.color.copy(this.tone).lerp(this.plain, 0.35).multiplyScalar(1.9)
   }
-  add(group: THREE.Group, list: Boulder[], ground: (x: number, s: number) => number) {
-    if (!this.loaded) return
-    for (const [index, model] of this.models.entries()) {
-      const mine = list.filter((boulder) => boulder.kind === index)
-      if (!model || !mine.length) continue
-      const meshes = model.parts.map(
-        (part) => new THREE.InstancedMesh(part.geometry, part.material, mine.length),
+  add(list: Boulder[], ground: (x: number, s: number) => number, shadowed: boolean) {
+    const held: [Pool, number][] = []
+    if (!this.loaded) return () => {}
+    for (const boulder of list) {
+      const model = this.models[boulder.kind]
+      if (!model) continue
+      const scale = boulder.size / model.span
+      this.pose.position.set(
+        boulder.x,
+        ground(boulder.x, boulder.s) -
+          model.base * scale -
+          (model.rock ? boulder.size * boulderLayout.sink : 0.04),
+        -boulder.s,
       )
-      for (const [slot, boulder] of mine.entries()) {
-        const scale = boulder.size / model.span
-        this.pose.position.set(
-          boulder.x,
-          ground(boulder.x, boulder.s) -
-            model.base * scale -
-            (model.rock ? boulder.size * boulderLayout.sink : 0.04),
-          -boulder.s,
-        )
-        this.pose.rotation.set(0, boulder.yaw, 0)
-        this.pose.scale.setScalar(scale)
-        this.pose.updateMatrix()
-        for (const mesh of meshes) mesh.setMatrixAt(slot, this.pose.matrix)
+      this.pose.rotation.set(0, boulder.yaw, 0)
+      this.pose.scale.setScalar(scale)
+      this.pose.updateMatrix()
+      const pool = this.pool(boulder.kind, model, shadowed)
+      const slot = pool.free.pop() ?? pool.used++
+      if (slot >= pool.capacity) this.grow(pool)
+      for (const mesh of pool.meshes) {
+        mesh.setMatrixAt(slot, this.pose.matrix)
+        mesh.count = pool.used
+        mesh.instanceMatrix.needsUpdate = true
       }
-      for (const mesh of meshes) {
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-        group.add(mesh)
+      held.push([pool, slot])
+    }
+    return () => {
+      for (const [pool, slot] of held.splice(0)) {
+        pool.free.push(slot)
+        for (const mesh of pool.meshes) {
+          mesh.setMatrixAt(slot, hidden)
+          mesh.instanceMatrix.needsUpdate = true
+        }
       }
     }
   }
-  owns(geometry: THREE.BufferGeometry) {
-    return this.models.some((model) => model?.parts.some((part) => part.geometry === geometry))
+  private pool(kind: number, model: PlantModel, shadowed: boolean) {
+    const key = shadowed ? kind : -1 - kind
+    let pool = this.pools.get(key)
+    if (!pool) {
+      pool = { model, shadowed, meshes: [], free: [], used: 0, capacity: 0 }
+      this.pools.set(key, pool)
+      this.grow(pool)
+    }
+    return pool
+  }
+  private grow(pool: Pool) {
+    const capacity = Math.max(32, pool.capacity * 2)
+    const meshes = pool.model.parts.map((part, index) => {
+      const mesh = new THREE.InstancedMesh(part.geometry, part.material, capacity)
+      const before = pool.meshes[index]
+      if (before) {
+        mesh.instanceMatrix.array.set(before.instanceMatrix.array)
+        this.group.remove(before)
+        before.dispose()
+      }
+      mesh.count = pool.used
+      mesh.castShadow = pool.shadowed
+      mesh.receiveShadow = true
+      mesh.frustumCulled = false
+      this.group.add(mesh)
+      return mesh
+    })
+    pool.meshes = meshes
+    pool.capacity = capacity
   }
   dispose() {
+    for (const pool of this.pools.values()) for (const mesh of pool.meshes) mesh.dispose()
+    this.pools.clear()
+    this.group.clear()
     for (const model of this.models)
       for (const part of model?.parts ?? []) {
         part.geometry.dispose()

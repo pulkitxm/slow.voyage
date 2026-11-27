@@ -1,12 +1,12 @@
 import { decodeBindings } from './controller-bindings'
 import { cruiseLimits } from './cruise'
+import { engineCars } from './engine-catalog'
 import { landscapeIds } from './landscapes'
 import { roadWears } from './road-condition'
-import { exhausts, rimFinishes, wheelStyles } from './styling'
-import { supercarModels } from './supercars'
 import {
   cameraMotions,
   defaults,
+  engineIds,
   lifeLevels,
   roadModes,
   type Settings,
@@ -39,10 +39,8 @@ export function decodeSettings(stored: unknown): Settings {
       'roadWear',
       'life',
       'vehicle',
-      'supercarModel',
-      'wheelStyle',
-      'rimFinish',
-      'exhaust',
+      'engine',
+      'engineView',
       'camera',
       'motion',
       'transmission',
@@ -61,10 +59,8 @@ export function decodeSettings(stored: unknown): Settings {
         roadWear: roadWears,
         life: lifeLevels,
         vehicle: vehicles,
-        supercarModel: supercarModels,
-        wheelStyle: wheelStyles,
-        rimFinish: rimFinishes,
-        exhaust: exhausts,
+        engine: engineIds,
+        engineView: ['car', 'engine'],
         camera: cameras,
         motion: cameraMotions,
         transmission: transmissions,
@@ -85,6 +81,12 @@ export function decodeSettings(stored: unknown): Settings {
       }
     for (const key of ['onePedal', 'controllerEnabled', 'mouseEnabled', 'blood'] as const)
       if (typeof values[key] === 'boolean') result[key] = values[key]
+    if (
+      typeof values.engineCar === 'string' &&
+      values.engineView !== 'engine' &&
+      engineCars.some((car) => car.name === values.engineCar)
+    )
+      result.engineCar = values.engineCar
     if (typeof values.color === 'string' && /^#[0-9a-f]{6}$/i.test(values.color))
       result.color = values.color
     result.controllerBindings = decodeBindings(values.controllerBindings)

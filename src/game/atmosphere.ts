@@ -11,46 +11,68 @@ export function sunDirection(height: number) {
 export type DayPhase = Exclude<Daylight, 'cycle'>
 
 const clearSkies: Record<DayPhase, string> = {
-  dawn: '#6f93c4',
-  day: '#69b7ef',
-  sunset: '#829bb6',
-  dusk: '#2c3d66',
-  night: '#122239',
+  dawn: '#5d82b6',
+  day: '#4d86c8',
+  sunset: '#52749f',
+  dusk: '#253358',
+  night: '#0c1626',
 }
 const clearHorizons: Record<DayPhase, string> = {
-  dawn: '#f6cdbb',
-  day: '#e1f2ec',
-  sunset: '#f0b48e',
-  dusk: '#b98a8c',
-  night: '#2d4258',
+  dawn: '#f1c9b4',
+  day: '#c6dbea',
+  sunset: '#f3b47c',
+  dusk: '#bd8c84',
+  night: '#1f2e42',
 }
 const clearClouds: Record<DayPhase, string> = {
   dawn: '#f7d9c8',
   day: '#f3f8f6',
-  sunset: '#f3cfb6',
+  sunset: '#f1cba4',
   dusk: '#8d7f93',
   night: '#35465e',
 }
 const lowSuns: Partial<Record<DayPhase, string>> = {
-  dawn: '#ffd7b0',
-  sunset: '#ffc48e',
+  dawn: '#ffcf9f',
+  sunset: '#ffb273',
   dusk: '#ff9c7c',
-  night: '#a3bde0',
+  night: '#9db8e6',
 }
 const dimming: Record<DayPhase, number> = { dawn: 0.12, day: 0, sunset: 0, dusk: 0.6, night: 1 }
 const sunHeights: Record<DayPhase, number> = {
-  dawn: 30,
+  dawn: 26,
   day: 110,
-  sunset: 38,
-  dusk: 16,
-  night: 110,
+  sunset: 24,
+  dusk: 10,
+  night: 80,
 }
 const clearSunlight: Record<DayPhase, number> = {
-  dawn: 1.7,
-  day: 2.5,
-  sunset: 2.3,
-  dusk: 0.55,
-  night: 0.5,
+  dawn: 2.6,
+  day: 3.9,
+  sunset: 3.3,
+  dusk: 0.6,
+  night: 1.4,
+}
+export const daylight = { sun: clearSunlight.day, sky: 2.6 }
+export const lightBalance = {
+  zenithShare: 0.6,
+  fillLevel: 0.6,
+  fillWhitening: 0.25,
+  bounce: 0.5,
+  environment: 0.07,
+}
+const clearFill: Record<DayPhase, number> = {
+  dawn: 0.26,
+  day: 0.2,
+  sunset: 0.26,
+  dusk: 0.6,
+  night: 0.28,
+}
+const exposures: Record<DayPhase, number> = {
+  dawn: 1.05,
+  day: 1,
+  sunset: 1.08,
+  dusk: 1,
+  night: 0.94,
 }
 const clearGlow: Record<DayPhase, number> = {
   dawn: 1.2,
@@ -82,30 +104,41 @@ function phaseProfile(phase: DayPhase, weather: Weather, season: Settings['seaso
   const covered = weather !== 'clear'
   const dim = dimming[phase]
   const shaded = (color: string, dark: string) => mixColor(color, dark, dim)
-  const coveredLight = storm ? 0.3 : weather === 'fog' ? 0.35 : raining ? 0.5 : 0.85
+  const coveredLight = storm ? 0.15 : weather === 'fog' ? 0.12 : raining ? 0.25 : 0.4
+  const coveredFill = storm ? 0.5 : raining || weather === 'fog' ? 0.8 : 0.95
   const twilight = phase === 'dawn' ? 0.8 : phase === 'dusk' ? 0.35 : 1
+  const sky = covered
+    ? shaded(storm ? '#3f4f5a' : raining ? '#596e7b' : '#8c9da6', clearSkies.night)
+    : clearSkies[phase]
+  const horizon = covered
+    ? shaded(
+        weather === 'fog' ? '#c3cecb' : storm ? '#5f6e76' : raining ? '#7b8d95' : '#c4cfce',
+        clearHorizons.night,
+      )
+    : clearHorizons[phase]
+  const ambient = night
+    ? 0.8
+    : (covered ? 2.2 : daylight.sky) * (phase === 'dawn' ? 0.86 : phase === 'dusk' ? 0.5 : 1)
   return {
     sunHeight: sunHeights[phase],
     sunGlow: night ? 0.35 : covered ? 0.15 : clearGlow[phase],
     stars: covered ? 0 : night ? 1 : phase === 'dusk' ? 0.45 : 0,
-    sky: covered
-      ? shaded(storm ? '#3f4f5a' : raining ? '#596e7b' : '#8c9da6', clearSkies.night)
-      : clearSkies[phase],
-    horizon: covered
-      ? shaded(
-          weather === 'fog' ? '#c3cecb' : storm ? '#5f6e76' : raining ? '#7b8d95' : '#c4cfce',
-          clearHorizons.night,
-        )
-      : clearHorizons[phase],
+    moon: night ? 1 : 0,
+    sky,
+    horizon,
+    skyFill: mixColor(horizon, sky, lightBalance.zenithShare),
     cloudColor: covered
       ? shaded(storm ? '#7c8b92' : raining ? '#9dafb4' : '#d0d9d7', clearClouds.night)
       : clearClouds[phase],
     sun: lowSuns[phase] ?? (covered ? '#d8e3e9' : '#fff3db'),
-    sunlight: night ? 0.5 : covered ? coveredLight * twilight : clearSunlight[phase],
-    ambient: night
-      ? 0.8
-      : (covered ? 2.2 : 2.6) * (phase === 'dawn' ? 0.86 : phase === 'dusk' ? 0.5 : 1),
-    exposure: night ? 0.86 : storm ? 0.9 : raining ? 0.94 : phase === 'dusk' ? 0.92 : 1.02,
+    sunlight: night
+      ? clearSunlight.night * (covered ? 0.3 : 1)
+      : covered
+        ? coveredLight * twilight
+        : clearSunlight[phase],
+    ambient,
+    fill: ambient * (covered && !night ? coveredFill : clearFill[phase]),
+    exposure: night ? exposures.night : storm ? 0.9 : raining ? 0.94 : exposures[phase],
     fog: Math.max(
       night ? 0.0018 : phase === 'dawn' ? 0.0013 : phase === 'dusk' ? 0.0012 : 0.0009,
       weather === 'fog' ? 0.008 : storm ? 0.004 : raining ? 0.0032 : covered ? 0.0018 : 0,
@@ -124,6 +157,52 @@ function phaseProfile(phase: DayPhase, weather: Weather, season: Settings['seaso
 }
 
 export type AtmosphereProfile = ReturnType<typeof phaseProfile>
+
+export const airScatter = { clear: [0.86, 1, 1.24], from: 0.0012, to: 0.003 } as const
+
+export function scatterFor(density: number) {
+  const amount = Math.min(
+    1,
+    Math.max(0, (density - airScatter.from) / (airScatter.to - airScatter.from)),
+  )
+  const eased = amount * amount * (3 - 2 * amount)
+  return airScatter.clear.map((share) => share + (1 - share) * eased) as [number, number, number]
+}
+
+const stockFog = 'float fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth );'
+const stockLinearFog = 'float fogFactor = smoothstep( fogNear, fogFar, vFogDepth );'
+
+export function scatteredFog(chunk: string) {
+  if (!chunk.includes(stockFog) || !chunk.includes(stockLinearFog)) return chunk
+  const [red, green, blue] = airScatter.clear.map((share) => share.toFixed(2))
+  return chunk
+    .replace(
+      stockFog,
+      `vec3 fogSpread = mix( vec3( ${red}, ${green}, ${blue} ), vec3( 1.0 ), smoothstep( ${airScatter.from.toFixed(4)}, ${airScatter.to.toFixed(4)}, fogDensity ) );
+		vec3 fogFactor = 1.0 - exp( - fogDensity * fogDensity * vFogDepth * vFogDepth * fogSpread );`,
+    )
+    .replace(stockLinearFog, 'vec3 fogFactor = vec3( smoothstep( fogNear, fogFar, vFogDepth ) );')
+}
+
+export function scatterAir() {
+  THREE.ShaderChunk.fog_fragment = scatteredFog(THREE.ShaderChunk.fog_fragment)
+}
+
+export function fillColor(target: THREE.Color, shown: string) {
+  target.set(shown)
+  const level = 0.2126 * target.r + 0.7152 * target.g + 0.0722 * target.b
+  target.multiplyScalar(lightBalance.fillLevel / Math.max(level, 1e-4))
+  return target.lerp(scratch.setScalar(lightBalance.fillLevel), lightBalance.fillWhitening)
+}
+
+export function sunElevation(height: number) {
+  return height / Math.hypot(sunOffset.x, height, sunOffset.z)
+}
+
+export function bounceLevel(profile: Pick<AtmosphereProfile, 'sunlight' | 'sunHeight' | 'fill'>) {
+  const received = profile.sunlight * sunElevation(profile.sunHeight) + profile.fill
+  return (lightBalance.bounce * received) / Math.max(profile.fill, 1e-4)
+}
 
 export const dayCycle = {
   seconds: 720,
@@ -240,7 +319,7 @@ export class Atmosphere {
             height * direction.y +
             Math.cos(elevation) * Math.sin(angle) * direction.z,
         )
-        const sunGlow = height > 0 ? facing ** 256 * profile.sunlight * 8 : 0
+        const sunGlow = height > 0 ? facing ** 256 * profile.sunlight * 5 : 0
         const radiance = profile.ambient * (height > 0 ? 1.1 : 0.45)
         const index = (row * width + column) * 4
         pixels[index] = color.r * radiance + sun.r * sunGlow

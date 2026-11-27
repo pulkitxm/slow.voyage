@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { boulderLayout, planBoulders, planPlants, plantKinds } from './boulders'
+import { boulderLayout, planBoulders, planPlants, plantKinds, plantLook } from './boulders'
 import { landscapeIds, landscapeProfiles } from './landscapes'
 import { roadCoordinates } from './road'
 import { defaults, random, shoreHeight, World } from './world'
@@ -96,4 +96,13 @@ test('most plants stand close to the road edge where they can be seen', () => {
     }
   expect(total).toBeGreaterThan(300)
   expect(near / total).toBeGreaterThan(0.6)
+})
+
+test('plants are toned below their painted brightness and darken toward the ground', () => {
+  expect(plantLook.level).toBeLessThan(1)
+  expect(plantLook.keep).toBeLessThan(1)
+  expect(plantLook.root).toBeLessThan(0.7)
+  expect(plantLook.crown).toBeGreaterThan(0.2)
+  expect(plantLook.cast).toBeGreaterThan(0.05)
+  expect(plantLook.cast).toBeLessThan(0.3)
 })

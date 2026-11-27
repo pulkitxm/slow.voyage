@@ -68,6 +68,7 @@ describe('tire and road sounds', () => {
   it('builds wind with speed and stays silent at rest', () => {
     expect(windLevel(0)).toBe(0)
     expect(windLevel(40)).toBeGreaterThan(windLevel(20) * 3)
+    expect(windLevel(80)).toBe(windLevel(50))
   })
 
   it('squeals the brakes only near a stop under real pedal', () => {

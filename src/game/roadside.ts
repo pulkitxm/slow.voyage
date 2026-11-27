@@ -1,7 +1,7 @@
 import * as THREE from 'three'
-import { garageClearing } from './garages'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { sharpness } from './graphics'
-import { guardrailAt, roadLayout, roadPoint } from './road'
+import { guardrailAt, roadPoint } from './road'
 import { angleDifference, type World } from './world'
 
 export const roadsideLayout = {
@@ -11,15 +11,65 @@ export const roadsideLayout = {
   chevronSpacing: 20,
   chevronCurve: 1 / 240,
   chevronOffset: 4.7,
-  gantryOffset: 4.9,
-  gantryHeight: 5.4,
 } as const
+
+export const delineatorLook = {
+  width: 0.12,
+  depth: 0.04,
+  band: { from: 0.66, to: 0.9, proud: 0.004 },
+  reflector: { width: 0.045, height: 0.15, depth: 0.052 },
+  body: [0.8, 0.8, 0.77],
+  foot: [0.5, 0.47, 0.4],
+  dark: [0.035, 0.035, 0.04],
+  steel: [0.42, 0.44, 0.45],
+} as const
+export const delineatorVertices = { post: 48, reflector: 24 } as const
 
 function placed(geometry: THREE.BufferGeometry, yaw: number, x: number, y: number, s: number) {
   geometry.deleteAttribute('uv')
   geometry.rotateY(yaw)
   geometry.translate(x, y, -s)
   return geometry
+}
+
+function tinted(
+  geometry: THREE.BufferGeometry,
+  top: readonly number[],
+  bottom: readonly number[] = top,
+) {
+  const position = geometry.getAttribute('position')
+  geometry.computeBoundingBox()
+  const low = geometry.boundingBox?.min.y ?? 0
+  const high = geometry.boundingBox?.max.y ?? 1
+  const colors = new Float32Array(position.count * 3)
+  for (let index = 0; index < position.count; index++) {
+    const rise = (position.getY(index) - low) / Math.max(high - low, 1e-6)
+    for (let channel = 0; channel < 3; channel++)
+      colors[index * 3 + channel] =
+        (bottom[channel] ?? 0) +
+        ((top[channel] ?? 0) - (bottom[channel] ?? 0)) * Math.min(1, rise * 3)
+  }
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  return geometry
+}
+
+function delineatorPost(height: number) {
+  const { width, depth, band, body, foot, dark } = delineatorLook
+  const stake = tinted(new THREE.BoxGeometry(width, height, depth), body, foot)
+  const sleeve = tinted(
+    new THREE.BoxGeometry(
+      width + band.proud * 2,
+      height * (band.to - band.from),
+      depth + band.proud * 2,
+    ),
+    dark,
+  )
+  sleeve.translate(0, height * ((band.from + band.to) / 2 - 0.5), 0)
+  const post = mergeGeometries([stake, sleeve])
+  stake.dispose()
+  sleeve.dispose()
+  if (!post) throw new Error('Delineator post could not be built')
+  return post
 }
 
 export function roadCurvature(world: World, s: number) {
@@ -37,25 +87,19 @@ export function delineators(world: World, start: number, length: number) {
     for (const side of [-1, 1]) {
       if (guardrailAt(world, s, side)) continue
       const point = roadPoint(road, s, side * postOffset)
-      if (garageClearing(world, point.x, point.s)) continue
       const ground = world.height(point.x, point.s)
       if (ground < road.y - 1.2) continue
       spots.push({ x: point.x, y: ground, s: point.s })
       posts.push(
-        placed(
-          new THREE.BoxGeometry(0.1, postHeight, 0.05),
-          road.yaw,
-          point.x,
-          ground + postHeight / 2,
-          point.s,
-        ),
+        placed(delineatorPost(postHeight), road.yaw, point.x, ground + postHeight / 2, point.s),
       )
+      const { reflector, band } = delineatorLook
       reflectors.push(
         placed(
-          new THREE.BoxGeometry(0.075, 0.14, 0.064),
+          new THREE.BoxGeometry(reflector.width, reflector.height, reflector.depth),
           road.yaw,
           point.x,
-          ground + postHeight - 0.16,
+          ground + (postHeight * (band.from + band.to)) / 2,
           point.s,
         ),
       )
@@ -77,12 +121,17 @@ export function chevrons(world: World, start: number, length: number) {
     if (guardrailAt(world, s, side)) continue
     const road = world.road(s)
     const point = roadPoint(road, s, side * chevronOffset)
-    if (garageClearing(world, point.x, point.s)) continue
     const ground = world.height(point.x, point.s)
     if (ground < road.y - 1.5) continue
     feet.push({ x: point.x, s: point.s })
     posts.push(
-      placed(new THREE.BoxGeometry(0.07, 1.5, 0.07), road.yaw, point.x, ground + 0.75, point.s),
+      placed(
+        tinted(new THREE.BoxGeometry(0.06, 1.5, 0.06), delineatorLook.steel),
+        road.yaw,
+        point.x,
+        ground + 0.75,
+        point.s,
+      ),
     )
     const panel = new THREE.PlaneGeometry(0.75, 0.6)
     if (side < 0) panel.scale(-1, 1, 1)
@@ -91,42 +140,6 @@ export function chevrons(world: World, start: number, length: number) {
     panels.push(panel)
   }
   return { posts, panels, feet }
-}
-
-export function startGantry(world: World, s: number) {
-  const { gantryOffset, gantryHeight } = roadsideLayout
-  const road = world.road(s)
-  const frame: THREE.BufferGeometry[] = []
-  const feet: { x: number; s: number }[] = []
-  for (const side of [-1, 1]) {
-    const point = roadPoint(road, s, side * gantryOffset)
-    const ground = Math.min(road.y, world.height(point.x, point.s))
-    const height = road.y + gantryHeight - ground
-    frame.push(
-      placed(
-        new THREE.BoxGeometry(0.22, height, 0.22),
-        road.yaw,
-        point.x,
-        ground + height / 2,
-        point.s,
-      ),
-    )
-    feet.push({ x: point.x, s: point.s })
-  }
-  for (const lift of [0, -0.95])
-    frame.push(
-      placed(
-        new THREE.BoxGeometry(gantryOffset * 2 + 0.22, 0.14, 0.14),
-        road.yaw,
-        road.x,
-        road.y + gantryHeight + lift,
-        s,
-      ),
-    )
-  const banner = new THREE.PlaneGeometry(gantryOffset * 2 - 0.3, 0.8)
-  banner.rotateY(road.yaw)
-  banner.translate(road.x, road.y + gantryHeight - 0.475, -s)
-  return { frame, banner, feet, clearance: gantryHeight - 1.05 - roadLayout.surfaceRecess }
 }
 
 function canvasTexture(
@@ -165,15 +178,5 @@ export function chevronTexture() {
     context.strokeStyle = '#16181a'
     context.lineWidth = 6
     context.strokeRect(3, 3, 122, 90)
-  })
-}
-
-export function bannerTexture() {
-  return canvasTexture(384, 32, (context) => {
-    for (let column = 0; column < 24; column++)
-      for (let row = 0; row < 2; row++) {
-        context.fillStyle = (column + row) % 2 ? '#f4f2e8' : '#17191b'
-        context.fillRect(column * 16, row * 16, 16, 16)
-      }
   })
 }

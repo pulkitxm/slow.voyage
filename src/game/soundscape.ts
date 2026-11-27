@@ -1,8 +1,8 @@
 import { cycleStage, type DayPhase } from './atmosphere'
 import { Noise } from './dsp'
-import { smoothStep, worldLoop, wrapOffset } from './field'
+import { smoothStep } from './field'
 import { landscapeProfiles } from './landscapes'
-import { lapWaterfalls } from './waterfalls'
+import { waterfallsNear } from './waterfalls'
 import { woodlandCoverage } from './woodland'
 import { clamp, type Settings, shoreHeight, type World } from './world'
 
@@ -40,10 +40,6 @@ export function freshSurroundings(): Surroundings {
     falls: 0,
     fallsPan: 0,
   }
-}
-
-function wrapLap(offset: number) {
-  return offset - worldLoop.length * Math.round(offset / worldLoop.length)
 }
 
 export function surveySurroundings(
@@ -87,10 +83,10 @@ export function surveySurroundings(
   out.forest = clamp(cover * 0.85 + Math.min(0.4, profile.roadside.trees / 120), 0, 1)
   out.falls = 0
   out.fallsPan = 0
-  for (const fall of lapWaterfalls(world)) {
-    const ds = wrapLap(fall.foot.s - s)
+  for (const fall of waterfallsNear(world, s)) {
+    const ds = fall.foot.s - s
     if (Math.abs(ds) > 400) continue
-    const dx = wrapOffset(fall.foot.x - x)
+    const dx = fall.foot.x - x
     const distance = Math.hypot(dx, ds)
     const level = clamp(fall.height / 14, 0.5, 1.4) / (1 + (distance / fallsReach) ** 2)
     if (level <= out.falls) continue

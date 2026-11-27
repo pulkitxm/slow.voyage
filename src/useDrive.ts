@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SettingsTab } from './components/SettingsPanel'
+import { bodyFor } from './game/car-bodies'
 import { assistanceLabels } from './game/controls'
 import { adjustCruiseSpeed } from './game/cruise'
 import { type DriveState, RoadEngine } from './game/engine'
-import type { GarageJob } from './game/garage-session'
 import { nextJourney } from './game/journeys'
 import { landmarkNames } from './game/landmarks'
-import { formatLap } from './game/laps'
 import { Odometer } from './game/odometer'
 import { cameras, loadSettings } from './game/settings'
 import { decodeSpot, encodeSpot } from './game/share'
-import { supercarModelName } from './game/supercars'
 import { vehicleNames } from './game/vehicles'
 import { defaults, type Settings, vehicles } from './game/world'
+import { TelemetryStore } from './telemetry'
 
 const initial: DriveState = {
   speed: 0,
@@ -32,18 +31,10 @@ const initial: DriveState = {
   fps: 60,
   controller: 'none',
   mouseSteering: 0,
-  lap: 1,
-  lapDistance: 0,
   roadDistance: 0,
-  lapTime: null,
-  lastLap: null,
-  bestLap: null,
+  roadBearing: 0,
   photo: false,
   found: 0,
-  landmarks: 0,
-  garageNear: false,
-  garage: { phase: 'idle', job: null, progress: 0, step: '' },
-  grime: 0,
 }
 export function useDrive() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -53,15 +44,12 @@ export function useDrive() {
   }, [])
   const [settings, setSettings] = useState<Settings>(defaults)
   const [state, setState] = useState(initial)
+  const [telemetry] = useState(() => new TelemetryStore(initial))
   const [started, setStarted] = useState(false)
   const [ready, setReady] = useState(false)
   const [loading, setLoading] = useState({ fraction: 0, stage: 'stone' })
   const [panel, setPanel] = useState(false)
   const [help, setHelp] = useState(false)
-  const [atlas, setAtlas] = useState(false)
-  const atlasCanvas = useCallback((node: HTMLCanvasElement | null) => {
-    engine.current?.atlas.attach(node)
-  }, [])
   const [tab, setTab] = useState<SettingsTab>('journey')
   const [lifetime, setLifetime] = useState(0)
   const [offline, setOffline] = useState(false)
@@ -103,11 +91,7 @@ export function useDrive() {
           vehicles.length
       ] ?? 'touring'
     update('vehicle', next)
-    announce(
-      next === 'supercar'
-        ? `${vehicleNames[next]}: ${supercarModelName(settingsRef.current.supercarModel)}`
-        : vehicleNames[next],
-    )
+    announce(bodyFor(settingsRef.current)?.name ?? vehicleNames[next])
   }
   const start = (auto = false) => {
     const instance = engine.current
@@ -174,19 +158,6 @@ export function useDrive() {
     engine.current?.audio.start(next)
     announce(next ? 'Sound on.' : 'Sound muted.')
   }
-  const enterGarage = () => {
-    if (engine.current?.enterGarage()) {
-      setPanel(false)
-      setHelp(false)
-      setAtlas(false)
-    }
-  }
-  const leaveGarage = () => {
-    engine.current?.leaveGarage()
-  }
-  const garageJob = (job: GarageJob) => {
-    engine.current?.garageJob(job)
-  }
   const togglePhoto = () => {
     const instance = engine.current
     if (!instance) return
@@ -223,9 +194,6 @@ export function useDrive() {
     cycleJourney,
     cycleVehicle,
     update,
-    enterGarage,
-    leaveGarage,
-    applySettings,
   })
   handlers.current = {
     togglePhoto,
@@ -239,13 +207,11 @@ export function useDrive() {
     cycleJourney,
     cycleVehicle,
     update,
-    enterGarage,
-    leaveGarage,
-    applySettings,
   }
   useEffect(() => {
     if (!canvas.current) return
     let rendered = false
+    let shown = ''
     setReady(false)
     const odometer = new Odometer(window.localStorage)
     setLifetime(odometer.shown)
@@ -269,11 +235,8 @@ export function useDrive() {
       if (import.meta.env.DEV) Reflect.set(window, 'voyage', instance)
       if (spot) instance.travelTo(spot.distance)
       instance.onProgress = (fraction, stage) => setLoading({ fraction, stage })
-      instance.workshop.onCustomize = (changes) => handlers.current.applySettings(changes)
-      instance.onDiscover = (kind, found, total) =>
-        announce(`You found ${landmarkNames[kind]}. ${found} of ${total}.`)
-      instance.onLap = (time, record) =>
-        announce(`Lap in ${formatLap(time)}${record ? ', your best yet.' : '.'}`)
+      instance.onDiscover = (kind, found) =>
+        announce(`You found ${landmarkNames[kind]}. ${found} found so far.`)
       instance.onQuality = (quality) => {
         handlers.current.update('quality', quality)
         announce('Ultra detail eased to Full beauty to keep the drive smooth.')
@@ -285,7 +248,12 @@ export function useDrive() {
           rendered = true
           setReady(true)
         }
-        setState(state)
+        telemetry.set(state)
+        const steady = `${state.paused}/${state.photo}/${state.assistance}/${state.controller}/${state.found}`
+        if (steady !== shown) {
+          shown = steady
+          setState(state)
+        }
         if (instance.started && odometer.record(state.distance)) setLifetime(odometer.shown)
         if (instance.started) setStarted(true)
       }
@@ -304,9 +272,6 @@ export function useDrive() {
         if (action === 'vehiclePrevious') handlers.current.cycleVehicle(-1)
         if (action === 'help') setHelp((current) => !current)
         if (action === 'photo') handlers.current.togglePhoto()
-        if (action === 'map') setAtlas((current) => !current)
-        if (action === 'garage') handlers.current.enterGarage()
-        if (action === 'garageLeave') handlers.current.leaveGarage()
       }
     } catch {
       setError(
@@ -341,7 +306,7 @@ export function useDrive() {
       window.removeEventListener('offline', connection)
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
-  }, [announce])
+  }, [announce, telemetry.set])
   useEffect(() => {
     engine.current?.setControlsBlocked(panel || help)
   }, [panel, help])
@@ -368,6 +333,7 @@ export function useDrive() {
     engine,
     settings,
     state,
+    telemetry,
     lifetime,
     started,
     ready,
@@ -385,6 +351,7 @@ export function useDrive() {
     toast,
     announce,
     update,
+    apply: applySettings,
     start,
     pause,
     toggleAuto,
@@ -393,13 +360,7 @@ export function useDrive() {
     togglePhoto,
     toggleMute,
     copyLink,
-    atlas,
-    setAtlas,
-    atlasCanvas,
     fullscreen,
     touch,
-    enterGarage,
-    leaveGarage,
-    garageJob,
   }
 }

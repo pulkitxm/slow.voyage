@@ -1,5 +1,4 @@
-import type { SupercarModel } from './supercars'
-import { clamp, damp, type Settings, type Vehicle } from './world'
+import { clamp, damp, type Vehicle } from './world'
 
 export interface EngineProfile {
   idle: number
@@ -11,7 +10,10 @@ export interface EngineProfile {
   shiftSeconds: number
   launch: number
   revRate: number
+  curve?: TorqueCurve
 }
+
+export type TorqueCurve = readonly (readonly [revs: number, share: number])[]
 
 export const engineProfiles: Record<Vehicle, EngineProfile> = {
   touring: {
@@ -93,49 +95,6 @@ export const engineProfiles: Record<Vehicle, EngineProfile> = {
   },
 }
 
-export const supercarProfiles: Record<SupercarModel, EngineProfile> = {
-  classic: engineProfiles.supercar,
-  grand: {
-    idle: 850,
-    redline: 7200,
-    cruiseShift: 2600,
-    upshift: 6800,
-    downshift: 1450,
-    gearTops: [16, 27, 38, 50, 62, 75, 90],
-    shiftSeconds: 0.1,
-    launch: 0.36,
-    revRate: 13,
-  },
-  longtail: {
-    idle: 1050,
-    redline: 8500,
-    cruiseShift: 3100,
-    upshift: 8100,
-    downshift: 1700,
-    gearTops: [17, 28, 39, 51, 64, 77, 92],
-    shiftSeconds: 0.07,
-    launch: 0.4,
-    revRate: 17,
-  },
-  track: {
-    idle: 1100,
-    redline: 9000,
-    cruiseShift: 3400,
-    upshift: 8700,
-    downshift: 1800,
-    gearTops: [16, 27, 38, 50, 62, 75, 89],
-    shiftSeconds: 0.06,
-    launch: 0.42,
-    revRate: 19,
-  },
-}
-
-export function engineProfileFor(settings: Pick<Settings, 'vehicle' | 'supercarModel'>) {
-  return settings.vehicle === 'supercar'
-    ? supercarProfiles[settings.supercarModel]
-    : engineProfiles[settings.vehicle]
-}
-
 export const stickShift = {
   curve: [
     [0, 0.3],
@@ -159,10 +118,10 @@ export const stickShift = {
   standstill: 0.3,
   lug: { floor: 1.5, stall: 0.8, judder: 9, shake: 0.35, sag: 0.3, wobble: 0.08 },
   braking: { base: 0.25, revs: 1.5, leverage: 2.4 },
+  free: { climb: 6, sink: 13, settle: 2.5, reach: 1.05, load: 0.45 },
 } as const
 
-export function torqueShare(revs: number) {
-  const curve = stickShift.curve
+export function torqueShare(revs: number, curve: TorqueCurve = stickShift.curve) {
   if (revs <= 0) return curve[0]?.[1] ?? 0
   for (let index = 1; index < curve.length; index++) {
     const [to, high] = curve[index] ?? [1, 0]
@@ -179,6 +138,7 @@ export class Gearbox {
   shifting = 0
   shifts = 0
   manual = false
+  neutral = false
   limited = false
   cutting = false
   lug = 0
@@ -194,6 +154,7 @@ export class Gearbox {
     this.load = 0
     this.shifting = 0
     this.limited = this.cutting = false
+    this.neutral = false
     this.lug = 0
     this.holding = 0
   }
@@ -245,15 +206,16 @@ export class Gearbox {
     if (this.shifting > 0) return 0
     const revs = this.revs(speed)
     const gear = Math.abs(this.gear)
-    if (gear === 1) return torqueShare(Math.max(revs, stickShift.launch))
+    const curve = this.profile.curve
+    if (gear === 1) return torqueShare(Math.max(revs, stickShift.launch), curve)
     const { floor, stall, judder, shake } = stickShift.lug
     const lowest = (this.profile.idle * floor) / this.profile.redline
-    if (revs >= lowest) return torqueShare(revs)
+    if (revs >= lowest) return torqueShare(revs, curve)
     const bog = revs / lowest
     const slip = stall / (gear - 1) ** 2
     this.lug = 1 - bog
     const stutter = 1 - shake * this.lug * (Math.sin(this.clock * judder * Math.PI * 2) > 0 ? 1 : 0)
-    return torqueShare(revs) * (slip + (1 - slip) * bog * bog) * stutter
+    return torqueShare(revs, curve) * (slip + (1 - slip) * bog * bog) * stutter
   }
   engineBraking(speed: number) {
     const tops = this.profile.gearTops
@@ -264,7 +226,7 @@ export class Gearbox {
       (base + revs * Math.min(1, this.revs(speed))) * Math.min(leverage, Math.sqrt(tallest / top))
     )
   }
-  update(speed: number, throttle: number, dt: number, manual = false) {
+  update(speed: number, throttle: number, dt: number, manual = false, neutral = false) {
     const profile = this.profile
     const drive = clamp(throttle, 0, 1)
     this.shifting = Math.max(0, this.shifting - dt)
@@ -272,6 +234,14 @@ export class Gearbox {
     if (manual !== this.manual) {
       this.manual = manual
       if (!manual && this.gear < 0) this.gear = 1
+    }
+    if (neutral !== this.neutral) {
+      this.neutral = neutral
+      if (!neutral) this.engage(speed, drive)
+    }
+    if (this.neutral) {
+      this.freeRev(drive, dt)
+      return
     }
     if (!manual) {
       if (speed < -0.1) this.gear = 1
@@ -302,10 +272,46 @@ export class Gearbox {
     this.load = damp(this.load, this.shifting > 0 ? 0 : drive * cut, this.limited ? 60 : 12, dt)
   }
   label(speed: number) {
+    if (this.neutral) return 'N'
     if (this.manual) return this.gear < 0 ? 'R' : String(this.gear)
     if (speed < -0.1) return 'R'
     if (speed < 0.1 && this.load < 0.05) return 'N'
     return String(this.gear)
+  }
+  private freeRev(drive: number, dt: number) {
+    const profile = this.profile
+    const { climb, sink, settle, reach, load } = stickShift.free
+    this.lug = 0
+    this.shifting = 0
+    this.limited = drive > 0.2 && this.rpm >= profile.redline * stickShift.limiter
+    const ceiling = this.limited
+      ? profile.redline *
+        (1 - stickShift.dip * (Math.sin(this.clock * stickShift.bounce * Math.PI * 2) > 0 ? 1 : 0))
+      : profile.redline
+    const target = Math.min(
+      ceiling,
+      profile.idle + (profile.redline * reach - profile.idle) * drive,
+    )
+    const span = (profile.redline - profile.idle) * profile.revRate
+    const eased = damp(this.rpm, target, profile.revRate * settle, dt) - this.rpm
+    this.rpm += clamp(eased, (-span / sink) * dt, (span / climb) * dt)
+    this.cutting = this.limited && target < profile.redline
+    const effort = this.cutting ? 0.25 : target > this.rpm + 150 ? 1 : load
+    this.load = damp(this.load, drive * effort, this.limited ? 60 : 12, dt)
+  }
+  private engage(speed: number, throttle: number) {
+    const profile = this.profile
+    if (this.gear < 0 && speed < stickShift.reverseBelow) {
+      this.gear = this.manual ? -1 : 1
+    } else {
+      const upshiftAt = profile.cruiseShift + (profile.upshift - profile.cruiseShift) * throttle
+      const tops = profile.gearTops.length
+      let gear = 1
+      while (gear < tops && this.engagedRpm(speed, gear) > upshiftAt) gear++
+      this.gear = gear
+    }
+    this.shifting = profile.shiftSeconds * 0.7
+    this.shifts++
   }
   private selectGear(speed: number, throttle: number) {
     const profile = this.profile
