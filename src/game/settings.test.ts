@@ -39,6 +39,7 @@ describe('saved preferences', () => {
       controllerEnabled: 'yes',
       controllerDeadzone: Number.NaN,
       mouseEnabled: 'yes',
+      tachometer: 'yes',
       mouseSensitivity: Number.NaN,
     })
     expect(settings).toEqual(defaults)
@@ -81,6 +82,7 @@ describe('saved preferences', () => {
       mouseEnabled: true,
       mouseSensitivity: 1.5,
       units: 'mi' as const,
+      tachometer: true,
       color: '#b65a44',
     }
     expect(decodeSettings(JSON.parse(JSON.stringify(preferences)))).toEqual(preferences)

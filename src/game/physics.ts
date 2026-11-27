@@ -402,6 +402,9 @@ export class CarPhysics {
       neutral,
     )
   }
+  revs() {
+    return clamp(this.gearbox.rpm / this.gearbox.profile.redline, 0, 1)
+  }
   telemetry(): Telemetry {
     return {
       speed: this.speed,
@@ -414,7 +417,7 @@ export class CarPhysics {
       offroad: this.offroad,
       impact: this.impact,
       gear: this.gearbox.label(this.speed),
-      revs: clamp(this.gearbox.rpm / this.gearbox.profile.redline, 0, 1),
+      revs: this.revs(),
       limited: this.gearbox.limited,
     }
   }

@@ -569,6 +569,140 @@ svg {
   width: 120px;
   position: relative;
 }
+.cluster {
+  --dial: 172px;
+  position: relative;
+  width: calc(var(--dial) + 62px);
+  height: var(--dial);
+  margin-bottom: -10px;
+}
+.cluster svg {
+  display: block;
+  width: var(--dial);
+  height: var(--dial);
+  overflow: visible;
+  filter: drop-shadow(0 1px 2px #1d28224d);
+}
+.dial-rim {
+  fill: none;
+  stroke: #f4f5e570;
+  stroke-width: 1;
+}
+.dial-shift {
+  fill: none;
+  stroke: #f2c14e;
+  stroke-width: 1.5;
+  opacity: 0.8;
+}
+.dial-red {
+  fill: none;
+  stroke: #d8402f;
+  stroke-width: 5;
+  opacity: 0.85;
+}
+.dial-tick {
+  stroke: #f4f5e59a;
+  stroke-width: 0.9;
+}
+.dial-tick.major {
+  stroke: #f4f5e5;
+  stroke-width: 1.5;
+}
+.dial-tick[data-red="true"] {
+  stroke: #ffb3a6;
+}
+.dial-label {
+  fill: #f4f5e5d8;
+  font:
+    400 8px "Manrope",
+    sans-serif;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+.dial-caption {
+  fill: #f4f5e59a;
+  font:
+    500 4.6px "Manrope",
+    sans-serif;
+  letter-spacing: 0.6px;
+  text-anchor: middle;
+}
+.dial-needle {
+  stroke: #fffef3;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.cluster-gear {
+  position: absolute;
+  left: calc(var(--dial) / 2);
+  top: calc(var(--dial) / 2);
+  transform: translate(-50%, -50%);
+  width: calc(var(--dial) * 0.19);
+  height: calc(var(--dial) * 0.19);
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid #8fd6a4;
+  background: #1d28228c;
+  color: #c9f0d2;
+  font:
+    500 15px / 1 "Manrope",
+    sans-serif;
+  font-style: normal;
+  box-shadow: 0 0 10px #8fd6a466;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.cluster[data-strain="shift"] .cluster-gear {
+  border-color: #f2c14e;
+  color: #ffe2a1;
+  box-shadow: 0 0 10px #f2c14e88;
+}
+.cluster[data-strain="limit"] .cluster-gear {
+  border-color: #ff5b47;
+  color: #fff;
+  background: #d8402fcc;
+  box-shadow: 0 0 12px #ff5b47aa;
+}
+.cluster-readout {
+  position: absolute;
+  right: 0;
+  bottom: -2px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.cluster-unit {
+  display: flex;
+  gap: 8px;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #f4f5e5ba;
+  margin-right: 4px;
+}
+.cluster-boost {
+  color: #ffd98a;
+  letter-spacing: 1.5px;
+}
+.cluster-speed {
+  font:
+    300 66px / 0.9 "Manrope",
+    sans-serif;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+  transform: skewX(-12deg);
+  transform-origin: bottom right;
+  text-shadow: 0 1px 3px #1d282259;
+}
+.cluster-readout .nitro-track {
+  width: 64px;
+  margin-top: 6px;
+  margin-right: 4px;
+}
 .boost-indicator {
   position: absolute;
   left: 0;
@@ -1540,6 +1674,21 @@ input[type="range"] {
   .speed {
     width: 85px;
   }
+  .cluster {
+    --dial: 124px;
+    width: calc(var(--dial) + 44px);
+    margin-bottom: -6px;
+  }
+  .cluster-gear {
+    font-size: 12px;
+    border-width: 1.5px;
+  }
+  .cluster-speed {
+    font-size: 46px;
+  }
+  .cluster-readout .nitro-track {
+    width: 46px;
+  }
   .speed-value {
     font-size: 41px;
   }
@@ -1618,6 +1767,11 @@ input[type="range"] {
   }
   .drive-toolbar {
     bottom: 35px;
+  }
+}
+@media (max-width: 700px) and (pointer: fine) {
+  .telemetry:has(.cluster) .drive-toolbar {
+    bottom: 238px;
   }
 }
 @media (max-height: 600px) and (min-width: 701px) {

@@ -612,6 +612,20 @@ export function SettingsPanel({
               </div>
             </section>
             <section className="setting-section">
+              <label className="check-option">
+                <input
+                  type="checkbox"
+                  checked={settings.tachometer}
+                  onChange={(event) => update('tachometer', event.target.checked)}
+                />
+                Show tachometer
+              </label>
+              <p>
+                Trade the plain speedometer for a round dial with revs, gear and speed together,
+                marked to the redline of your engine.
+              </p>
+            </section>
+            <section className="setting-section">
               <label className="slider-label" htmlFor="volume">
                 <span>
                   <AudioLines size={15} /> Sounds of the road
