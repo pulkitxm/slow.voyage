@@ -32,6 +32,7 @@ import {
   swappable,
 } from '../game/engines'
 import type { ControllerStatus } from '../game/gamepad'
+import { type SupercarModel, supercarModels, supercarTrims } from '../game/supercars'
 import { vehicleNames } from '../game/vehicles'
 import type { EngineId, Settings, Vehicle } from '../game/world'
 import { CarPicture } from './CarPicture'
@@ -876,6 +877,9 @@ function Dropdown({
 
 const ownEngine = 'own'
 const classKey = (vehicle: Vehicle) => `class:${vehicle}`
+const supercarKey = (model: SupercarModel) => `class:supercar:${model}`
+const supercarPicture = (model: SupercarModel) =>
+  model === 'classic' ? 'supercar' : `supercar-${model}`
 
 export const vehicleBlurbs: Record<Vehicle, string> = {
   touring: 'A comfortable classic coupe',
@@ -900,14 +904,29 @@ function CarChoice({ settings, apply }: Pick<Props, 'settings' | 'apply'>) {
   const carGroups: ChoiceGroup[] = [
     {
       label: 'Easy picks',
-      choices: vehicles.map((item) => ({
-        key: classKey(item.id),
-        picture: item.id,
-        icon: item.icon,
-        title: vehicleNames[item.id],
-        detail: vehicleBlurbs[item.id],
-        search: plain(`${vehicleNames[item.id]} ${vehicleBlurbs[item.id]}`),
-      })),
+      choices: vehicles.flatMap((item) =>
+        item.id === 'supercar'
+          ? supercarModels.map((model) => ({
+              key: supercarKey(model),
+              picture: supercarPicture(model),
+              icon: item.icon,
+              title: supercarTrims[model].name,
+              detail: `${supercarTrims[model].engine}. ${supercarTrims[model].tagline}`,
+              search: plain(
+                `supercar ${supercarTrims[model].name} ${supercarTrims[model].engine} ${supercarTrims[model].tagline}`,
+              ),
+            }))
+          : [
+              {
+                key: classKey(item.id),
+                picture: item.id,
+                icon: item.icon,
+                title: vehicleNames[item.id],
+                detail: vehicleBlurbs[item.id],
+                search: plain(`${vehicleNames[item.id]} ${vehicleBlurbs[item.id]}`),
+              },
+            ],
+      ),
     },
     ...makers.map((maker) => ({
       label: maker,
@@ -923,6 +942,15 @@ function CarChoice({ settings, apply }: Pick<Props, 'settings' | 'apply'>) {
     })),
   ]
   const pickCar = (key: string) => {
+    const supercar = supercarModels.find((model) => supercarKey(model) === key)
+    if (supercar)
+      return apply({
+        vehicle: 'supercar',
+        supercarModel: supercar,
+        engine: 'stock',
+        engineCar: '',
+        color: supercarTrims[supercar].paint,
+      })
     const plainVehicle = vehicles.find((item) => classKey(item.id) === key)
     if (plainVehicle) return apply({ vehicle: plainVehicle.id, engine: 'stock', engineCar: '' })
     const car = engineCars.find((each) => each.name === key)
@@ -978,7 +1006,13 @@ function CarChoice({ settings, apply }: Pick<Props, 'settings' | 'apply'>) {
         <Dropdown
           label="Car"
           groups={carGroups}
-          selected={body ? body.name : classKey(vehicle)}
+          selected={
+            body
+              ? body.name
+              : vehicle === 'supercar'
+                ? supercarKey(settings.supercarModel)
+                : classKey(vehicle)
+          }
           placeholder="Choose a car"
           paint={settings.color}
           onSelect={pickCar}

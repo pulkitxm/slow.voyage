@@ -4,11 +4,13 @@ import { bodyFor } from './game/car-bodies'
 import { assistanceLabels } from './game/controls'
 import { adjustCruiseSpeed } from './game/cruise'
 import { type DriveState, RoadEngine } from './game/engine'
+import type { GarageJob } from './game/garage-session'
 import { nextJourney } from './game/journeys'
 import { landmarkNames } from './game/landmarks'
 import { Odometer } from './game/odometer'
 import { cameras, loadSettings } from './game/settings'
 import { decodeSpot, encodeSpot } from './game/share'
+import { supercarModelName } from './game/supercars'
 import { vehicleNames } from './game/vehicles'
 import { defaults, type Settings, vehicles } from './game/world'
 import { TelemetryStore } from './telemetry'
@@ -35,6 +37,9 @@ const initial: DriveState = {
   roadBearing: 0,
   photo: false,
   found: 0,
+  garageNear: false,
+  garage: { phase: 'idle', job: null, progress: 0, step: '' },
+  grime: 0,
 }
 export function useDrive() {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -91,7 +96,12 @@ export function useDrive() {
           vehicles.length
       ] ?? 'touring'
     update('vehicle', next)
-    announce(bodyFor(settingsRef.current)?.name ?? vehicleNames[next])
+    announce(
+      bodyFor(settingsRef.current)?.name ??
+        (next === 'supercar'
+          ? `${vehicleNames[next]}: ${supercarModelName(settingsRef.current.supercarModel)}`
+          : vehicleNames[next]),
+    )
   }
   const start = (auto = false) => {
     const instance = engine.current
@@ -158,6 +168,18 @@ export function useDrive() {
     engine.current?.audio.start(next)
     announce(next ? 'Sound on.' : 'Sound muted.')
   }
+  const enterGarage = () => {
+    if (engine.current?.enterGarage()) {
+      setPanel(false)
+      setHelp(false)
+    }
+  }
+  const leaveGarage = () => {
+    engine.current?.leaveGarage()
+  }
+  const garageJob = (job: GarageJob) => {
+    engine.current?.garageJob(job)
+  }
   const togglePhoto = () => {
     const instance = engine.current
     if (!instance) return
@@ -194,6 +216,9 @@ export function useDrive() {
     cycleJourney,
     cycleVehicle,
     update,
+    enterGarage,
+    leaveGarage,
+    applySettings,
   })
   handlers.current = {
     togglePhoto,
@@ -207,6 +232,9 @@ export function useDrive() {
     cycleJourney,
     cycleVehicle,
     update,
+    enterGarage,
+    leaveGarage,
+    applySettings,
   }
   useEffect(() => {
     if (!canvas.current) return
@@ -235,6 +263,7 @@ export function useDrive() {
       if (import.meta.env.DEV) Reflect.set(window, 'voyage', instance)
       if (spot) instance.travelTo(spot.distance)
       instance.onProgress = (fraction, stage) => setLoading({ fraction, stage })
+      instance.workshop.onCustomize = (changes) => handlers.current.applySettings(changes)
       instance.onDiscover = (kind, found) =>
         announce(`You found ${landmarkNames[kind]}. ${found} found so far.`)
       instance.onQuality = (quality) => {
@@ -272,6 +301,8 @@ export function useDrive() {
         if (action === 'vehiclePrevious') handlers.current.cycleVehicle(-1)
         if (action === 'help') setHelp((current) => !current)
         if (action === 'photo') handlers.current.togglePhoto()
+        if (action === 'garage') handlers.current.enterGarage()
+        if (action === 'garageLeave') handlers.current.leaveGarage()
       }
     } catch {
       setError(
@@ -362,5 +393,8 @@ export function useDrive() {
     copyLink,
     fullscreen,
     touch,
+    enterGarage,
+    leaveGarage,
+    garageJob,
   }
 }

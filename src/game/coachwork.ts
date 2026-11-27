@@ -5,12 +5,16 @@ import hatchbackUrl from '../assets/models/cars/hatchback.glb?url'
 import pickupUrl from '../assets/models/cars/pickup.glb?url'
 import roadsterUrl from '../assets/models/cars/roadster.glb?url'
 import supercarUrl from '../assets/models/cars/supercar.glb?url'
+import supercarGrandUrl from '../assets/models/cars/supercar-grand.glb?url'
+import supercarLongtailUrl from '../assets/models/cars/supercar-longtail.glb?url'
+import supercarTrackUrl from '../assets/models/cars/supercar-track.glb?url'
 import touringUrl from '../assets/models/cars/touring.glb?url'
 import { type BodyChoice, bodyFor, type CarBody, retireBody } from './car-bodies'
 import type { VehicleModel } from './model'
 import { glassFace, reflectSkyline } from './skyline'
+import type { SupercarModel } from './supercars'
 import { vehicleMetrics } from './vehicles'
-import type { Vehicle } from './world'
+import type { Settings, Vehicle } from './world'
 
 interface Coachwork {
   url: string
@@ -28,6 +32,13 @@ export const coachworks: Partial<Record<Vehicle, Coachwork>> = {
   hatchback: { url: hatchbackUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
   supercar: { url: supercarUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
   pickup: { url: pickupUrl, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'] },
+}
+
+export const supercarCoachworks: Record<SupercarModel, string> = {
+  classic: supercarUrl,
+  grand: supercarGrandUrl,
+  longtail: supercarLongtailUrl,
+  track: supercarTrackUrl,
 }
 
 let bodyFiles: Map<string, string> | null = null
@@ -52,12 +63,16 @@ export function bodyUrl(id: string) {
   return bodyFiles.get(id)
 }
 
-export function coachworkFor(settings: BodyChoice): Coachwork | undefined {
+type CoachworkChoice = BodyChoice & Pick<Settings, 'supercarModel'>
+
+export function coachworkFor(settings: CoachworkChoice): Coachwork | undefined {
   const body = bodyFor(settings)
   const url = body && bodyUrl(body.id)
   if (body && url)
     return { url, wheel: /^Wheel_[FR][LR]$/, front: /_F[LR]$/, paint: ['body'], body }
-  return coachworks[settings.vehicle]
+  const spec = coachworks[settings.vehicle]
+  if (!spec || settings.vehicle !== 'supercar') return spec
+  return { ...spec, url: supercarCoachworks[settings.supercarModel] }
 }
 
 let loader: GLTFLoader | null = null
@@ -151,7 +166,7 @@ function shadePaint(model: VehicleModel, shell: THREE.Object3D) {
 
 export function dressVehicle(
   model: VehicleModel,
-  settings: BodyChoice,
+  settings: CoachworkChoice,
   onReady?: () => void,
   onMissing?: () => void,
 ) {

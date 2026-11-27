@@ -1,4 +1,5 @@
-import { clamp, damp, type Vehicle } from './world'
+import type { SupercarModel } from './supercars'
+import { clamp, damp, type Settings, type Vehicle } from './world'
 
 export interface EngineProfile {
   idle: number
@@ -93,6 +94,49 @@ export const engineProfiles: Record<Vehicle, EngineProfile> = {
     launch: 0.4,
     revRate: 16,
   },
+}
+
+export const supercarProfiles: Record<SupercarModel, EngineProfile> = {
+  classic: engineProfiles.supercar,
+  grand: {
+    idle: 850,
+    redline: 7200,
+    cruiseShift: 2600,
+    upshift: 6800,
+    downshift: 1450,
+    gearTops: [16, 27, 38, 50, 62, 75, 90],
+    shiftSeconds: 0.1,
+    launch: 0.36,
+    revRate: 13,
+  },
+  longtail: {
+    idle: 1050,
+    redline: 8500,
+    cruiseShift: 3100,
+    upshift: 8100,
+    downshift: 1700,
+    gearTops: [17, 28, 39, 51, 64, 77, 92],
+    shiftSeconds: 0.07,
+    launch: 0.4,
+    revRate: 17,
+  },
+  track: {
+    idle: 1100,
+    redline: 9000,
+    cruiseShift: 3400,
+    upshift: 8700,
+    downshift: 1800,
+    gearTops: [16, 27, 38, 50, 62, 75, 89],
+    shiftSeconds: 0.06,
+    launch: 0.42,
+    revRate: 19,
+  },
+}
+
+export function engineProfileFor(settings: Pick<Settings, 'vehicle' | 'supercarModel'>) {
+  return settings.vehicle === 'supercar'
+    ? supercarProfiles[settings.supercarModel]
+    : engineProfiles[settings.vehicle]
 }
 
 export const stickShift = {

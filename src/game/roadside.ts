@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
+import { garageClearing } from './garages'
 import { sharpness } from './graphics'
 import { guardrailAt, roadPoint } from './road'
 import { angleDifference, type World } from './world'
@@ -87,6 +88,7 @@ export function delineators(world: World, start: number, length: number) {
     for (const side of [-1, 1]) {
       if (guardrailAt(world, s, side)) continue
       const point = roadPoint(road, s, side * postOffset)
+      if (garageClearing(world, point.x, point.s)) continue
       const ground = world.height(point.x, point.s)
       if (ground < road.y - 1.2) continue
       spots.push({ x: point.x, y: ground, s: point.s })
@@ -121,6 +123,7 @@ export function chevrons(world: World, start: number, length: number) {
     if (guardrailAt(world, s, side)) continue
     const road = world.road(s)
     const point = roadPoint(road, s, side * chevronOffset)
+    if (garageClearing(world, point.x, point.s)) continue
     const ground = world.height(point.x, point.s)
     if (ground < road.y - 1.5) continue
     feet.push({ x: point.x, s: point.s })
