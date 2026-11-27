@@ -15,8 +15,16 @@ function groundResistance(wheel: WheelState, speed: number) {
   return drag.base + speed * drag.linear + speed ** 4 * drag.quartic
 }
 const longitudinalShare = { minimum: 0.6, maximum: 1, holdSpeed: 0.5 }
-export const antilock = { reach: 1.3, peak: 0.9, rearShare: 0.75 }
-export const breakaway = { lockGrip: 0.95, spinGrip: 0.8, spinLateral: 0.3, spinSurface: 7 }
+export const antilock = { reach: 1.3, peak: 0.9, rearShare: 0.75, valveShare: 0.3 }
+export const breakaway = { spinGrip: 0.8, spinLateral: 0.3, spinSurface: 7 }
+export const lockedGrip = { dry: 0.82, wet: 0.66, snow: 0.8 }
+
+function slidingGrip(settings: Pick<Settings, 'season' | 'weather'>) {
+  if (settings.season === 'winter') return lockedGrip.snow
+  return settings.weather === 'rain' || settings.weather === 'storm'
+    ? lockedGrip.wet
+    : lockedGrip.dry
+}
 export interface TireResult {
   forward: number
   lateral: number
@@ -189,6 +197,8 @@ export function solveTires(
   const reach = brake > 0 ? antilock.reach : 1
   const ceiling =
     brake > 0 ? reach * (settings.antilock ? antilock.peak : 1) : longitudinalShare.maximum
+  const lockGrip = slidingGrip(settings)
+  const rearShare = settings.antilock && settings.brakeDistribution ? antilock.rearShare : 1
   let antilockActive = false
   let tractionActive = false
   const centripetal = Math.max(
@@ -203,7 +213,7 @@ export function solveTires(
       capacity *
       longitudinalLimit(
         centripetal / (surfaceGrip(settings, wheel.onRoad, wheel.sand) * 9.81),
-        brake > 0 && !wheel.front && settings.antilock ? ceiling * antilock.rearShare : ceiling,
+        brake > 0 && !wheel.front ? ceiling * rearShare : ceiling,
       )
     const driveImpulse = driven(metrics.drivetrain, wheel)
       ? (drive * metrics.mass * wheel.load * dt) / Math.max(drivenLoad, 1)
@@ -228,14 +238,19 @@ export function solveTires(
       0.1 +
       metrics.rollingResistance * Math.abs(motion.longitudinal) +
       wheel.puddle * (standingWater.drag + standingWater.surge * motion.longitudinal ** 2)
-    const brakeDemand = brake * metrics.mass * (brakeShare[i] ?? 0) * dt
+    const brakeDemand = Math.min(
+      brake * metrics.mass * (brakeShare[i] ?? 0) * dt,
+      settings.brakeDistribution || wheel.front
+        ? Number.POSITIVE_INFINITY
+        : capacity * antilock.reach * antilock.valveShare,
+    )
     const holding = Math.abs(motion.longitudinal) < longitudinalShare.holdSpeed
     const clamping = quarterMass * rolling * dt + brakeDemand - Math.abs(driveImpulse)
     wheel.skidding =
       brake > 0 &&
       !settings.antilock &&
       !holding &&
-      clamping > (wheel.skidding ? capacity * breakaway.lockGrip : share)
+      clamping > (wheel.skidding ? capacity * lockGrip : share)
     if (brake > 0 && settings.antilock && !holding && clamping > share) antilockActive = true
     const resistance = Math.min(quarterMass * rolling * dt + brakeDemand, brakeLimit)
     wheel.locked ||= wheel.skidding || (brake > 0 && holding && clamping >= capacity)
@@ -276,7 +291,7 @@ export function solveTires(
         solveLockedTire(
           pose,
           wheel,
-          wheel.skidding ? capacity * breakaway.lockGrip : capacity,
+          wheel.skidding ? capacity * lockGrip : capacity,
           inverseMass,
           inverseInertia,
         )

@@ -67,6 +67,18 @@ function launch(settings: Settings) {
   return { time, spinning, traction, turning }
 }
 
+function corner(settings: Settings, speed: number, input: Partial<Input>, seconds: number) {
+  const body = car(settings)
+  body.speed = speed
+  let slip = 0
+  for (let frame = 0; frame < 120 * seconds; frame++) {
+    body.update(step, { ...coast, steeringSource: 'analog', ...input }, settings)
+    if (Math.abs(body.speed) > 2)
+      slip = Math.max(slip, Math.abs(Math.atan2(body.lateralSpeed, Math.abs(body.speed))))
+  }
+  return { slip, yaw: body.yaw }
+}
+
 describe('drivetrain', () => {
   test.each(vehicles)('%s puts power through its driven wheels only', (vehicle) => {
     const settings = { ...defaults, vehicle }
@@ -137,11 +149,40 @@ describe('traction control', () => {
     expect(loose.slide).toBeGreaterThan(controlled.slide)
     expect(loose.correction).toBeGreaterThan(controlled.correction * 2)
   })
+
+  test.each(['touring', 'roadster', 'motorcycle'] as Vehicle[])(
+    '%s swings its tail wide under power in a bend without traction control, and is still caught',
+    (vehicle) => {
+      const settings = { ...defaults, vehicle }
+      const power = { throttle: 1, steer: 0.5 }
+      const controlled = corner(settings, 12, power, 3)
+      const loose = corner({ ...settings, tractionControl: false }, 12, power, 3)
+      expect(controlled.slip).toBeLessThan(0.15)
+      expect(loose.slip).toBeGreaterThan(0.25)
+      expect(loose.slip).toBeLessThan(0.7)
+    },
+  )
+
+  test('the front drive hatchback runs wide under power without traction control', () => {
+    const settings: Settings = { ...defaults, vehicle: 'hatchback' }
+    const power = { throttle: 1, steer: 0.5 }
+    const controlled = corner(settings, 12, power, 3)
+    const loose = corner({ ...settings, tractionControl: false }, 12, power, 3)
+    expect(Math.abs(loose.yaw)).toBeLessThan(Math.abs(controlled.yaw) * 0.7)
+  })
+
+  test.each(vehicles)('%s corners tidily off the throttle with traction control off', (vehicle) => {
+    for (const steer of [0.2, 0.4])
+      expect(
+        corner({ ...defaults, vehicle, tractionControl: false }, 25, { throttle: 0.3, steer }, 4)
+          .slip,
+      ).toBeLessThan(0.15)
+  })
 })
 
 describe('antilock brakes', () => {
   test.each(overpoweredBrakes)(
-    '%s locks its wheels and stops longer without antilock, yet not absurdly so',
+    '%s locks its wheels and stops a quarter or more longer without antilock',
     (vehicle) => {
       const settings = { ...defaults, vehicle }
       const assisted = stop(settings)
@@ -150,10 +191,17 @@ describe('antilock brakes', () => {
       expect(assisted.antilock).toBeGreaterThan(60)
       expect(locked.skidding).toBeGreaterThan(120)
       expect(locked.antilock).toBe(0)
-      expect(locked.distance).toBeGreaterThan(assisted.distance * 1.08)
-      expect(locked.distance).toBeLessThan(assisted.distance * 1.25)
+      expect(locked.distance).toBeGreaterThan(assisted.distance * 1.2)
+      expect(locked.distance).toBeLessThan(assisted.distance * 1.45)
     },
   )
+
+  test.each(vehicles)('%s needs far more road on a wet road without antilock', (vehicle) => {
+    const settings: Settings = { ...defaults, vehicle, weather: 'rain' }
+    const assisted = stop(settings)
+    const locked = stop({ ...settings, antilock: false })
+    expect(locked.distance).toBeGreaterThan(assisted.distance * 1.35)
+  })
 
   test.each(overpoweredBrakes.filter((vehicle) => vehicle !== 'motorcycle'))(
     '%s steers while braking with antilock but ploughs straight on locked wheels',
@@ -189,14 +237,22 @@ describe('brake force distribution', () => {
     },
   )
 
-  test.each(fourWheeled.filter((vehicle) => vehicle !== 'bus'))(
-    '%s keeps the rear wheels rolling under firm braking without antilock',
+  test.each(fourWheeled)(
+    '%s stops noticeably longer in a straight line without brake force distribution',
     (vehicle) => {
-      const settings: Settings = { ...defaults, vehicle, antilock: false }
-      expect(stop(settings, 0.7, 0, 80).rearSkidding).toBe(0)
-      expect(
-        stop({ ...settings, brakeDistribution: false }, 0.7, 0, 80).rearSkidding,
-      ).toBeGreaterThan(60)
+      const settings = { ...defaults, vehicle }
+      expect(stop({ ...settings, brakeDistribution: false }).distance).toBeGreaterThan(
+        stop(settings).distance * 1.05,
+      )
+    },
+  )
+
+  test.each(overpoweredBrakes)(
+    '%s locks the front wheels first on the fixed split when antilock is off too',
+    (vehicle) => {
+      const fixed = stop({ ...defaults, vehicle, antilock: false, brakeDistribution: false })
+      expect(fixed.skidding).toBeGreaterThan(60)
+      expect(fixed.rearSkidding).toBe(0)
     },
   )
 })

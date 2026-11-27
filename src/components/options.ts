@@ -165,19 +165,19 @@ export const driverAids = [
     id: 'antilock',
     label: 'Antilock brakes (ABS)',
     description:
-      'Keeps the wheels turning under hard braking so the car still steers. Without it a firm stop locks the wheels, the car slides straight on and needs noticeably more road to stop.',
+      'Keeps the wheels turning under hard braking so the car still steers. Without it a firm stop locks the wheels: the car slides straight on and needs about a quarter more road when dry and half as much again in the rain.',
   },
   {
     id: 'brakeDistribution',
     label: 'Brake force distribution (EBD)',
     description:
-      'Shares the braking between the wheels by the weight each one carries, so the light inside and rear wheels do not give up first in a bend. Without it the brakes split at a fixed front to rear ratio.',
+      'Shares the braking between the wheels by the weight each one carries. Without it the brakes split at a fixed ratio that holds the rear well back, so every stop takes about a tenth longer and the front wheels lock first.',
   },
   {
     id: 'tractionControl',
     label: 'Traction control (TCS)',
     description:
-      'Eases the power when the driven wheels start to spin. Without it full throttle on a wet road, snow or loose ground spins the wheels, smokes the tyres and can step the tail out.',
+      'Eases the power when the driven wheels start to spin. Without it full throttle spins them up and smokes the tyres: a rear drive car swings its tail wide in a bend and a front drive car runs wide.',
   },
 ] as const
 export const drivetrainNote: Record<Vehicle, string> = {

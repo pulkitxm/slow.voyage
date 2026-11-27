@@ -65,6 +65,7 @@ export const collisionSound = { minimumApproach: 0.8, fullApproach: 10 }
 const gripSteeringShare = 1.5
 const shudder = 0.12
 export const aidLamps = { hold: 0.3, stability: 0.6 }
+export const feathering = { ease: 3, recover: 0.4, floor: 0.3 }
 
 export class CarPhysics {
   x = 0
@@ -104,6 +105,7 @@ export class CarPhysics {
   antilockLamp = 0
   tractionLamp = 0
   stabilityLamp = 0
+  feather = 1
   deflection = 0
   tireSteeringLimit = Number.POSITIVE_INFINITY
   trunks: (s: number, x: number) => Iterable<Trunk> = () => []
@@ -134,6 +136,7 @@ export class CarPhysics {
       this.tractionLamp =
       this.stabilityLamp =
         0
+    this.feather = 1
     this.gearbox.reset()
     this.suspension.reset(this)
   }
@@ -196,21 +199,23 @@ export class CarPhysics {
         0,
       ),
     )
-    return {
-      ...cruisePedals(
-        this.speed,
-        safeSpeed,
-        metrics,
-        settings.power,
-        traction,
-        Math.max(
-          Math.sqrt(Math.max(0, traction * traction - (this.yawRate * this.speed) ** 2)) * 0.9,
-          Math.abs(this.speed) > Math.abs(safeSpeed) + 2 ? traction * 0.5 : 0,
-        ),
-        surface.onRoad,
-        -Math.sin(this.yaw) * surface.slopeX + Math.cos(this.yaw) * surface.slopeS,
-        reverseDriveFactor(this.speed, this.driveForce, metrics),
+    const pedals = cruisePedals(
+      this.speed,
+      safeSpeed,
+      metrics,
+      settings.power,
+      traction,
+      Math.max(
+        Math.sqrt(Math.max(0, traction * traction - (this.yawRate * this.speed) ** 2)) * 0.9,
+        Math.abs(this.speed) > Math.abs(safeSpeed) + 2 ? traction * 0.5 : 0,
       ),
+      surface.onRoad,
+      -Math.sin(this.yaw) * surface.slopeX + Math.cos(this.yaw) * surface.slopeS,
+      reverseDriveFactor(this.speed, this.driveForce, metrics),
+    )
+    return {
+      ...pedals,
+      throttle: pedals.throttle * this.feather,
       steer: clamp(steer, -1, 1),
       steeringSource: 'automatic',
       handbrake: false,
@@ -292,7 +297,8 @@ export class CarPhysics {
       this.brakeForce,
       handbrake,
     )
-    if (!handbrake) {
+    const skidding = this.suspension.wheels.some((wheel) => wheel.skidding)
+    if (!handbrake && !skidding) {
       const grounded = this.suspension.wheels.filter((wheel) => wheel.contact)
       const traction = grounded.length
         ? (grounded.reduce(
@@ -302,9 +308,14 @@ export class CarPhysics {
             this.suspension.wheels.length) *
           9.81
         : 0
-      const steerable = !this.suspension.wheels.some((wheel) => wheel.front && wheel.skidding)
-      this.stability = stabilize(this, traction, vehicle.wheelbase, dt, brake > 0, steerable)
+      this.stability = stabilize(this, traction, vehicle.wheelbase, dt, {
+        braking: brake > 0,
+        sport: this.suspension.wheels.some((wheel) => wheel.spinning),
+      })
     } else this.stability = 0
+    this.feather = this.suspension.wheels.some((wheel) => wheel.spinning)
+      ? Math.max(feathering.floor, this.feather - feathering.ease * dt)
+      : Math.min(1, this.feather + feathering.recover * dt)
     this.antilockLamp = acceleration.antilock ? aidLamps.hold : Math.max(0, this.antilockLamp - dt)
     this.tractionLamp = acceleration.traction ? aidLamps.hold : Math.max(0, this.tractionLamp - dt)
     this.stabilityLamp =

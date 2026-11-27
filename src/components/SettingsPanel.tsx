@@ -464,8 +464,9 @@ export function SettingsPanel({
                 </Fragment>
               ))}
               <p>
-                Stability control always stays on. It catches slides and flashes ESC on the
-                dashboard while it works. {drivetrainNote[settings.vehicle]}
+                Stability control always stays on and flashes ESC while it works. It allows a bigger
+                slide while wheels spin with traction control off, and cannot help while a wheel is
+                locked. {drivetrainNote[settings.vehicle]}
               </p>
             </section>
           </>
