@@ -15,7 +15,7 @@
     "brakes": "drum",
     "drive": "front",
     "frontWeight": 61,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#6c757c"
   },
   "ford-mondeo-tdci": {
@@ -34,7 +34,7 @@
     "brakes": "disc",
     "drive": "front",
     "frontWeight": 61,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#33506f"
   },
   "ford-c-max-tdci": {
@@ -53,7 +53,7 @@
     "brakes": "disc",
     "drive": "front",
     "frontWeight": 60,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#7f9382"
   },
   "ford-galaxy-tdci": {
@@ -72,7 +72,7 @@
     "brakes": "disc",
     "drive": "front",
     "frontWeight": 58,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#b3ae9f"
   },
   "ford-transit-connect": {
@@ -91,7 +91,7 @@
     "brakes": "drum",
     "drive": "front",
     "frontWeight": 58,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#eef0ee"
   },
   "volkswagen-golf-gti": {
@@ -110,7 +110,7 @@
     "brakes": "vented",
     "drive": "front",
     "frontWeight": 61,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#b3141d"
   },
   "skoda-octavia-rs": {
@@ -129,7 +129,7 @@
     "brakes": "vented",
     "drive": "front",
     "frontWeight": 61,
-    "estimated": [],
+    "estimated": ["frontWeight"],
     "paint": "#1765b5"
   },
   "seat-leon-cupra": {
@@ -148,7 +148,7 @@
     "brakes": "sport",
     "drive": "front",
     "frontWeight": 61,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#a81a1e"
   },
   "audi-a3-2-0-tfsi": {
@@ -167,7 +167,7 @@
     "brakes": "vented",
     "drive": "front",
     "frontWeight": 60,
-    "estimated": ["clearance"],
+    "estimated": ["clearance", "frontWeight"],
     "paint": "#223f6b"
   },
   "volkswagen-tiguan-2-0-tsi": {
@@ -186,7 +186,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 58,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#b4541e"
   },
   "honda-s2000": {
@@ -205,7 +205,7 @@
     "brakes": "vented",
     "drive": "rear",
     "frontWeight": 50,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#d8d8d6"
   },
   "mazda-rx-8": {
@@ -224,7 +224,7 @@
     "brakes": "vented",
     "drive": "rear",
     "frontWeight": 50,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#a8141d"
   },
   "audi-rs-3": {
@@ -243,7 +243,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 59,
-    "estimated": ["clearance"],
+    "estimated": ["clearance", "frontWeight"],
     "paint": "#5fa038"
   },
   "audi-tt-rs": {
@@ -262,7 +262,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 59,
-    "estimated": ["clearance"],
+    "estimated": ["clearance", "frontWeight"],
     "paint": "#1c78c8"
   },
   "audi-rs-q3": {
@@ -281,7 +281,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 58,
-    "estimated": ["clearance"],
+    "estimated": ["clearance", "frontWeight"],
     "paint": "#787b7d"
   },
   "cupra-formentor-vz5": {
@@ -300,7 +300,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 58,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#34505c"
   },
   "bmw-m3": {
@@ -319,7 +319,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 52,
-    "estimated": [],
+    "estimated": ["frontWeight"],
     "paint": "#0f4a36"
   },
   "bmw-m4": {
@@ -338,7 +338,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 52,
-    "estimated": [],
+    "estimated": ["frontWeight"],
     "paint": "#d4c81c"
   },
   "bmw-m2": {
@@ -357,7 +357,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 52,
-    "estimated": [],
+    "estimated": ["frontWeight"],
     "paint": "#5b9bd1"
   },
   "bmw-x3-m": {
@@ -376,7 +376,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 52,
-    "estimated": ["clearance"],
+    "estimated": ["clearance", "frontWeight"],
     "paint": "#a3201c"
   },
   "bmw-x4-m": {
@@ -395,7 +395,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 52,
-    "estimated": ["clearance"],
+    "estimated": ["clearance", "frontWeight"],
     "paint": "#0e6aa8"
   },
   "porsche-911-gt3": {
@@ -414,7 +414,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 39,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#2274b8"
   },
   "porsche-911-gt3-touring": {
@@ -433,7 +433,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 39,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#5a5e62"
   },
   "porsche-911-speedster": {
@@ -452,7 +452,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 39,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#a4a9ad"
   },
   "porsche-718-cayman-gt4-rs": {
@@ -471,7 +471,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 45,
-    "estimated": ["frontOverhang", "track"],
+    "estimated": ["frontOverhang", "track", "frontWeight"],
     "paint": "#eec20f"
   },
   "porsche-718-spyder-rs": {
@@ -490,7 +490,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 45,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#8d979d"
   },
   "ford-mustang-gt": {
@@ -509,7 +509,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 53,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#c4161c"
   },
   "ford-mustang-bullitt": {
@@ -528,7 +528,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 53,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#1c3a2a"
   },
   "ford-mustang-mach-1": {
@@ -547,7 +547,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 53,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#5e6b73"
   },
   "ford-f-150-5-0": {
@@ -566,7 +566,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 57,
-    "estimated": [],
+    "estimated": ["frontWeight"],
     "paint": "#1f4f9a"
   },
   "dodge-challenger-srt-hellcat": {
@@ -585,7 +585,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 57,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#cf1a20"
   },
   "dodge-charger-srt-hellcat": {
@@ -604,7 +604,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 56,
-    "estimated": ["width", "frontOverhang", "track"],
+    "estimated": ["width", "frontOverhang", "track", "frontWeight"],
     "paint": "#4f2c82"
   },
   "dodge-durango-srt-hellcat": {
@@ -623,7 +623,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 55,
-    "estimated": ["width", "height", "frontOverhang"],
+    "estimated": ["width", "height", "frontOverhang", "frontWeight"],
     "paint": "#1f3f93"
   },
   "jeep-grand-cherokee-trackhawk": {
@@ -642,7 +642,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 55,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#a8171c"
   },
   "ram-1500-trx": {
@@ -661,7 +661,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 57,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#70777d"
   },
   "ferrari-f8-tributo": {
@@ -680,7 +680,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 41,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#c1121c"
   },
   "ferrari-488-gtb": {
@@ -699,7 +699,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 42,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#a80f1a"
   },
   "ferrari-488-pista": {
@@ -718,7 +718,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 42,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#c1121c"
   },
   "ferrari-roma": {
@@ -737,7 +737,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 50,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#3f4b5e"
   },
   "ferrari-portofino": {
@@ -756,7 +756,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 47,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#9e1b22"
   },
   "lamborghini-huracan": {
@@ -775,7 +775,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#f2741c"
   },
   "lamborghini-huracan-sto": {
@@ -794,7 +794,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 41,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#3f8fd6"
   },
   "audi-r8-v10": {
@@ -813,7 +813,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 42,
-    "estimated": ["clearance"],
+    "estimated": ["clearance", "frontWeight"],
     "paint": "#e3bd12"
   },
   "lamborghini-aventador-svj": {
@@ -832,7 +832,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": [],
+    "estimated": ["frontWeight"],
     "paint": "#6f8f2c"
   },
   "lamborghini-aventador-s": {
@@ -851,7 +851,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#f4c20d"
   },
   "lamborghini-sian": {
@@ -870,7 +870,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#2f5a39"
   },
   "lamborghini-countach-lpi-800-4": {
@@ -889,7 +889,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#f0f0ec"
   },
   "bugatti-chiron": {
@@ -908,7 +908,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#1f58c7"
   },
   "bugatti-chiron-super-sport-300": {
@@ -927,7 +927,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["frontOverhang"],
+    "estimated": ["frontOverhang", "frontWeight"],
     "paint": "#1b1c1f"
   },
   "bugatti-divo": {
@@ -946,7 +946,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#8e959b"
   },
   "bugatti-centodieci": {
@@ -965,7 +965,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 43,
-    "estimated": ["wheelbase", "frontOverhang", "clearance"],
+    "estimated": ["wheelbase", "frontOverhang", "clearance", "frontWeight"],
     "paint": "#f2f2ef"
   },
   "bugatti-veyron": {
@@ -984,7 +984,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 45,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#b8131f"
   },
   "ford-fiesta-ecoboost": {
@@ -1003,7 +1003,7 @@
     "brakes": "drum",
     "drive": "front",
     "frontWeight": 62,
-    "estimated": ["frontOverhang", "track", "clearance", "mass"],
+    "estimated": ["frontOverhang", "track", "clearance", "mass", "frontWeight"],
     "paint": "#1f77b8"
   },
   "ford-focus-ecoboost": {
@@ -1022,7 +1022,7 @@
     "brakes": "disc",
     "drive": "front",
     "frontWeight": 60,
-    "estimated": ["frontOverhang", "track", "clearance", "mass"],
+    "estimated": ["frontOverhang", "track", "clearance", "mass", "frontWeight"],
     "paint": "#4a4e53"
   },
   "ford-ecosport": {
@@ -1041,7 +1041,7 @@
     "brakes": "drum",
     "drive": "front",
     "frontWeight": 60,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#a8612f"
   },
   "ford-puma": {
@@ -1060,7 +1060,7 @@
     "brakes": "disc",
     "drive": "front",
     "frontWeight": 60,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#5aa0b5"
   },
   "audi-a6-3-0-tdi": {
@@ -1079,7 +1079,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 57,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#25344d"
   },
   "audi-a8-3-0-tdi": {
@@ -1098,7 +1098,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 56,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#6e6a63"
   },
   "audi-q7-3-0-tdi": {
@@ -1117,7 +1117,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 55,
-    "estimated": ["frontOverhang", "track", "clearance", "mass"],
+    "estimated": ["frontOverhang", "track", "clearance", "mass", "frontWeight"],
     "paint": "#2a3c5c"
   },
   "volkswagen-touareg-v6-tdi": {
@@ -1136,7 +1136,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 55,
-    "estimated": ["frontOverhang", "track", "clearance", "mass"],
+    "estimated": ["frontOverhang", "track", "clearance", "mass", "frontWeight"],
     "paint": "#a7aaac"
   },
   "porsche-cayenne-diesel": {
@@ -1155,7 +1155,7 @@
     "brakes": "vented",
     "drive": "all",
     "frontWeight": 55,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#8e8b84"
   },
   "nissan-skyline-gt-r-r34": {
@@ -1174,7 +1174,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 55,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#1d4fa3"
   },
   "nissan-skyline-gt-r-r33": {
@@ -1193,7 +1193,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 56,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#3a2a5c"
   },
   "nissan-skyline-gt-r-r32": {
@@ -1212,7 +1212,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 59,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#565a5f"
   },
   "subaru-wrx-sti": {
@@ -1231,7 +1231,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 60,
-    "estimated": ["frontOverhang", "track", "clearance", "mass"],
+    "estimated": ["frontOverhang", "track", "clearance", "mass", "frontWeight"],
     "paint": "#0c3c9c"
   },
   "subaru-impreza-wrx-sti": {
@@ -1250,7 +1250,16 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 59,
-    "estimated": ["length", "height", "wheelbase", "frontOverhang", "track", "clearance", "mass"],
+    "estimated": [
+      "length",
+      "height",
+      "wheelbase",
+      "frontOverhang",
+      "track",
+      "clearance",
+      "mass",
+      "frontWeight"
+    ],
     "paint": "#143d99"
   },
   "chevrolet-corvette-z06-c6": {
@@ -1269,7 +1278,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 51,
-    "estimated": ["length", "width", "frontOverhang", "track", "clearance"],
+    "estimated": ["length", "width", "frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#f0c319"
   },
   "chevrolet-camaro-z-28": {
@@ -1288,7 +1297,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 52,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#e8e8e3"
   },
   "nissan-gt-r-r35": {
@@ -1307,7 +1316,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 54,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#c9571e"
   },
   "nissan-gt-r-nismo": {
@@ -1326,7 +1335,7 @@
     "brakes": "ceramic",
     "drive": "all",
     "frontWeight": 54,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#e8e8e4"
   },
   "mercedes-amg-gt-r": {
@@ -1345,7 +1354,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 47,
-    "estimated": ["width", "frontOverhang", "clearance"],
+    "estimated": ["width", "frontOverhang", "clearance", "frontWeight"],
     "paint": "#3f8128"
   },
   "mercedes-amg-gt": {
@@ -1364,7 +1373,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 47,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#f0c010"
   },
   "mercedes-amg-c-63": {
@@ -1383,7 +1392,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 53,
-    "estimated": ["length", "width", "frontOverhang", "track", "clearance"],
+    "estimated": ["length", "width", "frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#62676b"
   },
   "mercedes-amg-e-63": {
@@ -1402,7 +1411,7 @@
     "brakes": "sport",
     "drive": "all",
     "frontWeight": 54,
-    "estimated": ["length", "height", "frontOverhang", "track", "clearance", "mass"],
+    "estimated": ["length", "height", "frontOverhang", "track", "clearance", "mass", "frontWeight"],
     "paint": "#1a3a80"
   },
   "aston-martin-vantage": {
@@ -1421,7 +1430,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 50,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#b5cf1a"
   },
   "aston-martin-db11-v8": {
@@ -1440,7 +1449,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 49,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#8fa6b2"
   },
   "ferrari-458-italia": {
@@ -1459,7 +1468,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 42,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#c1121c"
   },
   "ferrari-458-spider": {
@@ -1478,7 +1487,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 42,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#f4c20d"
   },
   "ferrari-458-speciale": {
@@ -1497,7 +1506,7 @@
     "brakes": "ceramic",
     "drive": "rear",
     "frontWeight": 42,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#c1121c"
   },
   "mclaren-f1": {
@@ -1516,7 +1525,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 42,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#8f9396"
   },
   "mclaren-f1-lm": {
@@ -1535,7 +1544,7 @@
     "brakes": "sport",
     "drive": "rear",
     "frontWeight": 42,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#f27a14"
   },
   "mclaren-f1-gtr": {
@@ -1555,7 +1564,7 @@
     "drive": "rear",
     "frontWeight": 42,
     "slicks": true,
-    "estimated": ["width", "frontOverhang", "tyres", "clearance"],
+    "estimated": ["width", "frontOverhang", "tyres", "clearance", "frontWeight"],
     "paint": "#33363a"
   },
   "mazda-787b": {
@@ -1575,7 +1584,7 @@
     "drive": "rear",
     "frontWeight": 45,
     "slicks": true,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#f26a1c"
   },
   "mazda-787": {
@@ -1595,7 +1604,7 @@
     "drive": "rear",
     "frontWeight": 45,
     "slicks": true,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#eef0ec"
   },
   "ferrari-f2004": {
@@ -1615,7 +1624,7 @@
     "drive": "rear",
     "frontWeight": 45,
     "slicks": true,
-    "estimated": ["frontOverhang", "clearance"],
+    "estimated": ["frontOverhang", "clearance", "frontWeight"],
     "paint": "#c8141c"
   },
   "williams-fw26-bmw": {
@@ -1635,7 +1644,7 @@
     "drive": "rear",
     "frontWeight": 45,
     "slicks": true,
-    "estimated": ["length", "wheelbase", "frontOverhang", "track", "clearance"],
+    "estimated": ["length", "wheelbase", "frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#f3f3ef"
   },
   "mclaren-mp4-20-mercedes": {
@@ -1655,7 +1664,7 @@
     "drive": "rear",
     "frontWeight": 45,
     "slicks": true,
-    "estimated": ["frontOverhang", "track", "clearance"],
+    "estimated": ["frontOverhang", "track", "clearance", "frontWeight"],
     "paint": "#b4b8bc"
   }
 }
