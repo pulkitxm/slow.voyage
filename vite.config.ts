@@ -4,7 +4,12 @@ import { defineConfig } from 'vite'
 import { reviewFiles } from './scripts/review-plugin.ts'
 
 export default defineConfig({
-  server: { host: '0.0.0.0', port: 3002, strictPort: true },
+  server: {
+    host: '0.0.0.0',
+    port: 3002,
+    strictPort: true,
+    watch: { ignored: ['**/.review/**'] },
+  },
   plugins: [
     reviewFiles(),
     tanstackStart({

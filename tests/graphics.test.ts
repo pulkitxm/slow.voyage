@@ -256,7 +256,12 @@ test('software cockpit changes retain textures and avoid rebuilding world shader
           const linksBefore = await page.evaluate(() =>
             (window as unknown as { graphicsLinks: () => number }).graphicsLinks(),
           )
-          await page.locator('.vehicle-options').getByRole('button', { name: label }).click()
+          await page
+            .locator('.engine-pickers .engine-dropdown')
+            .first()
+            .locator('.engine-current')
+            .click()
+          await page.locator('.engine-popover .engine-option', { hasText: label }).first().click()
           await page.getByRole('tab', { name: 'display', exact: true }).click()
           await page
             .getByRole('button', {

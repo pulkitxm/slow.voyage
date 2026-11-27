@@ -8,11 +8,9 @@ import {
   Car,
   CarFront,
   CarTaxiFront,
-  ChevronDown,
   ChevronRight,
   CircleHelp,
   Expand,
-  Keyboard,
   Motorbike,
   Mountain,
   Pause,
@@ -26,22 +24,23 @@ import {
   Zap,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import { MouseBar, RoadFinder, Speed, Trip, TurnBack } from './components/Dashboard'
+import { Cluster, MouseBar, RoadFinder, Speed, Trip, TurnBack } from './components/Dashboard'
 import { Help } from './components/Help'
 import { IconButton } from './components/IconButton'
 import { Modal } from './components/Modal'
-import { daylight, landscapes } from './components/options'
 import { SettingsPanel } from './components/SettingsPanel'
+import { bodyFor } from './game/car-bodies'
 import { assistanceLabels } from './game/controls'
+import { fitCar } from './game/engines'
 import { minimapLayout } from './game/minimap'
 import { vehicleNames } from './game/vehicles'
 import type { Vehicle } from './game/world'
 import { useDrive } from './useDrive'
 
 const loadingCopy: Record<string, string> = {
-  stone: 'Gathering stone and soil',
-  hills: 'Painting the hills',
-  light: 'Mixing the light',
+  stone: 'Shaping the land',
+  hills: 'Planting the hills',
+  light: 'Setting the light',
 }
 
 const vehicleIcons: Record<Vehicle, typeof Car> = {
@@ -73,12 +72,12 @@ export function Drive() {
     tab,
     setTab,
     offline,
-    online,
     error,
     setError,
     toast,
     announce,
     update,
+    apply,
     start,
     pause,
     toggleAuto,
@@ -93,6 +92,16 @@ export function Drive() {
   const VehicleIcon = vehicleIcons[settings.vehicle]
   const root = useRef<HTMLElement>(null)
   useEffect(() => {
+    const release = (event: MouseEvent) => {
+      if (event.detail === 0 || !(event.target instanceof Element)) return
+      const control = event.target.closest('button, a')
+      if (control instanceof HTMLElement && !control.closest('.settings-panel, dialog'))
+        control.blur()
+    }
+    document.addEventListener('click', release)
+    return () => document.removeEventListener('click', release)
+  }, [])
+  useEffect(() => {
     const apply = () => {
       const node = root.current
       if (!node) return
@@ -103,8 +112,6 @@ export function Drive() {
     return telemetry.subscribe(apply)
   }, [telemetry])
   const mapUnit = settings.units === 'km' ? 1000 : 1609.344
-  const sky = daylight.find((item) => item.id === settings.daylight) ?? daylight[1]
-  const landscape = landscapes.find((x) => x.id === settings.landscape) ?? landscapes[0]
   return (
     <main
       ref={root}
@@ -126,40 +133,16 @@ export function Drive() {
         <MouseBar store={telemetry} />
       )}
       <header className="topbar">
-        {!started && (
-          <>
-            <a href="/" className="brand" aria-label="slow.voyage home">
-              slow.voyage<span>TAKE THE LONG WAY HOME</span>
-            </a>
-            <div className="location">
-              <span className="location-dot" />
-              <span>{landscape.title}</span>
-              <span className="location-divider" />
-              <span>{sky.mood}</span>
-            </div>
-          </>
-        )}
         <div className="top-actions">
-          {!started && (
-            <span
-              className="offline-status"
-              title={
-                offline
-                  ? 'Ready to play without an internet connection'
-                  : online
-                    ? 'Everything runs on your device'
-                    : 'You are offline'
-              }
-            >
+          {!started && offline && (
+            <span className="offline-status" title="Ready to play without an internet connection">
               <span className="status-dot" />
-              {offline ? 'Offline ready' : online ? 'Online' : 'Offline'}
+              Offline ready
             </span>
           )}
-          {started && (
-            <IconButton label="Driving controls" onClick={() => setHelp(true)}>
-              <CircleHelp />
-            </IconButton>
-          )}
+          <IconButton label="Driving controls" onClick={() => setHelp(true)}>
+            <CircleHelp />
+          </IconButton>
           <IconButton label={settings.volume ? 'Mute sound' : 'Unmute sound'} onClick={toggleMute}>
             {settings.volume ? <Volume2 /> : <VolumeX />}
           </IconButton>
@@ -176,88 +159,61 @@ export function Drive() {
         </div>
       </header>
       {!started && (
-        <section className="intro" aria-label="Welcome to slow.voyage">
-          <div className="eyebrow">
-            <span />
-            NO DESTINATION. NO HURRY.
+        <>
+          <div className={`welcome-sky ${ready ? 'is-ready' : ''}`} aria-hidden="true">
+            <span className="welcome-glow" />
+            <span className="welcome-cloud" />
+            <span className="welcome-land" />
           </div>
-          <h1>
-            A little further.
-            <br />
-            <span>A little slower.</span>
-          </h1>
-          <p>
-            Find a little space between everything.
-            <br />
-            An endless road, and all the time in the world.
-          </p>
-          <div className="start-actions">
-            <button
-              type="button"
-              className="primary-button"
-              disabled={!ready}
-              onClick={() => start()}
-            >
-              <span>{ready ? 'Start driving' : 'Preparing the road...'}</span>
-              <ArrowUpRight size={19} />
-            </button>
-            <button
-              type="button"
-              className="text-button"
-              disabled={!ready}
-              onClick={() => start(true)}
-            >
-              Or, just enjoy the ride <ChevronRight size={14} />
-            </button>
-          </div>
-          {!ready && (
-            <div
-              className="world-loader"
-              role="progressbar"
-              aria-label="Preparing the world"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(loading.fraction * 100)}
-            >
-              <div>
-                <span style={{ width: `${Math.round(loading.fraction * 100)}%` }} />
-              </div>
-              <em>{loadingCopy[loading.stage] ?? loadingCopy.stone}</em>
-            </div>
-          )}
-          <div className="intro-controls">
-            <Keyboard size={16} />
-            <span>WASD or arrow keys to drive</span>
-            <span className="tiny-dot" />
-            <span>F for autodrive</span>
-          </div>
-        </section>
-      )}
-      {!started && (
-        <div className="journey-preview">
-          <span className="eyebrow">YOUR ROAD AWAITS</span>
-          <button
-            type="button"
-            className="journey-card"
-            onClick={() => {
-              setTab('journey')
-              setPanel(true)
-            }}
+          <section
+            className={`intro ${ready ? 'is-ready' : 'is-loading'}`}
+            aria-label="Welcome to slow.voyage"
           >
-            <div className={`landscape-preview ${settings.landscape}`}>
-              <span className="mini-mountain" />
-              <span className="mini-road" />
+            <h1 className="wordmark">slow.voyage</h1>
+            <p>An endless road with no destination. Drive it, or sit back and watch.</p>
+            <div className="start-actions">
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!ready}
+                aria-busy={!ready}
+                onClick={() => start()}
+              >
+                {!ready && (
+                  <span
+                    className="button-fill"
+                    style={{ transform: `scaleX(${Math.max(0.04, loading.fraction)})` }}
+                  />
+                )}
+                <span>
+                  {ready
+                    ? 'Start driving'
+                    : `${loadingCopy[loading.stage] ?? loadingCopy.stone} ${Math.round(loading.fraction * 100)}%`}
+                </span>
+                {ready && <ArrowUpRight size={18} />}
+              </button>
+              <button
+                type="button"
+                className="text-button"
+                disabled={!ready}
+                onClick={() => start(true)}
+              >
+                Autodrive <ChevronRight size={15} />
+              </button>
             </div>
-            <div>
-              <span className="journey-title">{landscape.title}</span>
-              <span className="journey-subtitle">
-                {settings.season} <span>·</span> {sky.label}
-              </span>
-            </div>
-            <ChevronDown size={16} />
-          </button>
-          <span className="journey-caption">A different journey, every time.</span>
-        </div>
+            {!ready && (
+              <div
+                className="visually-hidden"
+                role="progressbar"
+                aria-label="Preparing the world"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(loading.fraction * 100)}
+              />
+            )}
+            <p className="intro-hint">WASD or arrow keys to drive · F for autodrive</p>
+          </section>
+        </>
       )}
       {started && (
         <>
@@ -273,12 +229,25 @@ export function Drive() {
           </aside>
           <TurnBack store={telemetry} units={settings.units} />
           <section className="telemetry" aria-label="Driving dashboard">
-            <Speed
-              store={telemetry}
-              units={settings.units}
-              manual={settings.transmission === 'manual'}
-              quiet={state.paused || panel || help}
-            />
+            {settings.tachometer ? (
+              <Cluster
+                store={telemetry}
+                units={settings.units}
+                manual={settings.transmission === 'manual'}
+                quiet={state.paused || panel || help}
+                redline={fitCar(settings).profile.redline}
+                live={() => engine.current?.physics.revs() ?? null}
+                onNeutral={() => engine.current?.toggleNeutral()}
+              />
+            ) : (
+              <Speed
+                store={telemetry}
+                units={settings.units}
+                manual={settings.transmission === 'manual'}
+                quiet={state.paused || panel || help}
+                onNeutral={() => engine.current?.toggleNeutral()}
+              />
+            )}
             <div className="drive-toolbar">
               <IconButton label={state.paused ? 'Resume driving' : 'Pause driving'} onClick={pause}>
                 {state.paused ? <Play /> : <Pause />}
@@ -309,7 +278,7 @@ export function Drive() {
                 <Aperture />
               </IconButton>
               <IconButton
-                label={`Switch vehicle (${vehicleNames[settings.vehicle]})`}
+                label={`Switch vehicle (${bodyFor(settings)?.name ?? vehicleNames[settings.vehicle]})`}
                 onClick={() => cycleVehicle(1)}
               >
                 <VehicleIcon />
@@ -373,20 +342,11 @@ export function Drive() {
           </div>
         </>
       )}
-      {!started && (
-        <footer className="bottom-line">
-          <span>
-            <span className="tiny-dot" /> An endless escape. Right here.
-          </span>
-          <button type="button" onClick={() => setHelp(true)}>
-            <CircleHelp size={14} /> Controls &amp; a little help
-          </button>
-        </footer>
-      )}
       {panel && (
         <SettingsPanel
           settings={settings}
           update={update}
+          apply={apply}
           tab={tab}
           setTab={setTab}
           offline={offline}

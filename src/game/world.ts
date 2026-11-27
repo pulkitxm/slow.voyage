@@ -1,4 +1,5 @@
 import type { ControllerBindings, ControllerMode } from './controller-bindings'
+import type { EngineId } from './engine-catalog'
 import { roadCurve, smoothStep, terrainField } from './field'
 import { groundSurface } from './ground-grid'
 import { type Landscape, landscapeProfiles, passEasing, terraced } from './landscapes'
@@ -6,6 +7,7 @@ import { openSurface } from './open-grid'
 import { roadCoordinates, roadLayout } from './road'
 import { potholeDepth, type RoadWear } from './road-condition'
 
+export { type EngineId, engineIds } from './engine-catalog'
 export type { Landscape } from './landscapes'
 export type Season = 'summer' | 'autumn' | 'winter'
 export type Daylight = 'dawn' | 'day' | 'sunset' | 'dusk' | 'night' | 'cycle'
@@ -48,6 +50,9 @@ export interface Settings {
   life: LifeLevel
   blood: boolean
   vehicle: Vehicle
+  engine: EngineId
+  engineView: 'car' | 'engine'
+  engineCar: string
   camera: CameraMode
   motion: CameraMotion
   transmission: Transmission
@@ -56,6 +61,7 @@ export interface Settings {
   volume: number
   quality: 'ultra' | 'high' | 'low'
   units: 'km' | 'mi'
+  tachometer: boolean
   grip: number
   power: number
   seed: number
@@ -79,6 +85,9 @@ export const defaults: Settings = {
   life: 'lively',
   blood: true,
   vehicle: 'touring',
+  engine: 'stock',
+  engineView: 'car',
+  engineCar: '',
   camera: 'chase',
   motion: 'full',
   transmission: 'automatic',
@@ -87,6 +96,7 @@ export const defaults: Settings = {
   volume: 0.25,
   quality: 'ultra',
   units: 'km',
+  tachometer: false,
   grip: 1,
   power: 1,
   seed: 42,

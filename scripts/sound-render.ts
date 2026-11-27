@@ -1,10 +1,19 @@
 import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
-import { EngineVoice, engineSounds, firingFrequency, soundVehicles } from '../src/game/engine-sound'
-import { engineProfiles } from '../src/game/powertrain'
+import { carSlug } from '../src/game/car-bodies'
+import {
+  type EngineSound,
+  EngineVoice,
+  engineSounds,
+  firingFrequency,
+  soundVehicles,
+} from '../src/game/engine-sound'
+import { engineCatalog, swapEngines } from '../src/game/engines'
+import { type EngineProfile, engineProfiles } from '../src/game/powertrain'
 import { SoundFrame } from '../src/game/sound-frame'
 import { channelIndex, paramIndex, SoundSynth, soundChannels } from '../src/game/sound-synth'
 import { freshAmbience } from '../src/game/soundscape'
+import { type EngineId, engineIds } from '../src/game/world'
 import { browserExecutable } from './browser'
 import {
   decibels,
@@ -26,6 +35,10 @@ const out = option('out') ?? '.review/sound'
 const url = option('url')
 const chosen = option('vehicles')?.split(',') ?? [...soundVehicles]
 const wanted = option('scenarios')?.split(',')
+const engine = (option('engine') ?? 'stock') as EngineId
+const engineCar = option('car') ?? ''
+const carFile = engineCar && carSlug(engineCar)
+if (!engineIds.includes(engine)) throw new Error(`Unknown engine ${engine}`)
 await mkdir(out, { recursive: true })
 const failures: string[] = []
 const check = (passed: boolean, message: string) => {
@@ -33,10 +46,14 @@ const check = (passed: boolean, message: string) => {
 }
 const report: Record<string, unknown> = {}
 
-function steadyEngine(vehicle: (typeof soundVehicles)[number], rpm: number, load: number) {
-  const profile = engineProfiles[vehicle]
+function steadyEngine(
+  sound: EngineSound,
+  profile: Pick<EngineProfile, 'idle' | 'redline'>,
+  rpm: number,
+  load: number,
+) {
   const engine = new EngineVoice(rate, 1)
-  engine.configure(engineSounds[vehicle])
+  engine.configure(sound)
   engine.steady = true
   engine.idle = profile.idle
   engine.redline = profile.redline
@@ -60,12 +77,22 @@ function steadyEngine(vehicle: (typeof soundVehicles)[number], rpm: number, load
 
 console.log('Engine firing frequencies')
 const firing: Record<string, unknown>[] = []
-for (const vehicle of soundVehicles) {
-  const profile = engineProfiles[vehicle]
-  const sound = engineSounds[vehicle]
+const voices = [
+  ...soundVehicles.map((vehicle) => ({
+    name: vehicle as string,
+    sound: engineSounds[vehicle],
+    profile: engineProfiles[vehicle] as Pick<EngineProfile, 'idle' | 'redline'>,
+  })),
+  ...swapEngines.map((id) => ({
+    name: id as string,
+    sound: engineCatalog[id].sound,
+    profile: engineCatalog[id].profile,
+  })),
+]
+for (const { name: vehicle, sound, profile } of voices) {
   for (const share of [0.15, 0.5, 0.9]) {
     const rpm = Math.round(profile.idle + (profile.redline - profile.idle) * share)
-    const magnitude = steadyEngine(vehicle, rpm, 0.8)
+    const magnitude = steadyEngine(sound, profile, rpm, 0.8)
     const expected = firingFrequency(sound, rpm)
     const found = peakNear(magnitude, rate, expected, 0.03)
     const cycle = rpm / 120
@@ -295,13 +322,13 @@ if (url) {
     if (wanted && !wanted.includes(scenario.name)) continue
     for (const vehicle of scenario.only ? [scenario.only] : chosen) {
       const result = await page.evaluate(
-        async ({ vehicle, name, rate, frameRate, volume }) => {
+        async ({ vehicle, name, engine, engineCar, rate, frameRate, volume }) => {
           const origin = location.origin
           const [{ DriveAudio }, { stage }] = await Promise.all([
             import(`${origin}/src/game/audio.ts`),
             import(`${origin}/scripts/sound-scenarios.ts`),
           ])
-          const { scenario, settings, car, drive } = stage(vehicle, name)
+          const { scenario, settings, car, drive } = stage(vehicle, name, engine, engineCar)
           if (volume) settings.volume = volume
           const context = new OfflineAudioContext(2, rate * scenario.seconds, rate)
           const audio = new DriveAudio()
@@ -345,7 +372,15 @@ if (url) {
             right: encode(rendered.getChannelData(1)),
           }
         },
-        { vehicle, name: scenario.name, rate, frameRate, volume: Number(option('volume') ?? 0) },
+        {
+          vehicle,
+          name: scenario.name,
+          engine,
+          engineCar,
+          rate,
+          frameRate,
+          volume: Number(option('volume') ?? 0),
+        },
       )
       const decode = (text: string) => new Float32Array(Buffer.from(text, 'base64').buffer)
       const left = decode(result.left)
@@ -355,7 +390,9 @@ if (url) {
         mono[i] = ((left[i] as number) + (right[i] as number)) / 2
       const heard = levels(mono)
       const peak = Math.max(levels(left).peak, levels(right).peak)
-      const base = `${out}/${vehicle}-${scenario.name}`
+      const base = carFile
+        ? `${out}/${carFile}-${scenario.name}`
+        : `${out}/${vehicle}-${engine === 'stock' ? '' : `${engine}-`}${scenario.name}`
       await Bun.write(`${base}.wav`, wave([left, right], rate))
       await Bun.write(`${base}.png`, spectrogram(mono, rate))
       check(result.worklet, `${vehicle} ${scenario.name} fell back from the worklet`)

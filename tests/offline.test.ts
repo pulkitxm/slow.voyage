@@ -14,6 +14,7 @@ interface WorkerEvent {
 const handlers = new Map<string, (event: WorkerEvent) => void>()
 const stores = new Map<string, Map<string, Response>>()
 const origin = 'https://roads.example'
+let online = false
 let claimed = false
 let activated = false
 const key = (request: string | RequestLike) =>
@@ -78,11 +79,18 @@ beforeAll(async () => {
             }
           },
           match: async (value: string | RequestLike) => cache.get(key(value))?.clone(),
+          put: async (value: string | RequestLike, response: Response) => {
+            cache.set(key(value), response)
+          },
         }
       },
     },
-    fetch: async () => {
-      throw new Error('Origin is offline')
+    fetch: async (value: RequestLike) => {
+      if (!online) throw new Error('Origin is offline')
+      const file = Bun.file(`dist/client${key(value)}`)
+      return (await file.exists())
+        ? new Response(await file.arrayBuffer())
+        : new Response('', { status: 404 })
     },
     URL,
     Response,
@@ -110,6 +118,31 @@ test('serves a cached script without a network connection', async () => {
   const response = await request(path)
   expect(response?.status).toBe(200)
   expect((await response?.text())?.length).toBeGreaterThan(100)
+})
+test('keeps car bodies out of the install and stores each when first driven', async () => {
+  const cache = Array.from(stores.entries()).find(([name]) => name.startsWith('slow-voyage-'))?.[1]
+  const names = Array.from(new Bun.Glob('assets/*.glb').scanSync({ cwd: 'dist/client' }))
+  const body = names.find((name) => name.startsWith('assets/ferrari-f8-tributo-'))
+  if (!body || !cache) throw new Error('No car body was built')
+  const path = `/${body}`
+  expect(cache.has(path)).toBe(false)
+  expect(names.some((name) => cache.has(`/${name}`))).toBe(true)
+  expect((await request(path))?.status).toBe(0)
+  online = true
+  expect((await request(path))?.status).toBe(200)
+  online = false
+  expect(cache.has(path)).toBe(true)
+  expect((await request(path))?.status).toBe(200)
+})
+test('keeps car pictures out of the install and stores each when first shown', async () => {
+  const cache = Array.from(stores.entries()).find(([name]) => name.startsWith('slow-voyage-'))?.[1]
+  const names = Array.from(new Bun.Glob('assets/*.webp').scanSync({ cwd: 'dist/client' }))
+  const picture = names.find((name) => name.startsWith('assets/ferrari-f8-tributo-mask-'))
+  if (!picture || !cache) throw new Error('No car picture was built')
+  expect(cache.has(`/${picture}`)).toBe(false)
+  expect(names.some((name) => name.startsWith('assets/broadleaf-') && cache.has(`/${name}`))).toBe(
+    true,
+  )
 })
 test('removes obsolete game caches and preserves unrelated storage', () => {
   expect(stores.has('slow-voyage-obsolete')).toBe(false)

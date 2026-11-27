@@ -26,11 +26,14 @@ def arguments():
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
 
 
-def tile(scene, scratch, target, strength):
+def capture(scene, scratch, strength):
     path = os.path.join(scratch, "render.png")
     staging.render(scene, path, TILE * OVERSAMPLE)
-    pixels = finish.shrink(finish.read(path), OVERSAMPLE)
-    return finish.bleed(finish.level(finish.firm(pixels, strength), target), 48)
+    return finish.firm(finish.shrink(finish.read(path), OVERSAMPLE), strength)
+
+
+def tile(pixels, amount):
+    return finish.bleed(finish.scale(pixels, amount), 48)
 
 
 def publish(pixels, name, options, sheet):
@@ -52,11 +55,12 @@ def main():
             scene = staging.reset(128)
             staging.bark_object(scene, plant, spec.get("bark", 1.0))
             leaves = staging.leaf_object(scene, plant)
-            target = LEVELS["leafed" if spec["bare"] else "evergreen"]
-            publish(tile(scene, scratch, target, 1.15), name, options, sheet)
+            leafed = capture(scene, scratch, 1.15)
+            amount = finish.gain(leafed, LEVELS["leafed" if spec["bare"] else "evergreen"])
+            publish(tile(leafed, amount), name, options, sheet)
             if spec["bare"]:
                 leaves.hide_render = True
-                publish(tile(scene, scratch, LEVELS["bare"], 1.35), f"{name}-bare", options, sheet)
+                publish(tile(capture(scene, scratch, 1.35), amount), f"{name}-bare", options, sheet)
     if options.previews and len(sheet) > 1:
         columns = 4
         rows = -(-len(sheet) // columns)

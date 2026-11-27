@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { CanopyIndex, canopyShade } from './canopy'
 import { type Trunk, trunkRadius } from './collision'
-import { atlasShift, evergreenRelief, evergreenTile, type Foliage, treeTint } from './foliage'
+import { atlasShift, evergreenRelief, evergreenTile, type Foliage, plantTint } from './foliage'
 import { landscapeProfiles } from './landscapes'
 import { LodField } from './lod-field'
 import { type GridLayout, nodeDistance, nodeSize, type OpenNode } from './open-grid'
@@ -123,7 +123,7 @@ export class OpenScenery {
     const color = new THREE.Color()
     const relief = evergreenRelief(profile.foliage)
     const tint = (tree: { variant: number; shade: number; x: number; s: number }) => {
-      treeTint(color, tree.shade, (tree.x * 0.37) % 1, (tree.s * 0.53) % 1)
+      plantTint(color, tree.shade, tree.x, tree.s)
       if (tree.variant === evergreenTile) color.multiply(relief)
       return color
     }
@@ -170,6 +170,22 @@ export class OpenScenery {
     grove.cards = cards
     grove.group.add(cards)
     yield
+    if (this.shade && node.level < 2 && (close || this.quality !== 'low')) {
+      const pools = new THREE.InstancedMesh(this.shade.disc, this.shade.material, trees.length)
+      pools.renderOrder = 1
+      const pool = new THREE.Matrix4()
+      for (const [index, tree] of trees.entries()) {
+        const reach = tree.width * canopyShade.spread
+        pool.makeScale(reach, 1, reach)
+        pool.elements[1] = tree.slopeX * reach
+        pool.elements[9] = -tree.slopeS * reach
+        pool.setPosition(tree.x, tree.ground + canopyShade.lift, -tree.s)
+        pools.setMatrixAt(index, pool)
+      }
+      pools.computeBoundingSphere()
+      grove.group.add(pools)
+      yield
+    }
     if (!close) return grove
     const crowns = new THREE.Group()
     crowns.visible = false
@@ -192,22 +208,6 @@ export class OpenScenery {
       grove.pools.push(tree.x, tree.s, tree.width)
     }
     yield
-    if (this.shade) {
-      const pools = new THREE.InstancedMesh(this.shade.disc, this.shade.material, trees.length)
-      pools.renderOrder = 1
-      const pool = new THREE.Matrix4()
-      for (const [index, tree] of trees.entries()) {
-        const surface = this.world.surface(tree.x, tree.s)
-        const reach = tree.width * canopyShade.spread
-        pool.makeScale(reach, 1, reach)
-        pool.elements[1] = surface.slopeX * reach
-        pool.elements[9] = -surface.slopeS * reach
-        pool.setPosition(tree.x, surface.height + canopyShade.lift, -tree.s)
-        pools.setMatrixAt(index, pool)
-      }
-      pools.computeBoundingSphere()
-      crowns.add(pools)
-    }
     grove.crowns = crowns
     grove.group.add(crowns)
     return grove

@@ -5,7 +5,7 @@ import numpy as np
 
 import plants
 
-BARK_COLOUR = (0.115, 0.08, 0.05)
+BARK_COLOUR = (0.07, 0.055, 0.042)
 
 
 def reset(samples):
@@ -32,7 +32,7 @@ def reset(samples):
     world = bpy.data.worlds.new("sky")
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs["Color"].default_value = (1, 1, 1, 1)
-    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.75
+    world.node_tree.nodes["Background"].inputs["Strength"].default_value = 0.7
     scene.world = world
     camera_data = bpy.data.cameras.new("side")
     camera_data.type = "ORTHO"
@@ -44,17 +44,11 @@ def reset(samples):
     camera.rotation_euler = (math.pi / 2, 0, 0)
     scene.collection.objects.link(camera)
     scene.camera = camera
-    for name, energy, angle, turn in (
-        ("key", 2.6, 50, (math.radians(52), 0, math.radians(-38))),
-        ("fill", 0.7, 80, (math.radians(70), 0, math.radians(55))),
-    ):
-        sun_data = bpy.data.lights.new(name, "SUN")
-        sun_data.energy = energy
-        sun_data.angle = math.radians(angle)
-        sun_data.use_shadow = name == "key"
-        sun = bpy.data.objects.new(name, sun_data)
-        sun.rotation_euler = turn
-        scene.collection.objects.link(sun)
+    sun_data = bpy.data.lights.new("zenith", "SUN")
+    sun_data.energy = 2.2
+    sun_data.angle = math.radians(110)
+    sun = bpy.data.objects.new("zenith", sun_data)
+    scene.collection.objects.link(sun)
     return scene
 
 

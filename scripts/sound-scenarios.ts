@@ -1,7 +1,6 @@
 import { CarPhysics, type Input } from '../src/game/physics'
-import { engineProfiles } from '../src/game/powertrain'
 import { vehicleMetrics } from '../src/game/vehicles'
-import { defaults, type Settings, type Vehicle, World } from '../src/game/world'
+import { defaults, type EngineId, type Settings, type Vehicle, World } from '../src/game/world'
 
 export const frameRate = 60
 
@@ -24,8 +23,7 @@ export interface Scenario {
   drive(): (time: number, car: CarPhysics, vehicle: Vehicle) => Input
 }
 
-const revs = (car: CarPhysics, vehicle: Vehicle) =>
-  car.gearbox.rpm / engineProfiles[vehicle].redline
+const revs = (car: CarPhysics) => car.gearbox.rpm / car.gearbox.profile.redline
 
 export const scenarios: Scenario[] = [
   { name: 'idle', seconds: 4, drive: () => () => rest },
@@ -39,9 +37,9 @@ export const scenarios: Scenario[] = [
     seconds: 11,
     drive: () => {
       let lifted = Number.POSITIVE_INFINITY
-      return (time, car, vehicle) => {
+      return (time, car) => {
         const box = car.gearbox
-        const turning = revs(car, vehicle)
+        const turning = revs(car)
         const shift = time > 0.5 && box.gear === 1 && turning > 0.9 ? 1 : 0
         if (lifted > time && box.gear === 2 && turning > 0.86) lifted = time
         const since = time - lifted
@@ -49,6 +47,18 @@ export const scenarios: Scenario[] = [
         return { ...rest, manual: true, shift, throttle: time > 0.5 && pressed ? 1 : 0 }
       }
     },
+  },
+  {
+    name: 'rev',
+    seconds: 8,
+    drive: () => (time) => ({
+      ...rest,
+      neutral: true,
+      throttle:
+        (time > 0.6 && time < 0.85) || (time > 2 && time < 2.4) || (time > 3.6 && time < 5.8)
+          ? 1
+          : 0,
+    }),
   },
   {
     name: 'limiter',
@@ -95,6 +105,22 @@ export const scenarios: Scenario[] = [
       car.speed = vehicleMetrics[vehicle].maxSpeed
     },
     drive: () => (time) => ({ ...rest, throttle: time < 3 ? 1 : 0 }),
+  },
+  {
+    name: 'cruise',
+    seconds: 16,
+    begin: (car, vehicle) => {
+      car.speed = vehicleMetrics[vehicle].maxSpeed * 0.42
+    },
+    drive: () => {
+      let target = 0
+      return (time, car) => {
+        if (!target) target = car.speed
+        const wanted = target * (1 + 0.12 * Math.sin((time / 16) * Math.PI * 2))
+        const throttle = Math.min(1, Math.max(0, 0.35 + (wanted - car.speed) * 0.25))
+        return { ...rest, throttle }
+      }
+    },
   },
   {
     name: 'bonnet-pull',
@@ -149,7 +175,7 @@ export const scenarios: Scenario[] = [
   },
 ]
 
-export function stage(vehicle: Vehicle, name: string) {
+export function stage(vehicle: Vehicle, name: string, engine: EngineId = 'stock', engineCar = '') {
   const scenario = scenarios.find((entry) => entry.name === name)
   if (!scenario) throw new Error(`Unknown scenario ${name}`)
   const settings: Settings = {
@@ -158,6 +184,8 @@ export function stage(vehicle: Vehicle, name: string) {
     volume: 0.6,
     ...scenario.settings,
     vehicle,
+    engine,
+    engineCar,
   }
   const world = new World(settings)
   const car = new CarPhysics(world)

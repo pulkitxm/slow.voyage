@@ -55,7 +55,7 @@ Local pre-commit checks remain mandatory.
 | H                | Help                                                             |
 
 Touch devices have steering and pedal buttons. Settings include seven vehicles,
-seven landscapes, three seasons, six skies including a live day cycle, five kinds
+twenty-four engines and the 87 real cars they went into, seven landscapes, three seasons, six skies including a live day cycle, five kinds
 of weather, paint, camera, grip, power, sound, detail, and units. Preferences are
 stored on the device. Detail has three levels: Easy on the engine, Full beauty,
 and Ultra. Ultra is the default on hardware that can hold it at 60 frames a
@@ -102,6 +102,31 @@ Mouse driving uses horizontal cursor position for steering. Hold left click to
 accelerate or right click to brake and reverse. Enable it with M or in Controls
 settings, where sensitivity is adjustable. Keyboard and touch remain available;
 mouse driving takes priority over controller pedals and steering.
+
+The Vehicle tab has one searchable car list, shown as a grid of car pictures in
+the chosen paint. Easy picks are the seven game vehicles, each with a one-line
+description; below them are the 87 real cars by maker. Picking a real car switches to the chassis that suits it, puts that car's
+own body on it in a factory paint, and fits its engine. The car keeps the
+chassis's handling; its wheelbase, track and wheel sizes are the real car's. A
+second list optionally swaps in any of the twenty-four engines, keeping the
+chosen car's body; Its own engine restores the original. The motorcycle keeps
+its own engine.
+
+Each real car reaches its own published top speed and accelerates by its own
+power to weight; a swapped engine moves both from there. Boost is stronger but
+shorter on light, powerful cars and gentler but longer on everyday ones. Each car
+also carries its own kind of brakes: front discs with rear drums, discs,
+ventilated discs, large multi-piston discs, carbon-ceramics or carbon racing
+brakes. Stronger brakes bite harder and let antilock hold more of the tyre
+grip, so they stop shorter even at the grip limit. Brakes heat up under repeated
+hard stops and fade as they do, ceramics barely fade, and carbon racing brakes
+need some heat before they bite fully. The settings show each car's top speed and brakes.
+
+Car paint is a metallic clearcoat. On Full beauty and Ultra a reflection probe
+renders the surroundings around the car into a cube map, one face a frame, and the
+paint, glass, chrome and lamp lenses mirror it; Easy on the engine and software
+rendering keep the painted sky reflection. Car bodies are not part of the offline
+install: each is cached the first time it is driven and works offline afterwards.
 
 Q and E move through scenery, seasonal weather, and time-of-day presets. V cycles
 vehicles; Shift V cycles backward. Branding and decorative status messages disappear

@@ -32,10 +32,19 @@ def brightness(pixels):
     return float((colour @ np.array([0.3, 0.59, 0.11])).mean())
 
 
-def level(pixels, target):
+def gain(pixels, target):
     result = pixels.copy()
+    total = 1.0
     for _ in range(4):
-        result[..., :3] = np.clip(result[..., :3] * (target / brightness(result)), 0, 1)
+        step = target / brightness(result)
+        total *= step
+        result[..., :3] = np.clip(result[..., :3] * step, 0, 1)
+    return total
+
+
+def scale(pixels, amount):
+    result = pixels.copy()
+    result[..., :3] = np.clip(result[..., :3] * amount, 0, 1)
     return result
 
 

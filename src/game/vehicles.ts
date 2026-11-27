@@ -6,6 +6,7 @@ export interface VehicleMetrics {
   reverseSpeed: number
   jerk: number
   brake: number
+  brakeReach: number
   drag: number
   rollingResistance: number
   wheelbase: number
@@ -33,7 +34,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 12,
     reverseSpeed: 12,
     jerk: 48,
-    brake: 8,
+    brake: 11.5,
+    brakeReach: 1,
     drag: 0.001,
     rollingResistance: 0.06,
     wheelbase: 2.75,
@@ -56,7 +58,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 15,
     reverseSpeed: 14,
     jerk: 48,
-    brake: 8,
+    brake: 11.5,
+    brakeReach: 1,
     drag: 0.001,
     rollingResistance: 0.04,
     wheelbase: 2.4,
@@ -79,7 +82,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 5,
     reverseSpeed: 5,
     jerk: 48,
-    brake: 8,
+    brake: 11.5,
+    brakeReach: 1,
     drag: 0.001,
     rollingResistance: 0.04,
     wheelbase: 1.95,
@@ -102,7 +106,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 8,
     reverseSpeed: 4.5,
     jerk: 6,
-    brake: 4,
+    brake: 6,
+    brakeReach: 1,
     drag: 0.002,
     rollingResistance: 0.03,
     wheelbase: 5.47,
@@ -125,7 +130,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 10,
     reverseSpeed: 7.5,
     jerk: 30,
-    brake: 7,
+    brake: 10.5,
+    brakeReach: 1,
     drag: 0.0014,
     rollingResistance: 0.06,
     wheelbase: 3.2,
@@ -148,7 +154,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 11,
     reverseSpeed: 10,
     jerk: 48,
-    brake: 8.5,
+    brake: 11.5,
+    brakeReach: 1,
     drag: 0.001,
     rollingResistance: 0.05,
     wheelbase: 2.3,
@@ -171,7 +178,8 @@ export const vehicleMetrics: Record<Vehicle, VehicleMetrics> = {
     reverse: 21,
     reverseSpeed: 15,
     jerk: 70,
-    brake: 12,
+    brake: 15,
+    brakeReach: 1,
     drag: 0.0008,
     rollingResistance: 0.04,
     wheelbase: 2.6,

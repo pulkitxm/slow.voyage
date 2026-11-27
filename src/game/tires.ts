@@ -1,6 +1,6 @@
 import { surfaceGrip } from './grip'
 import type { ChassisPose, WheelState } from './suspension'
-import { vehicleMetrics, yawInertia } from './vehicles'
+import { type VehicleMetrics, vehicleMetrics, yawInertia } from './vehicles'
 import { clamp, type Settings } from './world'
 
 export const standingWater = { grip: 0.12, planing: 36, drag: 0.5, surge: 0.0035 }
@@ -15,13 +15,14 @@ function groundResistance(wheel: WheelState, speed: number) {
   return drag.base + speed * drag.linear + speed ** 4 * drag.quartic
 }
 const longitudinalShare = { minimum: 0.6, maximum: 1, holdSpeed: 0.5 }
+export const antilock = { reach: 1.3, peak: 0.9, rearShare: 0.75 }
 
-function longitudinalLimit(lateralDemand: number) {
+function longitudinalLimit(lateralDemand: number, ceiling: number) {
   const lateral = clamp(lateralDemand, 0, 1)
   return clamp(
-    Math.sqrt(1 - lateral * lateral),
-    longitudinalShare.minimum,
-    longitudinalShare.maximum,
+    ceiling * Math.sqrt(1 - lateral * lateral),
+    Math.min(longitudinalShare.minimum, ceiling),
+    ceiling,
   )
 }
 
@@ -118,8 +119,8 @@ export function solveTires(
   drive: number,
   brake: number,
   handbrake: boolean,
+  metrics: VehicleMetrics = vehicleMetrics[settings.vehicle],
 ) {
-  const metrics = vehicleMetrics[settings.vehicle]
   const inverseMass = 1 / metrics.mass
   const inverseInertia = 1 / yawInertia(metrics)
   const quarterMass = metrics.mass / wheels.length
@@ -149,6 +150,8 @@ export function solveTires(
     (sum, wheel, index) => sum + ((capacities[index] ?? 0) > 0 ? wheel.load : 0),
     0,
   )
+  const reach = brake > 0 ? antilock.reach * metrics.brakeReach : 1
+  const ceiling = brake > 0 ? reach * antilock.peak : longitudinalShare.maximum
   const centripetal = Math.max(
     Math.abs(pose.yawRate * pose.speed),
     Math.abs((pose.speed * pose.speed * Math.tan(pose.steering)) / metrics.wheelbase),
@@ -159,7 +162,10 @@ export function solveTires(
     if (!wheel || !capacity) continue
     const share =
       capacity *
-      longitudinalLimit(centripetal / (surfaceGrip(settings, wheel.onRoad, wheel.sand) * 9.81))
+      longitudinalLimit(
+        centripetal / (surfaceGrip(settings, wheel.onRoad, wheel.sand) * 9.81),
+        brake > 0 && !wheel.front ? ceiling * antilock.rearShare : ceiling,
+      )
     const driveImpulse = (drive * metrics.mass * wheel.load * dt) / Math.max(groundedLoad, 1)
     const lever = wheel.localX * Math.cos(wheel.steering) + wheel.localS * Math.sin(wheel.steering)
     const effectiveInverseMass = inverseMass + lever * lever * inverseInertia
@@ -213,7 +219,8 @@ export function solveTires(
       const lever =
         wheel.localX * Math.sin(wheel.steering) - wheel.localS * Math.cos(wheel.steering)
       const effectiveInverseMass = inverseMass + lever * lever * inverseInertia
-      const limit = Math.sqrt(Math.max(0, capacity * capacity - wheel.longitudinalImpulse ** 2))
+      const limit =
+        capacity * Math.sqrt(Math.max(0, 1 - (wheel.longitudinalImpulse / (capacity * reach)) ** 2))
       const next = clamp(
         wheel.lateralImpulse - motion.lateral / effectiveInverseMass,
         -limit,

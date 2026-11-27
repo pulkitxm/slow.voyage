@@ -600,4 +600,57 @@ def pickup():
     return car, "#b5271c"
 
 
-DESIGNS = {"touring": touring, "hatchback": hatchback, "supercar": supercar, "pickup": pickup}
+def roadster():
+    from kit import Coach, ellipse
+
+    sheet = {
+        "length": 4100,
+        "width": 1640,
+        "height": 1240,
+        "wheelbase": 2400,
+        "frontOverhang": 790,
+        "track": [1360, 1360],
+        "tyres": ["685x200R15", "685x200R15"],
+        "clearance": 150,
+    }
+    car = Coach("roadster", "five", sheet=sheet, lip="chrome", cap="chrome")
+    nose, stern, axle = car.nose_x, car.stern_x, car.axle
+    car.skin(
+        half=[(stern, 0.7), (-axle, 0.8), (0.0, 0.81), (axle, 0.8), (nose - 0.25, 0.76), (nose, 0.66)],
+        shoulder=[(stern, 0.8), (-axle, 0.86), (-0.4, 0.84), (0.35, 0.86), (axle, 0.8), (nose - 0.2, 0.72), (nose, 0.64)],
+        waist=[(stern, 0.62), (0.0, 0.58), (nose, 0.5)],
+        sill=[(stern, 0.36), (-1.5, 0.3), (1.5, 0.3), (nose, 0.33)],
+        crown=[(stern, 0.02), (0.35, 0.03), (axle, 0.05), (nose, 0.03)],
+        flare=(0.03, 0.035),
+        keys=[nose - 0.4, axle, 0.45, -0.45, -axle, stern + 0.32],
+        front={"set": (0.16, 0.07, 0.02, 0.014, 0.06, 0.16), "bow": 0.14, "flat": 0.6, "power": 2.2},
+        rear={"set": (0.16, 0.07, 0.02, 0.014, 0.05, 0.12), "bow": 0.1, "flat": 0.66, "power": 2.3},
+        inset=0.05,
+        shelf=0.06,
+    )
+    front, back = car.front, car.back
+    grille = car.hollow(front, [(-0.3, 0.41), (0.3, 0.41), (0.34, 0.55), (-0.34, 0.55)], 0.06, mirror=False)
+    grille.mesh(8, 3, material="chrome")
+    car.headlamp(front, ellipse((0.54, 0.57), (0.085, 0.068), 14), projectors=[(0.54, 0.57, 0.052)], housing="chrome")
+    car.lamp(front, ellipse((0.5, 0.42), (0.04, 0.026), 10), "amber")
+    for t in (0.42, 0.56):
+        car.lamp(back, ellipse((t, 0.66), (0.048, 0.048), 12), "tail")
+    car.patch(back, [(-0.16, 0.5), (0.16, 0.5), (0.16, 0.6), (-0.16, 0.6)], "plate", lift=0.006, mirror=False)
+    car.tub(0.22, -0.86, 0.56)
+    car.arches(0.05)
+    car.cut()
+    car.arch_lips(width=0.024, proud=0.008)
+    car.lip(nose - 0.035, 0.36, 1.26, depth=0.07, thickness=0.07, material="chrome", sweep_back=0.16)
+    car.lip(stern + 0.035, 0.4, 1.3, depth=0.07, thickness=0.07, material="chrome", sweep_back=-0.12)
+    car.pipes((0.4, -0.4), stern, 0.27, radius=0.03, length=0.14)
+    car.seams([0.44, -0.5])
+    car.bonnet(0.5, 0.6, front=nose - 0.22)
+    car.mirrors(0.26, material="chrome", size=(0.06, 0.12, 0.08), reach=0.05, stalk="chrome")
+    car.windscreen(0.46, -0.04, car.height, 0.62, 0.52, bow=0.12, material="chrome", side_glass=0.26)
+    floor = car.cabin_floor
+    car.seats(-0.46, floor, 0.3, height=0.4, width=0.42, material="seat")
+    car.dashboard(0.08, floor + 0.2, 1.1, 0.3, height=0.1)
+    return car.finish("#8f1d1a")
+
+
+DESIGNS = {"touring": touring, "hatchback": hatchback, "supercar": supercar, "pickup": pickup, "roadster": roadster}
