@@ -62,6 +62,9 @@ export interface Settings {
   autodriveMode: Exclude<AssistanceMode, 'off'>
   cruiseSpeed: number
   onePedal: boolean
+  antilock: boolean
+  brakeDistribution: boolean
+  tractionControl: boolean
   controllerEnabled: boolean
   controllerDeadzone: number
   controllerMode: ControllerMode
@@ -93,6 +96,9 @@ export const defaults: Settings = {
   autodriveMode: 'full',
   cruiseSpeed: 22,
   onePedal: false,
+  antilock: true,
+  brakeDistribution: true,
+  tractionControl: true,
   controllerEnabled: true,
   controllerDeadzone: 0.12,
   controllerMode: 'standard',

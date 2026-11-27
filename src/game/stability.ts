@@ -24,12 +24,14 @@ export function stabilize(
   wheelbase: number,
   dt: number,
   braking = false,
+  steerable = true,
 ) {
   const speed = Math.abs(state.speed)
   if (speed < stabilityLimits.minimumSpeed || traction <= 0) return 0
   const blend = clamp((speed - stabilityLimits.minimumSpeed) / 4, 0, 1)
   const yawLimit = (traction * stabilityLimits.yawMargin) / speed
-  const requested = clamp((state.speed * Math.tan(state.steering)) / wheelbase, -yawLimit, yawLimit)
+  const steering = steerable ? state.steering : 0
+  const requested = clamp((state.speed * Math.tan(steering)) / wheelbase, -yawLimit, yawLimit)
   const deadband =
     stabilityLimits.yawDeadband + Math.abs(requested) * stabilityLimits.yawDeadbandShare
   const error = state.yawRate - requested

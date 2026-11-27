@@ -107,6 +107,26 @@ vehicle, and then resist steeply.
   and strong steering assists are options: above town speeds a key first asks
   for a small share of the grip angle and the share grows over about a second of
   holding, so a 0.15 s tap moves the car a quarter metre.
+- Each vehicle drives the wheels its real counterpart would: the grand tourer,
+  roadster, motorcycle and bus drive the rear, the city hatchback the front,
+  and the supercar and trail pickup all four. Power reaches only the driven
+  wheels, so a two-wheel-drive car runs out of traction sooner on a wet launch,
+  in sand or on an icy climb, where it can stall on a pass a four-wheel-drive
+  climbs.
+- Driver aids sit in the Controls settings and all start on. Antilock brakes keep
+  every wheel just short of locking, so a full stop still steers. Brake force
+  distribution shares the braking between the wheels by the weight each one
+  carries. Traction control eases the power when a driven wheel starts to spin.
+  The service brakes are stronger than the tyres, so without antilock a firm
+  stop locks the wheels: the car slides straight on, leaves black marks and
+  needs about an eighth more road. Without brake force distribution the brakes
+  split at a fixed front to rear ratio, so a bend or a firm stop without
+  antilock gives up the inside and rear wheels first. Without traction control
+  the driven wheels spin up, smoke and lose their sideways grip. Stability
+  control always stays on and catches slides, but locked front wheels cannot
+  steer and it will not pretend they can. Amber lamps above the speed flash
+  ABS, TCS or ESC while an aid works and show OFF for an aid that is switched
+  off.
 - The distance driven adds up across visits in the browser's local storage and
   shows under the trip distance as an all-time total.
 - Boost draws from a charge that burns for 7 seconds and refills in 22. While it

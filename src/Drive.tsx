@@ -278,6 +278,7 @@ export function Drive() {
               units={settings.units}
               manual={settings.transmission === 'manual'}
               quiet={state.paused || panel || help}
+              aids={settings}
             />
             <div className="drive-toolbar">
               <IconButton label={state.paused ? 'Resume driving' : 'Pause driving'} onClick={pause}>

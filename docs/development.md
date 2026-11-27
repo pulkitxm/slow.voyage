@@ -54,7 +54,9 @@ Local pre-commit checks remain mandatory.
 | P / Escape       | Pause                                                            |
 | H                | Help                                                             |
 
-Touch devices have steering and pedal buttons. Settings include seven vehicles,
+Touch devices have steering and pedal buttons. Settings include seven vehicles
+with front, rear, or four-wheel drive, switchable antilock brakes, brake force
+distribution, and traction control,
 seven landscapes, three seasons, six skies including a live day cycle, five kinds
 of weather, paint, camera, grip, power, sound, detail, and units. Preferences are
 stored on the device. Detail has three levels: Easy on the engine, Full beauty,

@@ -1,5 +1,5 @@
 import { AudioLines, Camera, Check, Link2, RotateCcw, ShieldCheck, X } from 'lucide-react'
-import { useEffect } from 'react'
+import { Fragment, useEffect } from 'react'
 import { assistanceLabels } from '../game/controls'
 import { cruiseLimits } from '../game/cruise'
 import type { ControllerStatus } from '../game/gamepad'
@@ -11,6 +11,8 @@ import {
   cameras,
   colors,
   daylight,
+  driverAids,
+  drivetrainNote,
   landscapes,
   life,
   qualities,
@@ -444,6 +446,26 @@ export function SettingsPanel({
               </label>
               <p>
                 Gently brake when you release the accelerator. Use S or the brake pedal to reverse.
+              </p>
+            </section>
+            <section className="setting-section">
+              <h3>Driver aids</h3>
+              {driverAids.map((aid) => (
+                <Fragment key={aid.id}>
+                  <label className="check-option" data-aid={aid.id}>
+                    <input
+                      type="checkbox"
+                      checked={settings[aid.id]}
+                      onChange={(event) => update(aid.id, event.target.checked)}
+                    />
+                    {aid.label}
+                  </label>
+                  <p>{aid.description}</p>
+                </Fragment>
+              ))}
+              <p>
+                Stability control always stays on. It catches slides and flashes ESC on the
+                dashboard while it works. {drivetrainNote[settings.vehicle]}
               </p>
             </section>
           </>

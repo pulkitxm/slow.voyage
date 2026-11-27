@@ -25,6 +25,7 @@ import {
   Waves,
   Zap,
 } from 'lucide-react'
+import type { Vehicle } from '../game/world'
 
 export { cameras } from '../game/settings'
 export const landscapes = [
@@ -159,3 +160,32 @@ export const steeringAssists = [
       'The calmest keys at speed. A tap drifts the car a hand width and a long hold eases into the bend.',
   },
 ] as const
+export const driverAids = [
+  {
+    id: 'antilock',
+    label: 'Antilock brakes (ABS)',
+    description:
+      'Keeps the wheels turning under hard braking so the car still steers. Without it a firm stop locks the wheels, the car slides straight on and needs noticeably more road to stop.',
+  },
+  {
+    id: 'brakeDistribution',
+    label: 'Brake force distribution (EBD)',
+    description:
+      'Shares the braking between the wheels by the weight each one carries, so the light inside and rear wheels do not give up first in a bend. Without it the brakes split at a fixed front to rear ratio.',
+  },
+  {
+    id: 'tractionControl',
+    label: 'Traction control (TCS)',
+    description:
+      'Eases the power when the driven wheels start to spin. Without it full throttle on a wet road, snow or loose ground spins the wheels, smokes the tyres and can step the tail out.',
+  },
+] as const
+export const drivetrainNote: Record<Vehicle, string> = {
+  touring: 'The grand tourer drives its rear wheels.',
+  roadster: 'The roadster drives its rear wheels.',
+  hatchback: 'The city hatchback drives its front wheels.',
+  supercar: 'The supercar drives all four wheels.',
+  pickup: 'The trail pickup drives all four wheels.',
+  motorcycle: 'The motorcycle drives its rear wheel.',
+  bus: 'The wanderer bus drives its rear wheels.',
+}

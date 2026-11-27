@@ -306,7 +306,7 @@ function offroad(vehicle: Settings['vehicle'], sand: boolean) {
 }
 
 test.each(vehicles)(
-  '%s bogs down in sand far more than on grass whatever the tire grip',
+  '%s bogs down in sand far more than on grass, and deepest on two driven wheels',
   (vehicle) => {
     const top = (sand: boolean) => {
       const { settings, body } = offroad(vehicle, sand)
@@ -325,7 +325,7 @@ test.each(vehicles)(
       return frames * step
     }
     expect(top(true)).toBeLessThan(20)
-    expect(top(true)).toBeGreaterThan(10)
+    expect(top(true)).toBeGreaterThan(vehicleMetrics[vehicle].drivetrain === 'all' ? 10 : 5)
     expect(top(true)).toBeLessThan(top(false) * 0.85)
     expect(halving(true)).toBeLessThan(2)
     expect(halving(true)).toBeLessThan(halving(false) * 0.75)

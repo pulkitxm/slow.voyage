@@ -6,16 +6,61 @@ import { type TelemetryStore, useTelemetry } from '../telemetry'
 const speedScale = (units: Settings['units']) => (units === 'km' ? 3.6 : 2.23694)
 const distanceScale = (units: Settings['units']) => (units === 'km' ? 1000 : 1609.344)
 
+type Aids = Pick<Settings, 'antilock' | 'brakeDistribution' | 'tractionControl'>
+
+function AidLamps({ store, aids }: { store: TelemetryStore; aids: Aids }) {
+  const antilock = useTelemetry(store, (state) => state.antilock)
+  const traction = useTelemetry(store, (state) => state.traction)
+  const stability = useTelemetry(store, (state) => state.stability)
+  const lamps = [
+    { id: 'abs', label: 'ABS', active: antilock, off: !aids.antilock, title: 'Antilock brakes' },
+    {
+      id: 'ebd',
+      label: 'EBD',
+      active: false,
+      off: !aids.brakeDistribution,
+      title: 'Brake force distribution',
+    },
+    {
+      id: 'tcs',
+      label: 'TCS',
+      active: traction,
+      off: !aids.tractionControl,
+      title: 'Traction control',
+    },
+    { id: 'esc', label: 'ESC', active: stability, off: false, title: 'Stability control' },
+  ].filter((lamp) => lamp.active || lamp.off)
+  if (!lamps.length) return null
+  return (
+    <span className="aid-lamps" aria-hidden="true">
+      {lamps.map((lamp) => (
+        <span
+          key={lamp.id}
+          className="aid-lamp"
+          data-aid={lamp.id}
+          data-state={lamp.off ? 'off' : 'active'}
+          title={`${lamp.title} ${lamp.off ? 'off' : 'working'}`}
+        >
+          {lamp.label}
+          {lamp.off && <small>OFF</small>}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function Speed({
   store,
   units,
   manual,
   quiet,
+  aids,
 }: {
   store: TelemetryStore
   units: Settings['units']
   manual: boolean
   quiet: boolean
+  aids: Aids
 }) {
   const speed = useTelemetry(store, (state) =>
     Math.round(Math.abs(state.speed) * speedScale(units)),
@@ -29,6 +74,7 @@ export function Speed({
   return (
     <div className="speed">
       {boost && !quiet && <span className="boost-indicator">BOOST</span>}
+      {!quiet && <AidLamps store={store} aids={aids} />}
       <span className="speed-value">{String(speed).padStart(2, '0')}</span>
       <span className="speed-unit">
         {units === 'km' ? 'km/h' : 'mph'}
