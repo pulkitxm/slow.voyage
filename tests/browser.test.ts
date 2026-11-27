@@ -201,7 +201,7 @@ test(
       ...pickCar('motorcycle', 'Motorcycle'),
       ...pickCar('pickup', 'Trail pickup'),
       wait('pickup-active', '[data-vehicle="pickup"]'),
-      ...pickCar('supercar', 'Supercar'),
+      ...pickCar('supercar', 'Corsa V12'),
       wait('supercar-active', '[data-vehicle="supercar"]'),
       ...pickCar('hatchback', 'City hatchback'),
       wait('hatchback-active', '[data-vehicle="hatchback"]'),
