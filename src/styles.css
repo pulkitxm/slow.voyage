@@ -737,6 +737,12 @@ svg {
   transform-origin: bottom right;
   text-shadow: 0 1px 3px #1d282259;
 }
+.cluster-readout .aid-lamps {
+  position: static;
+  order: 3;
+  margin-top: 6px;
+  margin-right: 4px;
+}
 .cluster-readout .nitro-track {
   width: calc(var(--dial) * 0.37);
   margin-top: 6px;
@@ -749,6 +755,47 @@ svg {
   font-size: 8px;
   letter-spacing: 1.5px;
   color: #e2edc7;
+}
+.aid-lamps {
+  position: absolute;
+  right: 0;
+  top: -17px;
+  display: flex;
+  gap: 4px;
+}
+.aid-lamp {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 1px;
+  padding: 2px 3px;
+  border-radius: 2px;
+  color: #1c1a12;
+  background: #f2c14e;
+  box-shadow: 0 0 6px #f2c14e80;
+}
+.aid-lamp[data-state="active"] {
+  animation: aid-flash 0.24s steps(1) infinite;
+}
+.aid-lamp[data-state="off"] {
+  color: #f2c14e;
+  background: transparent;
+  border: 1px solid #f2c14e8c;
+  box-shadow: none;
+  padding: 1px 3px;
+}
+.aid-lamp small {
+  font-size: 6px;
+  margin-left: 2px;
+}
+@keyframes aid-flash {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .aid-lamp[data-state="active"] {
+    animation: none;
+  }
 }
 .speed-value {
   font:

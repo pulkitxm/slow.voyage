@@ -81,6 +81,9 @@ export function decodeSettings(stored: unknown): Settings {
       }
     for (const key of [
       'onePedal',
+      'antilock',
+      'brakeDistribution',
+      'tractionControl',
       'controllerEnabled',
       'mouseEnabled',
       'blood',

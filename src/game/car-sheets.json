@@ -13,6 +13,8 @@
     "mass": 1357,
     "topSpeed": 193,
     "brakes": "drum",
+    "drive": "front",
+    "frontWeight": 61,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#6c757c"
   },
@@ -30,6 +32,8 @@
     "mass": 1471,
     "topSpeed": 200,
     "brakes": "disc",
+    "drive": "front",
+    "frontWeight": 61,
     "estimated": ["frontOverhang"],
     "paint": "#33506f"
   },
@@ -47,6 +51,8 @@
     "mass": 1465,
     "topSpeed": 190,
     "brakes": "disc",
+    "drive": "front",
+    "frontWeight": 60,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#7f9382"
   },
@@ -64,6 +70,8 @@
     "mass": 1720,
     "topSpeed": 185,
     "brakes": "disc",
+    "drive": "front",
+    "frontWeight": 58,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#b3ae9f"
   },
@@ -81,6 +89,8 @@
     "mass": 1490,
     "topSpeed": 150,
     "brakes": "drum",
+    "drive": "front",
+    "frontWeight": 58,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#eef0ee"
   },
@@ -98,6 +108,8 @@
     "mass": 1306,
     "topSpeed": 246,
     "brakes": "vented",
+    "drive": "front",
+    "frontWeight": 61,
     "estimated": ["frontOverhang"],
     "paint": "#b3141d"
   },
@@ -115,6 +127,8 @@
     "mass": 1345,
     "topSpeed": 248,
     "brakes": "vented",
+    "drive": "front",
+    "frontWeight": 61,
     "estimated": [],
     "paint": "#1765b5"
   },
@@ -132,6 +146,8 @@
     "mass": 1346,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "front",
+    "frontWeight": 61,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#a81a1e"
   },
@@ -149,6 +165,8 @@
     "mass": 1315,
     "topSpeed": 242,
     "brakes": "vented",
+    "drive": "front",
+    "frontWeight": 60,
     "estimated": ["clearance"],
     "paint": "#223f6b"
   },
@@ -166,6 +184,8 @@
     "mass": 1594,
     "topSpeed": 220,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 58,
     "estimated": ["frontOverhang"],
     "paint": "#b4541e"
   },
@@ -183,6 +203,8 @@
     "mass": 1270,
     "topSpeed": 240,
     "brakes": "vented",
+    "drive": "rear",
+    "frontWeight": 50,
     "estimated": ["frontOverhang"],
     "paint": "#d8d8d6"
   },
@@ -200,6 +222,8 @@
     "mass": 1379,
     "topSpeed": 235,
     "brakes": "vented",
+    "drive": "rear",
+    "frontWeight": 50,
     "estimated": ["frontOverhang"],
     "paint": "#a8141d"
   },
@@ -217,6 +241,8 @@
     "mass": 1570,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 59,
     "estimated": ["clearance"],
     "paint": "#5fa038"
   },
@@ -234,6 +260,8 @@
     "mass": 1440,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 59,
     "estimated": ["clearance"],
     "paint": "#1c78c8"
   },
@@ -251,6 +279,8 @@
     "mass": 1715,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 58,
     "estimated": ["clearance"],
     "paint": "#787b7d"
   },
@@ -268,6 +298,8 @@
     "mass": 1608,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 58,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#34505c"
   },
@@ -285,6 +317,8 @@
     "mass": 1730,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 52,
     "estimated": [],
     "paint": "#0f4a36"
   },
@@ -302,6 +336,8 @@
     "mass": 1725,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 52,
     "estimated": [],
     "paint": "#d4c81c"
   },
@@ -319,6 +355,8 @@
     "mass": 1725,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 52,
     "estimated": [],
     "paint": "#5b9bd1"
   },
@@ -336,6 +374,8 @@
     "mass": 1970,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 52,
     "estimated": ["clearance"],
     "paint": "#a3201c"
   },
@@ -353,6 +393,8 @@
     "mass": 1970,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 52,
     "estimated": ["clearance"],
     "paint": "#0e6aa8"
   },
@@ -370,6 +412,8 @@
     "mass": 1418,
     "topSpeed": 318,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 39,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#2274b8"
   },
@@ -387,6 +431,8 @@
     "mass": 1418,
     "topSpeed": 320,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 39,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#5a5e62"
   },
@@ -404,6 +450,8 @@
     "mass": 1465,
     "topSpeed": 310,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 39,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#a4a9ad"
   },
@@ -421,6 +469,8 @@
     "mass": 1464,
     "topSpeed": 315,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 45,
     "estimated": ["frontOverhang", "track"],
     "paint": "#eec20f"
   },
@@ -438,6 +488,8 @@
     "mass": 1410,
     "topSpeed": 308,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 45,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#8d979d"
   },
@@ -455,6 +507,8 @@
     "mass": 1681,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 53,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#c4161c"
   },
@@ -472,6 +526,8 @@
     "mass": 1746,
     "topSpeed": 263,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 53,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#1c3a2a"
   },
@@ -489,6 +545,8 @@
     "mass": 1764,
     "topSpeed": 268,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 53,
     "estimated": ["frontOverhang"],
     "paint": "#5e6b73"
   },
@@ -506,6 +564,8 @@
     "mass": 2200,
     "topSpeed": 170,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 57,
     "estimated": [],
     "paint": "#1f4f9a"
   },
@@ -523,6 +583,8 @@
     "mass": 2009,
     "topSpeed": 320,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 57,
     "estimated": ["frontOverhang"],
     "paint": "#cf1a20"
   },
@@ -540,6 +602,8 @@
     "mass": 2080,
     "topSpeed": 328,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 56,
     "estimated": ["width", "frontOverhang", "track"],
     "paint": "#4f2c82"
   },
@@ -557,6 +621,8 @@
     "mass": 2529,
     "topSpeed": 290,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 55,
     "estimated": ["width", "height", "frontOverhang"],
     "paint": "#1f3f93"
   },
@@ -574,6 +640,8 @@
     "mass": 2429,
     "topSpeed": 290,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 55,
     "estimated": ["frontOverhang"],
     "paint": "#a8171c"
   },
@@ -591,6 +659,8 @@
     "mass": 2880,
     "topSpeed": 190,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 57,
     "estimated": ["frontOverhang"],
     "paint": "#70777d"
   },
@@ -608,6 +678,8 @@
     "mass": 1330,
     "topSpeed": 340,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 41,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#c1121c"
   },
@@ -625,6 +697,8 @@
     "mass": 1420,
     "topSpeed": 330,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 42,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#a80f1a"
   },
@@ -642,6 +716,8 @@
     "mass": 1280,
     "topSpeed": 340,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 42,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#c1121c"
   },
@@ -659,6 +735,8 @@
     "mass": 1570,
     "topSpeed": 320,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 50,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#3f4b5e"
   },
@@ -676,6 +754,8 @@
     "mass": 1545,
     "topSpeed": 320,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 47,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#9e1b22"
   },
@@ -693,6 +773,8 @@
     "mass": 1422,
     "topSpeed": 325,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["frontOverhang"],
     "paint": "#f2741c"
   },
@@ -710,6 +792,8 @@
     "mass": 1339,
     "topSpeed": 310,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 41,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#3f8fd6"
   },
@@ -727,6 +811,8 @@
     "mass": 1660,
     "topSpeed": 324,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 42,
     "estimated": ["clearance"],
     "paint": "#e3bd12"
   },
@@ -744,6 +830,8 @@
     "mass": 1525,
     "topSpeed": 350,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": [],
     "paint": "#6f8f2c"
   },
@@ -761,6 +849,8 @@
     "mass": 1575,
     "topSpeed": 350,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#f4c20d"
   },
@@ -778,6 +868,8 @@
     "mass": 1595,
     "topSpeed": 350,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#2f5a39"
   },
@@ -795,6 +887,8 @@
     "mass": 1595,
     "topSpeed": 355,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#f0f0ec"
   },
@@ -812,6 +906,8 @@
     "mass": 1995,
     "topSpeed": 420,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#1f58c7"
   },
@@ -829,6 +925,8 @@
     "mass": 1995,
     "topSpeed": 440,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["frontOverhang"],
     "paint": "#1b1c1f"
   },
@@ -846,6 +944,8 @@
     "mass": 1961,
     "topSpeed": 380,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#8e959b"
   },
@@ -863,6 +963,8 @@
     "mass": 1976,
     "topSpeed": 380,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 43,
     "estimated": ["wheelbase", "frontOverhang", "clearance"],
     "paint": "#f2f2ef"
   },
@@ -880,6 +982,8 @@
     "mass": 1888,
     "topSpeed": 407,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 45,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#b8131f"
   },
@@ -897,6 +1001,8 @@
     "mass": 1090,
     "topSpeed": 196,
     "brakes": "drum",
+    "drive": "front",
+    "frontWeight": 62,
     "estimated": ["frontOverhang", "track", "clearance", "mass"],
     "paint": "#1f77b8"
   },
@@ -914,6 +1020,8 @@
     "mass": 1280,
     "topSpeed": 193,
     "brakes": "disc",
+    "drive": "front",
+    "frontWeight": 60,
     "estimated": ["frontOverhang", "track", "clearance", "mass"],
     "paint": "#4a4e53"
   },
@@ -931,6 +1039,8 @@
     "mass": 1275,
     "topSpeed": 180,
     "brakes": "drum",
+    "drive": "front",
+    "frontWeight": 60,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#a8612f"
   },
@@ -948,6 +1058,8 @@
     "mass": 1205,
     "topSpeed": 191,
     "brakes": "disc",
+    "drive": "front",
+    "frontWeight": 60,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#5aa0b5"
   },
@@ -965,6 +1077,8 @@
     "mass": 1825,
     "topSpeed": 250,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 57,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#25344d"
   },
@@ -982,6 +1096,8 @@
     "mass": 1975,
     "topSpeed": 250,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 56,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#6e6a63"
   },
@@ -999,6 +1115,8 @@
     "mass": 2050,
     "topSpeed": 241,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 55,
     "estimated": ["frontOverhang", "track", "clearance", "mass"],
     "paint": "#2a3c5c"
   },
@@ -1016,6 +1134,8 @@
     "mass": 2040,
     "topSpeed": 235,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 55,
     "estimated": ["frontOverhang", "track", "clearance", "mass"],
     "paint": "#a7aaac"
   },
@@ -1033,6 +1153,8 @@
     "mass": 2160,
     "topSpeed": 221,
     "brakes": "vented",
+    "drive": "all",
+    "frontWeight": 55,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#8e8b84"
   },
@@ -1050,6 +1172,8 @@
     "mass": 1560,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 55,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#1d4fa3"
   },
@@ -1067,6 +1191,8 @@
     "mass": 1540,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 56,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#3a2a5c"
   },
@@ -1084,6 +1210,8 @@
     "mass": 1430,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 59,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#565a5f"
   },
@@ -1101,6 +1229,8 @@
     "mass": 1565,
     "topSpeed": 255,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 60,
     "estimated": ["frontOverhang", "track", "clearance", "mass"],
     "paint": "#0c3c9c"
   },
@@ -1118,6 +1248,8 @@
     "mass": 1470,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 59,
     "estimated": ["length", "height", "wheelbase", "frontOverhang", "track", "clearance", "mass"],
     "paint": "#143d99"
   },
@@ -1135,6 +1267,8 @@
     "mass": 1421,
     "topSpeed": 319,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 51,
     "estimated": ["length", "width", "frontOverhang", "track", "clearance"],
     "paint": "#f0c319"
   },
@@ -1152,6 +1286,8 @@
     "mass": 1733,
     "topSpeed": 277,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 52,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#e8e8e3"
   },
@@ -1169,6 +1305,8 @@
     "mass": 1752,
     "topSpeed": 315,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 54,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#c9571e"
   },
@@ -1186,6 +1324,8 @@
     "mass": 1703,
     "topSpeed": 315,
     "brakes": "ceramic",
+    "drive": "all",
+    "frontWeight": 54,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#e8e8e4"
   },
@@ -1203,6 +1343,8 @@
     "mass": 1630,
     "topSpeed": 318,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 47,
     "estimated": ["width", "frontOverhang", "clearance"],
     "paint": "#3f8128"
   },
@@ -1220,6 +1362,8 @@
     "mass": 1540,
     "topSpeed": 304,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 47,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#f0c010"
   },
@@ -1237,6 +1381,8 @@
     "mass": 1655,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 53,
     "estimated": ["length", "width", "frontOverhang", "track", "clearance"],
     "paint": "#62676b"
   },
@@ -1254,6 +1400,8 @@
     "mass": 1955,
     "topSpeed": 250,
     "brakes": "sport",
+    "drive": "all",
+    "frontWeight": 54,
     "estimated": ["length", "height", "frontOverhang", "track", "clearance", "mass"],
     "paint": "#1a3a80"
   },
@@ -1271,6 +1419,8 @@
     "mass": 1530,
     "topSpeed": 314,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 50,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#b5cf1a"
   },
@@ -1288,6 +1438,8 @@
     "mass": 1760,
     "topSpeed": 301,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 49,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#8fa6b2"
   },
@@ -1305,6 +1457,8 @@
     "mass": 1380,
     "topSpeed": 325,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 42,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#c1121c"
   },
@@ -1322,6 +1476,8 @@
     "mass": 1430,
     "topSpeed": 320,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 42,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#f4c20d"
   },
@@ -1339,6 +1495,8 @@
     "mass": 1290,
     "topSpeed": 325,
     "brakes": "ceramic",
+    "drive": "rear",
+    "frontWeight": 42,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#c1121c"
   },
@@ -1356,6 +1514,8 @@
     "mass": 1140,
     "topSpeed": 386,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 42,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#8f9396"
   },
@@ -1373,6 +1533,8 @@
     "mass": 1062,
     "topSpeed": 362,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 42,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#f27a14"
   },
@@ -1390,6 +1552,9 @@
     "mass": 1050,
     "topSpeed": 330,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 42,
+    "slicks": true,
     "estimated": ["width", "frontOverhang", "tyres", "clearance"],
     "paint": "#33363a"
   },
@@ -1407,6 +1572,9 @@
     "mass": 839,
     "topSpeed": 340,
     "brakes": "carbon",
+    "drive": "rear",
+    "frontWeight": 45,
+    "slicks": true,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#f26a1c"
   },
@@ -1424,6 +1592,9 @@
     "mass": 800,
     "topSpeed": 330,
     "brakes": "sport",
+    "drive": "rear",
+    "frontWeight": 45,
+    "slicks": true,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#eef0ec"
   },
@@ -1441,6 +1612,9 @@
     "mass": 605,
     "topSpeed": 360,
     "brakes": "carbon",
+    "drive": "rear",
+    "frontWeight": 45,
+    "slicks": true,
     "estimated": ["frontOverhang", "clearance"],
     "paint": "#c8141c"
   },
@@ -1458,6 +1632,9 @@
     "mass": 605,
     "topSpeed": 360,
     "brakes": "carbon",
+    "drive": "rear",
+    "frontWeight": 45,
+    "slicks": true,
     "estimated": ["length", "wheelbase", "frontOverhang", "track", "clearance"],
     "paint": "#f3f3ef"
   },
@@ -1475,6 +1652,9 @@
     "mass": 605,
     "topSpeed": 360,
     "brakes": "carbon",
+    "drive": "rear",
+    "frontWeight": 45,
+    "slicks": true,
     "estimated": ["frontOverhang", "track", "clearance"],
     "paint": "#b4b8bc"
   }

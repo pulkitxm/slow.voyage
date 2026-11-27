@@ -236,6 +236,7 @@ export function Drive() {
                 manual={settings.transmission === 'manual'}
                 quiet={state.paused || panel || help}
                 redline={fitCar(settings).profile.redline}
+                aids={settings}
                 live={() => engine.current?.physics.revs() ?? null}
                 onNeutral={() => engine.current?.toggleNeutral()}
               />
@@ -245,6 +246,7 @@ export function Drive() {
                 units={settings.units}
                 manual={settings.transmission === 'manual'}
                 quiet={state.paused || panel || help}
+                aids={settings}
                 onNeutral={() => engine.current?.toggleNeutral()}
               />
             )}
