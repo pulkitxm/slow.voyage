@@ -11,18 +11,24 @@ export function Speed({
   units,
   manual,
   quiet,
+  onNeutral,
 }: {
   store: TelemetryStore
   units: Settings['units']
   manual: boolean
   quiet: boolean
+  onNeutral: () => void
 }) {
   const speed = useTelemetry(store, (state) =>
     Math.round(Math.abs(state.speed) * speedScale(units)),
   )
   const gear = useTelemetry(store, (state) => state.gear)
   const strain = useTelemetry(store, (state) =>
-    manual && state.revs > 0.9 ? (state.limited ? 'gear gear-limit' : 'gear gear-shift') : 'gear',
+    (manual || state.gear === 'N') && state.revs > 0.9
+      ? state.limited
+        ? 'gear gear-limit'
+        : 'gear gear-shift'
+      : 'gear',
   )
   const boost = useTelemetry(store, (state) => state.boost)
   const nitro = useTelemetry(store, (state) => Math.round(state.nitro * 100))
@@ -32,7 +38,15 @@ export function Speed({
       <span className="speed-value">{String(speed).padStart(2, '0')}</span>
       <span className="speed-unit">
         {units === 'km' ? 'km/h' : 'mph'}
-        <span className={strain}>{gear}</span>
+        <button
+          type="button"
+          aria-label={gear === 'N' ? 'Neutral. Select to engage a gear' : 'Shift into neutral'}
+          title="Neutral (Z)"
+          onClick={onNeutral}
+          className={strain}
+        >
+          {gear}
+        </button>
       </span>
       <div className="speed-track">
         <span style={{ width: `${Math.min(speed / 2, 100)}%` }} />

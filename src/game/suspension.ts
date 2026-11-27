@@ -1,7 +1,8 @@
+import { bodyFor, bodyMetrics, bodyTire, type CarBody } from './car-bodies'
 import { roadCoordinates } from './road'
 import { puddleDepth } from './road-condition'
-import { tireDimensions } from './tire-dimensions'
-import { vehicleMetrics } from './vehicles'
+import { type TireDimensions, tireDimensions } from './tire-dimensions'
+import { type VehicleMetrics, vehicleMetrics } from './vehicles'
 import { clamp, type Vehicle, type World } from './world'
 
 const tireSupportAngles = [-0.7, -0.4, -0.18, 0, 0.18, 0.4, 0.7]
@@ -58,16 +59,25 @@ export interface WheelState {
 export class Suspension {
   wheels: WheelState[] = []
   vehicle: Vehicle
+  body: CarBody | null = null
+  metrics: VehicleMetrics
+  tire: TireDimensions
   constructor(
     public world: World,
     vehicle = world.settings.vehicle,
+    body: CarBody | null = bodyFor(world.settings),
   ) {
     this.vehicle = vehicle
-    this.configure(vehicle)
+    this.metrics = vehicleMetrics[vehicle]
+    this.tire = tireDimensions[vehicle]
+    this.configure(vehicle, body && body.chassis === vehicle ? body : null)
   }
-  configure(vehicle: Vehicle) {
+  configure(vehicle: Vehicle, body: CarBody | null = null) {
     this.vehicle = vehicle
-    const metrics = vehicleMetrics[vehicle]
+    this.body = body
+    this.metrics = bodyMetrics(vehicleMetrics[vehicle], body)
+    this.tire = bodyTire(vehicle, body)
+    const metrics = this.metrics
     this.wheels = []
     for (const localS of [-metrics.wheelbase * 0.5, metrics.wheelbase * 0.5])
       for (const side of metrics.trackWidth ? [-1, 1] : [0])
@@ -99,8 +109,8 @@ export class Suspension {
         })
   }
   sample(pose: ChassisPose, dt = 0) {
-    const metrics = vehicleMetrics[this.vehicle]
-    const tire = tireDimensions[this.vehicle]
+    const metrics = this.metrics
+    const tire = this.tire
     const sy = Math.sin(pose.yaw),
       cy = Math.cos(pose.yaw),
       sp = Math.sin(pose.pitch),
@@ -206,7 +216,7 @@ export class Suspension {
     }
   }
   reset(pose: ChassisPose) {
-    const metrics = vehicleMetrics[this.vehicle]
+    const metrics = this.metrics
     const front = this.wheels.filter((wheel) => wheel.front),
       rear = this.wheels.filter((wheel) => !wheel.front)
     const mean = (wheels: WheelState[]) =>
@@ -247,7 +257,7 @@ export class Suspension {
     )
   }
   level(pose: ChassisPose, dt: number) {
-    const metrics = vehicleMetrics[this.vehicle]
+    const metrics = this.metrics
     const heights = this.wheels.map((wheel) => this.world.surface(wheel.x, wheel.s).height)
     const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length
     const slope = (offsets: number[]) => {
@@ -274,7 +284,7 @@ export class Suspension {
     return this.mountHeight(pose, wheel) - wheel.ground
   }
   updateOffsets(pose: ChassisPose) {
-    const travel = vehicleMetrics[this.vehicle].suspensionTravel
+    const travel = this.metrics.suspensionTravel
     for (const wheel of this.wheels) {
       const gap = this.gap(pose, wheel)
       wheel.offset = clamp(-gap, -travel, travel)
@@ -283,7 +293,7 @@ export class Suspension {
     }
   }
   updateSteering(steering: number) {
-    const metrics = vehicleMetrics[this.vehicle]
+    const metrics = this.metrics
     const radius = Math.abs(steering) < 0.0001 ? Infinity : metrics.wheelbase / Math.tan(steering)
     for (const wheel of this.wheels)
       wheel.steering = wheel.front ? Math.atan(metrics.wheelbase / (radius + wheel.localX)) : 0
@@ -295,7 +305,7 @@ export class Suspension {
     lateralAcceleration: number,
     handbrake: boolean,
   ) {
-    const metrics = vehicleMetrics[this.vehicle]
+    const metrics = this.metrics
     const quarterMass = metrics.mass / this.wheels.length
     const spring = (quarterMass * 9.81) / metrics.suspensionTravel
     const damper = 2 * metrics.suspensionDamping * Math.sqrt(spring * quarterMass)

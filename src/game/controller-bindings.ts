@@ -22,6 +22,7 @@ export const controllerGroups = {
     vehiclePrevious: 'Previous vehicle',
     journeyNext: 'Next scenery',
     journeyPrevious: 'Previous scenery',
+    neutral: 'Neutral',
   },
   Camera: {
     lookLeft: 'Look left',
@@ -106,6 +107,7 @@ export function standardBindings(deviceId: string): ControllerBindings {
     pause: button(9),
     cruiseUp: button(12),
     cruiseDown: button(13),
+    neutral: button(10),
   }
 }
 

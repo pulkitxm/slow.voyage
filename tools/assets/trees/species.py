@@ -1,10 +1,10 @@
-SUMMER_GREENS = ((0.115, 0.2, 0.034), (0.215, 0.27, 0.05))
-SHRUB_GREENS = ((0.12, 0.215, 0.045), (0.215, 0.285, 0.07))
-NEEDLE_GREENS = ((0.045, 0.105, 0.03), (0.095, 0.16, 0.04))
+SUMMER_GREENS = ((0.05, 0.088, 0.02), (0.1, 0.132, 0.03))
+SHRUB_GREENS = ((0.056, 0.094, 0.024), (0.108, 0.136, 0.036))
+NEEDLE_GREENS = ((0.026, 0.056, 0.022), (0.052, 0.086, 0.03))
 TRUNK_FLARE = (1.9, 1.55, 1.3, 1.15, 1.06)
 SHRUB_FLARE = (1.25, 1.1)
 
-LEVELS = {"leafed": 0.45, "bare": 0.3, "evergreen": 0.37}
+LEVELS = {"leafed": 0.3, "evergreen": 0.235}
 
 SPECIES = {
     "broadleaf-a": {
@@ -14,7 +14,8 @@ SPECIES = {
         "top": 0.82,
         "half_width": 0.475,
         "step": 0.022,
-        "stems": [((0.0, 0.0, -0.03), (0.02, 0.0, 1.0), 0.33)],
+        "stems": [((0.0, 0.0, -0.03), (0.0, 0.0, 1.0), 0.33)],
+        "wander": 0.018,
         "lobes": [
             {"centre": (0.0, 0.0, 0.6), "radii": (0.5, 0.42, 0.24), "weight": 5, "floor": -0.7},
             {"centre": (-0.3, 0.05, 0.56), "radii": (0.2, 0.2, 0.16), "weight": 1.2},
@@ -30,9 +31,9 @@ SPECIES = {
         "girth": 0.04,
         "flare": TRUNK_FLARE,
         "leaf_limit": 0.0022,
-        "leaves": 8,
-        "scatter": 0.006,
-        "leaf": 0.025,
+        "leaves": 14,
+        "scatter": 0.011,
+        "leaf": 0.017,
         "slim": 0.62,
         "droop": 0.25,
         "greens": SUMMER_GREENS,
@@ -44,7 +45,8 @@ SPECIES = {
         "top": 0.975,
         "half_width": 0.45,
         "step": 0.022,
-        "stems": [((0.0, 0.0, -0.03), (-0.03, 0.0, 1.0), 0.3)],
+        "stems": [((0.0, 0.0, -0.03), (0.0, 0.0, 1.0), 0.3)],
+        "wander": 0.018,
         "lobes": [
             {"centre": (0.0, 0.0, 0.66), "radii": (0.4, 0.36, 0.33), "weight": 5, "floor": -0.8},
             {"centre": (-0.22, 0.0, 0.5), "radii": (0.2, 0.2, 0.15), "weight": 1},
@@ -61,9 +63,9 @@ SPECIES = {
         "girth": 0.043,
         "flare": TRUNK_FLARE,
         "leaf_limit": 0.0022,
-        "leaves": 8,
-        "scatter": 0.006,
-        "leaf": 0.024,
+        "leaves": 14,
+        "scatter": 0.011,
+        "leaf": 0.0165,
         "slim": 0.66,
         "droop": 0.2,
         "greens": SUMMER_GREENS,
@@ -97,9 +99,9 @@ SPECIES = {
         "girth": 0.016,
         "flare": SHRUB_FLARE,
         "leaf_limit": 0.003,
-        "leaves": 8,
-        "scatter": 0.008,
-        "leaf": 0.042,
+        "leaves": 14,
+        "scatter": 0.013,
+        "leaf": 0.027,
         "slim": 0.6,
         "droop": 0.15,
         "greens": SHRUB_GREENS,
@@ -135,9 +137,9 @@ SPECIES = {
         "girth": 0.014,
         "flare": SHRUB_FLARE,
         "leaf_limit": 0.003,
-        "leaves": 8,
-        "scatter": 0.008,
-        "leaf": 0.04,
+        "leaves": 14,
+        "scatter": 0.013,
+        "leaf": 0.026,
         "slim": 0.5,
         "droop": 0.3,
         "greens": SHRUB_GREENS,
@@ -150,7 +152,7 @@ SPECIES = {
         "half_width": 0.185,
         "step": 0.02,
         "stems": [((0.0, 0.0, -0.03), (0.0, 0.0, 1.0), 0.62)],
-        "wander": 0.03,
+        "wander": 0.014,
         "lobes": [
             {"centre": (0.0, 0.0, 0.56), "radii": (0.16, 0.16, 0.42), "weight": 5, "shell": 0.6},
             {"centre": (0.0, 0.0, 0.8), "radii": (0.1, 0.1, 0.17), "weight": 1.5},
@@ -165,9 +167,9 @@ SPECIES = {
         "girth": 0.026,
         "flare": TRUNK_FLARE,
         "leaf_limit": 0.0022,
-        "leaves": 8,
-        "scatter": 0.006,
-        "leaf": 0.024,
+        "leaves": 14,
+        "scatter": 0.01,
+        "leaf": 0.0165,
         "slim": 0.7,
         "droop": 0.4,
         "greens": SUMMER_GREENS,
@@ -190,10 +192,10 @@ SPECIES = {
         "girth": 0.03,
         "flare": TRUNK_FLARE,
         "leaf_limit": 0.009,
-        "leaves": 14,
-        "scatter": 0.004,
-        "leaf": 0.019,
-        "slim": 0.3,
+        "leaves": 24,
+        "scatter": 0.005,
+        "leaf": 0.016,
+        "slim": 0.2,
         "droop": 0.12,
         "greens": NEEDLE_GREENS,
     },

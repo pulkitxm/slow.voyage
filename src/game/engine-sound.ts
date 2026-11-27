@@ -26,6 +26,8 @@ export interface EngineSound {
   whine: number
   rumble: number
   turbo: { level: number; whistle: readonly [number, number]; flutter: number } | null
+  blower?: { level: number; order: number }
+  stagger?: readonly number[]
   pops: number
   volume: number
 }
@@ -283,6 +285,8 @@ export function spoolTurbo(spool: number, load: number, revs: number, dt: number
   return spool + (target - spool) * (1 - Math.exp(-dt / time))
 }
 
+export const ignition = { crank: 0.75, flare: 1.4, crankRpm: 210, starter: 3.1 } as const
+
 export const overrun = { revs: 0.3, load: 0.08, burst: 0.4, warmUp: 1.2, coolDown: 2.6 } as const
 
 export function afterfire(sound: EngineSound, heat: number, revs: number, bursting: boolean) {
@@ -291,7 +295,7 @@ export function afterfire(sound: EngineSound, heat: number, revs: number, bursti
   return limit(sound.pops * reach * (0.1 * heat + (bursting ? 0.5 : 0)), 0, 0.9)
 }
 
-const most = 12
+const most = 16
 
 class Collector {
   header: Pipe
@@ -334,6 +338,11 @@ export class EngineVoice {
   private last = new Float32Array(most)
   private strength = new Float32Array(most)
   private narrow = new Float32Array(most)
+  private delays = new Float32Array(most)
+  private aim = new Float32Array(most)
+  private lag = new Float32Array(most)
+  private ignition = Number.POSITIVE_INFINITY
+  private starterPhase = 0
   private collectors: [Collector, Collector]
   private runner: Pipe
   private throat: Biquad
@@ -355,6 +364,7 @@ export class EngineVoice {
   private shade = 0
   private whinePhase = 0
   private whistlePhase = 0
+  private blowerPhase = 0
   private whistlePitch = 2000
   private vent = 0
   private ventAge = 1
@@ -397,6 +407,8 @@ export class EngineVoice {
       this.last[index] = 1
       this.strength[index] = 0
       this.narrow[index] = 50
+      this.delays[index] = sound.stagger?.[index] ?? 0
+      this.lag[index] = 0
     }
     this.twin = sound.banks.some((bank) => bank === 1)
     for (let side = 0; side < 2; side++) {
@@ -411,6 +423,13 @@ export class EngineVoice {
     this.plenum.lowpass(sound.intake.throat * 3.2, 0.8).clear()
     this.spool = this.heat = this.vent = this.pop = this.burst = 0
     this.seenShifts = -1
+    this.ignition = Number.POSITIVE_INFINITY
+  }
+  ignite() {
+    this.ignition = 0
+  }
+  get starting() {
+    return this.ignition < ignition.crank + ignition.flare
   }
   render(
     left: Float32Array,
@@ -425,7 +444,18 @@ export class EngineVoice {
     const dt = count / rate
     const span = Math.max(1, this.redline - this.idle)
     const revs = limit((this.rpm - this.idle) / span, 0, 1)
-    const drive = this.cutting > 0.5 ? 0 : limit(this.load, 0, 1)
+    let cranking = 0
+    let catching = 0
+    if (this.ignition === 0 && (Math.abs(this.speed) > 1 || this.rpm > this.idle * 1.4))
+      this.ignition = Number.POSITIVE_INFINITY
+    const since = this.ignition
+    if (since < ignition.crank) cranking = 1
+    else if (since < ignition.crank + ignition.flare) {
+      const along = (since - ignition.crank) / ignition.flare
+      catching = along < 0.12 ? along / 0.12 : Math.exp(-(along - 0.12) * 3.5)
+    }
+    if (since < ignition.crank + ignition.flare) this.ignition += dt
+    const drive = Math.max(this.cutting > 0.5 ? 0 : limit(this.load, 0, 1), 0.5 * catching)
     const pedal = limit(this.throttle, 0, 1)
 
     this.held =
@@ -480,7 +510,19 @@ export class EngineVoice {
 
     const idling = limit(1 - revs * 9, 0, 1) * (1 - drive)
     const hunt = this.steady ? 0 : this.wander.next() * 0.005 * idling
-    const target = Math.max(60, this.rpm) * (1 + hunt)
+    const target = cranking
+      ? ignition.crankRpm * (1 + 0.14 * Math.sin(since * Math.PI * 2 * 2.6))
+      : Math.max(60, this.rpm * (1 + 0.85 * catching)) * (1 + hunt)
+    const scatter =
+      this.steady || cranking ? 0 : 0.0035 * (0.35 + 0.65 * idling) * (0.6 + 4 * sound.roughness)
+    const fuel = cranking ? 0.1 : 1
+    const starterLevel = cranking * 0.05
+    const starterStep = ignition.starter / rate
+    let starterPhase = this.starterPhase
+    for (let c = 0; c < sound.cylinders; c++) {
+      const shifted = (this.offsets[c] as number) + ((this.delays[c] as number) * target) / 120
+      this.aim[c] = shifted - Math.floor(shifted)
+    }
     const burble = coasting && revs > 0.2 ? 1 : 0
     const rough = this.steady ? 0 : sound.roughness * (0.35 + 0.65 * idling) + 0.3 * burble
     const lope = this.steady ? 0 : sound.lope * idling + (0.06 + 0.16 * sound.pops) * burble
@@ -529,7 +571,8 @@ export class EngineVoice {
     const breathe = glide(0.03, rate)
     const tune = glide(0.02, rate)
     const cylinders = sound.cylinders
-    const offsets = this.offsets
+    const offsets = this.aim
+    const lag = this.lag
     const weights = this.weights
     const spans = this.spans
     const bank = this.bank
@@ -553,6 +596,9 @@ export class EngineVoice {
     let whistlePitch = this.whistlePitch
     let flutterPhase = this.flutterPhase
     const vent = this.vent
+    const blowerLevel = sound.blower ? sound.blower.level * 0.03 * (0.2 + 0.8 * revs) : 0
+    const blowerStep = sound.blower ? sound.blower.order / (60 * rate) : 0
+    let blowerPhase = this.blowerPhase
 
     for (let i = 0; i < count; i++) {
       turning += (target - turning) * follow
@@ -567,9 +613,11 @@ export class EngineVoice {
       for (let c = 0; c < cylinders; c++) {
         let p = phase - (offsets[c] as number)
         if (p < 0) p += 1
-        if (p < (last[c] as number)) {
+        const before = last[c] as number
+        if (p + 0.5 < before || before >= 1) {
           const weight = weights[c] as number
-          let power = (pumping + (1 - pumping) * effort ** 0.75) * breathing * weight
+          let power = (pumping + (1 - pumping) * effort ** 0.75) * breathing * weight * fuel
+          lag[c] = scatter > 0 ? scatter * noise.unit() : 0
           power *= 1 + rough * noise.next()
           if (lope > 0 && noise.unit() < lope) power *= 0.3
           narrow[c] = inverseWidth * (spans[c] as number)
@@ -584,8 +632,8 @@ export class EngineVoice {
           knock = Math.max(knock, (0.6 + 0.4 * noise.unit()) * weight)
         }
         last[c] = p
-        const x = p * (narrow[c] as number)
-        if (x < 1) {
+        const x = (p - (lag[c] as number)) * (narrow[c] as number)
+        if (x >= 0 && x < 1) {
           const rest = 1 - x
           const soft = x * rest * rest * 6.75
           const hard = rest * rest * rest * (x < 0.08 ? x * 16 : 1.28)
@@ -650,15 +698,26 @@ export class EngineVoice {
           ? (Math.sin(whinePhase * 6.2831853) + 0.35 * Math.sin(whinePhase * 12.5663706)) *
             whineLevel
           : 0
+      let starter = 0
+      if (starterLevel > 0) {
+        starterPhase += turning * starterStep
+        if (starterPhase >= 1) starterPhase -= 1
+        starter =
+          (Math.sin(starterPhase * 6.2831853) + 0.45 * Math.sin(starterPhase * 12.5663706)) *
+            starterLevel +
+          airy * starterLevel * 0.6
+      }
       bay[i] =
-        this.bayBlocker.run(roar + ticking + rattle + block * 0.4 + whine + this.shifter.run()) *
-        bayLevel
+        this.bayBlocker.run(
+          roar + ticking + rattle + block * 0.4 + whine + starter + this.shifter.run(),
+        ) * bayLevel
 
+      let out = 0
       if (boosted) {
         whistlePitch += (whistleTarget - whistlePitch) * tune
         whistlePhase += whistlePitch / rate
         if (whistlePhase >= 1) whistlePhase -= 1
-        let out =
+        out =
           Math.sin(whistlePhase * 6.2831853 + airy * 0.6) * whistleLevel +
           this.hissBand.run(white) * hissLevel
         if (vent > 0.001) {
@@ -667,8 +726,18 @@ export class EngineVoice {
           const chop = flutterStep > 0 ? (flutterPhase < 0.45 ? 1 : 0.12) : 1
           out += this.ventBand.run(white) * vent * chop * boosted.level * 2.2
         }
-        turbo[i] = this.turboBlocker.run(out) * 1.5
-      } else turbo[i] = 0
+      }
+      if (blowerLevel > 0) {
+        blowerPhase += turning * blowerStep
+        if (blowerPhase >= 1) blowerPhase -= 1
+        out +=
+          (Math.sin(blowerPhase * 6.2831853) +
+            0.5 * Math.sin(blowerPhase * 12.5663706) +
+            0.25 * Math.sin(blowerPhase * 18.8495559 + airy * 0.4)) *
+          blowerLevel *
+          (0.3 + 0.7 * effort)
+      }
+      turbo[i] = boosted || blowerLevel > 0 ? this.turboBlocker.run(out) * 1.5 : 0
     }
     this.phase = phase
     this.turning = turning
@@ -681,6 +750,8 @@ export class EngineVoice {
     this.popMuffle = popMuffle
     this.whinePhase = whinePhase
     this.whistlePhase = whistlePhase
+    this.blowerPhase = blowerPhase
+    this.starterPhase = starterPhase
     this.whistlePitch = whistlePitch
     this.flutterPhase = flutterPhase
   }
