@@ -31,7 +31,7 @@ import { Modal } from './components/Modal'
 import { SettingsPanel } from './components/SettingsPanel'
 import { bodyFor } from './game/car-bodies'
 import { assistanceLabels } from './game/controls'
-import { fitEngine } from './game/engines'
+import { fitCar } from './game/engines'
 import { minimapLayout } from './game/minimap'
 import { vehicleNames } from './game/vehicles'
 import type { Vehicle } from './game/world'
@@ -235,7 +235,7 @@ export function Drive() {
                 units={settings.units}
                 manual={settings.transmission === 'manual'}
                 quiet={state.paused || panel || help}
-                redline={fitEngine(settings.vehicle, settings.engine).profile.redline}
+                redline={fitCar(settings).profile.redline}
                 live={() => engine.current?.physics.revs() ?? null}
                 onNeutral={() => engine.current?.toggleNeutral()}
               />
