@@ -13,6 +13,7 @@ textures, Python with numpy and Pillow.
 | ---------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Cars             | `src/assets/models/cars/*.glb`                                    | `python3 tools/assets/cars/generate.py`                                                               |
 | Car bodies       | `src/assets/models/cars/bodies/*.glb`                             | `python3 tools/assets/cars/bodies/generate.py`                                                        |
+| Car pictures     | `src/assets/models/cars/thumbs/*.webp`                            | `python3 tools/assets/cars/thumbs.py`                                                                 |
 | People           | `src/assets/models/man.glb`, `woman.glb`                          | `python3 tools/assets/people/generate.py`                                                             |
 | Animals          | `src/assets/models/{sheep,horse,deer,cattle,bull,elephant}.glb`   | `python3 tools/assets/animals/generate.py`                                                            |
 | Rocks and plants | `src/assets/models/rocks/*.glb`, `src/assets/models/plants/*.glb` | `python3 tools/assets/vegetation/build.py`                                                            |
@@ -63,6 +64,11 @@ body's length, width and height beside the real figures, and
 sizes, overall length and height, the paint material, and the lamp meshes the game
 lights. The generator also writes each design's factory paint back into the sheet. Pass
 `--flat` to the Blender build to skip the shading bake while iterating.
+
+`tools/assets/cars/thumbs.py` renders every class car and catalog car once as a
+small studio picture with neutral paint, plus a mask of its painted panels. The
+car picker tints the mask with the chosen paint, so the pictures follow the
+paint without rendering anything in the game.
 
 In the game a car's body appears when that car is chosen on its own chassis class.
 Its wheelbase, track and wheel sizes replace the class's own; handling stays with the
