@@ -28,6 +28,7 @@
     "review:capture": "bun scripts/review.ts",
     "review:judge": "bun scripts/judge.ts",
     "media:video": "bun scripts/launch-video.ts",
+    "media:score": "bun scripts/launch-score.ts",
     "media:frames": "bun scripts/launch-frames.ts"
   },
   "dependencies": {
