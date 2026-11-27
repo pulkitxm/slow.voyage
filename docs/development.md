@@ -103,9 +103,9 @@ accelerate or right click to brake and reverse. Enable it with M or in Controls
 settings, where sensitivity is adjustable. Keyboard and touch remain available;
 mouse driving takes priority over controller pedals and steering.
 
-The Vehicle tab has one searchable car list. Easy picks are the seven game
-vehicles, each with a one-line description; below them are the 87 real cars by
-maker. Picking a real car switches to the chassis that suits it, puts that car's
+The Vehicle tab has one searchable car list, shown as a grid of car pictures in
+the chosen paint. Easy picks are the seven game vehicles, each with a one-line
+description; below them are the 87 real cars by maker. Picking a real car switches to the chassis that suits it, puts that car's
 own body on it in a factory paint, and fits its engine. The car keeps the
 chassis's handling; its wheelbase, track and wheel sizes are the real car's. A
 second list optionally swaps in any of the twenty-four engines, keeping the

@@ -4,14 +4,21 @@ const root = 'dist/client'
 const paths = Array.from(new Bun.Glob('**/*').scanSync({ cwd: root, onlyFiles: true }))
   .filter((path) => path !== 'sw.js')
   .sort()
-const bodies = Array.from(
-  new Bun.Glob('*.glb').scanSync({ cwd: 'src/assets/models/cars/bodies', onlyFiles: true }),
-).map((file) => file.replace(/\.glb$/, ''))
-const lazy = paths.filter((path) =>
-  bodies.some(
-    (id) =>
-      path.startsWith(`assets/${id}-`) && /^[A-Za-z0-9_-]+\.glb$/.test(path.slice(8 + id.length)),
-  ),
+const sources = (folder: string, extension: string) =>
+  Array.from(
+    new Bun.Glob(`*.${extension}`).scanSync({
+      cwd: `src/assets/models/cars/${folder}`,
+      onlyFiles: true,
+    }),
+  ).map((file) => file.slice(0, -extension.length - 1))
+const bodies = sources('bodies', 'glb')
+const pictures = sources('thumbs', 'webp').filter((name) => !name.endsWith('-mask'))
+const builtFrom = (path: string, id: string, pattern: RegExp) =>
+  path.startsWith(`assets/${id}-`) && pattern.test(path.slice(8 + id.length))
+const lazy = paths.filter(
+  (path) =>
+    bodies.some((id) => builtFrom(path, id, /^[A-Za-z0-9_-]+\.glb$/)) ||
+    pictures.some((id) => builtFrom(path, id, /^(mask-)?[A-Za-z0-9_-]+\.webp$/)),
 )
 const eager = paths.filter((path) => !lazy.includes(path))
 const hash = createHash('sha256')

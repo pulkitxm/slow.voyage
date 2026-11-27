@@ -748,7 +748,7 @@ kbd {
   right: 18px;
   top: 18px;
   bottom: 18px;
-  width: 362px;
+  width: 452px;
   background: #f5f5ebf5;
   backdrop-filter: blur(22px);
   color: var(--ink);
@@ -1529,7 +1529,7 @@ input[type="range"] {
   .settings-panel {
     inset: 10px;
     width: auto;
-    max-width: 362px;
+    max-width: 452px;
     left: auto;
   }
   .telemetry {
@@ -1873,4 +1873,96 @@ html:has(.drive[data-daylight="night"]) {
   background: #1b231eed;
   border-color: #ffffff1a;
   color: #c4d5ac;
+}
+
+.car-picture {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  flex: none;
+  aspect-ratio: 16 / 9;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ffffff, #eceee4);
+  overflow: hidden;
+}
+.car-picture > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+}
+.car-picture-paint {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: multiply;
+  mask-mode: luminance;
+  mask-size: cover;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: cover;
+  -webkit-mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  pointer-events: none;
+}
+.car-picture.is-icon {
+  display: grid;
+  place-items: center;
+  color: #6d805c;
+}
+.engine-face > .car-picture {
+  width: 108px;
+  display: block;
+}
+.engine-menu.is-gallery {
+  max-height: min(560px, 62vh);
+}
+.engine-menu.is-gallery .engine-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.engine-menu.is-gallery .engine-option {
+  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  padding: 6px;
+}
+.engine-menu.is-gallery .engine-option > .car-picture {
+  width: 100%;
+}
+.engine-menu.is-gallery .engine-option > span:not(.car-picture) {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 3px 3px;
+}
+.engine-menu.is-gallery .engine-option strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+.engine-menu.is-gallery .engine-option small {
+  font-size: 9px;
+  color: #909884;
+  line-height: 1.35;
+}
+.engine-menu.is-gallery .engine-option > svg {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #4f6544;
+  background: #f5f5ebe6;
+  border-radius: 50%;
+  padding: 2px;
+}
+.engine-menu.is-gallery .engine-family h4 {
+  margin-top: 12px;
+  margin-bottom: 6px;
+}
+.engine-menu.is-gallery .engine-family:first-child h4 {
+  margin-top: 0;
+}
+.drive[data-daylight="night"] .car-picture {
+  background: linear-gradient(180deg, #f4f5ee, #e2e5d8);
 }
