@@ -107,6 +107,22 @@ export const scenarios: Scenario[] = [
     drive: () => (time) => ({ ...rest, throttle: time < 3 ? 1 : 0 }),
   },
   {
+    name: 'cruise',
+    seconds: 16,
+    begin: (car, vehicle) => {
+      car.speed = vehicleMetrics[vehicle].maxSpeed * 0.42
+    },
+    drive: () => {
+      let target = 0
+      return (time, car) => {
+        if (!target) target = car.speed
+        const wanted = target * (1 + 0.12 * Math.sin((time / 16) * Math.PI * 2))
+        const throttle = Math.min(1, Math.max(0, 0.35 + (wanted - car.speed) * 0.25))
+        return { ...rest, throttle }
+      }
+    },
+  },
+  {
     name: 'bonnet-pull',
     seconds: 12,
     only: 'touring',
@@ -159,7 +175,7 @@ export const scenarios: Scenario[] = [
   },
 ]
 
-export function stage(vehicle: Vehicle, name: string, engine: EngineId = 'stock') {
+export function stage(vehicle: Vehicle, name: string, engine: EngineId = 'stock', engineCar = '') {
   const scenario = scenarios.find((entry) => entry.name === name)
   if (!scenario) throw new Error(`Unknown scenario ${name}`)
   const settings: Settings = {
@@ -169,6 +185,7 @@ export function stage(vehicle: Vehicle, name: string, engine: EngineId = 'stock'
     ...scenario.settings,
     vehicle,
     engine,
+    engineCar,
   }
   const world = new World(settings)
   const car = new CarPhysics(world)
