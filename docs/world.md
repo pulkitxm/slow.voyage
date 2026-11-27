@@ -121,8 +121,10 @@ vehicle, and then resist steeply.
 - Detail has three levels. Ultra, the default where the hardware allows it,
   renders the same scene through `src/game/ultra.ts`: an HDR target, half
   resolution ambient occlusion, bloom from highlights brighter than the scene
-  white, a neutral tone curve, a soft vignette, and morphological antialiasing
-  on top of multisampling. The speed streaks, lens drops, wet road mirror, and
+  white, the film curve from `src/game/film.ts` that every quality level shares,
+  a soft vignette, and morphological antialiasing on top of multisampling. The
+  sky is drawn in scene light and developed on the same film, so the sun rolls
+  off to white and distance fog meets the horizon exactly. The speed streaks, lens drops, wet road mirror, and
   distance haze are kept. A device gets Ultra when it supports float colour
   buffers, four sample multisampling, and 8192 pixel textures, and when a few
   timed frames at load finish inside the budget.

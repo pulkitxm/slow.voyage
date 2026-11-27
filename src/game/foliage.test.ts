@@ -12,10 +12,14 @@ import {
   edgeOn,
   evergreenRelief,
   evergreenTile,
+  groveCast,
+  leafGrade,
   leafShare,
   leafy,
+  plantTint,
   snowDusted,
   treePhotos,
+  treeShade,
   treeTint,
   treeVariety,
 } from './foliage'
@@ -78,6 +82,57 @@ test('each tree takes its own slight warm or cool cast around its shade', () => 
   }
   expect(hues.size).toBeGreaterThan(20)
   expect(treeTint(color, 0.5, 0.5, 0.5).g).toBe(0.5)
+})
+
+test('neighbouring trees share a cast that drifts slowly across the country', () => {
+  for (let step = 0; step < 200; step++) {
+    const x = step * 37.3 - 2100
+    const s = step * 91.7
+    const here = groveCast(x, s)
+    expect(here).toBeGreaterThanOrEqual(-1)
+    expect(here).toBeLessThanOrEqual(1)
+    expect(Math.abs(groveCast(x + 2, s + 2) - here)).toBeLessThan(0.15)
+    expect(groveCast(x, s)).toBe(here)
+  }
+  const spread = new Set<string>()
+  for (let step = 0; step < 60; step++) spread.add(groveCast(step * 400, step * 700).toFixed(1))
+  expect(spread.size).toBeGreaterThan(8)
+})
+
+test('trees differ in brightness and hue far more than a uniform green and never go black', () => {
+  expect(treeShade(1)).toBe(1)
+  expect(treeShade(1.1) - treeShade(0.9)).toBeGreaterThan(0.25)
+  expect(treeShade(0)).toBeGreaterThanOrEqual(0.45)
+  const color = new THREE.Color()
+  const levels: number[] = []
+  const casts: number[] = []
+  for (let tree = 0; tree < 300; tree++) {
+    plantTint(color, 0.82 + ((tree * 0.6180339) % 1) * 0.28, tree * 13.7, tree * 29.3)
+    expect(color.g).toBeGreaterThan(0.4)
+    expect(color.g).toBeLessThan(1.5)
+    levels.push(color.g)
+    casts.push(color.r / color.g)
+  }
+  expect(Math.max(...levels) / Math.min(...levels)).toBeGreaterThan(1.5)
+  expect(Math.max(...casts) - Math.min(...casts)).toBeGreaterThan(0.3)
+  expect(plantTint(color, 1, 40, 90).toArray()).toEqual(
+    plantTint(new THREE.Color(), 1, 40, 90).toArray(),
+  )
+})
+
+test('leaves keep their pictured olive within a small gain and bark is toned to a grey brown', () => {
+  const [red, green, blue] = leafGrade.tone
+  for (const gain of leafGrade.tone) {
+    expect(gain).toBeGreaterThan(0.8)
+    expect(gain).toBeLessThan(1.5)
+  }
+  expect(red).toBeGreaterThanOrEqual(green)
+  expect(blue).toBeGreaterThanOrEqual(green)
+  const [barkRed, barkGreen, barkBlue] = leafGrade.bark
+  expect(barkBlue).toBeGreaterThan(barkRed)
+  expect(barkGreen).toBeGreaterThan(barkRed)
+  expect(barkBlue).toBeLessThan(0.6)
+  expect(leafGrade.root).toBeLessThan(1)
 })
 
 test('evergreens keep their own green where the landscape warms its leaves', () => {

@@ -1,6 +1,6 @@
 import { surfaceGrip } from './grip'
 import type { ChassisPose, WheelState } from './suspension'
-import { vehicleMetrics, yawInertia } from './vehicles'
+import { type VehicleMetrics, vehicleMetrics, yawInertia } from './vehicles'
 import { clamp, type Settings } from './world'
 
 export const standingWater = { grip: 0.12, planing: 36, drag: 0.5, surge: 0.0035 }
@@ -119,8 +119,8 @@ export function solveTires(
   drive: number,
   brake: number,
   handbrake: boolean,
+  metrics: VehicleMetrics = vehicleMetrics[settings.vehicle],
 ) {
-  const metrics = vehicleMetrics[settings.vehicle]
   const inverseMass = 1 / metrics.mass
   const inverseInertia = 1 / yawInertia(metrics)
   const quarterMass = metrics.mass / wheels.length

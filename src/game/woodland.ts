@@ -15,6 +15,8 @@ export interface WoodlandTree {
   width: number
   yaw: number
   shade: number
+  slopeX: number
+  slopeS: number
 }
 
 export function roadsidePlantHeight(world: World, x: number, s: number) {
@@ -99,6 +101,8 @@ export function woodlandTrees(
         width,
         yaw: rng() * Math.PI,
         shade: 0.82 + rng() * 0.28,
+        slopeX: surface.slopeX,
+        slopeS: surface.slopeS,
       })
     }
   }
@@ -202,6 +206,8 @@ export function scatteredPlants(
               : 0.9 + rng() * 0.2),
         yaw,
         shade,
+        slopeX: surface.slopeX,
+        slopeS: surface.slopeS,
       })
     }
   }

@@ -7,15 +7,43 @@ export const cinemaLook = {
   bloomThreshold: 3,
   bloomKnee: 0.8,
   bloomStrength: 0.5,
-  skyGlow: 2.8,
+  bloomSkyCeiling: 32,
+  bloomSolidCeiling: 10,
+  bloomCalm: 0.25,
   occlusionRadius: 0.6,
   occlusionStrength: 0.8,
   occlusionFade: [38, 85],
-  contrast: 0.2,
-  saturation: 1.1,
+  contrast: 0.05,
+  saturation: 1,
   vignette: 0.26,
   rushReach: 0.05,
 } as const
+
+export function brightFragment(sampler: string) {
+  return `
+uniform sampler2D ${sampler};
+uniform vec2 texel;
+uniform float threshold;
+uniform float knee;
+varying vec2 vUv;
+vec4 glint(vec2 uv) {
+  vec4 scene = texture2D(${sampler}, uv);
+  float solid = clamp(scene.a, 0.0, 1.0);
+  vec3 color = min(scene.rgb, vec3(mix(${cinemaLook.bloomSkyCeiling.toFixed(1)}, ${cinemaLook.bloomSolidCeiling.toFixed(1)}, solid)));
+  float level = max(color.r, max(color.g, color.b));
+  float weight = 1.0 / (1.0 + level * solid * ${cinemaLook.bloomCalm.toFixed(2)});
+  return vec4(color * weight, weight);
+}
+void main() {
+  vec4 total = glint(vUv + texel * vec2(-1.0, -1.0)) + glint(vUv + texel * vec2(1.0, -1.0)) +
+    glint(vUv + texel * vec2(-1.0, 1.0)) + glint(vUv + texel * vec2(1.0, 1.0));
+  vec3 color = total.rgb / total.a;
+  float level = max(color.r, max(color.g, color.b));
+  float soft = clamp(level - threshold + knee, 0.0, 2.0 * knee);
+  soft = soft * soft / (4.0 * knee + 1e-4);
+  gl_FragColor = vec4(color * max(soft, level - threshold) / max(level, 1e-4), 1.0);
+}`
+}
 
 const quadVertex = `
 varying vec2 vUv;
@@ -70,36 +98,14 @@ export class CinematicPipeline {
     sunDirection: new THREE.Vector3(0, 1, 0),
     sunColor: new THREE.Color(),
     hazeColor: new THREE.Color(),
+    scatter: new THREE.Vector3(1, 1, 1),
   }
-  private bright = pass(
-    `
-uniform sampler2D source;
-uniform vec2 texel;
-uniform float threshold;
-uniform float knee;
-uniform float skyGlow;
-varying vec2 vUv;
-vec3 glow(vec2 uv) {
-  vec4 scene = texture2D(source, uv);
-  vec3 color = min(scene.rgb, vec3(24.0)) * mix(skyGlow, 1.0, clamp(scene.a, 0.0, 1.0));
-  float level = max(color.r, max(color.g, color.b));
-  float soft = clamp(level - threshold + knee, 0.0, 2.0 * knee);
-  soft = soft * soft / (4.0 * knee + 1e-4);
-  return color * max(soft, level - threshold) / max(level, 1e-4);
-}
-void main() {
-  vec3 color = glow(vUv + texel * vec2(-1.0, -1.0)) + glow(vUv + texel * vec2(1.0, -1.0)) +
-    glow(vUv + texel * vec2(-1.0, 1.0)) + glow(vUv + texel * vec2(1.0, 1.0));
-  gl_FragColor = vec4(color * 0.25, 1.0);
-}`,
-    {
-      source: { value: null },
-      texel: { value: new THREE.Vector2() },
-      threshold: { value: cinemaLook.bloomThreshold },
-      knee: { value: cinemaLook.bloomKnee },
-      skyGlow: { value: cinemaLook.skyGlow },
-    },
-  )
+  private bright = pass(brightFragment('source'), {
+    source: { value: null },
+    texel: { value: new THREE.Vector2() },
+    threshold: { value: cinemaLook.bloomThreshold },
+    knee: { value: cinemaLook.bloomKnee },
+  })
   private shrink = pass(
     `
 uniform sampler2D source;
@@ -238,6 +244,7 @@ uniform mat4 cameraWorld;
 uniform vec3 sunDirection;
 uniform vec3 sunColor;
 uniform vec3 hazeColor;
+uniform vec3 scatter;
 uniform float haze;
 uniform mat4 projection;
 uniform vec3 viewUp;
@@ -327,7 +334,7 @@ void main() {
     float reach = length(view.xyz);
     vec3 ray = normalize((cameraWorld * vec4(view.xyz, 0.0)).xyz);
     float height = (cameraWorld * vec4(view.xyz, 1.0)).y - cameraWorld[3].y;
-    float thick = 1.0 - exp(-reach * 0.0006);
+    vec3 thick = 1.0 - exp(-reach * 0.0006 * scatter);
     float low = exp(-max(height + 25.0, 0.0) * 0.011);
     float toward = pow(max(dot(ray, sunDirection), 0.0), 5.0);
     vec3 air = hazeColor + sunColor * toward * 0.45;
@@ -339,11 +346,11 @@ void main() {
   #ifdef TONE_MAPPING
   mapped = toneMapping(color);
   #endif
-  color = clamp(mix(color, mapped, solid), 0.0, 1.0);
+  color = clamp(mapped, 0.0, 1.0);
   vec3 display = pow(color, vec3(0.4545));
-  display = mix(display, display * display * (3.0 - 2.0 * display), contrast * solid);
+  display = mix(display, display * display * (3.0 - 2.0 * display), contrast);
   float luma = dot(display, vec3(0.2126, 0.7152, 0.0722));
-  display = mix(vec3(luma), display, mix(1.0, saturation, solid));
+  display = mix(vec3(luma), display, saturation);
   vec2 lens = (vUv - 0.5) * vec2(aspect, 1.0);
   display *= 1.0 - vignette * smoothstep(0.42, 1.05, length(lens));
   display += (grain(gl_FragCoord.xy) - 0.5) / 255.0;
@@ -367,6 +374,7 @@ void main() {
       sunDirection: { value: new THREE.Vector3(0, 1, 0) },
       sunColor: { value: new THREE.Color() },
       hazeColor: { value: new THREE.Color() },
+      scatter: { value: new THREE.Vector3(1, 1, 1) },
       haze: { value: 1 },
       rushReach: { value: cinemaLook.rushReach },
       projection: { value: new THREE.Matrix4() },
@@ -509,6 +517,7 @@ void main() {
     develop.sunDirection?.value.copy(this.air.sunDirection)
     develop.sunColor?.value.copy(this.air.sunColor)
     develop.hazeColor?.value.copy(this.air.hazeColor)
+    develop.scatter?.value.copy(this.air.scatter)
     this.draw(this.develop, null)
   }
 

@@ -1,6 +1,6 @@
+import { fitEngine } from './engines'
 import type { Input } from './physics'
-import { vehicleMetrics } from './vehicles'
-import type { AssistanceMode, Vehicle } from './world'
+import type { AssistanceMode, EngineId, Vehicle } from './world'
 
 export const assistanceLabels: Record<AssistanceMode, string> = {
   off: 'Manual',
@@ -116,6 +116,11 @@ export class SteeringHandover {
   }
 }
 
-export function automaticTarget(mode: AssistanceMode, cruiseSpeed: number, vehicle: Vehicle) {
-  return mode === 'steer' ? vehicleMetrics[vehicle].maxSpeed : cruiseSpeed
+export function automaticTarget(
+  mode: AssistanceMode,
+  cruiseSpeed: number,
+  vehicle: Vehicle,
+  engine: EngineId = 'stock',
+) {
+  return mode === 'steer' ? fitEngine(vehicle, engine).metrics.maxSpeed : cruiseSpeed
 }

@@ -18,6 +18,7 @@ export function* openGeometry(
   const left = node.column * size
   const near = node.row * size
   const writer = new GroundWriter(world, base, light)
+  writer.span = Math.max(writer.span, step / 2)
   const offsets: number[] = []
   const indices: number[] = []
   const line = cells + 1

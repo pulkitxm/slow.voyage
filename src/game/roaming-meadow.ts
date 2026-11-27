@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { smoothStep } from './field'
+import { slopeHeight } from './grass'
 import type { GroundSampler } from './ground-sample'
 import { random, type World } from './world'
 
@@ -116,7 +117,7 @@ export class RoamingMeadow {
       this.matrix.compose(
         this.position.set(x, elevation - 0.025, -s),
         this.rotation,
-        this.scale.set(width, height, width),
+        this.scale.set(width, height * slopeHeight(ground.normal.y), width),
       )
       const values = this.matrix.elements
       const xSlope = -ground.normal.x / ground.normal.y

@@ -8,7 +8,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy
 from mathutils import Matrix, Vector
 
-from carkit import linear, material_named
+from carkit import Car, linear, material_named
+from shading import shade, thumbnail
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "bodies"))
+
+from kit import refine
+
+Car.refiner = lambda shell: refine(shell, 1)
 from designs import DESIGNS
 
 VIEWS = {
@@ -29,6 +36,7 @@ def arguments():
     parser.add_argument("--views", nargs="*", default=["front", "rear"])
     parser.add_argument("--samples", type=int, default=24)
     parser.add_argument("--width", type=int, default=1280)
+    parser.add_argument("--thumbs")
     return parser.parse_args(sys.argv[sys.argv.index("--") + 1 :])
 
 
@@ -49,6 +57,9 @@ def export(objects, path):
         export_texcoords=False,
         export_normals=True,
         export_materials="EXPORT",
+        export_vertex_color="ACTIVE",
+        export_all_vertex_colors=False,
+        export_active_vertex_color_when_no_material=True,
         export_animations=False,
         export_skins=False,
         export_morph=False,
@@ -133,7 +144,13 @@ def main():
                 low = Vector(map(min, low, point))
                 high = Vector(map(max, high, point))
         print(f"built {name}: {triangles} triangles, bounds {tuple(round(v, 3) for v in low)} {tuple(round(v, 3) for v in high)}")
+        if not options.thumbs:
+            shade(scene, objects)
         export(objects, os.path.join(options.output, f"{name}.glb"))
+        if options.thumbs:
+            os.makedirs(options.thumbs, exist_ok=True)
+            thumbnail(objects, os.path.join(options.thumbs, f"{name}.webp"), os.path.join(options.thumbs, f"{name}-mask.webp"))
+            continue
         if not options.previews:
             continue
         os.makedirs(options.previews, exist_ok=True)

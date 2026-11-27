@@ -61,6 +61,60 @@ export const boulderLayout = {
   ],
 } as const
 
+export const plantLook = {
+  level: 0.8,
+  keep: 0.72,
+  root: 0.45,
+  crown: 0.55,
+  cast: 0.14,
+  through: 0.3,
+}
+
+export function shadePlant(material: THREE.MeshStandardMaterial, base: number, rise: number) {
+  const span = { value: new THREE.Vector2(base, Math.max(rise, 0.001)) }
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.plantSpan = span
+    shader.vertexShader = shader.vertexShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nuniform vec2 plantSpan;\nvarying float plantLift;\nvarying float plantCast;',
+      )
+      .replace(
+        '#include <begin_vertex>',
+        `#include <begin_vertex>
+plantLift = clamp((position.y - plantSpan.x) / plantSpan.y, 0.0, 1.0);
+#ifdef USE_INSTANCING
+plantCast = fract(sin(dot(instanceMatrix[3].xz, vec2(12.9898, 78.233))) * 43758.5453);
+#else
+plantCast = 0.5;
+#endif`,
+      )
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        '#include <common>\nvarying float plantLift;\nvarying float plantCast;',
+      )
+      .replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.3, 0.59, 0.11))), diffuseColor.rgb, ${plantLook.keep.toFixed(2)});
+diffuseColor.rgb *= mix(${plantLook.root.toFixed(2)}, 1.0, smoothstep(0.0, ${plantLook.crown.toFixed(2)}, plantLift));
+diffuseColor.rgb *= mix(vec3(${(1 - plantLook.cast).toFixed(2)}, ${(1 - plantLook.cast * 0.5).toFixed(2)}, ${(1 - plantLook.cast * 0.7).toFixed(2)}), vec3(${(1 + plantLook.cast).toFixed(2)}, ${(1 + plantLook.cast * 0.4).toFixed(2)}, ${(1 - plantLook.cast * 0.6).toFixed(2)}), plantCast);`,
+      )
+      .replace(
+        '#include <opaque_fragment>',
+        `#if NUM_DIR_LIGHTS > 0
+float plantThrough = pow(max(dot(-normalize(vViewPosition), directionalLights[0].direction), 0.0), 3.0) * plantLift;
+float plantReach = dot(diffuseColor.rgb * directionalLights[0].color, vec3(1.0)) * RECIPROCAL_PI * 0.3;
+float plantSunlit = clamp(dot(reflectedLight.directDiffuse, vec3(1.0)) / max(plantReach, 0.0001), 0.0, 1.0);
+outgoingLight += diffuseColor.rgb * directionalLights[0].color * RECIPROCAL_PI * plantThrough * ${plantLook.through.toFixed(2)} * mix(0.25, 1.0, plantSunlit);
+#endif
+#include <opaque_fragment>`,
+      )
+  }
+  material.customProgramCacheKey = () => 'grounded-muted-plant'
+}
+
 export const plantSeasons = {
   autumn: [1.3, 0.92, 0.5],
 } as const
@@ -167,6 +221,8 @@ export class Boulders {
   private models: (PlantModel | null)[] = boulderLayout.kinds.map(() => null)
   private pose = new THREE.Object3D()
   private plain = new THREE.Color('#ffffff')
+  private tone = new THREE.Color('#8c877a')
+  private season: Season = 'summer'
   loaded = false
   ready: Promise<void>
   constructor() {
@@ -217,7 +273,7 @@ export class Boulders {
                 material.metalness = 0
                 material.metalnessMap = null
                 material.side = THREE.DoubleSide
-                material.color.setScalar(kind.glow)
+                material.color.setScalar(kind.glow * plantLook.level)
               }
             }
             parts.push({ geometry, material })
@@ -227,6 +283,10 @@ export class Boulders {
             part.geometry.translate(-(box.min.x + box.max.x) / 2, 0, -(box.min.z + box.max.z) / 2)
             part.geometry.computeVertexNormals()
           }
+          if (!kind.rock)
+            for (const part of parts)
+              if (part.material instanceof THREE.MeshStandardMaterial)
+                shadePlant(part.material, box.min.y, box.max.y - box.min.y)
           this.models[index] = {
             parts,
             rock: kind.rock,
@@ -240,6 +300,8 @@ export class Boulders {
     ).then(
       () => {
         this.loaded = true
+        this.tint(this.tone)
+        this.dress(this.season)
       },
       () => {
         this.loaded = false
@@ -247,18 +309,24 @@ export class Boulders {
     )
   }
   dress(season: Season) {
+    this.season = season
     const [red, green, blue] = season === 'autumn' ? plantSeasons.autumn : [1, 1, 1]
     for (const model of this.models)
       if (model?.leafy)
         for (const part of model.parts)
           if (part.material instanceof THREE.MeshStandardMaterial && part.material.alphaTest > 0)
-            part.material.color.setRGB(model.glow * red, model.glow * green, model.glow * blue)
+            part.material.color.setRGB(
+              model.glow * plantLook.level * red,
+              model.glow * plantLook.level * green,
+              model.glow * plantLook.level * blue,
+            )
   }
   tint(rock: THREE.ColorRepresentation) {
+    this.tone.set(rock)
     for (const model of this.models)
       for (const part of model?.rock ? model.parts : [])
         if (part.material instanceof THREE.MeshStandardMaterial)
-          part.material.color.set(rock).lerp(this.plain, 0.35).multiplyScalar(1.9)
+          part.material.color.copy(this.tone).lerp(this.plain, 0.35).multiplyScalar(1.9)
   }
   add(list: Boulder[], ground: (x: number, s: number) => number, shadowed: boolean) {
     const held: [Pool, number][] = []

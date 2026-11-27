@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { sharpness } from './graphics'
 import { guardrailAt, roadPoint } from './road'
 import { angleDifference, type World } from './world'
@@ -12,11 +13,63 @@ export const roadsideLayout = {
   chevronOffset: 4.7,
 } as const
 
+export const delineatorLook = {
+  width: 0.12,
+  depth: 0.04,
+  band: { from: 0.66, to: 0.9, proud: 0.004 },
+  reflector: { width: 0.045, height: 0.15, depth: 0.052 },
+  body: [0.8, 0.8, 0.77],
+  foot: [0.5, 0.47, 0.4],
+  dark: [0.035, 0.035, 0.04],
+  steel: [0.42, 0.44, 0.45],
+} as const
+export const delineatorVertices = { post: 48, reflector: 24 } as const
+
 function placed(geometry: THREE.BufferGeometry, yaw: number, x: number, y: number, s: number) {
   geometry.deleteAttribute('uv')
   geometry.rotateY(yaw)
   geometry.translate(x, y, -s)
   return geometry
+}
+
+function tinted(
+  geometry: THREE.BufferGeometry,
+  top: readonly number[],
+  bottom: readonly number[] = top,
+) {
+  const position = geometry.getAttribute('position')
+  geometry.computeBoundingBox()
+  const low = geometry.boundingBox?.min.y ?? 0
+  const high = geometry.boundingBox?.max.y ?? 1
+  const colors = new Float32Array(position.count * 3)
+  for (let index = 0; index < position.count; index++) {
+    const rise = (position.getY(index) - low) / Math.max(high - low, 1e-6)
+    for (let channel = 0; channel < 3; channel++)
+      colors[index * 3 + channel] =
+        (bottom[channel] ?? 0) +
+        ((top[channel] ?? 0) - (bottom[channel] ?? 0)) * Math.min(1, rise * 3)
+  }
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+  return geometry
+}
+
+function delineatorPost(height: number) {
+  const { width, depth, band, body, foot, dark } = delineatorLook
+  const stake = tinted(new THREE.BoxGeometry(width, height, depth), body, foot)
+  const sleeve = tinted(
+    new THREE.BoxGeometry(
+      width + band.proud * 2,
+      height * (band.to - band.from),
+      depth + band.proud * 2,
+    ),
+    dark,
+  )
+  sleeve.translate(0, height * ((band.from + band.to) / 2 - 0.5), 0)
+  const post = mergeGeometries([stake, sleeve])
+  stake.dispose()
+  sleeve.dispose()
+  if (!post) throw new Error('Delineator post could not be built')
+  return post
 }
 
 export function roadCurvature(world: World, s: number) {
@@ -38,20 +91,15 @@ export function delineators(world: World, start: number, length: number) {
       if (ground < road.y - 1.2) continue
       spots.push({ x: point.x, y: ground, s: point.s })
       posts.push(
-        placed(
-          new THREE.BoxGeometry(0.1, postHeight, 0.05),
-          road.yaw,
-          point.x,
-          ground + postHeight / 2,
-          point.s,
-        ),
+        placed(delineatorPost(postHeight), road.yaw, point.x, ground + postHeight / 2, point.s),
       )
+      const { reflector, band } = delineatorLook
       reflectors.push(
         placed(
-          new THREE.BoxGeometry(0.075, 0.14, 0.064),
+          new THREE.BoxGeometry(reflector.width, reflector.height, reflector.depth),
           road.yaw,
           point.x,
-          ground + postHeight - 0.16,
+          ground + (postHeight * (band.from + band.to)) / 2,
           point.s,
         ),
       )
@@ -77,7 +125,13 @@ export function chevrons(world: World, start: number, length: number) {
     if (ground < road.y - 1.5) continue
     feet.push({ x: point.x, s: point.s })
     posts.push(
-      placed(new THREE.BoxGeometry(0.07, 1.5, 0.07), road.yaw, point.x, ground + 0.75, point.s),
+      placed(
+        tinted(new THREE.BoxGeometry(0.06, 1.5, 0.06), delineatorLook.steel),
+        road.yaw,
+        point.x,
+        ground + 0.75,
+        point.s,
+      ),
     )
     const panel = new THREE.PlaneGeometry(0.75, 0.6)
     if (side < 0) panel.scale(-1, 1, 1)

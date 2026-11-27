@@ -9,26 +9,35 @@ from mathutils.interpolate import poly_3d_calc
 PALETTE = {
     "body": {"color": "#9a9c9e", "roughness": 0.32, "metallic": 0.1},
     "accent": {"color": "#e6e0cf", "roughness": 0.4, "metallic": 0.05},
-    "glass": {"color": "#161c22", "roughness": 0.06, "metallic": 0.2, "alpha": 0.5},
+    "glass": {"color": "#0d1114", "roughness": 0.04, "metallic": 0.0, "alpha": 0.62},
     "cover": {"color": "#cfd6da", "roughness": 0.05, "metallic": 0.1, "alpha": 0.28},
-    "trim_black": {"color": "#17191a", "roughness": 0.62, "metallic": 0.0},
-    "seam": {"color": "#070808", "roughness": 0.9, "metallic": 0.0},
+    "trim_black": {"color": "#1d1f20", "roughness": 0.55, "metallic": 0.0},
+    "seam": {"color": "#0d0e0e", "roughness": 0.9, "metallic": 0.0},
     "grille": {"color": "#0c0d0e", "roughness": 0.5, "metallic": 0.3},
-    "chrome": {"color": "#e4e8e8", "roughness": 0.2, "metallic": 0.82},
+    "chrome": {"color": "#e9ecec", "roughness": 0.1, "metallic": 1.0},
     "steel": {"color": "#8a8f92", "roughness": 0.38, "metallic": 0.9},
     "underbody": {"color": "#0e1010", "roughness": 1.0, "metallic": 0.0},
-    "interior": {"color": "#2b2723", "roughness": 0.92, "metallic": 0.0},
-    "seat": {"color": "#6a5038", "roughness": 0.85, "metallic": 0.0},
+    "interior": {"color": "#1c1b1a", "roughness": 0.92, "metallic": 0.0},
+    "seat": {"color": "#3a3029", "roughness": 0.85, "metallic": 0.0},
     "tyre": {"color": "#161717", "roughness": 0.93, "metallic": 0.0},
-    "rim": {"color": "#ccd1d3", "roughness": 0.3, "metallic": 0.8},
-    "rim_dark": {"color": "#202325", "roughness": 0.55, "metallic": 0.5},
+    "rim": {"color": "#ccd1d3", "roughness": 0.24, "metallic": 0.9},
+    "rim_dark": {"color": "#34373a", "roughness": 0.38, "metallic": 0.85},
     "rim_white": {"color": "#e8e6dc", "roughness": 0.45, "metallic": 0.1},
     "lens_head": {"color": "#eef1ec", "roughness": 0.1, "metallic": 0.2},
-    "lens_tail": {"color": "#a01410", "roughness": 0.18, "metallic": 0.0},
+    "lens_tail": {"color": "#7c0f0c", "roughness": 0.12, "metallic": 0.0},
     "lens_amber": {"color": "#e08a18", "roughness": 0.2, "metallic": 0.0},
     "lens_clear": {"color": "#e3e7e4", "roughness": 0.15, "metallic": 0.1},
     "plate": {"color": "#efeddd", "roughness": 0.5, "metallic": 0.0},
     "mirror": {"color": "#aeb8bd", "roughness": 0.04, "metallic": 1.0},
+    "carbon": {"color": "#1c1e20", "roughness": 0.34, "metallic": 0.45},
+    "lens_smoke": {"color": "#4a0d0b", "roughness": 0.16, "metallic": 0.1},
+    "caliper": {"color": "#b3211a", "roughness": 0.4, "metallic": 0.2},
+    "livery": {"color": "#f1f0ea", "roughness": 0.4, "metallic": 0.05},
+    "livery_dark": {"color": "#16233f", "roughness": 0.4, "metallic": 0.1},
+    "livery_green": {"color": "#177a45", "roughness": 0.4, "metallic": 0.05},
+    "livery_orange": {"color": "#e8611a", "roughness": 0.4, "metallic": 0.05},
+    "rim_gold": {"color": "#b8923a", "roughness": 0.32, "metallic": 0.75},
+    "lens_ember": {"color": "#e8281c", "roughness": 0.12, "metallic": 0.0},
 }
 SLOTS = list(PALETTE)
 FLOOR = -1
@@ -515,6 +524,8 @@ class Model:
     def absorb(self, source, group="Body", mirror=False, both=False):
         target = self.part(group)
         passes = [False, True] if both else [mirror]
+        mapped = source.loops.layers.uv.active
+        placed = target.loops.layers.uv.verify() if mapped else None
         for flipped in passes:
             mapping = {}
             for vert in source.verts:
@@ -532,6 +543,11 @@ class Model:
                     continue
                 created.material_index = face.material_index
                 created.smooth = True
+                if mapped:
+                    spots = {loop.vert: loop[mapped].uv.copy() for loop in face.loops}
+                    for loop in created.loops:
+                        origin = next(v for v, made in mapping.items() if made is loop.vert)
+                        loop[placed].uv = spots[origin]
             for edge in source.edges:
                 if not edge.smooth:
                     made = target.edges.get((mapping[edge.verts[0]], mapping[edge.verts[1]]))
@@ -623,12 +639,16 @@ def prism(outline, y0, y1, material):
 def tyre_profile(radius, rim, half, grooves, groove_depth):
     wall = radius - rim
     tread = half - 0.032
+    bulge = min(0.012, wall * 0.1)
     points = [
         (rim - 0.008, -(half - 0.03)),
-        (rim + 0.006, -(half - 0.01)),
-        (rim + 0.32 * wall, -half),
-        (rim + 0.68 * wall, -half),
-        (radius - 0.022, -(half - 0.012)),
+        (rim + 0.006, -(half - 0.012)),
+        (rim + 0.16 * wall, -(half - 0.002)),
+        (rim + 0.36 * wall, -(half + bulge * 0.8)),
+        (rim + 0.56 * wall, -(half + bulge)),
+        (rim + 0.76 * wall, -(half + bulge * 0.5)),
+        (radius - 0.03, -(half - 0.006)),
+        (radius - 0.014, -(half - 0.018)),
         (radius - 0.004, -tread),
     ]
     for g in range(grooves):
@@ -640,7 +660,7 @@ def tyre_profile(radius, rim, half, grooves, groove_depth):
             (radius - groove_depth, centre + gap),
             (radius, centre + gap + 0.003),
         ]
-    points += [(r, -y) for r, y in points[5::-1]]
+    points += [(r, -y) for r, y in points[8::-1]]
     return points
 
 
@@ -651,7 +671,7 @@ def wheel(spec):
     dish = spec.get("dish", 0.035)
     style = spec.get("style", "spoke")
     face_metal = spec.get("metal", "rim")
-    segments = spec.get("segments", 36)
+    segments = spec.get("segments", 48)
     bm = bmesh.new()
 
     def include(part):
@@ -690,7 +710,8 @@ def wheel(spec):
             segments=segments,
         )
     )
-    include(lathe([(0, back + 0.05), (rim * 0.62, back + 0.05), (rim * 0.62, back + 0.075), (0, back + 0.075)], "steel", segments=24))
+    disc = rim * 0.78
+    include(lathe([(0, back + 0.05), (disc, back + 0.05), (disc, back + 0.078), (disc * 0.5, back + 0.078), (disc * 0.46, back + 0.1), (0, back + 0.1)], "steel", segments=32))
     if style == "steel":
         outer = barrel + 0.004
         include(
@@ -784,6 +805,8 @@ def wheel_meshes(spec, name):
 
 
 class Car:
+    refiner = None
+
     def __init__(self, name, wheelbase, track, front_wheel, rear_wheel=None):
         self.model = Model(name)
         self.axle = wheelbase / 2
@@ -798,6 +821,8 @@ class Car:
     def body(self, hull, paint):
         self.hull = hull
         self.shell = hull.build(paint)
+        if Car.refiner:
+            self.shell = Car.refiner(self.shell)
         self.tree = BVHTree.FromBMesh(self.shell)
 
     def cast(self, origin, direction):
@@ -929,7 +954,7 @@ class Car:
         else:
             self.model.add(part)
 
-    def seam(self, points, caster, width=0.008, lift=0.0025, material="seam", mirror=True):
+    def seam(self, points, caster, width=0.0045, lift=0.002, material="seam", mirror=True):
         bm = bmesh.new()
         hits = []
         for point in points:
@@ -1000,6 +1025,8 @@ class Car:
             return roof if band == LID else pillar
 
         bm = hull.build(paint, floor_material="interior")
+        if Car.refiner:
+            bm = Car.refiner(bm)
         bm.normal_update()
         band_layer = bm.faces.layers.int["band"]
         for face in bm.faces:

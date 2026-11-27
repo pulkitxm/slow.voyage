@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { SettingsTab } from './components/SettingsPanel'
+import { bodyFor } from './game/car-bodies'
 import { assistanceLabels } from './game/controls'
 import { adjustCruiseSpeed } from './game/cruise'
 import { type DriveState, RoadEngine } from './game/engine'
@@ -90,7 +91,7 @@ export function useDrive() {
           vehicles.length
       ] ?? 'touring'
     update('vehicle', next)
-    announce(vehicleNames[next])
+    announce(bodyFor(settingsRef.current)?.name ?? vehicleNames[next])
   }
   const start = (auto = false) => {
     const instance = engine.current
@@ -350,6 +351,7 @@ export function useDrive() {
     toast,
     announce,
     update,
+    apply: applySettings,
     start,
     pause,
     toggleAuto,
