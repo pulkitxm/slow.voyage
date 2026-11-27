@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { barrierResponse, impactLoss } from './barrier'
+import { carBodies } from './car-bodies'
 import { footprints, outline, railFaces } from './collision'
 import { resolveInput } from './controls'
 import { CarPhysics, type Input } from './physics'
@@ -344,6 +345,24 @@ describe('service brake response', () => {
       car.update(1 / 120, { ...coast, brake: 1 }, settings)
     expect(car.speed).toBeLessThanOrEqual(0.05)
     expect(car.s - start).toBeLessThan(stoppingDistances[vehicle])
+  })
+  test.each([
+    ['road cars', ['Ford Fiesta EcoBoost', 'Škoda Octavia RS', 'BMW M3', 'Porsche 911 Speedster']],
+    ['fast cars', ['Porsche 911 GT3', 'Ferrari F8 Tributo', 'Ferrari F2004']],
+  ])('%s with better brakes stop shorter from 100 km/h', (_group, names) => {
+    const distances = names.map((name) => {
+      const body = carBodies.find((car) => car.name === name)
+      if (!body) throw new Error(name)
+      const settings = { ...defaults, vehicle: body.chassis, engineCar: name }
+      const car = new CarPhysics(new FlatWorld(settings))
+      car.speed = 100 / 3.6
+      const start = car.s
+      for (let step = 0; step < 120 * 8 && car.speed > 0.05; step++)
+        car.update(1 / 120, { ...coast, brake: 1 }, settings)
+      return car.s - start
+    })
+    for (let index = 1; index < distances.length; index++)
+      expect(distances[index] ?? 0).toBeLessThan((distances[index - 1] ?? 0) - 0.8)
   })
   test.each(vehicles)('%s holds its line when braking hard through bends', (vehicle) => {
     const settings = { ...defaults, vehicle }

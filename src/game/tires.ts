@@ -150,7 +150,7 @@ export function solveTires(
     (sum, wheel, index) => sum + ((capacities[index] ?? 0) > 0 ? wheel.load : 0),
     0,
   )
-  const reach = brake > 0 ? antilock.reach : 1
+  const reach = brake > 0 ? antilock.reach * metrics.brakeReach : 1
   const ceiling = brake > 0 ? reach * antilock.peak : longitudinalShare.maximum
   const centripetal = Math.max(
     Math.abs(pose.yawRate * pose.speed),
