@@ -138,6 +138,7 @@ function fitBody(vehicle: Vehicle, engine: SwapEngine | null, body: CarBody): Fi
     rollingResistance,
     drag,
     brake: (stock.brake * brakeSpecs[body.brakes].grip) / brakeSpecs[vehicleBrakes[vehicle]].grip,
+    brakeReach: Math.sqrt(brakeSpecs[body.brakes].grip / brakeSpecs[vehicleBrakes[vehicle]].grip),
     maxSpeed: top,
   }
   const reached = engineShare === 1 ? top : terminalSpeed(tuned)

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { CarPhysics, type Input } from './physics'
-import { solveTires } from './tires'
+import { antilock, solveTires } from './tires'
 import { vehicleMetrics, yawInertia } from './vehicles'
 import { defaults, random, type Settings, vehicles, World } from './world'
 
@@ -27,6 +27,9 @@ const coast: Input = {
 const step = 1 / 120
 function car(settings: Settings = defaults) {
   return new CarPhysics(new FlatWorld(settings))
+}
+function brakingEllipse(longitudinal: number, lateral: number, budget: number) {
+  return Math.hypot(longitudinal / (budget * antilock.reach), lateral / budget)
 }
 
 test.each(vehicles)(
@@ -59,8 +62,16 @@ test.each(vehicles)(
     const settings = { ...defaults, vehicle, grip: 0.2 }
     const body = car(settings)
     body.speed = 20
+    const metrics = vehicleMetrics[vehicle]
+    const grip = settings.grip * metrics.roadGrip
+    const ceiling = antilock.reach * antilock.peak
+    const impulse = body.suspension.wheels.reduce(
+      (sum, wheel) =>
+        sum + grip * wheel.load * step * ceiling * (wheel.front ? 1 : antilock.rearShare),
+      0,
+    )
     solveTires(step, body, body.suspension.wheels, settings, 0, 100, false)
-    const beforeDrag = 20 - settings.grip * vehicleMetrics[vehicle].roadGrip * 9.81 * step
+    const beforeDrag = 20 - impulse / metrics.mass
     const expected = beforeDrag * (1 - vehicleMetrics[vehicle].drag * beforeDrag * step)
     expect(body.speed).toBeCloseTo(expected, 7)
     expect(Math.abs(body.lateralSpeed)).toBeLessThan(0.0000001)
@@ -89,10 +100,13 @@ test.each(vehicles)(
       const before = energy()
       solveTires(step, body, body.suspension.wheels, settings, 0, 100, false)
       expect(energy()).toBeLessThanOrEqual(before + 0.00000001)
-      for (const wheel of body.suspension.wheels)
-        expect(Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)).toBeLessThanOrEqual(
-          settings.grip * metrics.roadGrip * wheel.load * step + 0.00000001,
-        )
+      for (const wheel of body.suspension.wheels) {
+        const budget = settings.grip * metrics.roadGrip * wheel.load * step
+        if (budget > 0)
+          expect(
+            brakingEllipse(wheel.longitudinalImpulse, wheel.lateralImpulse, budget),
+          ).toBeLessThanOrEqual(1 + 1e-8)
+      }
     }
   },
 )
@@ -108,13 +122,32 @@ test.each([1, 8])(
     solveTires(step, body, body.suspension.wheels, settings, 0, brake, false)
     for (const wheel of body.suspension.wheels) {
       const budget = settings.grip * 0.58 * wheel.load * step
-      expect(Math.hypot(wheel.longitudinalImpulse, wheel.lateralImpulse)).toBeLessThanOrEqual(
-        budget + 1e-8,
-      )
+      expect(
+        brakingEllipse(wheel.longitudinalImpulse, wheel.lateralImpulse, budget),
+      ).toBeLessThanOrEqual(1 + 1e-8)
     }
     expect(body.speed).toBeLessThan(30)
     expect(body.yawRate).toBeGreaterThan(0)
     expect(body.suspension.wheels.every((wheel) => !wheel.locked)).toBe(true)
+  },
+)
+
+test.each(vehicles)(
+  '%s antilock braking keeps a sideways grip reserve on every tire',
+  (vehicle) => {
+    const settings = { ...defaults, vehicle }
+    const body = car(settings)
+    body.speed = 30
+    const budgets = body.suspension.wheels.map(
+      (wheel) => settings.grip * vehicleMetrics[vehicle].roadGrip * wheel.load * step,
+    )
+    solveTires(step, body, body.suspension.wheels, settings, 0, 100, false)
+    for (const [index, wheel] of body.suspension.wheels.entries()) {
+      const budget = budgets[index] ?? 0
+      const reserve = Math.sqrt(1 - (wheel.longitudinalImpulse / (budget * antilock.reach)) ** 2)
+      expect(Math.abs(wheel.longitudinalImpulse)).toBeGreaterThan(budget * 0.85)
+      expect(reserve).toBeGreaterThan(wheel.front ? 0.4 : 0.7)
+    }
   },
 )
 
