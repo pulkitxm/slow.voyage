@@ -287,7 +287,14 @@ export class RoadEngine {
       ['INPUT', 'SELECT', 'TEXTAREA'].includes(event.target.tagName)
     )
       return
-    if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) return
+    if (event.target instanceof HTMLButtonElement && ['Space', 'Enter'].includes(event.code)) {
+      const handbrake =
+        event.code === 'Space' &&
+        this.started &&
+        !event.target.closest('.settings-panel, dialog, .touch-controls')
+      if (!handbrake) return
+      event.target.blur()
+    }
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space', 'Escape'].includes(event.code))
       event.preventDefault()
     if (event.repeat) return
