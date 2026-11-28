@@ -978,7 +978,9 @@ export class Terrain {
           ? tileStreaming.unhurriedRefresh
           : tileStreaming.softwareRefresh
         : tileStreaming.refreshBudget
-      : tileStreaming.budget
+      : this.builds.size > tileStreaming.jump
+        ? tileStreaming.refreshBudget
+        : tileStreaming.budget
     const began = performance.now()
     const waiting = this.open.field.pending + this.scenery.field.pending
     const deadline = began + (waiting ? budget / 2 : budget)
