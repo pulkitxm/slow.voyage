@@ -59,6 +59,10 @@ const herds: Record<Landscape, readonly Species[]> = {
   jungle: ['elephant', 'deer', 'elephant', 'goat'],
 }
 
+export function castKinds(settings: Settings): Creature[] {
+  return settings.life === 'none' ? [] : ['person', ...herds[settings.landscape]]
+}
+
 const herdSize: Record<Species, [fewest: number, most: number]> = {
   cow: [4, 8],
   sheep: [5, 10],

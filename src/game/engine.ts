@@ -52,7 +52,7 @@ import { railLook } from './guard-rail'
 import { beamHaze, Lamps } from './lamps'
 import { type LandmarkKind, landmarkLayout, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
-import { Life } from './life'
+import { castKinds, Life } from './life'
 import { Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
@@ -481,6 +481,7 @@ export class RoadEngine {
     if (!budget.software) {
       this.life = new Life(this.world)
       this.cast = new Cast()
+      this.cast.expect(castKinds(this.settings))
       this.life.stage = this.cast
       const canopy = this.terrain
       this.life.shadeAt = (x, s) => canopy.shadeAt(x, s)
@@ -718,6 +719,7 @@ export class RoadEngine {
       this.governor.reset()
     }
     if (environmentChange) this.minimap.invalidate()
+    this.cast?.expect(castKinds(settings))
     this.settings = { ...settings }
     this.world.settings = this.settings
     if (roadChange) this.minimap.found.clear()
