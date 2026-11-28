@@ -264,44 +264,6 @@ export class DriveAudio {
     splitter.connect(rig.body, at.cabin)
   }
 
-  backfire(strength: number) {
-    this.frame.pop(strength)
-  }
-  private washer?: { gain: GainNode; filter: BiquadFilterNode }
-  workshopHiss(level: number, band: number) {
-    const { rig } = this
-    if (!rig) return
-    const { context } = rig
-    if (!this.washer) {
-      if (level <= 0) return
-      const source = context.createBufferSource()
-      source.buffer = rig.noise
-      source.loop = true
-      const filter = context.createBiquadFilter()
-      filter.type = 'bandpass'
-      filter.Q.value = 0.8
-      const gain = context.createGain()
-      gain.gain.value = 0
-      source.connect(filter).connect(gain).connect(rig.outside)
-      gain.connect(rig.echo)
-      source.start(0, Math.random() * 1.5)
-      this.washer = { gain, filter }
-    }
-    const t = context.currentTime
-    this.washer.gain.gain.setTargetAtTime(level * mixLevels.workshop, t, 0.08)
-    this.washer.filter.frequency.setTargetAtTime(band, t, 0.1)
-  }
-  ratchet() {
-    const { rig } = this
-    if (!rig) return
-    const t = rig.context.currentTime
-    const hits = 14 + Math.floor(Math.random() * 6)
-    for (let hit = 0; hit < hits; hit++) {
-      const at = t + hit * 0.042
-      this.burst(at, 2600 + Math.random() * 600, 2.2, mixLevels.workshop * 0.9, 0.012)
-      this.tone(at, 420, 300, mixLevels.workshop * 0.25, 0.01)
-    }
-  }
   thunder(delay: number) {
     const { rig } = this
     if (!rig) return

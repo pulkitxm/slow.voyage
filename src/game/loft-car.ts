@@ -58,7 +58,6 @@ export class LoftCarModel {
       roughness: 0.3,
     })
     const tire = new THREE.MeshStandardMaterial({ color: '#232422', roughness: 0.95 })
-    tire.name = 'tyre'
     const wheelWell = new THREE.MeshStandardMaterial({ color: '#151a18', roughness: 1 })
     const plate = new THREE.MeshStandardMaterial({ color: '#edebdb', roughness: 0.5 })
     this.materials = [

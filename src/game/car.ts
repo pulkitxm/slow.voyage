@@ -66,7 +66,6 @@ export class CarModel {
       envMapIntensity: 1.4,
     })
     const tire = new THREE.MeshStandardMaterial({ color: '#232422', roughness: 0.95 })
-    tire.name = 'tyre'
     const wheelWell = new THREE.MeshStandardMaterial({
       color: '#151a18',
       roughness: 1,

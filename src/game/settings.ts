@@ -3,8 +3,6 @@ import { cruiseLimits } from './cruise'
 import { engineCars } from './engine-catalog'
 import { landscapeIds } from './landscapes'
 import { roadWears } from './road-condition'
-import { exhausts, rimFinishes, wheelStyles } from './styling'
-import { supercarModels } from './supercars'
 import {
   cameraMotions,
   defaults,
@@ -41,10 +39,6 @@ export function decodeSettings(stored: unknown): Settings {
       'roadWear',
       'life',
       'vehicle',
-      'supercarModel',
-      'wheelStyle',
-      'rimFinish',
-      'exhaust',
       'engine',
       'engineView',
       'camera',
@@ -65,10 +59,6 @@ export function decodeSettings(stored: unknown): Settings {
         roadWear: roadWears,
         life: lifeLevels,
         vehicle: vehicles,
-        supercarModel: supercarModels,
-        wheelStyle: wheelStyles,
-        rimFinish: rimFinishes,
-        exhaust: exhausts,
         engine: engineIds,
         engineView: ['car', 'engine'],
         camera: cameras,

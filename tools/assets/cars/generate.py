@@ -6,7 +6,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 TARGET = os.path.join(ROOT, "src", "assets", "models", "cars")
-NAMES = ("touring", "hatchback", "supercar", "pickup", "roadster", "supercar-grand", "supercar-longtail", "supercar-track")
+NAMES = ("touring", "hatchback", "supercar", "pickup", "roadster")
 TRANSFORM = ["bunx", "--bun", "@gltf-transform/cli"]
 
 

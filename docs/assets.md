@@ -24,8 +24,7 @@ Most generators accept `--previews <dir>` to render preview images.
 
 ## Cars
 
-The touring sedan, roadster, hatchback, pickup, and the four supercars (`supercar`,
-`supercar-grand`, `supercar-longtail`, and `supercar-track`) are lofted bodies,
+The touring sedan, roadster, hatchback, supercar, and pickup are lofted bodies,
 subdivided and shaded like the catalog bodies below, with cut
 wheel arches, glass, lamps, interiors, and separate wheels named `Wheel_FL`,
 `Wheel_FR`, `Wheel_RL`, and `Wheel_RR`. The paint material is `body`, and the lamp

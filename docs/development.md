@@ -48,7 +48,6 @@ Local pre-commit checks remain mandatory.
 | B                | Horn                                                             |
 | Q / E            | Previous / next scenery; shift down / up with the manual gearbox |
 | V / Shift V      | Next / previous vehicle                                          |
-| O                | Pull into a roadside garage when one is beside you               |
 | M                | Mute / unmute sound                                              |
 | U                | Toggle mouse driving                                             |
 | R                | Reset to the road                                                |
@@ -70,28 +69,6 @@ with every bend. Endless Straight holds one heading for the whole drive while th
 hills, lakes and forests keep changing around it. Calm Drive keeps only long,
 wide curves and halves the walkers on the verge. Links to a spot carry the road
 mode.
-
-The car list's easy picks include four supercars: the mid-engine Corsa V12, the
-front-engine Aurelia GT with a twin-turbo six, the Strale Longtail with a
-flat-plane V8 and the winged Furia R with a V10. Each has its own generated body,
-gearing and synthesized engine.
-
-Every car slowly gathers dirt as it drives: a little on dry tarmac, more in
-rain and storms, much more off the road and fastest through water. Winter roads
-leave a pale salt film. Dirt settles low on the body and behind the wheels and
-dulls the clear coat, and it is kept per vehicle on the device.
-
-A roadside garage sits on a flat, unrailed spot of roughly every 3 km of road.
-Slow down beside one and press O, or the on-screen prompt, to roll into the
-service bay. Two mechanics can foam, scrub and rinse the car, respray it in a
-new colour, swap the wheels for one of four alloy designs in four finishes, or
-fit a stock or sport valved exhaust and rev it to test. Escape or Drive out
-reverses back onto the road.
-
-Lifting off the throttle from high revs crackles and pops through the exhaust,
-and loaded upshifts bark. The sport valved exhaust, the default, makes the runs
-longer and louder; at night a short flame flickers at the supercar tailpipes on
-the biggest pops.
 
 The minimap shows the next 1.6 km of road, the terrain, landmarks to find, and an
 arrow back to the road when off it. Far from the road a pointer on screen shows
