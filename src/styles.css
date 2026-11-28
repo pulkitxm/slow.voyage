@@ -2244,6 +2244,12 @@ html:has(.drive[data-daylight="night"]) {
     top: auto;
     max-height: 62%;
   }
+  .garage-footer > span {
+    display: none;
+  }
+  .garage-footer .primary-button {
+    flex: 1;
+  }
 }
 .car-picture {
   position: relative;

@@ -1043,6 +1043,7 @@ export class GarageSession {
               member.work(target)
               member.look(target)
               emit(member, target, dt, index)
+              if (index === 0) this.aimAt(where)
               if (index === 0) mark(clamp((plan.car.v1 - v) / length + 0.07, 0, 1))
             },
             until: () => !member.walking,
@@ -1153,7 +1154,7 @@ export class GarageSession {
         },
       ]
       for (const along of [-1.05, 1.05]) {
-        const v = clamp(this.centre + along, plan.car.v0 + 0.4, plan.nose)
+        const v = clamp(bay.v + along, plan.car.v0 + 0.4, plan.nose)
         steps.push(
           this.walkStep(
             index,
@@ -1173,6 +1174,7 @@ export class GarageSession {
               member.work(target)
               member.look(target)
               member.lean = 0.18
+              if (index === 0) this.aimAt(this.spotOf(member.root.position, this.spot))
             },
             end: () => {
               member.work(null)

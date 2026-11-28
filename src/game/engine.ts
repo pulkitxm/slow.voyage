@@ -302,9 +302,9 @@ export class RoadEngine {
         this.onAction?.('garageLeave')
       }
       if (['Space', 'Enter'].includes(event.code) && this.workshop.session.busy) {
+        if (event.target instanceof HTMLElement && event.target.closest('.garage-skip')) return
         event.preventDefault()
-        const onSkip = event.target instanceof HTMLElement && event.target.closest('.garage-skip')
-        if (!event.repeat && !onSkip) this.onAction?.('garageSkip')
+        if (!event.repeat) this.onAction?.('garageSkip')
       }
       return
     }

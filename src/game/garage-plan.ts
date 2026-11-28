@@ -247,28 +247,28 @@ export function insideShot(shot: Shot, car: BayCar, focus: Spot, raised: number,
   const tail = bayCentre(car) - car.rear
   const eye =
     shot === 'arrive'
-      ? cameraInside(bay.u + 5.4, bay.v + 0.9, 1.45)
+      ? cameraInside(bay.u + 5.6, front + 1, 1.5)
       : shot === 'wheels'
         ? cameraInside(focus.u + 5.1, focus.v + (focus.v > bay.v ? 1.7 : -1.7), 1.3 + raised * 0.6)
         : shot === 'lift'
           ? cameraInside(bay.u + 5.6, bay.v - 2.6, 1.3)
-          : shot === 'paint'
-            ? cameraInside(bay.u + 5.7, bay.v + 2.6 + drift, 2.2)
-            : shot === 'wash'
-              ? cameraInside(bay.u + 5.2, bay.v - 2.7 + drift, 2.05)
-              : shot === 'exhaust'
-                ? cameraInside(bay.u + 4.2, tail - 2.2, 1.0 + raised)
-                : cameraInside(bay.u + 5.5 + drift * 0.6, front + 0.85 + drift * 0.5, 1.8)
+          : shot === 'paint' || shot === 'wash'
+            ? cameraInside(bay.u + 5 + drift * 0.3, focus.v - 2.5, shot === 'paint' ? 1.75 : 1.9)
+            : shot === 'exhaust'
+              ? cameraInside(bay.u + 4.2, tail - 2.2, 1.0 + raised)
+              : cameraInside(bay.u + 5.5 + drift * 0.6, front + 0.85 + drift * 0.5, 1.8)
   const look =
     shot === 'wheels'
       ? { u: focus.u, v: focus.v, y: 0.45 + raised }
       : shot === 'exhaust'
         ? { u: bay.u, v: tail + 0.3, y: 0.45 + raised }
-        : shot === 'arrive'
-          ? { u: focus.u, v: focus.v, y: 0.7 }
-          : shot === 'ready'
-            ? { u: bay.u - 0.2, v: bay.v - 0.55, y: 0.6 }
-            : { u: bay.u, v: bay.v + 0.1, y: 0.62 + raised * 0.8 }
+        : shot === 'paint' || shot === 'wash'
+          ? { u: bay.u + 0.7, v: focus.v - 0.2, y: 0.8 }
+          : shot === 'arrive'
+            ? { u: focus.u, v: focus.v, y: 0.7 }
+            : shot === 'ready'
+              ? { u: bay.u - 0.2, v: bay.v - 0.55, y: 0.6 }
+              : { u: bay.u, v: bay.v + 0.1, y: 0.62 + raised * 0.8 }
   return { eye, look }
 }
 
