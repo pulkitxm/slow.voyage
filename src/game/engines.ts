@@ -3,10 +3,11 @@ import { type BodyChoice, bodyFor, bodyMetrics, type CarBody } from './car-bodie
 import { forwardDriveForce } from './drive'
 import { type Boost, engineCatalog, horsepower, type SwapEngine, swappable } from './engine-catalog'
 import type { EngineSound } from './engine-sound'
-import { engineSounds } from './engine-sound'
-import { type EngineProfile, engineProfiles } from './powertrain'
+import { engineSounds, supercarSounds } from './engine-sound'
+import { type EngineProfile, engineProfiles, supercarProfiles } from './powertrain'
+import type { SupercarModel } from './supercars'
 import { type VehicleMetrics, vehicleMetrics } from './vehicles'
-import type { EngineId, Vehicle } from './world'
+import type { EngineId, Settings, Vehicle } from './world'
 
 export {
   type Boost,
@@ -171,13 +172,19 @@ function fitBody(vehicle: Vehicle, engine: SwapEngine | null, body: CarBody): Fi
 
 const fittings = new Map<string, Fitted>()
 
-export function fitEngine(vehicle: Vehicle, choice: EngineId, body: CarBody | null = null): Fitted {
+export function fitEngine(
+  vehicle: Vehicle,
+  choice: EngineId,
+  body: CarBody | null = null,
+  model: SupercarModel = 'classic',
+): Fitted {
   const engine = choice !== 'stock' && swappable(vehicle) ? choice : null
-  const key = `${vehicle}:${engine ?? 'stock'}:${body?.id ?? ''}`
+  const variant = vehicle === 'supercar' && !body ? model : 'classic'
+  const key = `${vehicle}:${engine ?? 'stock'}:${body?.id ?? ''}:${variant}`
   const known = fittings.get(key)
   if (known) return known
   const stock = bodyMetrics(vehicleMetrics[vehicle], body)
-  const original = engineProfiles[vehicle]
+  const original = vehicle === 'supercar' ? supercarProfiles[variant] : engineProfiles[vehicle]
   let fitted: Fitted
   if (body) fitted = fitBody(vehicle, engine, body)
   else if (!engine) {
@@ -185,7 +192,7 @@ export function fitEngine(vehicle: Vehicle, choice: EngineId, body: CarBody | nu
       engine: null,
       metrics: stock,
       profile: original,
-      sound: engineSounds[vehicle],
+      sound: variant === 'classic' ? engineSounds[vehicle] : supercarSounds[variant],
       boost: null,
       nitro: classNitro,
       brakes: vehicleBrakes[vehicle],
@@ -223,8 +230,8 @@ export function fitEngine(vehicle: Vehicle, choice: EngineId, body: CarBody | nu
   return fitted
 }
 
-export function fitCar(settings: BodyChoice) {
-  return fitEngine(settings.vehicle, settings.engine, bodyFor(settings))
+export function fitCar(settings: BodyChoice & Partial<Pick<Settings, 'supercarModel'>>) {
+  return fitEngine(settings.vehicle, settings.engine, bodyFor(settings), settings.supercarModel)
 }
 
 export function boostTarget(boost: Boost, throttle: number, revs: number) {

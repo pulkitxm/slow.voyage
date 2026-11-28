@@ -25,6 +25,28 @@ describe('saved preferences', () => {
       expect(decodeSettings({ cruiseSpeed: speed }).cruiseSpeed).toBe(speed)
     expect(decodeSettings({ cruiseSpeed: -100 }).cruiseSpeed).toBe(-5)
   })
+  test('keeps supercar models and garage choices and rejects unknown ones', () => {
+    const kept = decodeSettings({
+      supercarModel: 'longtail',
+      wheelStyle: 'turbine',
+      rimFinish: 'bronze',
+      exhaust: 'sport',
+    })
+    expect(kept.supercarModel).toBe('longtail')
+    expect(kept.wheelStyle).toBe('turbine')
+    expect(kept.rimFinish).toBe('bronze')
+    expect(kept.exhaust).toBe('sport')
+    const rejected = decodeSettings({
+      supercarModel: 'hovercar',
+      wheelStyle: 'square',
+      rimFinish: 'gold',
+      exhaust: 'straight',
+    })
+    expect(rejected.supercarModel).toBe(defaults.supercarModel)
+    expect(rejected.wheelStyle).toBe(defaults.wheelStyle)
+    expect(rejected.rimFinish).toBe(defaults.rimFinish)
+    expect(rejected.exhaust).toBe(defaults.exhaust)
+  })
   test('rejects unsupported choices and invalid numeric data', () => {
     const settings = decodeSettings({
       vehicle: 'unknown',

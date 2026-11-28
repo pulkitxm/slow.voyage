@@ -2022,7 +2022,229 @@ html:has(.drive[data-daylight="night"]) {
 .drive[data-daylight="night"] .modal-shell::backdrop {
   background: #050b08a8;
 }
-
+.supercar-options {
+  display: grid;
+  gap: 7px;
+}
+.supercar-options > button {
+  background: transparent;
+  border: 1px solid #dce2d2;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  text-align: left;
+  color: #87937a;
+}
+.supercar-options > button > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.supercar-options strong {
+  font-size: 10px;
+  font-weight: 500;
+}
+.supercar-options small {
+  font-size: 8.5px;
+  opacity: 0.8;
+}
+.supercar-options > button > svg:last-child:not(:first-child) {
+  margin-left: auto;
+}
+.supercar-options > button.selected {
+  background: #e7ecdc;
+  border-color: #a7b294;
+  color: #536a42;
+}
+.garage-prompt {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px 10px 16px;
+  border-radius: 999px;
+  background: #1d2822c7;
+  color: #f6f7ea;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 10px 40px #0000003a;
+  animation: appear 0.3s;
+  z-index: 3;
+}
+.garage-prompt span {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+.garage-prompt small {
+  font-size: 8.5px;
+  opacity: 0.7;
+}
+.garage-prompt kbd,
+.garage-footer kbd {
+  font: inherit;
+  font-size: 9px;
+  padding: 2px 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  opacity: 0.8;
+}
+.garage-prompt:hover {
+  background: #26352cdd;
+}
+.is-garage .telemetry,
+.is-garage .touch-controls,
+.is-garage .minimap,
+.is-garage .mouse-steering {
+  opacity: 0;
+  pointer-events: none;
+}
+.garage-panel .setting-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.garage-progress {
+  height: 2px;
+  margin: 0 25px;
+  background: var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.garage-progress span {
+  display: block;
+  height: 100%;
+  background: #81936e;
+  transition: width 0.2s linear;
+}
+.grime-meter {
+  height: 6px;
+  border-radius: 6px;
+  background: #e3e8da;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.grime-meter span {
+  display: block;
+  height: 100%;
+  min-width: 4px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #c9b48d, #8a6a43, #5a4129);
+  transition: width 0.4s ease;
+}
+.garage-action {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 5px;
+  border: 1px solid #a7b294;
+  background: #e7ecdc;
+  color: #4f6540;
+  font-size: 10px;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+}
+.garage-action:hover:not(:disabled) {
+  background: #dde5cf;
+}
+.garage-action:disabled,
+.garage-panel button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.garage-swatches {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.garage-swatches > button {
+  width: 26px;
+  height: 26px;
+}
+.custom-paint {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  overflow: hidden;
+  outline: 1px dashed #a7b294;
+  border: 3px solid #f5f5eb;
+  background: conic-gradient(#c33, #ec3, #3c6, #39c, #93c, #c33);
+  position: relative;
+  cursor: pointer;
+}
+.custom-paint input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.wheel-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.wheel-options > button {
+  background: transparent;
+  border: 1px solid #dce2d2;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 2px 7px;
+  color: #87937a;
+  font-size: 8px;
+}
+.wheel-options > button.selected {
+  background: #e7ecdc;
+  border-color: #a7b294;
+  color: #536a42;
+}
+.garage-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 25px 20px;
+  border-top: 1px solid var(--line);
+  font-size: 9px;
+  color: var(--muted);
+}
+.garage-footer .primary-button {
+  gap: 8px;
+}
+.drive[data-daylight="night"] .supercar-options > button.selected,
+.drive[data-daylight="night"] .wheel-options > button.selected,
+.drive[data-daylight="night"] .garage-action {
+  background: #26302a;
+  border-color: #4c5a48;
+  color: #c5d3b4;
+}
+.drive[data-daylight="night"] .supercar-options > button,
+.drive[data-daylight="night"] .wheel-options > button {
+  border-color: #303b33;
+}
+@media (max-width: 640px) {
+  .garage-prompt {
+    top: auto;
+    bottom: 190px;
+  }
+  .settings-panel.garage-panel {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    top: auto;
+    max-height: 62%;
+  }
+}
 .car-picture {
   position: relative;
   isolation: isolate;
