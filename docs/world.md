@@ -187,7 +187,8 @@ vehicle, and then resist steeply.
 - `bun scripts/frame-times.ts 20 --angle=vulkan` drives on autodrive at
   1600 by 900 and prints the median and 95th percentile frame time for Full
   beauty and Ultra. Add `--uncapped` to lift the display pacing and see the
-  real cost of a frame. In development `voyage.frameBudget()` in the console
+  real cost of a frame. It keeps each run on the level it asked for, so a slow
+  headless browser lowers the resolution and effects but never the level. In development `voyage.frameBudget()` in the console
   returns the current level, render scale, shed effects, frame times, and
   graphics card time.
 - Landscapes are profiles in `src/game/landscapes.ts`. Forest, canyon, and

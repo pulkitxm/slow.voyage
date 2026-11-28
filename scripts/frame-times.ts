@@ -46,6 +46,11 @@ async function measure(quality: Settings['quality']) {
       Object.assign(window, { frameIntervals: intervals })
     }, quality)
     await page.goto(url)
+    await page.waitForFunction(() => 'voyage' in window, null, { timeout: 60000 })
+    await page.evaluate(() => {
+      const scope = window as unknown as { voyage: { easeQuality: () => void } }
+      scope.voyage.easeQuality = () => {}
+    })
     await page.locator('.intro .primary-button').click({ timeout: 60000 })
     await page.keyboard.press('f')
     await page.waitForSelector('[data-assistance="full"]')
