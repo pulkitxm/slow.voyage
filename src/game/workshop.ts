@@ -264,6 +264,9 @@ export class Workshop {
   leave() {
     return this.session.leave()
   }
+  skip() {
+    return this.session.skip()
+  }
   drive(dt: number, input: Input, moving: boolean) {
     const settings = this.settings()
     const physics = this.physics

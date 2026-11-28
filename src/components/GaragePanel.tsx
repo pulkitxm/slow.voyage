@@ -1,4 +1,4 @@
-import { Check, Droplets, LogOut, PaintBucket, Wind, Wrench } from 'lucide-react'
+import { Check, Droplets, FastForward, LogOut, PaintBucket, Wind, Wrench } from 'lucide-react'
 import { useState } from 'react'
 import type { GarageJob, GarageStatus } from '../game/garage-session'
 import {
@@ -23,6 +23,7 @@ interface Props {
   grime: number
   onJob: (job: GarageJob) => void
   onLeave: () => void
+  onSkip: () => void
 }
 
 export function grimeLabel(level: number) {
@@ -81,7 +82,7 @@ function WheelGlyph({ style, finish }: { style: WheelStyle; finish: RimFinish })
   )
 }
 
-export function GaragePanel({ settings, status, grime, onJob, onLeave }: Props) {
+export function GaragePanel({ settings, status, grime, onJob, onLeave, onSkip }: Props) {
   const [paint, setPaint] = useState(settings.color)
   const [style, setStyle] = useState<WheelStyle>(settings.wheelStyle)
   const [finish, setFinish] = useState<RimFinish>(settings.rimFinish)
@@ -257,11 +258,25 @@ export function GaragePanel({ settings, status, grime, onJob, onLeave }: Props) 
         </section>
       </div>
       <div className="garage-footer">
-        <button type="button" className="primary-button" disabled={busy} onClick={onLeave}>
-          <LogOut size={16} /> Drive out
-        </button>
+        {busy ? (
+          <button type="button" className="primary-button garage-skip" onClick={onSkip}>
+            <FastForward size={16} /> Skip
+          </button>
+        ) : (
+          <button type="button" className="primary-button" onClick={onLeave}>
+            <LogOut size={16} /> Drive out
+          </button>
+        )}
         <span>
-          <kbd>Esc</kbd> leaves the garage
+          {busy ? (
+            <>
+              <kbd>Space</kbd> or <kbd>Enter</kbd> skips ahead
+            </>
+          ) : (
+            <>
+              <kbd>Esc</kbd> leaves the garage
+            </>
+          )}
         </span>
       </div>
     </aside>

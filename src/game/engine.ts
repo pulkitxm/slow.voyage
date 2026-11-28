@@ -283,7 +283,8 @@ export class RoadEngine {
       | 'vehiclePrevious'
       | 'photo'
       | 'garage'
-      | 'garageLeave',
+      | 'garageLeave'
+      | 'garageSkip',
   ) => void
   resize = () => {
     this.redraw = true
@@ -299,6 +300,11 @@ export class RoadEngine {
       if (['Escape', 'KeyO'].includes(event.code) && !event.repeat) {
         event.preventDefault()
         this.onAction?.('garageLeave')
+      }
+      if (['Space', 'Enter'].includes(event.code) && this.workshop.session.busy) {
+        event.preventDefault()
+        const onSkip = event.target instanceof HTMLElement && event.target.closest('.garage-skip')
+        if (!event.repeat && !onSkip) this.onAction?.('garageSkip')
       }
       return
     }
@@ -738,6 +744,11 @@ export class RoadEngine {
     const leaving = this.workshop.leave()
     this.emitState()
     return leaving
+  }
+  skipGarage() {
+    const skipped = this.workshop.skip()
+    this.emitState()
+    return skipped
   }
   frameAround(garaged: boolean) {
     const width = window.innerWidth

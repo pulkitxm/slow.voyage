@@ -29,6 +29,7 @@ export function Help({ onClose }: { onClose: () => void }) {
             ['Z', 'Neutral: rev the engine freely, press again to engage a gear'],
             ['V / Shift V', 'Next / previous vehicle'],
             ['O', 'Pull into a roadside garage'],
+            ['Space / Enter', 'In the garage, skip the job or the drive in and out'],
             ['M', 'Mute / unmute sound'],
             ['U', 'Toggle mouse driving'],
             ['R', 'Return to the road'],

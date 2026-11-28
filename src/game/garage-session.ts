@@ -274,28 +274,55 @@ export class GarageSession {
       }
     } else if (this.phase === 'working' && this.job) {
       this.work(this.job, this.elapsed, dt)
-      if (this.elapsed >= this.duration) {
-        this.phase = 'ready'
-        this.job = null
-        this.elapsed = 0
-        this.duration = 0
-        this.spray.clear()
-        this.hooks.hiss(0, 1000)
-        for (const member of this.crew) {
-          member.hold('none')
-          member.pose = 'stand'
-          member.effort = 0
-        }
-        const [first, second] = this.crew
-        const home = this.localPlain(-6.6, garageLayout.front + 1.4)
-        first?.walkTo(home.x, home.z, Math.PI / 2)
-        const rest = this.localPlain(2.6, garageLayout.front + 2.2)
-        second?.walkTo(rest.x, rest.z, -Math.PI / 2)
-      }
+      if (this.elapsed >= this.duration) this.complete(this.job)
     }
     for (const member of this.crew) member.update(dt)
     this.spray.update(dt, this.bay.y + 0.02)
     this.frameCamera(dt)
+  }
+  private complete(job: GarageJob) {
+    const { hooks } = this
+    if (job.kind === 'wash') hooks.washed()
+    if (job.kind === 'paint') hooks.painted(job.color)
+    if (job.kind === 'wheels') {
+      for (let index = 0; index < hooks.wheelCount(); index++) {
+        hooks.wheelSwap(index, job.style, job.finish)
+        hooks.wheelOffset(index, 0)
+      }
+      hooks.wheelsFitted(job.style, job.finish)
+    }
+    if (job.kind === 'exhaust') hooks.exhaustFitted(job.exhaust)
+    this.phase = 'ready'
+    this.job = null
+    this.elapsed = 0
+    this.duration = 0
+    this.lift = 0
+    this.wheelIndex = -1
+    this.beats.clear()
+    this.spray.clear()
+    hooks.hiss(0, 1000)
+    this.sendHome(false)
+  }
+  private sendHome(instantly: boolean) {
+    for (const [index, member] of this.crew.entries()) {
+      member.hold('none')
+      member.pose = 'stand'
+      member.effort = 0
+      const spot = this.localPlain(index ? 2.6 : -6.6, garageLayout.front + (index ? 2.2 : 1.4))
+      const facing = index ? -Math.PI / 2 : Math.PI / 2
+      if (instantly) member.place(spot.x, spot.z, facing)
+      else member.walkTo(spot.x, spot.z, facing)
+    }
+  }
+  skip() {
+    if (this.phase === 'entering' || this.phase === 'leaving') {
+      this.elapsed = this.duration
+      return true
+    }
+    if (this.phase !== 'working' || !this.job) return false
+    this.complete(this.job)
+    this.sendHome(true)
+    return true
   }
   private crewAt(index: number, u: number, v: number, face: number) {
     const member = this.crew[index]
@@ -361,7 +388,6 @@ export class GarageSession {
           this.crewAt(1, farU - 1.6, tail - 0.5, this.facing(farU, tail, bayU, bayV)),
         )
       }
-      if (time >= this.duration - 0.05) this.once('done', () => this.hooks.washed())
     }
     if (job.kind === 'paint') {
       const sweep = sweepOf(2.4, 11.5)
@@ -391,7 +417,6 @@ export class GarageSession {
         }
         this.hooks.hiss(0, 1000)
       }
-      if (time >= 12.4) this.once('done', () => this.hooks.painted(job.color))
     }
     if (job.kind === 'wheels') {
       const count = this.hooks.wheelCount()
@@ -430,8 +455,6 @@ export class GarageSession {
             this.crewAt(0, sideU + 2.4, tail - 0.8, this.facing(sideU + 2.4, tail, bayU, bayV)),
           )
       }
-      if (time >= this.duration - 0.05)
-        this.once('done', () => this.hooks.wheelsFitted(job.style, job.finish))
     }
     if (job.kind === 'exhaust') {
       this.once('go', () => {

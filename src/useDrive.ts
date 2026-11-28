@@ -180,6 +180,9 @@ export function useDrive() {
   const leaveGarage = () => {
     engine.current?.leaveGarage()
   }
+  const skipGarage = () => {
+    engine.current?.skipGarage()
+  }
   const garageJob = (job: GarageJob) => {
     engine.current?.garageJob(job)
   }
@@ -221,6 +224,7 @@ export function useDrive() {
     update,
     enterGarage,
     leaveGarage,
+    skipGarage,
     applySettings,
   })
   handlers.current = {
@@ -237,6 +241,7 @@ export function useDrive() {
     update,
     enterGarage,
     leaveGarage,
+    skipGarage,
     applySettings,
   }
   useEffect(() => {
@@ -306,6 +311,7 @@ export function useDrive() {
         if (action === 'photo') handlers.current.togglePhoto()
         if (action === 'garage') handlers.current.enterGarage()
         if (action === 'garageLeave') handlers.current.leaveGarage()
+        if (action === 'garageSkip') handlers.current.skipGarage()
       }
     } catch {
       setError(
@@ -398,6 +404,7 @@ export function useDrive() {
     touch,
     enterGarage,
     leaveGarage,
+    skipGarage,
     garageJob,
   }
 }

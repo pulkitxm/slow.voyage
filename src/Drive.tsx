@@ -92,6 +92,7 @@ export function Drive() {
     touch,
     enterGarage,
     leaveGarage,
+    skipGarage,
     garageJob,
   } = useDrive()
   const garaged = state.garage.phase !== 'idle'
@@ -424,6 +425,7 @@ export function Drive() {
           grime={state.grime}
           onJob={garageJob}
           onLeave={leaveGarage}
+          onSkip={skipGarage}
         />
       )}
       {help && <Help onClose={() => setHelp(false)} />}
