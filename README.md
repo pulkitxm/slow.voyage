@@ -11,15 +11,19 @@ Highly inspired by [slowroads.io](https://slowroads.io/) (big fan of the game!!)
 ## What is in it
 
 Seven landscapes, from alpine passes and red canyons to northern lakes and monsoon
-jungle. Seven vehicles, from a grand tourer and a supercar to a pickup, a motorcycle
-and a coach, and twenty-four engines to swap into them, from a 1.0 litre turbo three
-and a 1.8 litre turbo-diesel to a 19,000 rpm V10 race engine and a quad-turbo W16.
-Browse them by engine or by the real cars they went into, and press Z for neutral to
-rev any of them in place. Each of those 87 cars, from a Fiesta and a Golf GTI to a
-Chiron, a McLaren F1 and three Formula One cars, brings its own body, built to the
-real car's length, wheelbase, track and wheel sizes. Three seasons, six skies including a live day cycle,
-weather from clear to fog and storms, autodrive, a photo mode and a minimap of the
-road ahead.
+jungle. Seven vehicles, from a grand tourer and a choice of four supercars to a
+pickup, a motorcycle and a coach, and twenty-four engines to swap into them, from a
+1.0 litre turbo three and a 1.8 litre turbo-diesel to a 19,000 rpm V10 race engine
+and a quad-turbo W16. Browse them by engine or by the real cars they went into, and
+press Z for neutral to rev any of them in place. Each of those 87 cars, from a Fiesta
+and a Golf GTI to a Chiron, a McLaren F1 and three Formula One cars, brings its own
+body, built to the real car's length, wheelbase, track and wheel sizes. Three
+seasons, six skies including a live day cycle, weather from clear to fog and storms,
+autodrive, a photo mode and a minimap of the road ahead.
+
+Cars slowly get dirty as you drive, and roadside garages wash them, respray them,
+fit new wheels and swap the exhaust while two mechanics do the work in front of
+you. Lift off at high revs and the exhaust crackles and pops.
 
 ## How we built it
 

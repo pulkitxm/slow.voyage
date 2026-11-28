@@ -7,7 +7,7 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 TARGET = os.path.join(ROOT, "src", "assets", "models", "cars", "thumbs")
-CLASSES = ("touring", "roadster", "hatchback", "supercar", "pickup")
+CLASSES = ("touring", "roadster", "hatchback", "supercar", "pickup", "supercar-grand", "supercar-longtail", "supercar-track")
 
 
 def main():

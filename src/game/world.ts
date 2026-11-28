@@ -6,6 +6,8 @@ import { type Landscape, landscapeProfiles, passEasing, terraced } from './lands
 import { openSurface } from './open-grid'
 import { roadCoordinates, roadLayout } from './road'
 import { potholeDepth, type RoadWear } from './road-condition'
+import type { Exhaust, RimFinish, WheelStyle } from './styling'
+import type { SupercarModel } from './supercars'
 
 export { type EngineId, engineIds } from './engine-catalog'
 export type { Landscape } from './landscapes'
@@ -50,6 +52,10 @@ export interface Settings {
   life: LifeLevel
   blood: boolean
   vehicle: Vehicle
+  supercarModel: SupercarModel
+  wheelStyle: WheelStyle
+  rimFinish: RimFinish
+  exhaust: Exhaust
   engine: EngineId
   engineView: 'car' | 'engine'
   engineCar: string
@@ -88,6 +94,10 @@ export const defaults: Settings = {
   life: 'lively',
   blood: true,
   vehicle: 'touring',
+  supercarModel: 'classic',
+  wheelStyle: 'factory',
+  rimFinish: 'silver',
+  exhaust: 'sport',
   engine: 'stock',
   engineView: 'car',
   engineCar: '',
