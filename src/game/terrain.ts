@@ -115,6 +115,7 @@ export const tileStreaming = {
   lead: 2,
   budget: 3,
   refreshBudget: 9,
+  jump: 2,
   softwareRefresh: 110,
   unhurriedRefresh: 320,
   rebuildBehind: 15,
@@ -796,7 +797,14 @@ export class Terrain {
         this.disposeGroup(build.group)
         this.builds.delete(id)
       }
-    const urgent = (id: number) => id >= near - 1 && id <= far + tileStreaming.lead
+    let missing = 0
+    for (let id = current - 4; id <= current + ahead; id++)
+      if (!this.tiles.has(id) && !this.builds.has(id)) missing++
+    const jump = this.software && missing > tileStreaming.jump && !this.rebuilding
+    const urgent = (id: number) =>
+      this.software
+        ? jump || id <= far + tileStreaming.lead
+        : id >= near - 1 && id <= far + tileStreaming.lead
     this.current = current
     for (let id = current - 4; id <= current + ahead; id++) {
       if (this.tiles.has(id)) continue
