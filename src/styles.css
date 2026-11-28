@@ -2208,6 +2208,32 @@ html:has(.drive[data-daylight="night"]) {
   border-color: #a7b294;
   color: #536a42;
 }
+.garage-skip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  margin-top: 4px;
+  padding: 9px 15px 9px 13px;
+  border-radius: 999px;
+  border: 1px solid #a7b294;
+  background: #e7ecdc;
+  color: #536a42;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  user-select: none;
+  animation: appear 0.2s;
+}
+.garage-skip:hover {
+  background: #dfe6d1;
+}
+.drive[data-daylight="night"] .garage-skip {
+  background: #26302a;
+  border-color: #4c5a48;
+  color: #c5d3b4;
+}
 .garage-footer {
   display: flex;
   align-items: center;
@@ -2249,6 +2275,10 @@ html:has(.drive[data-daylight="night"]) {
   }
   .garage-footer .primary-button {
     flex: 1;
+  }
+  .garage-skip {
+    padding: 11px 18px 11px 15px;
+    font-size: 12px;
   }
 }
 .car-picture {

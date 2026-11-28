@@ -43,6 +43,7 @@ export const crewSpace = {
   tail: 0.85,
   wheel: 0.66,
   staged: 0.78,
+  scrub: 1.62,
   apart: 0.38,
 } as const
 
@@ -167,7 +168,7 @@ export function bayPlan(car: BayCar): BayPlan {
     tail: rect.v0 - crewSpace.tail,
     nose: Math.min(rect.v1, back - 1.13 - crewSpace.body - 0.06),
     lane,
-    home: (side) => (side > 0 ? { u: lane(1) + 0.7, v: centre } : { u: lane(-1), v: centre }),
+    home: (side) => (side > 0 ? { u: lane(1) + 1.5, v: back - 1.85 } : { u: lane(-1), v: centre }),
     face: () => ({ u: bay.u, v: bay.v }),
     stage: (side, v) => ({ u: lane(side), v }),
     fresh: (side, v) => ({ u: lane(side) + side * crewSpace.staged, v: v + crewSpace.apart }),
@@ -221,60 +222,93 @@ export function liftSwing(car: BayCar) {
   return Math.asin(Math.min(0.96, Math.max(0.15, inward / liftGeometry.arm)))
 }
 
-export function liftPose(travel: number, car: BayCar) {
+export interface LiftPose {
+  arm: number
+  car: number
+  total: number
+}
+
+export function liftPose(
+  travel: number,
+  car: BayCar,
+  target: LiftPose = { arm: 0, car: 0, total: 0 },
+) {
   const touch = Math.max(0, car.clearance - liftGeometry.rest - liftGeometry.pad)
   const total = touch + liftGeometry.rise
   const raised = Math.min(1, Math.max(0, travel)) * total
-  return { arm: liftGeometry.rest + raised, car: Math.max(0, raised - touch), total }
+  target.arm = liftGeometry.rest + raised
+  target.car = Math.max(0, raised - touch)
+  target.total = total
+  return target
 }
 
 export const cameraRoom = { margin: 0.55, floor: 0.45, ceiling: 0.7, near: bay.u + 4.7 } as const
 
-export function cameraInside(u: number, v: number, y: number) {
-  return {
-    u: Math.min(bayInterior.u1 - cameraRoom.margin, Math.max(cameraRoom.near, u)),
-    v: Math.min(
-      bayInterior.v1 - cameraRoom.margin,
-      Math.max(bayInterior.v0 + cameraRoom.margin, v),
-    ),
-    y: Math.min(bayRoom.height - cameraRoom.ceiling, Math.max(cameraRoom.floor, y)),
-  }
+export interface Eye {
+  u: number
+  v: number
+  y: number
+}
+
+export interface Framing {
+  eye: Eye
+  look: Eye
+}
+
+export function cameraInside(u: number, v: number, y: number, target: Eye = { u: 0, v: 0, y: 0 }) {
+  target.u = Math.min(bayInterior.u1 - cameraRoom.margin, Math.max(cameraRoom.near, u))
+  target.v = Math.min(
+    bayInterior.v1 - cameraRoom.margin,
+    Math.max(bayInterior.v0 + cameraRoom.margin, v),
+  )
+  target.y = Math.min(bayRoom.height - cameraRoom.ceiling, Math.max(cameraRoom.floor, y))
+  return target
 }
 
 export type Shot = 'ready' | 'arrive' | 'wheels' | 'paint' | 'wash' | 'exhaust' | 'lift'
 
-export function insideShot(shot: Shot, car: BayCar, focus: Spot, raised: number, drift = 0) {
-  const tail = bayCentre(car) - car.rear
-  const eye =
-    shot === 'arrive'
-      ? cameraInside(bay.u + 5.6, front + 1, 1.5)
-      : shot === 'wheels'
-        ? cameraInside(focus.u + 5.1, focus.v + (focus.v > bay.v ? 1.7 : -1.7), 1.3 + raised * 0.6)
-        : shot === 'lift'
-          ? cameraInside(bay.u + 5.6, bay.v - 2.6, 1.3)
-          : shot === 'paint' || shot === 'wash'
-            ? cameraInside(bay.u + 5 + drift * 0.3, focus.v - 2.5, shot === 'paint' ? 1.75 : 1.9)
-            : shot === 'exhaust'
-              ? cameraInside(bay.u + 4.2, tail - 2.2, 1.0 + raised)
-              : cameraInside(bay.u + 5.5 + drift * 0.6, front + 0.85 + drift * 0.5, 1.8)
-  const look =
-    shot === 'wheels'
-      ? { u: focus.u, v: focus.v, y: 0.45 + raised }
-      : shot === 'exhaust'
-        ? { u: bay.u, v: tail + 0.3, y: 0.45 + raised }
-        : shot === 'paint' || shot === 'wash'
-          ? { u: bay.u + 0.7, v: focus.v - 0.2, y: 0.8 }
-          : shot === 'arrive'
-            ? { u: focus.u, v: focus.v, y: 0.7 }
-            : shot === 'ready'
-              ? { u: bay.u - 0.2, v: bay.v - 0.55, y: 0.6 }
-              : { u: bay.u, v: bay.v + 0.1, y: 0.62 + raised * 0.8 }
-  return { eye, look }
+function aim(target: Eye, u: number, v: number, y: number) {
+  target.u = u
+  target.v = v
+  target.y = y
 }
 
-export function outsideShot(from: Spot) {
+export function insideShot(
+  shot: Shot,
+  car: BayCar,
+  focus: Spot,
+  raised: number,
+  drift = 0,
+  target: Framing = { eye: { u: 0, v: 0, y: 0 }, look: { u: 0, v: 0, y: 0 } },
+) {
+  const tail = bayCentre(car) - car.rear
+  const { eye, look } = target
+  if (shot === 'arrive') {
+    cameraInside(bay.u + 7.6, back - 1, 1.55, eye)
+    aim(look, focus.u, focus.v, 0.7)
+  } else if (shot === 'wheels') {
+    cameraInside(focus.u + 5.1, focus.v + (focus.v > bay.v ? 1.7 : -1.7), 1.3 + raised * 0.6, eye)
+    aim(look, focus.u, focus.v, 0.45 + raised)
+  } else if (shot === 'lift') {
+    cameraInside(bay.u + 5.6, bay.v - 2.6, 1.3, eye)
+    aim(look, bay.u, bay.v + 0.1, 0.62 + raised * 0.8)
+  } else if (shot === 'paint' || shot === 'wash') {
+    cameraInside(bay.u + 5 + drift * 0.3, focus.v - 2.5, shot === 'paint' ? 1.75 : 1.9, eye)
+    aim(look, bay.u + 0.7, focus.v - 0.2, 0.8)
+  } else if (shot === 'exhaust') {
+    cameraInside(bay.u + 4.2, tail - 2.2, 1 + raised, eye)
+    aim(look, bay.u, tail + 0.3, 0.45 + raised)
+  } else {
+    cameraInside(bay.u + 5.5 + drift * 0.6, front + 0.85 + drift * 0.5, 1.8, eye)
+    aim(look, bay.u - 0.2, bay.v - 0.55, 0.6)
+  }
+  return target
+}
+
+export function outsideShot(from: Spot, target: Eye = { u: 0, v: 0, y: 0 }) {
   const flank = from.u <= bay.u ? 1 : -1
-  return { u: bay.u + flank * 7.2, v: front - 5.6, y: 1.9 }
+  aim(target, bay.u + flank * 7.2, front - 5.6, 1.9)
+  return target
 }
 
 export interface DrivePose {

@@ -104,6 +104,11 @@ export function GaragePanel({ settings, status, grime, onJob, onLeave, onSkip }:
           <span className="eyebrow">ROADSIDE GARAGE</span>
           <h2>{heading}</h2>
         </div>
+        {busy && (
+          <button type="button" className="garage-skip" onClick={onSkip}>
+            <FastForward size={14} /> Skip
+          </button>
+        )}
       </div>
       <div className="garage-progress" aria-hidden={status.phase !== 'working'}>
         <span
@@ -258,15 +263,9 @@ export function GaragePanel({ settings, status, grime, onJob, onLeave, onSkip }:
         </section>
       </div>
       <div className="garage-footer">
-        {busy ? (
-          <button type="button" className="primary-button garage-skip" onClick={onSkip}>
-            <FastForward size={16} /> Skip
-          </button>
-        ) : (
-          <button type="button" className="primary-button" onClick={onLeave}>
-            <LogOut size={16} /> Drive out
-          </button>
-        )}
+        <button type="button" className="primary-button" disabled={busy} onClick={onLeave}>
+          <LogOut size={16} /> Drive out
+        </button>
         <span>
           {busy ? (
             <>

@@ -8,11 +8,14 @@ import {
   bayPlan,
   type CrewSide,
   crewRoute,
+  crewSpace,
   type DriveLeg,
   type DriveSample,
   drivePath,
   driveSpeed,
+  type Framing,
   insideShot,
+  type LiftPose,
   leavePath,
   liftPose,
   liftSwing,
@@ -106,6 +109,8 @@ export const jobSteps: Record<GarageJob['kind'], string> = {
 }
 
 export const carryLayout = { ahead: 0.44, height: 0.98, pull: 0.3, floor: 0.06 } as const
+
+export const bodySpring = { step: 1 / 120, most: 0.05 } as const
 
 export interface Pose {
   x: number
@@ -203,6 +208,9 @@ export class GarageSession {
   private other = new THREE.Vector3()
   private third = new THREE.Vector3()
   private route: number[] = []
+  private raised: LiftPose = { arm: 0, car: 0, total: 0 }
+  private framing: Framing = { eye: { u: 0, v: 0, y: 0 }, look: { u: 0, v: 0, y: 0 } }
+  private lastShot: Shot = 'ready'
   private turn = new THREE.Quaternion()
   constructor(
     private scene: THREE.Scene,
@@ -384,8 +392,11 @@ export class GarageSession {
       this.pitchPace = 0
       return
     }
-    this.pitchPace += (-70 * (this.pitch - target) - 6.2 * this.pitchPace) * dt
-    this.pitch += this.pitchPace * dt
+    for (let left = Math.min(dt, 0.25); left > 0; left -= bodySpring.step) {
+      const step = Math.min(left, bodySpring.step)
+      this.pitchPace += (-70 * (this.pitch - target) - 6.2 * this.pitchPace) * step
+      this.pitch = clamp(this.pitch + this.pitchPace * step, -bodySpring.most, bodySpring.most)
+    }
   }
   private sway(target: number, dt: number) {
     if (this.hooks.calm()) {
@@ -393,8 +404,11 @@ export class GarageSession {
       this.leanPace = 0
       return
     }
-    this.leanPace += (-60 * (this.lean - target) - 7 * this.leanPace) * dt
-    this.lean += this.leanPace * dt
+    for (let left = Math.min(dt, 0.25); left > 0; left -= bodySpring.step) {
+      const step = Math.min(left, bodySpring.step)
+      this.leanPace += (-60 * (this.lean - target) - 7 * this.leanPace) * step
+      this.lean = clamp(this.lean + this.leanPace * step, -bodySpring.most, bodySpring.most)
+    }
   }
   choose(job: GarageJob) {
     if (this.phase !== 'ready') return false
@@ -512,8 +526,9 @@ export class GarageSession {
       this.sway(0, dt)
       if (this.phase === 'working' && this.job) this.work(this.job, dt)
     }
-    if (this.rig) setLift(this.rig, liftPose(this.travel, this.car).arm, this.swing)
-    this.lift = liftPose(this.travel, this.car).car
+    const raised = liftPose(this.travel, this.car, this.raised)
+    if (this.rig) setLift(this.rig, raised.arm, this.swing)
+    this.lift = raised.car
     if (this.phase !== 'working' && site) {
       const car = site.worldToLocal(this.point.set(this.pose.x, this.pose.y + 0.9, this.pose.z))
       for (const member of this.crew) member.look(car)
@@ -1153,7 +1168,7 @@ export class GarageSession {
           },
         },
       ]
-      for (const along of [-1.05, 1.05]) {
+      for (const along of [-crewSpace.scrub, crewSpace.scrub]) {
         const v = clamp(bay.v + along, plan.car.v0 + 0.4, plan.nose)
         steps.push(
           this.walkStep(
@@ -1348,7 +1363,7 @@ export class GarageSession {
     if (moving && site) {
       const car = site.worldToLocal(this.point.set(this.pose.x, this.pose.y, this.pose.z))
       const v = this.side * car.x
-      outside = this.phase === 'entering' ? v + this.car.front < front - 0.9 : v < front - 0.4
+      outside = this.phase === 'entering' ? v + this.car.front < front + 0.3 : v < front - 0.4
       this.focus.u = -car.z
       this.focus.v = v
     }
@@ -1357,13 +1372,15 @@ export class GarageSession {
       this.snapped = false
     }
     if (outside) {
-      const eye = outsideShot(this.startSpot)
+      const eye = outsideShot(this.startSpot, this.framing.eye)
       this.toWorld(eye.u, eye.v, eye.y, this.cameraGoal)
       this.lookGoal.set(this.pose.x, this.pose.y + 0.75, this.pose.z)
     } else {
       const drift = calm ? 0 : Math.sin(this.clock * 0.22) * 0.55
       const shot = moving ? 'arrive' : this.shot
-      const framed = insideShot(shot, this.car, this.focus, this.lift, drift)
+      if (calm && shot !== this.lastShot) this.snapped = false
+      this.lastShot = shot
+      const framed = insideShot(shot, this.car, this.focus, this.lift, drift, this.framing)
       this.toWorld(framed.eye.u, framed.eye.v, framed.eye.y, this.cameraGoal)
       this.toWorld(framed.look.u, framed.look.v, framed.look.y, this.lookGoal)
     }

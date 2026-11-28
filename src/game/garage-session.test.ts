@@ -289,6 +289,29 @@ describe('garage session', () => {
         session.dispose()
       }
   })
+  it('keeps the body level through slow and uneven frames', () => {
+    const car = cars.coupe as BayCar
+    const rigged = bench(1, car)
+    const { session, garage, pose, rig } = rigged
+    session.enter(garage, pose, 8)
+    let frame = 0
+    while (session.phase === 'entering' && frame < 4000) {
+      const dt = frame % 3 === 0 ? 0.25 : frame % 3 === 1 ? 0.004 : 0.09
+      stepDoor(rig, dt)
+      session.update(dt, () => {})
+      expect(Math.abs(session.pitch)).toBeLessThanOrEqual(0.05)
+      expect(Math.abs(session.lean)).toBeLessThanOrEqual(0.05)
+      expect(
+        Number.isFinite(session.pose.x + session.pose.y + session.pose.z + session.pose.yaw),
+      ).toBe(true)
+      frame++
+    }
+    expect(session.phase).toBe('ready')
+    for (let settle = 0; settle < 40; settle++) session.update(0.1, () => {})
+    expect(Math.abs(session.pitch)).toBeLessThan(0.002)
+    expect(Math.abs(session.lean)).toBeLessThan(0.002)
+    session.dispose()
+  })
   it('skips the drive in and the drive out', () => {
     const car = cars.pickup as BayCar
     const rigged = bench(1, car)

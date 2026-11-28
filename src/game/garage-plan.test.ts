@@ -103,7 +103,10 @@ describe('garage bay plan', () => {
           plan.home(side),
           ...mine.map((wheel) => wheelSpot(side, wheel)),
           ...mine.map((wheel) => plan.stage(side, wheel.v)),
-          { u: bay.u + side * (car.halfWidth + 0.56), v: bayCentre(car) - 1.05 },
+          {
+            u: bay.u + side * (car.halfWidth + 0.56),
+            v: Math.max(plan.car.v0 + 0.4, bay.v - crewSpace.scrub),
+          },
           {
             u: bay.u + side * (car.halfWidth + 0.56),
             v: Math.min(plan.nose, bayCentre(car) + 1.05),
@@ -186,6 +189,12 @@ describe('garage bay plan', () => {
             expect(distanceToRect(plan.car, eye)).toBeGreaterThan(1.5)
             for (const post of bayPosts) expect(distanceToRect(post, eye)).toBeGreaterThan(1)
           }
+    }
+    for (const { car } of everyCar) {
+      const swing = liftSwing(car)
+      expect(swing).toBeGreaterThan(0)
+      const reach = liftGeometry.arm + 0.08
+      expect(crewSpace.scrub - reach).toBeGreaterThan(crewSpace.body)
     }
     expect(cameraInside(-40, 0, -3)).toEqual({
       u: cameraRoom.near,
