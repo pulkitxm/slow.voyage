@@ -577,6 +577,8 @@ export class RoadEngine {
       if (this.probe() > ultraReach.probe) this.easeQuality('high')
     }
     this.precipitation.setAppearance(this.settings, atmosphereProfile(this.settings, this.dayClock))
+    this.strainGauge.hold()
+    this.governor.hold()
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
   }
   paint() {
@@ -1199,7 +1201,11 @@ export class RoadEngine {
         } else if (this.cinema && !this.cinemaBlocked) {
           this.cinemaBlocked = true
           this.configureCinema(budget)
-        } else if (this.settings.quality !== 'low') this.easeQuality('low')
+        } else if (
+          this.settings.quality !== 'low' &&
+          this.framePace > governorPlan.frame * governorPlan.crawling
+        )
+          this.easeQuality('low')
         this.applyRenderScale(graphicsBudget(this.renderer, this.settings.quality))
       }
     }
