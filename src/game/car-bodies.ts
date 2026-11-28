@@ -3,7 +3,7 @@ import sheets from './car-sheets.json'
 import { type Footprint, footprints } from './collision'
 import { engineCars, type SwapEngine } from './engine-catalog'
 import { type TireDimensions, tireDimensions } from './tire-dimensions'
-import { type VehicleMetrics, vehicleMetrics } from './vehicles'
+import { type Drivetrain, type VehicleMetrics, vehicleMetrics } from './vehicles'
 import type { Settings, Vehicle } from './world'
 
 export type BodyChassis = Exclude<Vehicle, 'motorcycle' | 'bus'>
@@ -23,6 +23,9 @@ interface Sheet {
   mass: number
   topSpeed: number
   brakes: string
+  drive: string
+  frontWeight: number
+  slicks?: boolean
   estimated: string[]
   paint?: string
 }
@@ -52,6 +55,9 @@ export interface CarBody {
   mass: number
   topSpeed: number
   brakes: BrakeType
+  drive: Drivetrain
+  frontWeight: number
+  slicks: boolean
   paint: string | null
   footprint: Footprint
 }
@@ -85,6 +91,12 @@ function isChassis(value: string): value is BodyChassis {
   return (bodyChassis as readonly string[]).includes(value)
 }
 
+const drivetrains: readonly string[] = ['front', 'rear', 'all'] satisfies Drivetrain[]
+
+function isDrive(value: string): value is Drivetrain {
+  return drivetrains.includes(value)
+}
+
 function isBrake(value: string): value is BrakeType {
   return (brakeTypes as readonly string[]).includes(value)
 }
@@ -94,7 +106,8 @@ const table = sheets as Record<string, Sheet>
 export const carBodies: CarBody[] = engineCars.flatMap((car) => {
   const id = carSlug(car.name)
   const sheet = table[id]
-  if (!sheet || !isChassis(sheet.chassis) || !isBrake(sheet.brakes)) return []
+  if (!sheet || !isChassis(sheet.chassis) || !isBrake(sheet.brakes) || !isDrive(sheet.drive))
+    return []
   const [front, rear] = sheet.tyres
   const [trackFront, trackRear] = sheet.track
   if (!front || !rear || !trackFront || !trackRear) return []
@@ -118,6 +131,9 @@ export const carBodies: CarBody[] = engineCars.flatMap((car) => {
       mass: sheet.mass,
       topSpeed: sheet.topSpeed / 3.6,
       brakes: sheet.brakes,
+      drive: sheet.drive,
+      frontWeight: sheet.frontWeight / 100,
+      slicks: sheet.slicks ?? false,
       paint: sheet.paint ?? null,
       footprint: {
         front: (sheet.wheelbase / 2 + sheet.frontOverhang) / 1000,

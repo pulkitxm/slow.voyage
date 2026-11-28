@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { chromium } from 'playwright-core'
+import { carSlug } from '../src/game/car-bodies'
 import {
   type EngineSound,
   EngineVoice,
@@ -35,6 +36,8 @@ const url = option('url')
 const chosen = option('vehicles')?.split(',') ?? [...soundVehicles]
 const wanted = option('scenarios')?.split(',')
 const engine = (option('engine') ?? 'stock') as EngineId
+const engineCar = option('car') ?? ''
+const carFile = engineCar && carSlug(engineCar)
 if (!engineIds.includes(engine)) throw new Error(`Unknown engine ${engine}`)
 await mkdir(out, { recursive: true })
 const failures: string[] = []
@@ -319,13 +322,13 @@ if (url) {
     if (wanted && !wanted.includes(scenario.name)) continue
     for (const vehicle of scenario.only ? [scenario.only] : chosen) {
       const result = await page.evaluate(
-        async ({ vehicle, name, engine, rate, frameRate, volume }) => {
+        async ({ vehicle, name, engine, engineCar, rate, frameRate, volume }) => {
           const origin = location.origin
           const [{ DriveAudio }, { stage }] = await Promise.all([
             import(`${origin}/src/game/audio.ts`),
             import(`${origin}/scripts/sound-scenarios.ts`),
           ])
-          const { scenario, settings, car, drive } = stage(vehicle, name, engine)
+          const { scenario, settings, car, drive } = stage(vehicle, name, engine, engineCar)
           if (volume) settings.volume = volume
           const context = new OfflineAudioContext(2, rate * scenario.seconds, rate)
           const audio = new DriveAudio()
@@ -373,6 +376,7 @@ if (url) {
           vehicle,
           name: scenario.name,
           engine,
+          engineCar,
           rate,
           frameRate,
           volume: Number(option('volume') ?? 0),
@@ -386,7 +390,9 @@ if (url) {
         mono[i] = ((left[i] as number) + (right[i] as number)) / 2
       const heard = levels(mono)
       const peak = Math.max(levels(left).peak, levels(right).peak)
-      const base = `${out}/${vehicle}-${engine === 'stock' ? '' : `${engine}-`}${scenario.name}`
+      const base = carFile
+        ? `${out}/${carFile}-${scenario.name}`
+        : `${out}/${vehicle}-${engine === 'stock' ? '' : `${engine}-`}${scenario.name}`
       await Bun.write(`${base}.wav`, wave([left, right], rate))
       await Bun.write(`${base}.png`, spectrogram(mono, rate))
       check(result.worklet, `${vehicle} ${scenario.name} fell back from the worklet`)

@@ -61,12 +61,16 @@ export interface Settings {
   volume: number
   quality: 'ultra' | 'high' | 'low'
   units: 'km' | 'mi'
+  tachometer: boolean
   grip: number
   power: number
   seed: number
   autodriveMode: Exclude<AssistanceMode, 'off'>
   cruiseSpeed: number
   onePedal: boolean
+  antilock: boolean
+  brakeDistribution: boolean
+  tractionControl: boolean
   controllerEnabled: boolean
   controllerDeadzone: number
   controllerMode: ControllerMode
@@ -95,12 +99,16 @@ export const defaults: Settings = {
   volume: 0.25,
   quality: 'ultra',
   units: 'km',
+  tachometer: false,
   grip: 1,
   power: 1,
   seed: 42,
   autodriveMode: 'full',
   cruiseSpeed: 22,
   onePedal: false,
+  antilock: true,
+  brakeDistribution: true,
+  tractionControl: true,
   controllerEnabled: true,
   controllerDeadzone: 0.12,
   controllerMode: 'standard',

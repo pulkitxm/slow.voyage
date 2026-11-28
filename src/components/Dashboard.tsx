@@ -1,22 +1,69 @@
 import { ArrowUp } from 'lucide-react'
+import { useLayoutEffect, useMemo, useRef } from 'react'
 import { minimapLayout } from '../game/minimap'
+import { type Needle, stepNeedle, tachAngle, tachScale } from '../game/tachometer'
 import type { Settings } from '../game/world'
 import { type TelemetryStore, useTelemetry } from '../telemetry'
 
 const speedScale = (units: Settings['units']) => (units === 'km' ? 3.6 : 2.23694)
 const distanceScale = (units: Settings['units']) => (units === 'km' ? 1000 : 1609.344)
 
+type Aids = Pick<Settings, 'antilock' | 'brakeDistribution' | 'tractionControl'>
+
+function AidLamps({ store, aids }: { store: TelemetryStore; aids: Aids }) {
+  const antilock = useTelemetry(store, (state) => state.antilock)
+  const traction = useTelemetry(store, (state) => state.traction)
+  const stability = useTelemetry(store, (state) => state.stability)
+  const lamps = [
+    { id: 'abs', label: 'ABS', active: antilock, off: !aids.antilock, title: 'Antilock brakes' },
+    {
+      id: 'ebd',
+      label: 'EBD',
+      active: false,
+      off: !aids.brakeDistribution,
+      title: 'Brake force distribution',
+    },
+    {
+      id: 'tcs',
+      label: 'TCS',
+      active: traction,
+      off: !aids.tractionControl,
+      title: 'Traction control',
+    },
+    { id: 'esc', label: 'ESC', active: stability, off: false, title: 'Stability control' },
+  ].filter((lamp) => lamp.active || lamp.off)
+  if (!lamps.length) return null
+  return (
+    <span className="aid-lamps" aria-hidden="true">
+      {lamps.map((lamp) => (
+        <span
+          key={lamp.id}
+          className="aid-lamp"
+          data-aid={lamp.id}
+          data-state={lamp.off ? 'off' : 'active'}
+          title={`${lamp.title} ${lamp.off ? 'off' : 'working'}`}
+        >
+          {lamp.label}
+          {lamp.off && <small>OFF</small>}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function Speed({
   store,
   units,
   manual,
   quiet,
+  aids,
   onNeutral,
 }: {
   store: TelemetryStore
   units: Settings['units']
   manual: boolean
   quiet: boolean
+  aids: Aids
   onNeutral: () => void
 }) {
   const speed = useTelemetry(store, (state) =>
@@ -35,6 +82,7 @@ export function Speed({
   return (
     <div className="speed">
       {boost && !quiet && <span className="boost-indicator">BOOST</span>}
+      {!quiet && <AidLamps store={store} aids={aids} />}
       <span className="speed-value">{String(speed).padStart(2, '0')}</span>
       <span className="speed-unit">
         {units === 'km' ? 'km/h' : 'mph'}
@@ -53,6 +101,159 @@ export function Speed({
       </div>
       <div className="nitro-track" data-firing={boost} title="Boost charge">
         <span style={{ width: `${nitro}%` }} />
+      </div>
+    </div>
+  )
+}
+
+const dial = { x: 60, y: 60, r: 56, hub: 12 }
+const onDial = (angle: number, radius: number) => {
+  const turn = (angle * Math.PI) / 180
+  return [dial.x + radius * Math.sin(turn), dial.y - radius * Math.cos(turn)] as const
+}
+const arc = (from: number, to: number, radius: number) => {
+  const [x0, y0] = onDial(from, radius)
+  const [x1, y1] = onDial(to, radius)
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${radius} ${radius} 0 ${to - from > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`
+}
+
+function DialFace({ redline }: { redline: number }) {
+  const scale = tachScale(redline)
+  const at = (value: number) => tachAngle(value, scale.max)
+  const halves = scale.max <= 4000
+  return (
+    <>
+      <path className="dial-rim" d={arc(at(0), at(scale.max), dial.r)} />
+      <path className="dial-shift" d={arc(at(scale.shift), at(scale.redline), dial.r - 3)} />
+      <path className="dial-red" d={arc(at(scale.redline), at(scale.max), dial.r - 3.5)} />
+      {scale.ticks.map((value) => {
+        const major = halves || value % 1000 === 0
+        const labelled = scale.labels.includes(value)
+        const [x0, y0] = onDial(at(value), dial.r - 1.5)
+        const [x1, y1] = onDial(at(value), dial.r - (labelled ? 9 : major ? 6 : 4))
+        return (
+          <line
+            key={value}
+            className={labelled ? 'dial-tick major' : 'dial-tick'}
+            data-red={value > scale.redline}
+            x1={x0}
+            y1={y0}
+            x2={x1}
+            y2={y1}
+          />
+        )
+      })}
+      {scale.labels.map((value) => {
+        const [x, y] = onDial(at(value), dial.r - 16)
+        return (
+          <text key={value} className="dial-label" x={x} y={y}>
+            {value / 1000}
+          </text>
+        )
+      })}
+      <text className="dial-caption" x={dial.x} y={dial.y + 22}>
+        ×1000 RPM
+      </text>
+    </>
+  )
+}
+
+export function Cluster({
+  store,
+  units,
+  manual,
+  quiet,
+  redline,
+  aids,
+  live,
+  onNeutral,
+}: {
+  store: TelemetryStore
+  units: Settings['units']
+  manual: boolean
+  quiet: boolean
+  redline: number
+  aids: Aids
+  live: () => number | null
+  onNeutral: () => void
+}) {
+  const max = tachScale(redline).max
+  const face = useMemo(() => <DialFace redline={redline} />, [redline])
+  const needle = useRef<SVGLineElement>(null)
+  const reading = useRef({ redline, max, live })
+  reading.current = { redline, max, live }
+  useLayoutEffect(() => {
+    const line = needle.current
+    if (!line) return
+    const calm = matchMedia('(prefers-reduced-motion: reduce)')
+    const target = () => {
+      const { redline, max, live } = reading.current
+      return ((live() ?? store.state.revs) * redline) / max
+    }
+    let state: Needle = { position: target(), velocity: 0 }
+    let shown = ''
+    const draw = () => {
+      const angle = tachAngle(state.position * reading.current.max, reading.current.max)
+      const transform = `rotate(${angle.toFixed(2)} ${dial.x} ${dial.y})`
+      if (transform !== shown) line.setAttribute('transform', transform)
+      shown = transform
+    }
+    draw()
+    let last = performance.now()
+    let frame = requestAnimationFrame(function tick(now) {
+      const dt = Math.min(0.1, Math.max(0, (now - last) / 1000))
+      last = now
+      state = stepNeedle(state, target(), dt, calm.matches)
+      draw()
+      frame = requestAnimationFrame(tick)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [store])
+  const speed = useTelemetry(store, (state) =>
+    Math.round(Math.abs(state.speed) * speedScale(units)),
+  )
+  const gear = useTelemetry(store, (state) => state.gear)
+  const strain = useTelemetry(store, (state) =>
+    (manual || state.gear === 'N') && state.revs > 0.9
+      ? state.limited
+        ? 'limit'
+        : 'shift'
+      : 'calm',
+  )
+  const boost = useTelemetry(store, (state) => state.boost)
+  const nitro = useTelemetry(store, (state) => Math.round(state.nitro * 100))
+  return (
+    <div className="cluster" data-strain={strain}>
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        {face}
+        <line
+          ref={needle}
+          className="dial-needle"
+          x1={dial.x}
+          y1={dial.y - dial.hub - 1}
+          x2={dial.x}
+          y2={dial.y - dial.r + 4}
+        />
+      </svg>
+      <button
+        type="button"
+        className="cluster-gear"
+        aria-label={gear === 'N' ? 'Neutral. Select to engage a gear' : 'Shift into neutral'}
+        title="Neutral (Z)"
+        onClick={onNeutral}
+      >
+        {gear}
+      </button>
+      <div className="cluster-readout">
+        {!quiet && <AidLamps store={store} aids={aids} />}
+        <span className="cluster-unit">
+          {boost && !quiet && <span className="cluster-boost">BOOST</span>}
+          {units === 'km' ? 'km/h' : 'mph'}
+        </span>
+        <span className="cluster-speed">{speed}</span>
+        <div className="nitro-track" data-firing={boost} title="Boost charge">
+          <span style={{ width: `${nitro}%` }} />
+        </div>
       </div>
     </div>
   )

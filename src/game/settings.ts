@@ -79,7 +79,16 @@ export function decodeSettings(stored: unknown): Settings {
           [key]: Math.max(minimum, Math.min(maximum, values[key])),
         })
       }
-    for (const key of ['onePedal', 'controllerEnabled', 'mouseEnabled', 'blood'] as const)
+    for (const key of [
+      'onePedal',
+      'antilock',
+      'brakeDistribution',
+      'tractionControl',
+      'controllerEnabled',
+      'mouseEnabled',
+      'blood',
+      'tachometer',
+    ] as const)
       if (typeof values[key] === 'boolean') result[key] = values[key]
     if (
       typeof values.engineCar === 'string' &&

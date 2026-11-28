@@ -107,6 +107,7 @@ describe('car sheets', () => {
       'tyres',
       'clearance',
       'mass',
+      'frontWeight',
     ]
     for (const sheet of Object.values(sheets))
       for (const field of sheet.estimated) expect(fields).toContain(field)

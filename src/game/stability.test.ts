@@ -45,3 +45,12 @@ test('parking speeds, airborne bodies, and reversing are handled without blowing
   for (let index = 0; index < 120; index++) stabilize(reverse, traction, wheelbase, step)
   expect(Math.abs(reverse.yawRate)).toBeLessThan(stabilityLimits.yawDeadband + 0.01)
 })
+
+test('braking tightens the yaw correction so a hard stop cannot swing the tail out', () => {
+  const coasting = { speed: 30, lateralSpeed: 0, yawRate: 0.4, steering: 0 }
+  const braking = { ...coasting }
+  stabilize(coasting, traction, wheelbase, step)
+  stabilize(braking, traction, wheelbase, step, { braking: true })
+  expect(Math.abs(braking.yawRate)).toBeLessThan(Math.abs(coasting.yawRate))
+  expect(Math.abs(braking.yawRate)).toBeGreaterThan(stabilityLimits.yawDeadband)
+})

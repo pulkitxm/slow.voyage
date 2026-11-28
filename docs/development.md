@@ -54,8 +54,10 @@ Local pre-commit checks remain mandatory.
 | P / Escape       | Pause                                                            |
 | H                | Help                                                             |
 
-Touch devices have steering and pedal buttons. Settings include seven vehicles,
-twenty-four engines and the 87 real cars they went into, seven landscapes, three seasons, six skies including a live day cycle, five kinds
+Touch devices have steering and pedal buttons. Settings include seven vehicles
+with front, rear, or four-wheel drive, twenty-four engines and the 87 real cars
+they went into, switchable antilock brakes, brake force distribution, and
+traction control, seven landscapes, three seasons, six skies including a live day cycle, five kinds
 of weather, paint, camera, grip, power, sound, detail, and units. Preferences are
 stored on the device. Detail has three levels: Easy on the engine, Full beauty,
 and Ultra. Ultra is the default on hardware that can hold it at 60 frames a
@@ -117,9 +119,10 @@ power to weight; a swapped engine moves both from there. Boost is stronger but
 shorter on light, powerful cars and gentler but longer on everyday ones. Each car
 also carries its own kind of brakes: front discs with rear drums, discs,
 ventilated discs, large multi-piston discs, carbon-ceramics or carbon racing
-brakes. Stronger brakes bite harder, brakes heat up under repeated hard stops and
-fade as they do, ceramics barely fade, and carbon racing brakes need some heat
-before they bite fully. The settings show each car's top speed and brakes.
+brakes. Stronger brakes bite harder and let antilock hold more of the tyre
+grip, so they stop shorter even at the grip limit. Brakes heat up under repeated
+hard stops and fade as they do, ceramics barely fade, and carbon racing brakes
+need some heat before they bite fully. The settings show each car's top speed and brakes.
 
 Car paint is a metallic clearcoat. On Full beauty and Ultra a reflection probe
 renders the surroundings around the car into a cube map, one face a frame, and the
