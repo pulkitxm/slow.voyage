@@ -568,6 +568,7 @@ export class RoadEngine {
     this.onProgress?.(0.9, 'light')
     await this.renderer.compileAsync(this.scene, this.camera)
     this.renderer.setRenderTarget(null)
+    await this.settleGraphics()
     if (this.disposed) return
     this.onProgress?.(1, 'light')
     this.drawScene()
@@ -580,6 +581,36 @@ export class RoadEngine {
     this.strainGauge.hold()
     this.governor.hold()
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
+  }
+  settleGraphics() {
+    const textures = new Set<THREE.Texture>()
+    const collect = (value: unknown) => {
+      if (value instanceof THREE.Texture && !value.isRenderTargetTexture) textures.add(value)
+    }
+    this.scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        for (const value of Object.values(material)) collect(value)
+        if (material instanceof THREE.ShaderMaterial)
+          for (const uniform of Object.values(material.uniforms)) collect(uniform.value)
+      }
+    })
+    const steps = [
+      ...(this.renderer.info.programs ?? []).map((program) => () => program.getUniforms()),
+      ...[...textures].map((texture) => () => this.renderer.initTexture(texture)),
+    ]
+    return new Promise<void>((resolve) => {
+      const channel = new MessageChannel()
+      const settle = () => {
+        const deadline = performance.now() + paintBudget
+        while (steps.length && performance.now() < deadline) steps.shift()?.()
+        if (steps.length && !this.disposed) return channel.port2.postMessage(null)
+        channel.port1.close()
+        resolve()
+      }
+      channel.port1.onmessage = settle
+      settle()
+    })
   }
   paint() {
     return new Promise<void>((resolve) => {
@@ -1460,8 +1491,10 @@ export class RoadEngine {
   mirrorScene() {
     const mirror = this.mirror
     if (!mirror || this.software || this.settings.quality === 'low') return
-    const hidden: THREE.Object3D[] = [this.car.group, ...this.terrain.grassCover()]
-    if (this.incoming) hidden.push(this.incoming.group)
+    const unlit = (group: THREE.Object3D) =>
+      group.children.filter((part) => !(part instanceof THREE.Light))
+    const hidden: THREE.Object3D[] = [...unlit(this.car.group), ...this.terrain.grassCover()]
+    if (this.incoming) hidden.push(...unlit(this.incoming.group))
     if (this.effects) hidden.push(this.effects.particles.mesh)
     if (this.life) hidden.push(this.life.group)
     if (this.cast) hidden.push(this.cast.group)
