@@ -281,7 +281,7 @@ export function useDrive() {
           setReady(true)
         }
         telemetry.set(state)
-        const steady = `${state.paused}/${state.photo}/${state.assistance}/${state.controller}/${state.found}`
+        const steady = `${state.paused}/${state.photo}/${state.assistance}/${state.controller}/${state.found}/${state.garageNear}/${state.garage.phase}/${state.garage.job}/${state.garage.step}/${state.garage.progress.toFixed(2)}/${state.grime.toFixed(2)}`
         if (steady !== shown) {
           shown = steady
           setState(state)
