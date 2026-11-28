@@ -215,47 +215,56 @@ export class Cast implements Stage {
   private used = new Map<Template, number>()
   private disposed = false
   private beat = 0
-  constructor() {
-    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
-    for (const source of sources)
-      loader.load(source.url, (file) => {
-        if (this.disposed) return
-        const { height: tall, base } = standing(file.scene)
-        const clips = file.animations.some((clip) => clip.name === 'Idle')
-          ? file.animations
-          : [...file.animations, restClip(file.scene, 'Idle')]
-        file.scene.traverse((part) => {
-          if (!(part instanceof THREE.Mesh)) return
-          part.castShadow = true
-          part.receiveShadow = true
-          part.frustumCulled = false
-          for (const material of Array.isArray(part.material) ? part.material : [part.material])
-            if (material instanceof THREE.MeshStandardMaterial) {
-              material.metalness = 0
-              material.roughness = 0.88
-              material.color.multiplyScalar(source.glow ?? 1)
-            }
-        })
-        const list = this.templates.get(source.kind) ?? []
-        const scale = tall > 0 ? source.height / tall : 1
-        const pace = new Map<string, number>()
-        for (const clip of clips)
-          if (clip.name === 'Walk' || clip.name === 'Run')
-            pace.set(clip.name, stridePace(file.scene, clip) * scale)
-        list.push({
-          scene: file.scene,
-          clips,
-          scale,
-          pace,
-          base,
-          share: source.share ?? 1,
-          order: sources.indexOf(source),
-        })
-        list.sort((a, b) => a.order - b.order)
-        this.templates.set(source.kind, list)
+  private loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder)
+  private requested = new Set<Creature>()
+  expect(kinds: Iterable<Creature>) {
+    for (const kind of kinds) this.request(kind)
+  }
+  private request(kind: Creature) {
+    if (this.requested.has(kind)) return
+    this.requested.add(kind)
+    for (const source of sources) if (source.kind === kind) this.load(source)
+  }
+  private load(source: (typeof sources)[number]) {
+    this.loader.load(source.url, (file) => {
+      if (this.disposed) return
+      const { height: tall, base } = standing(file.scene)
+      const clips = file.animations.some((clip) => clip.name === 'Idle')
+        ? file.animations
+        : [...file.animations, restClip(file.scene, 'Idle')]
+      file.scene.traverse((part) => {
+        if (!(part instanceof THREE.Mesh)) return
+        part.castShadow = true
+        part.receiveShadow = true
+        part.frustumCulled = false
+        for (const material of Array.isArray(part.material) ? part.material : [part.material])
+          if (material instanceof THREE.MeshStandardMaterial) {
+            material.metalness = 0
+            material.roughness = 0.88
+            material.color.multiplyScalar(source.glow ?? 1)
+          }
       })
+      const list = this.templates.get(source.kind) ?? []
+      const scale = tall > 0 ? source.height / tall : 1
+      const pace = new Map<string, number>()
+      for (const clip of clips)
+        if (clip.name === 'Walk' || clip.name === 'Run')
+          pace.set(clip.name, stridePace(file.scene, clip) * scale)
+      list.push({
+        scene: file.scene,
+        clips,
+        scale,
+        pace,
+        base,
+        share: source.share ?? 1,
+        order: sources.indexOf(source),
+      })
+      list.sort((a, b) => a.order - b.order)
+      this.templates.set(source.kind, list)
+    })
   }
   has(kind: Creature) {
+    this.request(kind)
     return this.templates.has(kind)
   }
   begin() {

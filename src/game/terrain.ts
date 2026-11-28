@@ -32,9 +32,9 @@ import { GroundSampler } from './ground-sample'
 import { guardRailMaterial, guardRails } from './guard-rail'
 import { landmarkFootprints, landmarkGeometry, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
-import { lightOpenLayout, openLayout, openSurface } from './open-grid'
+import { easyOpenLayout, fogHiding, lightOpenLayout, openLayout, openSurface } from './open-grid'
 import { OpenGround } from './open-ground'
-import { lightSceneryLayout, OpenScenery, sceneryLayout } from './open-scenery'
+import { easySceneryLayout, lightSceneryLayout, OpenScenery, sceneryLayout } from './open-scenery'
 import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
 import { carFrame, type Driver } from './reactions'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
@@ -57,6 +57,7 @@ import { coniferBuild, roadsidePlantHeight, woodlandTrees } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 const grassViewDistance = { full: 45, end: 120 }
+const grassSway = 1.5
 const canopyReach = 64
 const stoneReach = { behind: 1, ahead: 5 }
 const poolReach = { behind: 1, ahead: 3 }
@@ -99,15 +100,26 @@ function shadeTexture() {
   context.fillRect(0, 0, 64, 64)
   return new THREE.CanvasTexture(canvas)
 }
+function viewLayouts(quality: Settings['quality'], software: boolean) {
+  if (software) return { open: lightOpenLayout, scenery: lightSceneryLayout, fog: 0 }
+  if (quality === 'low')
+    return {
+      open: easyOpenLayout,
+      scenery: easySceneryLayout,
+      fog: fogHiding(easyOpenLayout.reach),
+    }
+  return { open: openLayout, scenery: sceneryLayout, fog: 0 }
+}
+
 export const tileStreaming = {
   lead: 2,
   budget: 3,
   refreshBudget: 9,
+  jump: 2,
   softwareRefresh: 110,
   unhurriedRefresh: 320,
   rebuildBehind: 15,
   rebuildAhead: 130,
-  jump: 2,
   groundBatch: 2,
   grassBatch: 400,
   treeBatch: 30,
@@ -197,6 +209,7 @@ export class Terrain {
   groundTexture: THREE.CanvasTexture
   meadow: RoamingMeadow | null = null
   rebuilding = false
+  fogFloor: number
   private current = 0
   windTime = { value: 0 }
   grassDead = { value: new THREE.Color() }
@@ -209,6 +222,8 @@ export class Terrain {
     public software: boolean,
   ) {
     this.groundTexture = groundTexture()
+    const view = viewLayouts(quality, software)
+    this.fogFloor = view.fog
     if (!software)
       this.shadeMaterial = new THREE.MeshBasicMaterial({
         color: '#0b130c',
@@ -238,7 +253,7 @@ export class Terrain {
       this.openMaterial,
       () => terrainColors(this.world.settings),
       tileStreaming.groundBatch,
-      software ? lightOpenLayout : openLayout,
+      view.open,
     )
     this.open.group.userData.label = 'open-ground'
     scene.add(this.open.group)
@@ -249,7 +264,7 @@ export class Terrain {
       this.foliage,
       this.shadeMaterial ? { material: this.shadeMaterial, disc: this.shadeDisc } : null,
       quality,
-      software ? lightSceneryLayout : sceneryLayout,
+      view.scenery,
     )
     this.scenery.group.userData.label = 'open-scenery'
     scene.add(this.scenery.group)
@@ -718,8 +733,8 @@ export class Terrain {
       ? new CanopyIndex([...shades, ...overhead.flatMap((tree) => [tree.x, tree.s, tree.width])])
       : null
     grass.name = 'meadow'
+    group.userData.grass = grass
     grass.receiveShadow = true
-    grass.frustumCulled = false
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
       if (i && i % tileStreaming.grassBatch === 0) yield
@@ -758,6 +773,8 @@ export class Terrain {
       grass.setColorAt(placedGrass++, color)
     }
     grass.count = placedGrass
+    grass.computeBoundingSphere()
+    if (grass.boundingSphere) grass.boundingSphere.radius += grassSway
     group.add(grass)
     this.tiles.set(id, group)
     this.trunks.set(id, trunks)
@@ -783,7 +800,11 @@ export class Terrain {
     let missing = 0
     for (let id = current - 4; id <= current + ahead; id++)
       if (!this.tiles.has(id) && !this.builds.has(id)) missing++
-    const jump = missing > tileStreaming.jump && !this.rebuilding
+    const jump = this.software && missing > tileStreaming.jump && !this.rebuilding
+    const urgent = (id: number) =>
+      this.software
+        ? jump || id <= far + tileStreaming.lead
+        : id >= near - 1 && id <= far + tileStreaming.lead
     this.current = current
     for (let id = current - 4; id <= current + ahead; id++) {
       if (this.tiles.has(id)) continue
@@ -797,7 +818,7 @@ export class Terrain {
         ? !this.software &&
           id >= Math.floor((s - tileStreaming.rebuildBehind) / groundLayout.tileLength) &&
           id <= Math.floor((s + tileStreaming.rebuildAhead) / groundLayout.tileLength)
-        : jump || id <= far + tileStreaming.lead
+        : urgent(id)
       if (immediate) {
         while (!build.steps.next().done);
         this.builds.delete(id)
@@ -897,10 +918,11 @@ export class Terrain {
   }
   prime(s: number, budget: number, x = this.world.road(s).x) {
     const current = Math.floor(s / groundLayout.tileLength)
-    const ahead = this.quality === 'low' ? 8 : 14
     const deadline = performance.now() + budget
     let ready = 0
-    for (let id = current - 4; id <= current + ahead; id++) {
+    const first = current - 2
+    const last = current + 1 + tileStreaming.lead
+    for (let id = first; id <= last; id++) {
       if (this.tiles.has(id)) {
         ready++
         continue
@@ -919,13 +941,20 @@ export class Terrain {
       }
       if (performance.now() >= deadline) break
     }
-    const strips = ahead + 5
+    const strips = last - first + 1
     if (ready < strips) return ready / (strips + 1)
     this.open.field.update(x, s)
     this.scenery.update(x, s)
     return this.open.field.work(deadline) && this.scenery.field.work(deadline)
       ? 1
       : strips / (strips + 1)
+  }
+  grassCover() {
+    const cover: THREE.Object3D[] = []
+    if (this.meadow) cover.push(this.meadow.mesh)
+    for (const group of this.tiles.values())
+      if (group.userData.grass instanceof THREE.Object3D) cover.push(group.userData.grass)
+    return cover
   }
   shadeAt(x: number, s: number) {
     const tile = Math.floor(s / groundLayout.tileLength)
@@ -949,7 +978,9 @@ export class Terrain {
           ? tileStreaming.unhurriedRefresh
           : tileStreaming.softwareRefresh
         : tileStreaming.refreshBudget
-      : tileStreaming.budget
+      : this.builds.size > tileStreaming.jump
+        ? tileStreaming.refreshBudget
+        : tileStreaming.budget
     const began = performance.now()
     const waiting = this.open.field.pending + this.scenery.field.pending
     const deadline = began + (waiting ? budget / 2 : budget)
@@ -1012,6 +1043,10 @@ export class Terrain {
   refresh(settings: Settings, quality: Settings['quality']) {
     this.quality = quality
     this.scenery.quality = quality
+    const view = viewLayouts(quality, this.software)
+    this.open.field.layout = view.open
+    this.scenery.field.layout = view.scenery
+    this.fogFloor = view.fog
     this.clear()
     this.rebuilding = true
     this.foliage.update(settings.season)

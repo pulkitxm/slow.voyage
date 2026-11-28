@@ -52,7 +52,7 @@ import { railLook } from './guard-rail'
 import { beamHaze, Lamps } from './lamps'
 import { type LandmarkKind, landmarkLayout, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
-import { Life } from './life'
+import { castKinds, Life } from './life'
 import { Minimap, roadGuide } from './minimap'
 import {
   arrivalPose,
@@ -87,7 +87,7 @@ import {
   World,
 } from './world'
 
-const paintBudget = 11
+const paintBudget = 30
 const retireDelay = 90
 
 function contactShadow() {
@@ -481,6 +481,7 @@ export class RoadEngine {
     if (!budget.software) {
       this.life = new Life(this.world)
       this.cast = new Cast()
+      this.cast.expect(castKinds(this.settings))
       this.life.stage = this.cast
       const canopy = this.terrain
       this.life.shadeAt = (x, s) => canopy.shadeAt(x, s)
@@ -567,28 +568,64 @@ export class RoadEngine {
     this.onProgress?.(0.9, 'light')
     await this.renderer.compileAsync(this.scene, this.camera)
     this.renderer.setRenderTarget(null)
+    await this.settleGraphics()
     if (this.disposed) return
     this.onProgress?.(1, 'light')
     this.drawScene()
     this.renderer.getContext().finish()
     if (this.ultra) {
       this.cinema?.warm()
-      if (this.probe() > ultraReach.probe) this.easeQuality()
+      if (this.probe() > ultraReach.probe) this.easeQuality('high')
     }
     this.precipitation.setAppearance(this.settings, atmosphereProfile(this.settings, this.dayClock))
+    this.strainGauge.hold()
+    this.governor.hold()
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
+  }
+  settleGraphics() {
+    const textures = new Set<THREE.Texture>()
+    const collect = (value: unknown) => {
+      if (value instanceof THREE.Texture && !value.isRenderTargetTexture) textures.add(value)
+    }
+    this.scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        for (const value of Object.values(material)) collect(value)
+        if (material instanceof THREE.ShaderMaterial)
+          for (const uniform of Object.values(material.uniforms)) collect(uniform.value)
+      }
+    })
+    const steps = [
+      ...(this.renderer.info.programs ?? []).map((program) => () => program.getUniforms()),
+      ...[...textures].map((texture) => () => this.renderer.initTexture(texture)),
+    ]
+    return new Promise<void>((resolve) => {
+      const channel = new MessageChannel()
+      const settle = () => {
+        const deadline = performance.now() + paintBudget
+        while (steps.length && performance.now() < deadline) steps.shift()?.()
+        if (steps.length && !this.disposed) return channel.port2.postMessage(null)
+        channel.port1.close()
+        resolve()
+      }
+      channel.port1.onmessage = settle
+      settle()
+    })
   }
   paint() {
     return new Promise<void>((resolve) => {
+      const channel = new MessageChannel()
       const stroke = () => {
         if (this.disposed) return resolve()
         const painted = this.software
           ? 1
           : this.terrain.prime(this.physics.s, paintBudget, this.physics.x)
         this.onProgress?.(0.1 + painted * 0.78, 'hills')
-        if (painted >= 1) resolve()
-        else requestAnimationFrame(stroke)
+        if (painted < 1) return channel.port2.postMessage(null)
+        channel.port1.close()
+        resolve()
       }
+      channel.port1.onmessage = stroke
       stroke()
     })
   }
@@ -715,6 +752,7 @@ export class RoadEngine {
       this.governor.reset()
     }
     if (environmentChange) this.minimap.invalidate()
+    this.cast?.expect(castKinds(settings))
     this.settings = { ...settings }
     this.world.settings = this.settings
     if (roadChange) this.minimap.found.clear()
@@ -817,11 +855,11 @@ export class RoadEngine {
     }
     return quickest / 1000
   }
-  easeQuality(governed = false) {
+  easeQuality(quality: 'high' | 'low', governed = false) {
     if (governed) this.carriedScale = cinemaStepFor(this.governor.scale)
     else if (this.rendered) this.crossfade.capture(crossfadeTiming.reducedDuration * 2)
-    this.setSettings({ ...this.settings, quality: 'high' })
-    this.onQuality?.('high')
+    this.setSettings({ ...this.settings, quality })
+    this.onQuality?.(quality)
   }
   frameBudget() {
     const { governor } = this
@@ -860,7 +898,8 @@ export class RoadEngine {
     this.arrival = 0
   }
   reflect(group: THREE.Object3D, environment: THREE.Texture | null) {
-    const live = this.mirror?.ready ? this.mirror.texture : null
+    const live = this.mirror?.ready && this.settings.quality !== 'low' ? this.mirror.texture : null
+    const stale = this.mirror?.texture ?? null
     const level = live ? 1 : this.atmosphere.level
     group.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
@@ -878,7 +917,12 @@ export class RoadEngine {
         ) {
           material.envMap = live
           material.envMapIntensity = material.transparent ? 1.6 : 1
-        }
+        } else if (
+          !live &&
+          material instanceof THREE.MeshStandardMaterial &&
+          material.envMap === stale
+        )
+          material.envMap = null
       }
     })
   }
@@ -957,7 +1001,7 @@ export class RoadEngine {
     this.sky.setAppearance(profile)
     if (this.scene.fog instanceof THREE.FogExp2) {
       undevelop(this.scene.fog.color.set(profile.horizon), profile.exposure)
-      this.scene.fog.density = profile.fog
+      this.scene.fog.density = Math.max(profile.fog, this.terrain.fogFloor)
     }
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight
@@ -1162,11 +1206,11 @@ export class RoadEngine {
     this.framePace += (elapsed - this.framePace) * 0.05
     this.frameJitter += (Math.abs(elapsed - this.framePace) - this.frameJitter) * 0.05
     const strained = frameStrained(elapsed, this.framePace, this.frameJitter)
-    const driving = this.started && !this.paused && !this.photo
+    const running = !this.paused && !this.photo
     const busy = this.terrain.rebuilding || this.crossfade.active || this.incoming !== null
     const governed = this.governor.step(
       elapsed,
-      busy || !driving,
+      busy || !running,
       displayCapped(this.framePace, this.frameJitter),
       this.ultra !== null,
       this.gpuClock?.read(),
@@ -1178,24 +1222,28 @@ export class RoadEngine {
         this.cinema.resize()
       } else if (this.ultra) this.cinema?.rest()
     }
-    if (governed === 'fallback') this.easeQuality(true)
+    if (governed === 'fallback') this.easeQuality('high', true)
+    if (governed === 'lighten') this.easeQuality('low', true)
     if (this.retired && --this.retiredFrames <= 0) {
       this.retired.dispose()
       this.retired = null
     }
-    if (!this.software && !this.ultra && driving) {
+    if (!this.software && !this.ultra && running) {
       const verdict = this.strainGauge.step(elapsed, strained, busy, this.renderScale)
       if (verdict) {
         const budget = graphicsBudget(this.renderer, this.settings.quality)
+        const crawling = this.framePace > governorPlan.frame * governorPlan.crawling
         if (verdict === 'raise') {
           this.renderScale--
+        } else if (crawling && this.settings.quality !== 'low') {
+          this.easeQuality('low')
         } else if (this.renderScale < cinemaRelief.scales.length - 1) {
           this.renderScale++
-        } else {
+        } else if (this.cinema && !this.cinemaBlocked) {
           this.cinemaBlocked = true
           this.configureCinema(budget)
         }
-        this.applyRenderScale(budget)
+        this.applyRenderScale(graphicsBudget(this.renderer, this.settings.quality))
       }
     }
     if (this.software && this.started && !this.paused && !this.photo) {
@@ -1442,10 +1490,14 @@ export class RoadEngine {
   }
   mirrorScene() {
     const mirror = this.mirror
-    if (!mirror || this.software) return
-    const hidden: THREE.Object3D[] = [this.car.group]
-    if (this.incoming) hidden.push(this.incoming.group)
+    if (!mirror || this.software || this.settings.quality === 'low') return
+    const unlit = (group: THREE.Object3D) =>
+      group.children.filter((part) => !(part instanceof THREE.Light))
+    const hidden: THREE.Object3D[] = [...unlit(this.car.group), ...this.terrain.grassCover()]
+    if (this.incoming) hidden.push(...unlit(this.incoming.group))
     if (this.effects) hidden.push(this.effects.particles.mesh)
+    if (this.life) hidden.push(this.life.group)
+    if (this.cast) hidden.push(this.cast.group)
     mirror.update(this.renderer, this.scene, this.car.group.position, hidden, this.ultra ? 1 : 2)
     if (mirror.ready && !this.mirrored) {
       this.mirrored = true

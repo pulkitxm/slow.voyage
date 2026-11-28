@@ -26,7 +26,9 @@ export function asphaltTexture() {
       const upper = patch(column, row + 1) * (1 - blendX) + patch(column + 1, row + 1) * blendX
       const aggregate = lower * (1 - blendY) + upper * blendY
       const tone = Math.round(136 + (rng() - 0.5) * 22 + (aggregate - 0.5) * 8)
-      pixels.data.set([tone, tone, tone, 255], (y * size + x) * 4)
+      const at = (y * size + x) * 4
+      pixels.data[at] = pixels.data[at + 1] = pixels.data[at + 2] = tone
+      pixels.data[at + 3] = 255
     }
   }
   context.putImageData(pixels, 0, 0)

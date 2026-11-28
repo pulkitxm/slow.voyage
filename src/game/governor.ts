@@ -2,6 +2,7 @@ export const governorPlan = {
   frame: 1 / 60,
   strained: 1.15,
   dropped: 1.6,
+  crawling: 2.5,
   comfortable: 1.06,
   loaded: 0.8,
   aim: 0.7,
@@ -23,7 +24,7 @@ export const governorPlan = {
 
 export const reliefLevels = { full: 0, flat: 1, plain: 2 } as const
 
-export type GovernorVerdict = 'adjust' | 'fallback' | null
+export type GovernorVerdict = 'adjust' | 'fallback' | 'lighten' | null
 
 export class FrameGovernor {
   scale = 1
@@ -39,6 +40,7 @@ export class FrameGovernor {
   private stale = 0
   private quiet: number = governorPlan.window
   private strikes = 0
+  private stalls = 0
   private upper = 0
   private count = 0
   private cursor = 0
@@ -157,6 +159,12 @@ export class FrameGovernor {
       return 'fallback'
     }
     this.strikes = 0
+    if (measured && !capped && this.median > frame * governorPlan.crawling) {
+      if (++this.stalls < governorPlan.strikes) return null
+      this.stalls = 0
+      return 'lighten'
+    }
+    this.stalls = 0
     if (this.shed > governorPlan.linger) return 'fallback'
     if (this.probing && this.raised >= governorPlan.probation) {
       this.probing = false
