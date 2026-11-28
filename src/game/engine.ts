@@ -573,8 +573,9 @@ export class RoadEngine {
     this.renderer.getContext().finish()
     if (this.ultra) {
       this.cinema?.warm()
-      if (this.probe() > ultraReach.probe) this.easeQuality()
+      if (this.probe() > ultraReach.probe) this.easeQuality('high')
     }
+    if (!this.ultra && this.cinema && this.probe() > ultraReach.fullProbe) this.easeQuality('low')
     this.precipitation.setAppearance(this.settings, atmosphereProfile(this.settings, this.dayClock))
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
   }
@@ -820,11 +821,11 @@ export class RoadEngine {
     }
     return quickest / 1000
   }
-  easeQuality(governed = false) {
+  easeQuality(quality: 'high' | 'low', governed = false) {
     if (governed) this.carriedScale = cinemaStepFor(this.governor.scale)
     else if (this.rendered) this.crossfade.capture(crossfadeTiming.reducedDuration * 2)
-    this.setSettings({ ...this.settings, quality: 'high' })
-    this.onQuality?.('high')
+    this.setSettings({ ...this.settings, quality })
+    this.onQuality?.(quality)
   }
   frameBudget() {
     const { governor } = this
@@ -1165,11 +1166,11 @@ export class RoadEngine {
     this.framePace += (elapsed - this.framePace) * 0.05
     this.frameJitter += (Math.abs(elapsed - this.framePace) - this.frameJitter) * 0.05
     const strained = frameStrained(elapsed, this.framePace, this.frameJitter)
-    const driving = this.started && !this.paused && !this.photo
+    const running = !this.paused && !this.photo
     const busy = this.terrain.rebuilding || this.crossfade.active || this.incoming !== null
     const governed = this.governor.step(
       elapsed,
-      busy || !driving,
+      busy || !running,
       displayCapped(this.framePace, this.frameJitter),
       this.ultra !== null,
       this.gpuClock?.read(),
@@ -1181,12 +1182,12 @@ export class RoadEngine {
         this.cinema.resize()
       } else if (this.ultra) this.cinema?.rest()
     }
-    if (governed === 'fallback') this.easeQuality(true)
+    if (governed === 'fallback') this.easeQuality('high', true)
     if (this.retired && --this.retiredFrames <= 0) {
       this.retired.dispose()
       this.retired = null
     }
-    if (!this.software && !this.ultra && driving) {
+    if (!this.software && !this.ultra && running) {
       const verdict = this.strainGauge.step(elapsed, strained, busy, this.renderScale)
       if (verdict) {
         const budget = graphicsBudget(this.renderer, this.settings.quality)
@@ -1194,11 +1195,11 @@ export class RoadEngine {
           this.renderScale--
         } else if (this.renderScale < cinemaRelief.scales.length - 1) {
           this.renderScale++
-        } else {
+        } else if (this.cinema && !this.cinemaBlocked) {
           this.cinemaBlocked = true
           this.configureCinema(budget)
-        }
-        this.applyRenderScale(budget)
+        } else if (this.settings.quality !== 'low') this.easeQuality('low')
+        this.applyRenderScale(graphicsBudget(this.renderer, this.settings.quality))
       }
     }
     if (this.software && this.started && !this.paused && !this.photo) {
@@ -1445,7 +1446,7 @@ export class RoadEngine {
   }
   mirrorScene() {
     const mirror = this.mirror
-    if (!mirror || this.software) return
+    if (!mirror || this.software || this.settings.quality === 'low') return
     const hidden: THREE.Object3D[] = [this.car.group]
     if (this.incoming) hidden.push(this.incoming.group)
     if (this.effects) hidden.push(this.effects.particles.mesh)
