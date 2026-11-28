@@ -57,6 +57,7 @@ import { coniferBuild, roadsidePlantHeight, woodlandTrees } from './woodland'
 import { clamp, random, type Settings, type World } from './world'
 
 const grassViewDistance = { full: 45, end: 120 }
+const grassSway = 1.5
 const canopyReach = 64
 const stoneReach = { behind: 1, ahead: 5 }
 const poolReach = { behind: 1, ahead: 3 }
@@ -731,8 +732,8 @@ export class Terrain {
       ? new CanopyIndex([...shades, ...overhead.flatMap((tree) => [tree.x, tree.s, tree.width])])
       : null
     grass.name = 'meadow'
+    group.userData.grass = grass
     grass.receiveShadow = true
-    grass.frustumCulled = false
     let placedGrass = 0
     for (let i = 0; i < count; i++) {
       if (i && i % tileStreaming.grassBatch === 0) yield
@@ -771,6 +772,8 @@ export class Terrain {
       grass.setColorAt(placedGrass++, color)
     }
     grass.count = placedGrass
+    grass.computeBoundingSphere()
+    if (grass.boundingSphere) grass.boundingSphere.radius += grassSway
     group.add(grass)
     this.tiles.set(id, group)
     this.trunks.set(id, trunks)
@@ -937,6 +940,13 @@ export class Terrain {
     return this.open.field.work(deadline) && this.scenery.field.work(deadline)
       ? 1
       : strips / (strips + 1)
+  }
+  grassCover() {
+    const cover: THREE.Object3D[] = []
+    if (this.meadow) cover.push(this.meadow.mesh)
+    for (const group of this.tiles.values())
+      if (group.userData.grass instanceof THREE.Object3D) cover.push(group.userData.grass)
+    return cover
   }
   shadeAt(x: number, s: number) {
     const tile = Math.floor(s / groundLayout.tileLength)

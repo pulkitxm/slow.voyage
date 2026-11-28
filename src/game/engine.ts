@@ -1446,9 +1446,11 @@ export class RoadEngine {
   mirrorScene() {
     const mirror = this.mirror
     if (!mirror || this.software || this.settings.quality === 'low') return
-    const hidden: THREE.Object3D[] = [this.car.group]
+    const hidden: THREE.Object3D[] = [this.car.group, ...this.terrain.grassCover()]
     if (this.incoming) hidden.push(this.incoming.group)
     if (this.effects) hidden.push(this.effects.particles.mesh)
+    if (this.life) hidden.push(this.life.group)
+    if (this.cast) hidden.push(this.cast.group)
     mirror.update(this.renderer, this.scene, this.car.group.position, hidden, this.ultra ? 1 : 2)
     if (mirror.ready && !this.mirrored) {
       this.mirrored = true
