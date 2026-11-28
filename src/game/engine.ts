@@ -575,7 +575,6 @@ export class RoadEngine {
       this.cinema?.warm()
       if (this.probe() > ultraReach.probe) this.easeQuality('high')
     }
-    if (!this.ultra && this.cinema && this.probe() > ultraReach.fullProbe) this.easeQuality('low')
     this.precipitation.setAppearance(this.settings, atmosphereProfile(this.settings, this.dayClock))
     if (!this.disposed) this.frame = requestAnimationFrame(this.render)
   }
@@ -961,7 +960,7 @@ export class RoadEngine {
     this.sky.setAppearance(profile)
     if (this.scene.fog instanceof THREE.FogExp2) {
       undevelop(this.scene.fog.color.set(profile.horizon), profile.exposure)
-      this.scene.fog.density = profile.fog
+      this.scene.fog.density = Math.max(profile.fog, this.terrain.fogFloor)
     }
     this.sun.color.set(profile.sun)
     this.sun.intensity = profile.sunlight

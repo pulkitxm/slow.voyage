@@ -16,6 +16,12 @@ export const openLayout = {
 
 export const lightOpenLayout: GridLayout = { ...openLayout, detail: 1, reach: 1700 }
 
+export const easyOpenLayout: GridLayout = { ...openLayout, detail: 1, reach: 1300 }
+
+export function fogHiding(reach: number) {
+  return 2 / reach
+}
+
 export interface OpenNode {
   level: number
   column: number

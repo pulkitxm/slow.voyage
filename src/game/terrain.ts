@@ -32,9 +32,9 @@ import { GroundSampler } from './ground-sample'
 import { guardRailMaterial, guardRails } from './guard-rail'
 import { landmarkFootprints, landmarkGeometry, landmarksBetween } from './landmarks'
 import { landscapeProfiles } from './landscapes'
-import { lightOpenLayout, openLayout, openSurface } from './open-grid'
+import { easyOpenLayout, fogHiding, lightOpenLayout, openLayout, openSurface } from './open-grid'
 import { OpenGround } from './open-ground'
-import { lightSceneryLayout, OpenScenery, sceneryLayout } from './open-scenery'
+import { easySceneryLayout, lightSceneryLayout, OpenScenery, sceneryLayout } from './open-scenery'
 import { fernGeometry, palmGeometry, palmLayout, palmMaterial } from './palms'
 import { carFrame, type Driver } from './reactions'
 import { roadCoordinates, roadLayout, roadPoint } from './road'
@@ -99,6 +99,17 @@ function shadeTexture() {
   context.fillRect(0, 0, 64, 64)
   return new THREE.CanvasTexture(canvas)
 }
+function viewLayouts(quality: Settings['quality'], software: boolean) {
+  if (software) return { open: lightOpenLayout, scenery: lightSceneryLayout, fog: 0 }
+  if (quality === 'low')
+    return {
+      open: easyOpenLayout,
+      scenery: easySceneryLayout,
+      fog: fogHiding(easyOpenLayout.reach),
+    }
+  return { open: openLayout, scenery: sceneryLayout, fog: 0 }
+}
+
 export const tileStreaming = {
   lead: 2,
   budget: 3,
@@ -196,6 +207,7 @@ export class Terrain {
   groundTexture: THREE.CanvasTexture
   meadow: RoamingMeadow | null = null
   rebuilding = false
+  fogFloor: number
   private current = 0
   windTime = { value: 0 }
   grassDead = { value: new THREE.Color() }
@@ -208,6 +220,8 @@ export class Terrain {
     public software: boolean,
   ) {
     this.groundTexture = groundTexture()
+    const view = viewLayouts(quality, software)
+    this.fogFloor = view.fog
     if (!software)
       this.shadeMaterial = new THREE.MeshBasicMaterial({
         color: '#0b130c',
@@ -237,7 +251,7 @@ export class Terrain {
       this.openMaterial,
       () => terrainColors(this.world.settings),
       tileStreaming.groundBatch,
-      software ? lightOpenLayout : openLayout,
+      view.open,
     )
     this.open.group.userData.label = 'open-ground'
     scene.add(this.open.group)
@@ -248,7 +262,7 @@ export class Terrain {
       this.foliage,
       this.shadeMaterial ? { material: this.shadeMaterial, disc: this.shadeDisc } : null,
       quality,
-      software ? lightSceneryLayout : sceneryLayout,
+      view.scenery,
     )
     this.scenery.group.userData.label = 'open-scenery'
     scene.add(this.scenery.group)
@@ -1009,6 +1023,10 @@ export class Terrain {
   refresh(settings: Settings, quality: Settings['quality']) {
     this.quality = quality
     this.scenery.quality = quality
+    const view = viewLayouts(quality, this.software)
+    this.open.field.layout = view.open
+    this.scenery.field.layout = view.scenery
+    this.fogFloor = view.fog
     this.clear()
     this.rebuilding = true
     this.foliage.update(settings.season)

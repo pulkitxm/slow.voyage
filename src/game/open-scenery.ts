@@ -24,6 +24,8 @@ export const sceneryLayout = {
 
 export const lightSceneryLayout: GridLayout = { ...sceneryLayout, reach: 600 }
 
+export const easySceneryLayout: GridLayout = { ...sceneryLayout, reach: 900 }
+
 interface Grove {
   node: OpenNode
   group: THREE.Group

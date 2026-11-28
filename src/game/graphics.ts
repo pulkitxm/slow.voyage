@@ -32,13 +32,7 @@ export function shadowOffset(shadowSize: number) {
   return (shadowReach.span / shadowSize) * shadowReach.texels
 }
 
-export const ultraReach = {
-  pixelRatio: 2,
-  samples: 4,
-  textureSize: 8192,
-  probe: 1 / 45,
-  fullProbe: 1 / 30,
-}
+export const ultraReach = { pixelRatio: 2, samples: 4, textureSize: 8192, probe: 1 / 45 }
 
 export function graphicsBudget(renderer: WebGLRenderer, quality: Settings['quality']) {
   const software = softwareRendering(renderer.getContext())
