@@ -147,7 +147,7 @@ float grimeRinsed = 1.0 - smoothstep(grimeRinseSweep - 0.06, grimeRinseSweep + 0
 grimeMask *= 1.0 - grimeRinsed * step(0.001, grimeRinseSweep);
 float grimeLather = grimeFoam * (1.0 - smoothstep(grimeFoamSweep - 0.05, grimeFoamSweep + 0.03, grimeAlong));
 grimeLather *= 1.0 - grimeRinsed * step(0.001, grimeRinseSweep);
-grimeLather *= smoothstep(0.25, 0.6, grimeNoise(vGrimePosition * 7.0) + 0.35);
+grimeLather *= mix(0.42, 1.0, smoothstep(0.3, 0.68, grimeNoise(vGrimePosition * 6.0))) * (0.82 + 0.18 * grimeNoise(vGrimePosition * 44.0));
 float grimeSprayed = (1.0 - smoothstep(grimePaintSweep - 0.06, grimePaintSweep + 0.02, grimeAlong + (grimeBlotch - 0.5) * 0.05)) * step(0.001, grimePaintSweep);
 `
 
@@ -189,7 +189,7 @@ diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.94, 0.95), grimeLather * 0
         `#include <roughnessmap_fragment>
 roughnessFactor = mix(roughnessFactor, 0.97, grimeMask);
 roughnessFactor = mix(roughnessFactor, 0.55, grimeLather);
-roughnessFactor = mix(roughnessFactor, 0.08, grimeWet * (1.0 - grimeMask));`,
+roughnessFactor = mix(roughnessFactor, 0.14, grimeWet * (1.0 - grimeMask));`,
       )
       .replace(
         '#include <lights_physical_fragment>',
@@ -200,7 +200,7 @@ material.clearcoat *= 1.0 - max(grimeMask, grimeLather * 0.7);
       )
       .replace(
         'outgoingLight += skylineSeen * skylineGlance * skylineStrength * skylineGain;',
-        'outgoingLight += skylineSeen * skylineGlance * skylineStrength * skylineGain * (1.0 - max(grimeMask * 0.9, grimeLather * 0.6)) * (1.0 + grimeWet * 0.6);',
+        'outgoingLight += skylineSeen * skylineGlance * skylineStrength * skylineGain * (1.0 - max(grimeMask * 0.9, grimeLather * 0.6)) * (1.0 + grimeWet * 0.3);',
       )
   }
   material.customProgramCacheKey = () => `${key}-grime`

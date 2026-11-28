@@ -24,14 +24,12 @@ function isTyre(mesh: THREE.Mesh) {
   return /tyre|tire/i.test(material?.name ?? '')
 }
 
-export function styleWheel(
-  model: VehicleModel,
-  index: number,
+export function styleSpin(
+  spin: THREE.Object3D,
+  outward: number,
   style: WheelStyle,
   finish: RimFinish,
 ) {
-  const spin = model.wheels[index]
-  if (!spin) return
   for (const fitted of spin.children.filter((child) => child.name === 'fitted-rim'))
     fitted.removeFromParent()
   spin.traverse((part) => {
@@ -42,9 +40,19 @@ export function styleWheel(
   if (style === 'factory') return
   const fit = measureTyre(spin, isTyre)
   if (!fit) return
-  const holder = spin.parent ?? spin
-  const outward = Math.sign(holder.position.x) || 1
   spin.add(fitRim(style, fit, outward, finishMaterial(finish)))
+}
+
+export function styleWheel(
+  model: VehicleModel,
+  index: number,
+  style: WheelStyle,
+  finish: RimFinish,
+) {
+  const spin = model.wheels[index]
+  if (!spin) return
+  const holder = spin.parent ?? spin
+  styleSpin(spin, Math.sign(holder.position.x) || 1, style, finish)
 }
 
 export function styleWheels(

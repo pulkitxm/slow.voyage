@@ -1,9 +1,10 @@
 import * as THREE from 'three'
 import { random } from './world'
 
-export const sprayLayout = { count: 520, life: 0.55, drag: 2.2, gravity: 4.5 } as const
+export const sprayLayout = { life: 0.55, drag: 2.2, gravity: 4.5 } as const
 
-function puff() {
+export function sprayTexture() {
+  if (typeof document === 'undefined') return null
   const canvas = document.createElement('canvas')
   canvas.width = canvas.height = 64
   const context = canvas.getContext('2d')
@@ -20,27 +21,41 @@ function puff() {
   return texture
 }
 
+export function sprayPace(distance: number, life: number) {
+  const { drag } = sprayLayout
+  return (distance * drag) / (1 - Math.exp(-drag * life))
+}
+
+const direction = new THREE.Vector3()
+const hiddenHeight = -9999
+
 export class GarageSpray {
   points: THREE.Points
+  live = 0
   private material: THREE.PointsMaterial
   private positions: Float32Array
   private velocities: Float32Array
   private ages: Float32Array
+  private lives: Float32Array
   private next = 0
   private owed = 0
-  private rng = random(4411)
-  private hidden = new THREE.Vector3(0, -9999, 0)
-  constructor() {
-    const { count } = sprayLayout
+  private rng: () => number
+  constructor(
+    private count: number,
+    map: THREE.Texture | null,
+    seed = 4411,
+  ) {
+    this.rng = random(seed)
     this.positions = new Float32Array(count * 3)
     this.velocities = new Float32Array(count * 3)
-    this.ages = new Float32Array(count).fill(sprayLayout.life)
-    for (let index = 0; index < count; index++) this.hidden.toArray(this.positions, index * 3)
+    this.ages = new Float32Array(count).fill(1)
+    this.lives = new Float32Array(count).fill(1)
+    for (let index = 0; index < count; index++) this.positions[index * 3 + 1] = hiddenHeight
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3))
     this.material = new THREE.PointsMaterial({
       size: 0.09,
-      map: puff(),
+      map,
       transparent: true,
       opacity: 0.55,
       depthWrite: false,
@@ -49,6 +64,7 @@ export class GarageSpray {
     this.points = new THREE.Points(geometry, this.material)
     this.points.frustumCulled = false
     this.points.renderOrder = 3
+    this.points.visible = false
   }
   style(color: THREE.ColorRepresentation, size: number, opacity: number) {
     this.material.color.set(color)
@@ -61,59 +77,78 @@ export class GarageSpray {
     rate: number,
     dt: number,
     spread: number,
-    speed: number,
+    life: number = sprayLayout.life,
+    speed = 0,
   ) {
     this.owed += rate * dt
-    const direction = toward.clone().sub(from).normalize()
+    direction.copy(toward).sub(from)
+    const distance = direction.length()
+    if (distance < 1e-5) return
+    direction.multiplyScalar(1 / distance)
+    const reach = speed > 0 ? speed : sprayPace(distance, life)
     while (this.owed >= 1) {
       this.owed -= 1
       const index = this.next
-      this.next = (this.next + 1) % sprayLayout.count
+      this.next = (this.next + 1) % this.count
+      const at = index * 3
       this.ages[index] = 0
-      this.positions[index * 3] = from.x
-      this.positions[index * 3 + 1] = from.y
-      this.positions[index * 3 + 2] = from.z
-      const jitter = () => (this.rng() - 0.5) * spread
-      const pace = speed * (0.7 + this.rng() * 0.6)
-      this.velocities[index * 3] = (direction.x + jitter()) * pace
-      this.velocities[index * 3 + 1] = (direction.y + jitter()) * pace
-      this.velocities[index * 3 + 2] = (direction.z + jitter()) * pace
+      this.lives[index] = life * (0.85 + this.rng() * 0.3)
+      const start = this.rng() * 0.06
+      const pace = reach * (0.82 + this.rng() * 0.36)
+      const vx = (direction.x + (this.rng() - 0.5) * spread) * pace
+      const vy = (direction.y + (this.rng() - 0.5) * spread) * pace
+      const vz = (direction.z + (this.rng() - 0.5) * spread) * pace
+      this.velocities[at] = vx
+      this.velocities[at + 1] = vy
+      this.velocities[at + 2] = vz
+      this.positions[at] = from.x + vx * start * 0.2
+      this.positions[at + 1] = from.y + vy * start * 0.2
+      this.positions[at + 2] = from.z + vz * start * 0.2
     }
+    this.live = Math.max(this.live, life * 1.2)
+    this.points.visible = true
   }
   update(dt: number, floor: number) {
-    const { count, life, drag, gravity } = sprayLayout
+    if (this.live <= 0) return
+    this.live -= dt
+    const { drag, gravity } = sprayLayout
     const slow = Math.exp(-drag * dt)
-    for (let index = 0; index < count; index++) {
-      const age = (this.ages[index] as number) + dt
-      this.ages[index] = age
+    const { positions, velocities, ages, lives } = this
+    for (let index = 0; index < this.count; index++) {
       const at = index * 3
-      if (age >= life) {
-        this.positions[at + 1] = this.hidden.y
+      if ((positions[at + 1] as number) === hiddenHeight) continue
+      const age = (ages[index] as number) + dt
+      ages[index] = age
+      if (age >= (lives[index] as number)) {
+        positions[at + 1] = hiddenHeight
         continue
       }
-      this.velocities[at] = (this.velocities[at] as number) * slow
-      this.velocities[at + 1] = (this.velocities[at + 1] as number) * slow - gravity * dt
-      this.velocities[at + 2] = (this.velocities[at + 2] as number) * slow
-      this.positions[at] = (this.positions[at] as number) + (this.velocities[at] as number) * dt
-      this.positions[at + 1] = Math.max(
+      velocities[at] = (velocities[at] as number) * slow
+      velocities[at + 1] = (velocities[at + 1] as number) * slow - gravity * dt
+      velocities[at + 2] = (velocities[at + 2] as number) * slow
+      positions[at] = (positions[at] as number) + (velocities[at] as number) * dt
+      positions[at + 1] = Math.max(
         floor,
-        (this.positions[at + 1] as number) + (this.velocities[at + 1] as number) * dt,
+        (positions[at + 1] as number) + (velocities[at + 1] as number) * dt,
       )
-      this.positions[at + 2] =
-        (this.positions[at + 2] as number) + (this.velocities[at + 2] as number) * dt
+      positions[at + 2] = (positions[at + 2] as number) + (velocities[at + 2] as number) * dt
     }
     this.points.geometry.getAttribute('position').needsUpdate = true
+    if (this.live <= 0) this.points.visible = false
+  }
+  get active() {
+    return this.live > 0
   }
   clear() {
-    this.ages.fill(sprayLayout.life)
-    for (let index = 0; index < sprayLayout.count; index++)
-      this.positions[index * 3 + 1] = this.hidden.y
+    this.live = 0
+    this.owed = 0
+    for (let index = 0; index < this.count; index++) this.positions[index * 3 + 1] = hiddenHeight
     this.points.geometry.getAttribute('position').needsUpdate = true
+    this.points.visible = false
   }
   dispose() {
     this.points.removeFromParent()
     this.points.geometry.dispose()
-    this.material.map?.dispose()
     this.material.dispose()
   }
 }

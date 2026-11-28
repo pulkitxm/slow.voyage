@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import type { Trunk } from './collision'
+import { buildBayRig } from './garage-rig'
 import { type Garage, type GarageFrame, garageFrame, garageLayout, garagePoint } from './garages'
 import { groundSurface } from './ground-grid'
 import type { World } from './world'
@@ -230,8 +231,6 @@ export function buildGarage(world: World, garage: Garage, materials: GarageMater
   for (const offset of [-1.75, 1.75]) {
     kit.box(garagePalette.steel, lift + offset, 0.06, bay.v, 0.32, 3.6, 0.32)
     kit.box(garagePalette.steel, lift + offset, 0.06, bay.v, 0.7, 0.08, 0.7)
-    kit.box(garagePalette.frame, lift + offset * 0.72, 0.3, bay.v - 0.7, 0.9, 0.08, 0.14)
-    kit.box(garagePalette.frame, lift + offset * 0.72, 0.3, bay.v + 0.7, 0.9, 0.08, 0.14)
   }
   kit.box(garagePalette.steel, lift, 3.66, bay.v, 3.9, 0.2, 0.26)
   for (const [u, v, high] of [
@@ -261,11 +260,11 @@ export function buildGarage(world: World, garage: Garage, materials: GarageMater
   for (let layer = 0; layer < 4; layer++) kit.tyre(2.2, 0.2 + layer * 0.27, back - 0.75, 0.34, 0.24)
   for (let layer = 0; layer < 3; layer++)
     kit.tyre(-8.2, 0.2 + layer * 0.27, front + 1.2, 0.32, 0.22)
-  kit.drum(garagePalette.drum, -8.3, 0.06, front + 2.6, 0.3, 0.9)
-  kit.drum(garagePalette.drum, -8.3, 0.06, front + 3.3, 0.3, 0.9)
-  kit.drum('#c9a23a', -7.7, 0.06, front + 3.0, 0.3, 0.9)
-  kit.box('#c33a2c', -8.3, 0.06, front + 4.4, 0.5, 0.95, 0.6)
-  kit.drum(garagePalette.rubber, -8.3, 0.25, front + 4.4, 0.24, 0.1)
+  kit.drum(garagePalette.drum, 8.3, 0.06, front + 2.6, 0.3, 0.9)
+  kit.drum(garagePalette.drum, 8.3, 0.06, front + 3.3, 0.3, 0.9)
+  kit.drum('#c9a23a', 7.7, 0.06, front + 3.0, 0.3, 0.9)
+  kit.box('#c33a2c', 8.3, 0.06, front + 4.4, 0.5, 0.95, 0.6)
+  kit.drum(garagePalette.rubber, 8.3, 0.25, front + 4.4, 0.24, 0.1)
   for (let rack = 0; rack < 4; rack++)
     kit.tyre(3.1 + rack * 1.2, 1.4, front - 1.0, 0.33, 0.22, false)
   kit.box(garagePalette.frame, 4.9, 0.06, front - 1.0, 4.6, 0.08, 0.5)
@@ -314,7 +313,8 @@ export function buildGarage(world: World, garage: Garage, materials: GarageMater
   pool.rotation.x = -Math.PI / 2
   pool.position.set(side * bay.v, 0.075, -bay.u)
   const group = new THREE.Group()
-  group.add(body, glow, glass, apron, sign, roadSign, pool)
+  const rig = buildBayRig(side, materials.body)
+  group.add(body, glow, glass, apron, sign, roadSign, pool, rig.group)
   group.position.set(frame.x, frame.y, -frame.s)
   group.rotation.y = frame.yaw
   body.castShadow = true
@@ -335,5 +335,5 @@ export function buildGarage(world: World, garage: Garage, materials: GarageMater
     block(half - 0.6, v, 0.9)
   }
   block(garageLayout.apron.u - 2.2, garageLayout.apron.v + 0.6, 0.2)
-  return { group, trunks, frame }
+  return { group, trunks, frame, rig }
 }

@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import type { Trunk } from './collision'
 import { buildGarage, type GarageMaterials, garageMaterials } from './garage-building'
+import type { BayRig } from './garage-rig'
+import { stepDoor } from './garage-rig'
 import { type Garage, type GarageFrame, garageLayout, garagesNear } from './garages'
 import type { World } from './world'
 
@@ -11,6 +13,7 @@ interface Built {
   group: THREE.Group
   trunks: Trunk[]
   frame: GarageFrame
+  rig: BayRig
 }
 
 export class GarageSites {
@@ -24,7 +27,8 @@ export class GarageSites {
     for (const site of this.built.values()) this.retire(site)
     this.built.clear()
   }
-  update(s: number, dark: number) {
+  update(s: number, dark: number, dt = 0) {
+    for (const site of this.built.values()) stepDoor(site.rig, dt)
     for (const garage of garagesNear(this.world, s, garageStreaming.reach)) {
       if (Math.abs(garage.s - s) > garageStreaming.reach || this.built.has(garage.id)) continue
       const made = buildGarage(this.world, garage, this.materials)

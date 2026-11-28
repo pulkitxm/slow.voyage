@@ -1,7 +1,9 @@
 import * as THREE from 'three'
 import type { DriveAudio } from './audio'
+import { bodyFootprint, bodyFor, bodyTire, wheelGeometry } from './car-bodies'
 import { engineSoundFor } from './engine-sound'
 import { ExhaustCrackle } from './exhaust-crackle'
+import { type BayCar, liftGeometry } from './garage-plan'
 import { type GarageJob, GarageSession, type GarageStatus } from './garage-session'
 import { GarageSites } from './garage-sites'
 import { garageLayout, nearestGarage } from './garages'
@@ -14,12 +16,14 @@ import {
   keepGrime,
   loadGrime,
 } from './grime'
+import { groundSurface } from './ground-grid'
 import type { VehicleModel } from './model'
+import { tintPaint } from './paint'
 import type { CarPhysics, Input } from './physics'
 import { engineProfileFor } from './powertrain'
 import type { SupercarModel } from './supercars'
 import { vehicleMetrics } from './vehicles'
-import { styleWheel, styleWheels } from './wheel-styling'
+import { restyles, styleSpin, styleWheel, styleWheels } from './wheel-styling'
 import type { Settings, Vehicle, World } from './world'
 
 export const tailpipes: Record<SupercarModel, [number, number, number][]> = {
@@ -46,6 +50,14 @@ export const tailpipes: Record<SupercarModel, [number, number, number][]> = {
 }
 
 export const garagePrompt = { ahead: garageLayout.approach, behind: 6, speed: 9 } as const
+
+export const workshopFinish = { dry: 7, hold: 0.6, clearance: 0.16 } as const
+
+interface WheelRest {
+  x: number
+  z: number
+  radius: number
+}
 
 export interface WorkshopState {
   near: boolean
@@ -91,9 +103,26 @@ export class Workshop {
   private flameLife = 0
   private flamePower = 0
   private kept = 0
-  private carLength = 4.4
+  private bayCar: BayCar = {
+    halfWidth: 0.9,
+    front: 2.2,
+    rear: 2.2,
+    height: 1.4,
+    clearance: workshopFinish.clearance,
+    wheelbase: 2.6,
+    lifts: true,
+  }
+  private tyre = { radius: 0.34, width: 0.24 }
+  private rests: WheelRest[] = []
+  private paintHold = 0
   private blipAt = -1
   private blipStrength = 0
+  private spot = new THREE.Vector3()
+  private turn = new THREE.Quaternion()
+  private upright = new THREE.Quaternion()
+  private euler = new THREE.Euler()
+  private reduced =
+    typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null
   constructor(
     scene: THREE.Scene,
     private world: World,
@@ -119,29 +148,47 @@ export class Workshop {
     })
     this.flames.visible = false
     this.session = new GarageSession(scene, this.sites, {
-      wash: (rinse, foam, foamSweep, wet) => {
-        this.grime.rinseSweep.value = rinse
+      wash: (foam, foamSweep, rinse) => {
         this.grime.foam.value = foam
         this.grime.foamSweep.value = foamSweep
-        this.grime.wet.value = Math.max(this.grime.wet.value, wet)
+        this.grime.rinseSweep.value = rinse
+        if (rinse > 0) this.grime.wet.value = 1
       },
       washed: () => {
         this.setLevel(0)
-        this.grime.rinseSweep.value = 0
-        this.grime.foam.value = 0
-        this.grime.foamSweep.value = 0
+        this.clearSweeps()
         this.grime.wet.value = 1
       },
       paintSweep: (color, sweep) => {
-        this.grime.paintNext.value.set(color).multiplyScalar(0.7)
+        tintPaint(this.grime.paintNext.value, color)
         this.grime.paintSweep.value = sweep
       },
       painted: (color) => {
+        tintPaint(this.grime.paintNext.value, color)
+        this.grime.paintSweep.value = 1
+        this.paintHold = workshopFinish.hold
         this.onCustomize?.({ color })
-        this.grime.paintSweep.value = 0
+      },
+      sheen: (level) => {
+        this.grime.wet.value = Math.max(this.grime.wet.value, level)
+      },
+      cleared: () => {
+        this.clearSweeps()
+        this.restyle()
       },
       wheelSwap: (index, style, finish) => styleWheel(this.car(), index, style, finish),
       wheelsFitted: (wheelStyle, rimFinish) => this.onCustomize?.({ wheelStyle, rimFinish }),
+      wheelProp: (index, style, finish) => {
+        const holder = new THREE.Group()
+        const spin = this.car().wheels[index]
+        if (!spin) return holder
+        const copy = spin.clone(true)
+        copy.position.set(0, 0, 0)
+        holder.add(copy)
+        const outward = Math.sign(spin.parent?.position.x ?? 1) || 1
+        if (style) styleSpin(copy, outward, style, finish)
+        return holder
+      },
       exhaustFitted: (exhaust) => this.onCustomize?.({ exhaust }),
       hiss: (level, band) => this.audio.workshopHiss(level, band),
       ratchet: () => this.audio.ratchet(),
@@ -149,23 +196,30 @@ export class Workshop {
         this.blipAt = 0
         this.blipStrength = strength
       },
-      wheelOffset: (index, outward) => {
-        const spin = this.car().wheels[index]
-        const pivot = spin?.parent
-        if (!pivot || !spin) return
-        const base = (pivot.userData.trackX as number | undefined) ?? pivot.position.x
-        pivot.userData.trackX = base
-        pivot.position.x = base + Math.sign(base || 1) * outward
-        spin.visible = outward < 0.3
-      },
       wheelCount: () => this.car().wheels.length,
       wheelHub: (index, target) => {
         const spin = this.car().wheels[index]
-        if (!spin) return target.set(0, 0, 0)
-        return spin.getWorldPosition(target)
+        const rest = this.rests[index]
+        const holder = spin?.parent?.parent
+        if (!spin || !rest || !holder) return target.set(0, 0, 0)
+        target.set(rest.x, rest.radius - Math.min(liftGeometry.droop, this.session.lift), rest.z)
+        return holder.localToWorld(target)
       },
-      carLength: () => this.carLength,
+      wheelSize: (index) => ({
+        radius: this.rests[index]?.radius ?? this.tyre.radius,
+        width: this.tyre.width,
+      }),
+      car: () => this.bayCar,
+      ground: (x, z) => groundSurface(this.world, x, -z)?.height ?? this.world.height(x, -z),
+      calm: () => this.settings().motion === 'calm' || this.reduced?.matches === true,
     })
+  }
+  private clearSweeps() {
+    this.grime.rinseSweep.value = 0
+    this.grime.foam.value = 0
+    this.grime.foamSweep.value = 0
+    this.grime.paintSweep.value = 0
+    this.paintHold = 0
   }
   outfit(model: VehicleModel) {
     applyGrime(model.body, this.grime)
@@ -189,16 +243,33 @@ export class Workshop {
           for (const z of [box.min.z, box.max.z])
             bounds.expandByPoint(point.set(x, y, z).applyMatrix4(placement))
     })
-    const metrics = vehicleMetrics[settings.vehicle]
-    if (!bounds.isEmpty()) {
-      this.grime.span.value.set(
-        bounds.min.z,
-        bounds.max.z,
-        metrics.wheelRadius,
-        metrics.wheelbase / 2,
-      )
-      this.carLength = bounds.max.z - bounds.min.z
+    const body = bodyFor(settings)
+    const geometry = wheelGeometry(settings.vehicle, body)
+    const footprint = bodyFootprint(settings)
+    const radius = (geometry.radius[0] + geometry.radius[1]) / 2
+    if (!bounds.isEmpty())
+      this.grime.span.value.set(bounds.min.z, bounds.max.z, radius, geometry.wheelbase / 2)
+    this.tyre = { radius, width: bodyTire(settings.vehicle, body).width }
+    this.bayCar = {
+      halfWidth: footprint.halfWidth,
+      front: bounds.isEmpty() ? footprint.front : Math.max(footprint.front, -bounds.min.z),
+      rear: bounds.isEmpty() ? footprint.rear : Math.max(footprint.rear, bounds.max.z),
+      height: bounds.isEmpty() ? 1.4 : bounds.max.y,
+      clearance: body?.clearance ?? workshopFinish.clearance,
+      wheelbase: geometry.wheelbase,
+      lifts: restyles(settings.vehicle),
     }
+    this.rests = model.wheels.map((spin) => {
+      const pivot = spin.parent
+      const z = pivot?.position.z ?? 0
+      return {
+        x: pivot?.position.x ?? 0,
+        z,
+        radius:
+          (z < 0 ? geometry.radius[0] : geometry.radius[1]) ||
+          vehicleMetrics[settings.vehicle].wheelRadius,
+      }
+    })
     this.flames.removeFromParent()
     for (const flame of [...this.flames.children]) flame.removeFromParent()
     if (settings.vehicle === 'supercar')
@@ -226,7 +297,9 @@ export class Workshop {
     if (keep) keepGrime(this.storage, this.levels)
   }
   refresh() {
+    const active = this.session.active
     this.session.finish()
+    if (active) this.restoreWheels(this.car())
     this.sites.refresh()
   }
   get grimeLevel() {
@@ -246,12 +319,16 @@ export class Workshop {
     if (!garage) return false
     const physics = this.physics
     const group = this.car().group
-    const entered = this.session.enter(garage, {
-      x: group.position.x,
-      y: group.position.y,
-      z: group.position.z,
-      yaw: physics.yaw,
-    })
+    const entered = this.session.enter(
+      garage,
+      {
+        x: group.position.x,
+        y: group.position.y,
+        z: group.position.z,
+        yaw: physics.yaw,
+      },
+      Math.max(0, physics.speed),
+    )
     if (entered) {
       physics.speed = 0
       this.crackle.reset()
@@ -292,7 +369,11 @@ export class Workshop {
         keepGrime(this.storage, this.levels)
       }
     }
-    this.grime.wet.value = Math.max(0, this.grime.wet.value - dt / 25)
+    this.grime.wet.value = Math.max(0, this.grime.wet.value - dt / workshopFinish.dry)
+    if (this.paintHold > 0) {
+      this.paintHold -= dt
+      if (this.paintHold <= 0) this.grime.paintSweep.value = 0
+    }
     const sound = engineSoundFor(settings)
     const profile = engineProfileFor(settings)
     const box = physics.gearbox
@@ -354,7 +435,7 @@ export class Workshop {
     car: VehicleModel,
     settle: (x: number, y: number, z: number, yaw: number) => void,
   ) {
-    this.sites.update(s, dark)
+    this.sites.update(s, dark, dt)
     const session = this.session
     this.near = !session.active && this.canEnter() !== null
     if (!session.active) return false
@@ -365,38 +446,62 @@ export class Workshop {
       return false
     }
     this.pose(car)
-    for (const spin of car.wheels)
-      spin.rotation.x =
-        -session.roll / Math.max(0.2, vehicleMetrics[this.settings().vehicle].wheelRadius)
-    for (const [index, spin] of car.wheels.entries()) {
-      const pivot = spin.parent
-      if (!pivot) continue
-      pivot.rotation.y = index >= 2 ? session.steer : 0
-      if (session.lift > 0.01)
-        pivot.position.y = vehicleMetrics[this.settings().vehicle].wheelRadius - 0.04
-    }
+    this.placeWheels(car)
     car.group.updateMatrixWorld(true)
     return true
   }
   private pose(car: VehicleModel) {
-    const { pose, lift } = this.session
+    const { pose, lift, pitch, lean } = this.session
     car.group.position.set(pose.x, pose.y + lift, pose.z)
-    car.group.rotation.set(0, pose.yaw, 0, 'YXZ')
+    car.group.rotation.set(pitch, pose.yaw, lean, 'YXZ')
     car.group.updateMatrixWorld(true)
   }
+  private placeWheels(car: VehicleModel) {
+    const session = this.session
+    const site = session.site
+    const managed = restyles(this.settings().vehicle)
+    for (const [index, spin] of car.wheels.entries()) {
+      const pivot = spin.parent
+      const rest = this.rests[index]
+      if (!pivot || !rest) continue
+      spin.rotation.x = -session.roll / Math.max(0.2, rest.radius)
+      if (!managed) {
+        pivot.rotation.y = index >= 2 ? session.steer : 0
+        continue
+      }
+      const place = session.wheelPlaces[index]
+      const holder = pivot.parent
+      if (place?.held && site && holder) {
+        pivot.position.copy(holder.worldToLocal(site.localToWorld(this.spot.copy(place.position))))
+        this.upright.setFromEuler(this.euler.set(0, place.yaw + site.rotation.y, place.tilt, 'YXZ'))
+        pivot.quaternion.copy(holder.getWorldQuaternion(this.turn).invert().multiply(this.upright))
+      } else {
+        pivot.position.set(rest.x, rest.radius - Math.min(liftGeometry.droop, session.lift), rest.z)
+        pivot.rotation.set(0, rest.z < 0 ? session.steer : 0, 0)
+      }
+    }
+  }
   restoreWheels(car: VehicleModel) {
-    for (const spin of car.wheels) {
+    const managed = restyles(this.settings().vehicle)
+    for (const [index, spin] of car.wheels.entries()) {
       spin.visible = true
       const pivot = spin.parent
-      const base = pivot?.userData.trackX as number | undefined
-      if (pivot && base !== undefined) pivot.position.x = base
+      const rest = this.rests[index]
+      if (!pivot || !rest || !managed) continue
+      pivot.position.x = rest.x
+      pivot.position.z = rest.z
+      pivot.rotation.set(0, 0, 0)
     }
   }
   frame(car: VehicleModel) {
     this.grime.frame.value.copy(car.group.matrixWorld).invert()
   }
   state(): WorkshopState {
-    return { near: this.near, garage: this.session.status(), grime: this.grime.level.value }
+    return {
+      near: this.near,
+      garage: this.session.status(),
+      grime: this.grime.level.value * (1 - this.grime.rinseSweep.value),
+    }
   }
   keep() {
     keepGrime(this.storage, this.levels)
