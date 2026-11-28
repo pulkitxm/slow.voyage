@@ -285,6 +285,20 @@ export function useDrive() {
     connection()
     window.addEventListener('online', connection)
     window.addEventListener('offline', connection)
+    if ('serviceWorker' in navigator && import.meta.env.PROD) {
+      void navigator.serviceWorker
+        .register('/sw.js')
+        .then(async (registration) => {
+          await navigator.serviceWorker.ready
+          const worker = registration.installing ?? registration.waiting
+          if (!worker) setOffline(true)
+          else
+            worker.addEventListener('statechange', () => {
+              if (worker.state === 'activated') setOffline(true)
+            })
+        })
+        .catch(() => announce('Offline download unavailable. You can still drive online.'))
+    }
     return () => {
       odometer.keep()
       window.removeEventListener('pagehide', keepOdometer)
@@ -296,21 +310,6 @@ export function useDrive() {
       if (toastTimer.current) clearTimeout(toastTimer.current)
     }
   }, [announce, telemetry.set])
-  useEffect(() => {
-    if (!ready || !('serviceWorker' in navigator) || !import.meta.env.PROD) return
-    void navigator.serviceWorker
-      .register('/sw.js')
-      .then(async (registration) => {
-        await navigator.serviceWorker.ready
-        const worker = registration.installing ?? registration.waiting
-        if (!worker) setOffline(true)
-        else
-          worker.addEventListener('statechange', () => {
-            if (worker.state === 'activated') setOffline(true)
-          })
-      })
-      .catch(() => announce('Offline download unavailable. You can still drive online.'))
-  }, [ready, announce])
   useEffect(() => {
     engine.current?.setControlsBlocked(panel || help)
   }, [panel, help])
