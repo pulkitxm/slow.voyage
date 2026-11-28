@@ -695,7 +695,6 @@ outgoingLight = mix(outgoingLight, foliageDirect + foliageLamps + reflectedLight
       }
       for (const plane of planes) plane.dispose()
     }
-    this.update(season)
   }
   loadBare() {
     this.bareLoading ??= Promise.all(
