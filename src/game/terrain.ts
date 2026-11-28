@@ -107,7 +107,6 @@ export const tileStreaming = {
   unhurriedRefresh: 320,
   rebuildBehind: 15,
   rebuildAhead: 130,
-  jump: 2,
   groundBatch: 2,
   grassBatch: 400,
   treeBatch: 30,
@@ -780,10 +779,7 @@ export class Terrain {
         this.disposeGroup(build.group)
         this.builds.delete(id)
       }
-    let missing = 0
-    for (let id = current - 4; id <= current + ahead; id++)
-      if (!this.tiles.has(id) && !this.builds.has(id)) missing++
-    const jump = missing > tileStreaming.jump && !this.rebuilding
+    const urgent = (id: number) => id >= near - 1 && id <= far + tileStreaming.lead
     this.current = current
     for (let id = current - 4; id <= current + ahead; id++) {
       if (this.tiles.has(id)) continue
@@ -797,7 +793,7 @@ export class Terrain {
         ? !this.software &&
           id >= Math.floor((s - tileStreaming.rebuildBehind) / groundLayout.tileLength) &&
           id <= Math.floor((s + tileStreaming.rebuildAhead) / groundLayout.tileLength)
-        : jump || id <= far + tileStreaming.lead
+        : urgent(id)
       if (immediate) {
         while (!build.steps.next().done);
         this.builds.delete(id)
@@ -897,10 +893,11 @@ export class Terrain {
   }
   prime(s: number, budget: number, x = this.world.road(s).x) {
     const current = Math.floor(s / groundLayout.tileLength)
-    const ahead = this.quality === 'low' ? 8 : 14
     const deadline = performance.now() + budget
     let ready = 0
-    for (let id = current - 4; id <= current + ahead; id++) {
+    const first = current - 2
+    const last = current + 1 + tileStreaming.lead
+    for (let id = first; id <= last; id++) {
       if (this.tiles.has(id)) {
         ready++
         continue
@@ -919,7 +916,7 @@ export class Terrain {
       }
       if (performance.now() >= deadline) break
     }
-    const strips = ahead + 5
+    const strips = last - first + 1
     if (ready < strips) return ready / (strips + 1)
     this.open.field.update(x, s)
     this.scenery.update(x, s)

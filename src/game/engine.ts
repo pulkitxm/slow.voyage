@@ -87,7 +87,7 @@ import {
   World,
 } from './world'
 
-const paintBudget = 11
+const paintBudget = 30
 const retireDelay = 90
 
 function contactShadow() {
@@ -580,15 +580,18 @@ export class RoadEngine {
   }
   paint() {
     return new Promise<void>((resolve) => {
+      const channel = new MessageChannel()
       const stroke = () => {
         if (this.disposed) return resolve()
         const painted = this.software
           ? 1
           : this.terrain.prime(this.physics.s, paintBudget, this.physics.x)
         this.onProgress?.(0.1 + painted * 0.78, 'hills')
-        if (painted >= 1) resolve()
-        else requestAnimationFrame(stroke)
+        if (painted < 1) return channel.port2.postMessage(null)
+        channel.port1.close()
+        resolve()
       }
+      channel.port1.onmessage = stroke
       stroke()
     })
   }
