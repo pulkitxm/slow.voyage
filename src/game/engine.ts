@@ -867,7 +867,8 @@ export class RoadEngine {
     this.arrival = 0
   }
   reflect(group: THREE.Object3D, environment: THREE.Texture | null) {
-    const live = this.mirror?.ready ? this.mirror.texture : null
+    const live = this.mirror?.ready && this.settings.quality !== 'low' ? this.mirror.texture : null
+    const stale = this.mirror?.texture ?? null
     const level = live ? 1 : this.atmosphere.level
     group.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
@@ -885,7 +886,12 @@ export class RoadEngine {
         ) {
           material.envMap = live
           material.envMapIntensity = material.transparent ? 1.6 : 1
-        }
+        } else if (
+          !live &&
+          material instanceof THREE.MeshStandardMaterial &&
+          material.envMap === stale
+        )
+          material.envMap = null
       }
     })
   }
