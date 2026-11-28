@@ -176,10 +176,11 @@ vehicle, and then resist steeply.
   next try. Without timer queries a display capped at 30 Hz is tested once at
   the lowest cost and then left at full quality. When the graphics card has
   room but frames still stay under 24 a second, the processor is the limit,
-  so the picture is kept and the preference moves to Full beauty instead.
-- Full beauty lowers its resolution to 0.82 and 0.68, then drops its HDR
-  pipeline, and if frames still run slow it moves the preference to Easy on
-  the engine, which has the shorter view and fewer grass tufts. Both Ultra and
+  so the picture is kept and the preference moves straight to Easy on the
+  engine instead.
+- Full beauty lowers its resolution to 0.82 and 0.68 and then drops its HDR
+  pipeline. Frames under 24 a second move it straight to Easy on the engine,
+  which has the shorter view and fewer grass tufts. Both Ultra and
   Full beauty are governed while the intro shows, since a slow machine sits
   there first. Easy on the engine does not redraw the paint reflection, and
   the reflection never draws grass, walkers or herds.

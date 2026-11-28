@@ -144,9 +144,9 @@ test('slow frames with an idle graphics card are not blamed on the picture', () 
   expect(governor.load).toBeCloseTo(0.004, 5)
 })
 
-test('a processor that cannot keep up falls back to a lighter preset with the picture intact', () => {
+test('a processor that cannot keep up asks for the lightest preset with the picture intact', () => {
   const governor = new FrameGovernor()
-  expect(timed(governor, 30, crawl, 0.004)).toContain('fallback')
+  expect(timed(governor, 30, crawl, 0.004)).toContain('lighten')
   expect(governor.scale).toBe(1)
   expect(governor.relief).toBe(reliefLevels.full)
 })

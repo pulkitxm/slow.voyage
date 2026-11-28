@@ -1223,6 +1223,7 @@ export class RoadEngine {
       } else if (this.ultra) this.cinema?.rest()
     }
     if (governed === 'fallback') this.easeQuality('high', true)
+    if (governed === 'lighten') this.easeQuality('low', true)
     if (this.retired && --this.retiredFrames <= 0) {
       this.retired.dispose()
       this.retired = null
@@ -1231,18 +1232,17 @@ export class RoadEngine {
       const verdict = this.strainGauge.step(elapsed, strained, busy, this.renderScale)
       if (verdict) {
         const budget = graphicsBudget(this.renderer, this.settings.quality)
+        const crawling = this.framePace > governorPlan.frame * governorPlan.crawling
         if (verdict === 'raise') {
           this.renderScale--
+        } else if (crawling && this.settings.quality !== 'low') {
+          this.easeQuality('low')
         } else if (this.renderScale < cinemaRelief.scales.length - 1) {
           this.renderScale++
         } else if (this.cinema && !this.cinemaBlocked) {
           this.cinemaBlocked = true
           this.configureCinema(budget)
-        } else if (
-          this.settings.quality !== 'low' &&
-          this.framePace > governorPlan.frame * governorPlan.crawling
-        )
-          this.easeQuality('low')
+        }
         this.applyRenderScale(graphicsBudget(this.renderer, this.settings.quality))
       }
     }

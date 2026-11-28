@@ -24,7 +24,7 @@ export const governorPlan = {
 
 export const reliefLevels = { full: 0, flat: 1, plain: 2 } as const
 
-export type GovernorVerdict = 'adjust' | 'fallback' | null
+export type GovernorVerdict = 'adjust' | 'fallback' | 'lighten' | null
 
 export class FrameGovernor {
   scale = 1
@@ -162,7 +162,7 @@ export class FrameGovernor {
     if (measured && !capped && this.median > frame * governorPlan.crawling) {
       if (++this.stalls < governorPlan.strikes) return null
       this.stalls = 0
-      return 'fallback'
+      return 'lighten'
     }
     this.stalls = 0
     if (this.shed > governorPlan.linger) return 'fallback'
